@@ -120,6 +120,7 @@ async function setSlider(input: Locator, value: number) {
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
     setter?.call(el, String(v));
     el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
   }, value);
 }
 
@@ -317,15 +318,14 @@ try {
         await setSlider(input, slider.min);
         await page.waitForTimeout(150);
         const lowReadouts = await readouts.innerText();
-        await page.locator("[data-action=try]").click();
         await page.locator('[data-note="fail"]').waitFor();
         assert.ok((await page.locator('[data-note="fail"]').innerText()).includes(problem.tooLow.slice(0, 20)), "too-low text shown below the window");
         assert.equal(await next.count(), 0, "a failed try does not complete the step");
 
-        await setSlider(input, slider.max);
+        await input.focus();
+        await page.keyboard.press("End");
         await page.waitForTimeout(150);
         const highReadouts = await readouts.innerText();
-        await page.locator("[data-action=try]").click();
         await page.waitForFunction((t) => document.querySelector('[data-note="fail"]')?.textContent?.includes(t), problem.tooHigh.slice(0, 20));
         console.log(`  readouts change with the slider: ${lowReadouts !== highReadouts ? "yes" : "NO"}`);
 
@@ -338,9 +338,16 @@ try {
           await shot(page, `tune-mid-attempt-${step.id}.png`);
           firstTune = false;
         }
-        await setSlider(input, inside);
+        const box = await input.boundingBox();
+        assert.ok(box, `${step.id}: slider is on screen`);
+        const THUMB = 24;
+        const xAt = (value: number) => box.x + THUMB / 2 + ((value - slider.min) / (slider.max - slider.min)) * (box.width - THUMB);
+        await page.mouse.move(xAt(slider.min), box.y + box.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(xAt(inside), box.y + box.height / 2, { steps: 8 });
         await page.waitForTimeout(150);
-        await page.locator("[data-action=try]").click();
+        assert.equal(await page.locator('[data-note="ok"]').count(), 0, "the verdict waits for the slider to be let go");
+        await page.mouse.up();
         await page.locator('[data-note="ok"]').waitFor();
       }
 

@@ -83,6 +83,7 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
       values={current.values}
       onSlider={(id, value) => dispatch({ type: "slider", id, value })}
       focus={step.problem?.type === "tune" ? step.problem.slider : undefined}
+      onCommit={(id) => step.problem?.type === "tune" && step.problem.slider === id && dispatch({ type: "problem", action: { type: "tune" } })}
       introduce={flat.introduces}
     />
   );

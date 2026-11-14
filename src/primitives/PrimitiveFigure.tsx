@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { useMemo } from "react";
+import { type ComponentProps, useEffect, useEffectEvent, useMemo, useRef } from "react";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
 import { chips, layout, notes, type } from "../styles.ts";
 import { colors, fonts } from "../tokens.stylex.ts";
@@ -39,11 +39,25 @@ const styles = stylex.create({
 /** The primitives this one is built from, each once. */
 export const madeOfPrimitives = (primitive: Primitive): Primitive[] => [...new Set(primitive.madeOf)].flatMap((id) => PRIMITIVE_BY_ID.get(id) ?? []);
 
+/** A range input that also reports `change`, which fires when a drag is released or a key press settles, where React's onChange fires on every step. */
+function Range({ onCommit, ...props }: ComponentProps<"input"> & { onCommit?: () => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const commit = useEffectEvent(() => onCommit?.());
+  useEffect(() => {
+    const input = ref.current;
+    input?.addEventListener("change", commit);
+    return () => input?.removeEventListener("change", commit);
+  }, []);
+  return <input ref={ref} type="range" {...props} />;
+}
+
 type FigureProps = {
   primitive: Primitive;
   values: Values;
   /** Without this the figure is a still picture with no sliders or readouts. */
   onSlider?: (id: string, value: number) => void;
+  /** A slider was let go of, or a keyboard change settled. */
+  onCommit?: (id: string) => void;
   /** The slider the problem is about. */
   focus?: string;
   /** Show the name, job and parts of a primitive the lesson has not shown before. */
@@ -53,7 +67,7 @@ type FigureProps = {
   pink?: boolean;
 };
 
-export function PrimitiveFigure({ primitive, values, onSlider, focus, introduce = false, height = FIGURE_HEIGHT, pink = false }: FigureProps) {
+export function PrimitiveFigure({ primitive, values, onSlider, focus, onCommit, introduce = false, height = FIGURE_HEIGHT, pink = false }: FigureProps) {
   const parts = useMemo(() => primitive.build(values), [primitive, values]);
   const frame = useMemo(() => framePrimitive(primitive), [primitive]);
   const madeOf = madeOfPrimitives(primitive);
@@ -86,8 +100,8 @@ export function PrimitiveFigure({ primitive, values, onSlider, focus, introduce 
             {primitive.sliders.map((s) => (
               <label key={s.id} data-slider={s.id} {...stylex.props(styles.sliderRow, focus === s.id && styles.sliderRowFocus)}>
                 <span {...stylex.props(type.label, focus === s.id && type.labelAccent)}>{s.label}</span>
-                <input
-                  type="range"
+                <Range
+                  onCommit={() => onCommit?.(s.id)}
                   aria-label={s.label}
                   min={s.min}
                   max={s.max}

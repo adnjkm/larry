@@ -121,8 +121,10 @@ export function reduce(s: LessonState, action: Action): LessonState {
     case "slider": {
       const current = s.steps[s.at];
       if (!current) return s;
-      // A verdict judged the old value, so it goes until the next try instead of describing a setting that has moved.
-      const problem = current.problem?.type === "tune" && !current.problem.solved ? { ...current.problem, verdict: null } : current.problem;
+      // A verdict judged the old value, so it goes until the slider is let go again instead of describing a setting that has moved.
+      const judged = s.flat[s.at]?.step.problem;
+      const moved = judged?.type === "tune" && judged.slider === action.id;
+      const problem = moved && current.problem?.type === "tune" && !current.problem.solved ? { ...current.problem, verdict: null } : current.problem;
       return { ...s, steps: s.steps.with(s.at, { values: { ...current.values, [action.id]: action.value }, problem }) };
     }
     case "next": {

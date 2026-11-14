@@ -106,6 +106,14 @@ describe("lesson player", () => {
     assert.deepEqual(reduce(solved, { type: "slider", id: "stiffness", value: below }).steps[2]?.problem, { type: "tune", verdict: "inside", solved: true });
   });
 
+  it("keeps a tune verdict when a slider the problem doesn't judge moves", () => {
+    const toTune = run(startLesson(whole), { type: "problem", action: { type: "run" } }, { type: "next" }, { type: "problem", action: { type: "pick", option: 1 } }, { type: "next" });
+    const judged = run(toTune, { type: "slider", id: "stiffness", value: below }, tryTune);
+    const other = reduce(judged, { type: "slider", id: "force", value: 10 });
+    assert.deepEqual(other.steps[2]?.problem, { type: "tune", verdict: "below", solved: false });
+    assert.equal(other.steps[2]?.values.force, 10);
+  });
+
   it("earns parts only from completed steps the player has reached", () => {
     let s = startLesson(whole);
     assert.deepEqual([...earnedParts(s)], []);

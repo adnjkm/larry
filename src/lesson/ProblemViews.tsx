@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import type { Problem, ProblemType } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
 import { initialValues } from "../primitives/library.ts";
@@ -103,7 +103,16 @@ function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
   );
 }
 
-function TuneView({ problem, state, dispatch, figure }: ViewProps<"tune">) {
+function TuneView({ problem, state, figure }: ViewProps<"tune">) {
+  const verdict = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = verdict.current;
+    if (!el) return;
+    const { top, bottom } = el.getBoundingClientRect();
+    if (top >= 0 && bottom <= innerHeight) return;
+    el.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  }, [state.verdict]);
+
   return (
     <div {...stylex.props(layout.stack)}>
       <div {...stylex.props(notes.base, notes.accent)}>
@@ -111,14 +120,13 @@ function TuneView({ problem, state, dispatch, figure }: ViewProps<"tune">) {
         <p {...stylex.props(type.body)}>{problem.goal}</p>
       </div>
       {figure}
-      {!state.solved && (
-        <button type="button" data-action="try" {...stylex.props(buttons.base, buttons.primary)} onClick={() => dispatch({ type: "tune" })}>
-          Try it
-        </button>
+      {state.verdict && (
+        <div ref={verdict}>
+          {state.verdict === "below" && <Observation label="Too low" tone="fail">{problem.tooLow}</Observation>}
+          {state.verdict === "above" && <Observation label="Too high" tone="fail">{problem.tooHigh}</Observation>}
+          {state.verdict === "inside" && <Observation label="Just right" tone="ok">{problem.justRight}</Observation>}
+        </div>
       )}
-      {state.verdict === "below" && <Observation label="Too low" tone="fail">{problem.tooLow}</Observation>}
-      {state.verdict === "above" && <Observation label="Too high" tone="fail">{problem.tooHigh}</Observation>}
-      {state.verdict === "inside" && <Observation label="Just right" tone="ok">{problem.justRight}</Observation>}
     </div>
   );
 }
