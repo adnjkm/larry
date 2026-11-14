@@ -131,7 +131,8 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
     onTune({ ...tuning, [module.fault.key]: value });
   };
 
-  const pink = new Set(tapped ? [tapped] : mode.kind === "module" && mode.earned ? module!.produces : []);
+  // Once earned, every part the module earned is pink, not only the one tapped to diagnose it.
+  const pink = new Set(mode.kind === "module" && mode.earned ? module!.produces : tapped ? [tapped] : []);
   const parts = world.draw(anim, explode, pink);
   const subject = useMemo(() => reach ?? world.draw(null, explode, new Set()), [reach, world, explode]);
   const status = (t: Test): Status => {
