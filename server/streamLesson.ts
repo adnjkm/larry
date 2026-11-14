@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Kit } from "../shared/kit.ts";
-import { Chapter, chapterProblems, type Lesson, type LessonEvent, lessonJsonSchema, lessonProblems, parseLesson } from "../shared/lesson.ts";
+import { Chapter, chapterProblems, Lesson, LessonError, type LessonEvent, lessonJsonSchema, lessonProblems, parseLesson } from "../shared/lesson.ts";
 import { CATALOG } from "../src/primitives/catalog.ts";
 import { PRIMITIVES, formatSlider, initialValues } from "../src/primitives/library.ts";
 import { type Brain, streamStructured } from "./claude.ts";
@@ -74,7 +74,7 @@ export const LESSON_BRAIN: Brain = { model: "claude-opus-5-5", effort: "low" };
 
 export type LessonStats = { ms: number; firstChapterMs: number | undefined; costUsd: number; attempts: number };
 
-const Header = z.object({ title: z.string(), hook: z.array(z.string()) });
+const Header = Lesson.pick({ title: true, hook: true });
 
 /**
  * Puts the title, hook and chapters the reader has already been shown back in front of a rewrite, so
@@ -124,7 +124,9 @@ export async function* streamLesson(kit: Kit, brain: Brain = LESSON_BRAIN, onSta
       }
     }
 
-    const raw = repairEarns(output, kit);
+    const written = Lesson.safeParse(output);
+    if (!written.success) throw new LessonError(`Claude's lesson did not match the schema: ${written.error.message}`);
+    const raw = repairEarns(written.data, kit);
     const kept = repairEarns(keepShown(raw, header, shown), kit);
     const best = [kept, raw].find((lesson) => lessonProblems(lesson, kit, CATALOG).length === 0);
     if (best || attempt === 2) {
@@ -143,16 +145,16 @@ export async function* streamLesson(kit: Kit, brain: Brain = LESSON_BRAIN, onSta
  * Where each part is earned is bookkeeping, not teaching, so it is fixed here instead of costing a retry:
  * unknown ids and repeats are dropped, and parts never earned go to the casing's last step.
  */
-function repairEarns(output: unknown, kit: Kit): Lesson {
-  const lesson = structuredClone(output) as Lesson;
+function repairEarns(written: Lesson, kit: Kit): Lesson {
+  const lesson = structuredClone(written);
   const known = new Set(kit.parts.map((p) => p.id));
   const seen = new Set<string>();
-  for (const chapter of lesson.chapters ?? []) {
-    for (const step of chapter.steps ?? []) {
-      step.earns = (step.earns ?? []).filter((id) => known.has(id) && !seen.has(id) && seen.add(id));
+  for (const chapter of lesson.chapters) {
+    for (const step of chapter.steps) {
+      step.earns = step.earns.filter((id) => known.has(id) && !seen.has(id) && seen.add(id));
     }
   }
-  const last = lesson.chapters?.at(-1)?.steps?.at(-1);
+  const last = lesson.chapters.at(-1)?.steps.at(-1);
   if (last) last.earns.push(...kit.parts.map((p) => p.id).filter((id) => !seen.has(id)));
   return lesson;
 }
