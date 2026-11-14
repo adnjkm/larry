@@ -44,11 +44,41 @@ export const buttons = stylex.create({
     cursor: "pointer",
     touchAction: "manipulation",
     userSelect: "none",
-    opacity: { default: 1, ":active": 0.8 },
+    // Feedback lands the moment a finger does, not when it lifts.
+    transform: { default: "none", ":active": "scale(0.97)" },
+    opacity: { default: 1, ":active": 0.85 },
+    transitionProperty: "transform, opacity",
+    transitionDuration: "120ms",
+    transitionTimingFunction: "ease-out",
   },
   primary: { minHeight: 48, padding: "0 20px", borderRadius: radii.pill, backgroundColor: colors.ink, color: colors.paper, fontSize: 16, lineHeight: "20px", fontWeight: 600 },
   secondary: { minHeight: 44, padding: "0 12px", backgroundColor: "transparent", color: colors.graphite, fontSize: 14, lineHeight: "18px", fontWeight: 500 },
   disabled: { backgroundColor: colors.soft, color: colors.graphite, cursor: "not-allowed" },
+  /** A 44 px target around a glyph, pulled into the gutter so the glyph lines up with the text below it. */
+  icon: { display: "grid", placeItems: "center", width: 44, height: 44, flexShrink: 0, marginLeft: -12, padding: 0, borderRadius: radii.pill, backgroundColor: "transparent", color: colors.ink },
+  /** A text action on the top row. */
+  topText: { width: "auto", display: "inline-flex", alignItems: "center", gap: 2, minHeight: 44, marginLeft: -12, padding: "0 12px 0 4px", backgroundColor: "transparent", color: colors.ink, fontSize: 15, lineHeight: "20px", fontWeight: 500 },
+});
+
+export const bars = stylex.create({
+  /**
+   * The screen's main action, pinned above the home indicator so it is always in the same place and in reach.
+   * Translucent so content scrolls visibly beneath it; it bleeds into the page's gutters and bottom padding.
+   */
+  action: {
+    position: "sticky",
+    bottom: 0,
+    zIndex: 1,
+    display: "flex",
+    gap: 10,
+    marginInline: -20,
+    marginBottom: "calc(-20px - env(safe-area-inset-bottom, 0px))",
+    padding: "12px 20px calc(12px + env(safe-area-inset-bottom, 0px))",
+    backgroundColor: { default: "rgba(255, 255, 255, 0.82)", "@media (prefers-reduced-transparency: reduce)": colors.paper },
+    backdropFilter: { default: "blur(20px) saturate(180%)", "@media (prefers-reduced-transparency: reduce)": "none" },
+  },
+  /** The row above the content: a way out on the left, then the screen's place in the flow. */
+  top: { display: "flex", alignItems: "center", gap: 8, minHeight: 44, marginTop: -8 },
 });
 
 export const notes = stylex.create({

@@ -5,12 +5,13 @@ import type { Lesson } from "../shared/lesson.ts";
 import { CapturePicker } from "./capture/CapturePicker.tsx";
 import { preparePhoto } from "./capture/preparePhoto.ts";
 import { requestKit } from "./capture/requestKit.ts";
+import { Chevron } from "./Chevron.tsx";
 import { Dots } from "./Dots.tsx";
 import { KitViewer } from "./kit3d/KitViewer.tsx";
 import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
 import { type FailedLoad, type LessonLoad, addLessonEvent, arrivedOf, hookOf, loadDemo, planning, requestLesson, shownOf } from "./lesson/lessonSource.ts";
 import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
-import { buttons, layout, notes, type } from "./styles.ts";
+import { bars, buttons, layout, notes, type } from "./styles.ts";
 import { colors, fonts } from "./tokens.stylex.ts";
 
 type Header = { name: string; summary: string };
@@ -152,31 +153,39 @@ export function App() {
       {state.phase === "generating" && !view && <GeneratingPhoto photo={state.first} />}
       {view && (
         <>
+          {state.phase === "viewing" && (
+            <div {...stylex.props(bars.top)}>
+              <button type="button" data-action="restart" {...stylex.props(buttons.base, buttons.topText)} onClick={restart}>
+                <Chevron />
+                New photo
+              </button>
+            </div>
+          )}
           {view.header && (
             <div {...stylex.props(layout.inset, layout.tight)}>
               <p {...stylex.props(type.label)}>Larry found a</p>
               <h1 {...stylex.props(type.title)}>{view.header.name}</h1>
-              {hook ? (
-                <div data-hook {...stylex.props(styles.hook)}>
-                  {hook.map((p) => (
-                    <p key={p} {...stylex.props(type.story)}>
-                      {p}
-                    </p>
-                  ))}
-                </div>
-              ) : (
-                <p {...stylex.props(styles.summary)}>{view.header.summary}</p>
-              )}
             </div>
           )}
           <KitViewer parts={view.parts} spin height={270} />
+          {view.header &&
+            (hook ? (
+              <div data-hook {...stylex.props(layout.inset, styles.hook)}>
+                {hook.map((p) => (
+                  <p key={p} {...stylex.props(type.story)}>
+                    {p}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p {...stylex.props(layout.inset, styles.summary)}>{view.header.summary}</p>
+            ))}
           {state.phase === "viewing" ? (
             <NorthStarPanel
               kit={state.kit}
               lesson={state.lesson}
               onStart={() => setState({ ...state, phase: "building" })}
               onRetry={() => void planLesson(state.kit, failedLesson)}
-              onRestart={restart}
             />
           ) : (
             <>

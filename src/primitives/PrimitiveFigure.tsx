@@ -19,7 +19,9 @@ const styles = stylex.create({
   intro: { display: "flex", flexDirection: "column", gap: 6 },
   introName: { margin: 0, fontSize: 22, lineHeight: "28px", fontWeight: 600, letterSpacing: "-0.02em" },
   sliders: { display: "flex", flexDirection: "column", gap: 2 },
-  sliderRow: { display: "grid", gridTemplateColumns: "84px 1fr 64px", alignItems: "center", gap: 10, minHeight: 44, padding: "0 8px", borderRadius: 10 },
+  // Label and value above a full-width track, so the thumb has the whole screen width to travel.
+  sliderRow: { display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", columnGap: 10, rowGap: 2, padding: "10px 12px 4px", borderRadius: 12 },
+  sliderTrack: { gridColumn: "1 / -1" },
   sliderRowFocus: { backgroundColor: colors.accentSoft },
   range: { width: "100%", margin: 0, height: 32, cursor: "pointer" },
   rangeNeutral: {
@@ -111,6 +113,7 @@ export function PrimitiveFigure({ primitive, values, onSlider, focus, onCommit, 
           {sliders.map((s) => (
             <label key={s.id} data-slider={s.id} {...stylex.props(styles.sliderRow, focus === s.id && styles.sliderRowFocus)}>
               <span {...stylex.props(type.label, focus === s.id && type.labelAccent)}>{s.label}</span>
+              <span {...stylex.props(styles.value)}>{formatSlider(s, values[s.id] ?? s.initial)}</span>
               <Range
                 onCommit={() => onCommit?.(s.id)}
                 aria-label={s.label}
@@ -119,9 +122,8 @@ export function PrimitiveFigure({ primitive, values, onSlider, focus, onCommit, 
                 step={s.step}
                 value={values[s.id] ?? s.initial}
                 onChange={(e) => onSlider(s.id, Number(e.currentTarget.value))}
-                {...stylex.props(styles.range, library ? styles.rangePink : styles.rangeNeutral)}
+                {...stylex.props(styles.range, styles.sliderTrack, library ? styles.rangePink : styles.rangeNeutral)}
               />
-              <span {...stylex.props(styles.value)}>{formatSlider(s, values[s.id] ?? s.initial)}</span>
             </label>
           ))}
         </div>

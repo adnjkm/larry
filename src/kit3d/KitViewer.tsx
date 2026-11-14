@@ -3,6 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
 import type { Part } from "../../shared/kit.ts";
+import { reducedMotion, velocityTracker } from "../motion.ts";
 import { colors } from "../tokens.stylex.ts";
 import { type BuiltPart, type KitBounds, measure, rotationOf } from "./buildKit.ts";
 import { buildGeometry } from "./geometry.ts";
@@ -13,12 +14,12 @@ const PIXEL_ROWS = 180;
 const MARGIN = 1.12;
 const SPIN_RADIANS_PER_SECOND = 0.5;
 const DRAG_RADIANS_PER_PIXEL = 0.012;
+/** Seconds for a flick's extra speed to fade to a third, close to how scrolling decelerates. */
+const FLING_SECONDS = 0.5;
 /** Time constant of the camera easing, so a new fit is about 95% settled after 0.3 s. */
 const FIT_EASE_SECONDS = 0.1;
 
 type Fit = { zoom: number; targetY: number; distance: number };
-
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
 type KitViewerProps = {
   parts: Part[];
@@ -43,8 +44,8 @@ const styles = stylex.create({
     width: "100%",
     height,
     backgroundColor: colors.paper,
-    // Horizontal drags turn the model; vertical swipes stay with the page so a tall viewer never traps the scroll.
-    touchAction: "pan-y",
+    // Horizontal drags turn the model; vertical swipes and pinch zoom stay with the page so a tall viewer never traps them.
+    touchAction: "pan-y pinch-zoom",
     overflow: "hidden",
   }),
 });
@@ -126,6 +127,8 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts:
   const pivot = useRef<Group>(null);
   const shadow = useRef<Mesh>(null);
   const yaw = useRef(0);
+  /** Radians per second the model keeps turning after a flick, on top of the idle spin. */
+  const fling = useRef(0);
   const dragging = useRef(false);
   const framesDrawn = useRef(0);
   const fit = useRef<Fit>(undefined);
@@ -167,11 +170,15 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts:
 
   useEffect(() => {
     const canvas = gl.domElement;
-    Object.assign(canvas.style, { imageRendering: "pixelated", width: "100%", height: "100%", touchAction: "pan-y", cursor: "grab" });
+    Object.assign(canvas.style, { imageRendering: "pixelated", width: "100%", height: "100%", touchAction: "pan-y pinch-zoom", cursor: "grab" });
     let lastX = 0;
+    const tracker = velocityTracker();
     const down = (e: PointerEvent) => {
       dragging.current = true;
+      fling.current = 0;
       lastX = e.clientX;
+      tracker.reset();
+      tracker.add(yaw.current, e.timeStamp);
       canvas.setPointerCapture(e.pointerId);
       canvas.style.cursor = "grabbing";
     };
@@ -179,11 +186,16 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts:
       if (!dragging.current) return;
       yaw.current += (e.clientX - lastX) * DRAG_RADIANS_PER_PIXEL;
       lastX = e.clientX;
+      tracker.add(yaw.current, e.timeStamp);
       invalidate();
     };
-    const up = () => {
+    const up = (e: PointerEvent) => {
+      if (!dragging.current) return;
       dragging.current = false;
       canvas.style.cursor = "grab";
+      // The model leaves the finger at the speed it was turning.
+      if (e.type === "pointerup" && !reducedMotion.matches) fling.current = tracker.velocity(e.timeStamp);
+      invalidate();
     };
     canvas.addEventListener("pointerdown", down);
     canvas.addEventListener("pointermove", move);
@@ -216,7 +228,11 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts:
         invalidate();
       }
     }
-    if (spin && !dragging.current) yaw.current += delta * SPIN_RADIANS_PER_SECOND;
+    if (!dragging.current) {
+      yaw.current += delta * ((spin ? SPIN_RADIANS_PER_SECOND : 0) + fling.current);
+      fling.current = Math.abs(fling.current) < 0.05 ? 0 : fling.current * Math.exp(-delta / FLING_SECONDS);
+      if (fling.current !== 0) invalidate();
+    }
     if (pivot.current) pivot.current.rotation.y = yaw.current;
     if (shadow.current) shadow.current.rotation.y = yaw.current;
     if (++framesDrawn.current === 1) {

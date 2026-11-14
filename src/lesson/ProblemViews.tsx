@@ -2,7 +2,8 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useEffect, useRef } from "react";
 import type { Problem, ProblemType } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
-import { buttons, layout, notes, type } from "../styles.ts";
+import { reducedMotion } from "../motion.ts";
+import { layout, notes, type } from "../styles.ts";
 import { colors, radii } from "../tokens.stylex.ts";
 import type { ProblemAction, ProblemState } from "./problems.ts";
 
@@ -12,15 +13,22 @@ type ViewProps<T extends ProblemType> = {
   problem: Of<T>;
   state: ProblemState<T>;
   dispatch: (action: ProblemAction<T>) => void;
-  /** The step's primitive figure with its sliders, or null when the step has none. Each view places it where it belongs. */
-  figure: ReactNode;
 };
+
+/** A wrong pick gives one short shake, the way a refused passcode does, on top of its colour and label. */
+const shake = stylex.keyframes({
+  "0%, 100%": { transform: "translateX(0)" },
+  "20%": { transform: "translateX(-6px)" },
+  "40%": { transform: "translateX(5px)" },
+  "60%": { transform: "translateX(-3px)" },
+  "80%": { transform: "translateX(2px)" },
+});
 
 const styles = stylex.create({
   card: { position: "relative", display: "flex", flexDirection: "column", gap: 10, padding: 6, borderRadius: radii.tile, backgroundColor: colors.paper, boxShadow: `0 1px 0 ${colors.hairline}, 0 0 0 1px ${colors.faint}` },
   cardFail: { boxShadow: `inset 0 0 0 1.5px ${colors.fail}` },
+  cardShake: { animationName: { default: shake, "@media (prefers-reduced-motion: reduce)": "none" }, animationDuration: "320ms", animationTimingFunction: "ease-out" },
   cardOk: { boxShadow: `inset 0 0 0 1.5px ${colors.ok}` },
-  check: { position: "absolute", top: 8, right: 8, width: 18, height: 18, borderRadius: radii.pill, backgroundColor: colors.ink, color: colors.paper, fontSize: 11, lineHeight: "18px", textAlign: "center" },
   option: {
     boxSizing: "border-box",
     width: "100%",
@@ -38,7 +46,11 @@ const styles = stylex.create({
     cursor: "pointer",
     touchAction: "manipulation",
     userSelect: "none",
-    opacity: { default: 1, ":active": 0.6 },
+    transform: { default: "none", ":active": "scale(0.98)" },
+    opacity: { default: 1, ":active": 0.7 },
+    transitionProperty: "transform, opacity",
+    transitionDuration: "120ms",
+    transitionTimingFunction: "ease-out",
   },
   optionName: { fontSize: 16, lineHeight: "22px", fontWeight: 600 },
   optionJob: { fontSize: 14, lineHeight: "19px", color: colors.graphite },
@@ -55,24 +67,13 @@ function Observation({ label, children, tone }: { label: string; children: React
   );
 }
 
-function RunView({ problem, state, dispatch, figure }: ViewProps<"run">) {
-  return (
-    <div {...stylex.props(layout.stack)}>
-      {figure}
-      <div aria-live="polite">
-        {state.ran ? (
-          <Observation label="What happened">{problem.outcome}</Observation>
-        ) : (
-          <button type="button" data-action="run" {...stylex.props(buttons.base, buttons.primary)} onClick={() => dispatch({ type: "run" })}>
-            {problem.action}
-          </button>
-        )}
-      </div>
-    </div>
-  );
+/** The run action itself sits in the action bar; this is where its outcome lands. */
+function RunView({ problem, state }: ViewProps<"run">) {
+  return <div aria-live="polite">{state.ran && <Observation label="What happened">{problem.outcome}</Observation>}</div>;
 }
 
-function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
+/** Once solved, only what was tried stays: the wrong tries shrink to their names and the right one keeps its reason. */
+function PickView({ problem, state, dispatch }: ViewProps<"pick">) {
   return (
     <div {...stylex.props(layout.stack)}>
       <p {...stylex.props(layout.inset, type.story)}>{problem.question}</p>
@@ -80,16 +81,22 @@ function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
         const primitive = PRIMITIVE_BY_ID.get(option.primitive);
         const tried = state.tried.includes(i);
         const frozen = tried || state.solved;
+        if (state.solved && !tried) return null;
+        const spent = state.solved && !option.works;
         return (
-          <div key={i} data-option={i} data-tried={tried || undefined} {...stylex.props(styles.card, tried && !option.works && styles.cardFail, tried && option.works && styles.cardOk)}>
+          <div
+            key={i}
+            data-option={i}
+            data-tried={tried || undefined}
+            {...stylex.props(styles.card, tried && !option.works && styles.cardFail, tried && !option.works && !state.solved && styles.cardShake, tried && option.works && styles.cardOk)}
+          >
             {/* aria-disabled, not disabled, so a tried option keeps focus and its verdict stays readable. */}
             <button type="button" aria-disabled={frozen} {...stylex.props(styles.option, frozen && styles.optionDone)} onClick={() => frozen || dispatch({ type: "pick", option: i })}>
               {tried && <span {...stylex.props(type.label, option.works ? notes.okText : notes.failText)}>{option.works ? "This works" : "This fails"}</span>}
               <span {...stylex.props(styles.optionName)}>{primitive?.name ?? option.primitive}</span>
-              {primitive && <span {...stylex.props(styles.optionJob)}>{primitive.job}</span>}
+              {primitive && !spent && <span {...stylex.props(styles.optionJob)}>{primitive.job}</span>}
             </button>
-            {tried && option.works && <span aria-hidden {...stylex.props(styles.check)}>✓</span>}
-            {tried && (
+            {tried && !spent && (
               <div {...stylex.props(styles.cardBody)}>
                 <p {...stylex.props(type.body)}>{option.outcome}</p>
               </div>
@@ -97,19 +104,19 @@ function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
           </div>
         );
       })}
-      {state.solved && figure}
     </div>
   );
 }
 
-function TuneView({ problem, state, figure }: ViewProps<"tune">) {
+/** The slider itself is on the stage above; this is the target and the verdict on each release. */
+function TuneView({ problem, state }: ViewProps<"tune">) {
   const verdict = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = verdict.current;
     if (!el || !state.verdict) return;
     const { top, bottom } = el.getBoundingClientRect();
     if (top >= 0 && bottom <= innerHeight) return;
-    el.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    el.scrollIntoView({ block: "nearest", behavior: reducedMotion.matches ? "instant" : "smooth" });
   }, [state.verdict]);
 
   return (
@@ -118,7 +125,6 @@ function TuneView({ problem, state, figure }: ViewProps<"tune">) {
         <p {...stylex.props(type.label, type.labelAccent)}>Goal</p>
         <p {...stylex.props(type.body)}>{problem.goal}</p>
       </div>
-      {figure}
       <div ref={verdict} aria-live="polite">
         {state.verdict === "below" && <Observation label="Too low" tone="fail">{problem.tooLow}</Observation>}
         {state.verdict === "above" && <Observation label="Too high" tone="fail">{problem.tooHigh}</Observation>}
@@ -130,8 +136,8 @@ function TuneView({ problem, state, figure }: ViewProps<"tune">) {
 
 const VIEWS: { [T in ProblemType]: (props: ViewProps<T>) => ReactNode } = { run: RunView, pick: PickView, tune: TuneView };
 
-export function ProblemView({ problem, state, dispatch, figure }: { problem: Problem; state: ProblemState; dispatch: (action: ProblemAction) => void; figure: ReactNode }) {
+export function ProblemView({ problem, state, dispatch }: { problem: Problem; state: ProblemState; dispatch: (action: ProblemAction) => void }) {
   if (state.type !== problem.type) return null;
   const View = VIEWS[problem.type] as (props: ViewProps<ProblemType>) => ReactNode;
-  return <View problem={problem} state={state} dispatch={dispatch} figure={figure} />;
+  return <View problem={problem} state={state} dispatch={dispatch} />;
 }

@@ -368,10 +368,9 @@ try {
         console.log(`${since()} mid-stream: playing ${chapter.id}/${step.id} with ${arrival("chapter").length} chapter(s) streamed, lesson not done`);
       }
       assert.notEqual(solved, null, `${step.id} can be completed`);
-      assert.equal(await page.locator("[data-added]").count(), step.earns.length > 0 ? 1 : 0, `${step.id}: earned parts are announced, and only when there are some`);
-      assert.equal(await page.locator("[data-added] [data-kit-viewer]").count(), step.earns.length > 0 ? 1 : 0, `${step.id}: the build is drawn where the part is announced, and only there`);
-      const strays = await page.evaluate(() => [...document.querySelectorAll("[data-kit-viewer]")].filter((v) => !v.closest("[data-figure], [data-added]")).length);
-      assert.equal(strays, 0, `${step.id}: no model sits outside a step's figure or its earned-part moment`);
+      const stage = await page.locator("[data-stage]").getAttribute("data-stage");
+      assert.equal(stage, step.earns.length > 0 || step.primitive === null ? "build" : "figure", `${step.id}: once solved, the stage shows the build if the step earned parts, else its figure`);
+      assert.equal(await page.locator("[data-kit-viewer]").count(), 1, `${step.id}: one model per step, on its stage`);
       assert.equal(await next.count(), 1, `${step.id}: Next appears once the step is complete`);
       if (index === chapter.steps.length - 1 && chapterNumber <= 2) {
         await viewersReady(page);

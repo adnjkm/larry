@@ -82,6 +82,8 @@ try {
   for (const chapter of lesson.chapters) {
     for (const step of chapter.steps) {
       await page.locator(`article[data-step="${step.id}"]`).waitFor();
+      // A step slides in; measure controls only once it is at rest.
+      await page.waitForFunction((id) => document.querySelector<HTMLElement>(`article[data-step="${id}"]`)?.style.transform === "", step.id);
       const problem = step.problem;
       if (problem?.type === "run") {
         if (step.primitive !== null) await once("Run step", () => shoot(page, "Run step with its figure"));
@@ -109,9 +111,9 @@ try {
       }
       if (step.earns.length > 0) {
         await once("Payoff", async () => {
-          await page.locator("[data-added]").scrollIntoViewIfNeeded();
-          await page.evaluate(() => document.querySelector("[data-added]")?.scrollIntoView({ block: "center" }));
-          await shoot(page, "Payoff with the build");
+          await page.locator('[data-stage="build"]').waitFor();
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await shoot(page, "Earned part on the stage");
         });
       }
       await page.locator("[data-action=next]").click();

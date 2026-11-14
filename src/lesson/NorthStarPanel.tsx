@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Kit } from "../../shared/kit.ts";
 import { Dots } from "../Dots.tsx";
-import { buttons, layout, notes, type } from "../styles.ts";
+import { bars, buttons, layout, notes, type } from "../styles.ts";
 import { colors, radii } from "../tokens.stylex.ts";
 import { DownloadButton } from "./DownloadButton.tsx";
 import { type LessonLoad, arrivedOf } from "./lessonSource.ts";
@@ -16,7 +16,7 @@ const styles = stylex.create({
   surprise: { color: colors.graphite },
 });
 
-export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { kit: Kit; lesson: LessonLoad; onStart: () => void; onRetry: () => void; onRestart: () => void }) {
+export function NorthStarPanel({ kit, lesson, onStart, onRetry }: { kit: Kit; lesson: LessonLoad; onStart: () => void; onRetry: () => void }) {
   const { chapters } = arrivedOf(lesson);
   const modules = chapters.flatMap((c) => (c.kind === "module" ? [c] : []));
   const known = modules.filter((m) => !m.surprise);
@@ -63,27 +63,26 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
         </div>
       )}
 
-      {failed ? (
-        <button type="button" data-action="retry" {...stylex.props(buttons.base, buttons.primary)} onClick={onRetry}>
-          Try again
-        </button>
-      ) : (
-        <button type="button" data-action="start" disabled={!ready} {...stylex.props(buttons.base, buttons.primary, !ready && buttons.disabled)} onClick={onStart}>
-          {ready ? (
-            "Start building"
-          ) : (
-            <>
-              Larry is planning your build
-              <Dots />
-            </>
-          )}
-        </button>
-      )}
-
       <DownloadButton kit={kit} />
-      <button type="button" {...stylex.props(buttons.base, buttons.secondary)} onClick={onRestart}>
-        Photograph something else
-      </button>
+
+      <div {...stylex.props(bars.action)}>
+        {failed ? (
+          <button type="button" data-action="retry" {...stylex.props(buttons.base, buttons.primary)} onClick={onRetry}>
+            Try again
+          </button>
+        ) : (
+          <button type="button" data-action="start" disabled={!ready} {...stylex.props(buttons.base, buttons.primary, !ready && buttons.disabled)} onClick={onStart}>
+            {ready ? (
+              "Start building"
+            ) : (
+              <>
+                Larry is planning your build
+                <Dots />
+              </>
+            )}
+          </button>
+        )}
+      </div>
     </>
   );
 }

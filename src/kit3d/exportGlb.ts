@@ -51,11 +51,25 @@ async function kitToGlb(kit: Kit): Promise<ArrayBuffer> {
 
 const glbFileName = (kit: Kit) => `${kit.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "model"}.glb`;
 
+/**
+ * Saves the kit as a .glb. A touch device gets the share sheet, which is how a phone saves to Files or sends a file on;
+ * a download link is unreliable in a Home Screen app. Elsewhere, or if sharing is refused, it is a plain download.
+ */
 export async function downloadGlb(kit: Kit): Promise<void> {
-  const url = URL.createObjectURL(new Blob([await kitToGlb(kit)], { type: "model/gltf-binary" }));
+  const file = new File([await kitToGlb(kit)], glbFileName(kit), { type: "model/gltf-binary" });
+  if (matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (error) {
+      // Closing the sheet is a choice, not a failure.
+      if (error instanceof DOMException && error.name === "AbortError") return;
+    }
+  }
+  const url = URL.createObjectURL(file);
   const link = document.createElement("a");
   link.href = url;
-  link.download = glbFileName(kit);
+  link.download = file.name;
   document.body.append(link);
   link.click();
   link.remove();
