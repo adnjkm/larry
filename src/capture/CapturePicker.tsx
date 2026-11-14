@@ -17,7 +17,7 @@ export function CapturePicker({ onPick }: { onPick: (files: File[]) => void }) {
       <div {...stylex.props(layout.inset, layout.tight, styles.intro)}>
         <p {...stylex.props(type.label, type.labelAccent)}>Larry</p>
         <h1 {...stylex.props(type.title)}>See how everyday things work</h1>
-        <p {...stylex.props(type.muted)}>Photograph an object. Larry takes it apart, then you rebuild it one problem at a time.</p>
+        <p {...stylex.props(type.muted)}>Larry takes it apart, then you rebuild it one problem at a time.</p>
       </div>
       <button type="button" {...stylex.props(buttons.base, buttons.primary)} onClick={() => input.current?.click()}>
         Photograph something
