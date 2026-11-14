@@ -126,12 +126,37 @@ export function createDitherMaterial(color: string, finish: Finish): ShaderMater
   });
 }
 
-export function createShadowMaterial(): ShaderMaterial {
+// A funky-shadow style gradient (iamnoman.com/funky-shadow): the shadow's strength picks a colour
+// along the stops, dithered between neighbours, so the glow fades from the first stop at its
+// centre to the last at its edge.
+const gradientShadowFragmentShader = /* glsl */ `
+varying vec2 vDisc;
+uniform vec3 uStops[6];
+uniform int uCount;
+${BAYER}
+void main() {
+  float d = dot(vDisc, vDisc);
+  if (d > 1.0) discard;
+  float strength = pow(1.0 - d, 1.4);
+  float threshold = bayer(gl_FragCoord.xy);
+  if (strength < threshold * 0.9) discard;
+  float t = (1.0 - strength) * float(uCount - 1);
+  int i = int(clamp(floor(t + threshold - 0.5 + 0.5), 0.0, float(uCount - 1)));
+  vec3 colour = uStops[0];
+  for (int k = 0; k < 6; k++) if (k == i) colour = uStops[k];
+  gl_FragColor = vec4(colour, 1.0);
+}
+`;
+
+/** The plain shadow, or with `stops` (up to 6, centre colour first) a dithered gradient glow. */
+export function createShadowMaterial(stops?: readonly string[]): ShaderMaterial {
+  const base = { vertexShader: shadowVertexShader, toneMapped: false, depthTest: false, depthWrite: false };
+  if (!stops || stops.length < 2) return new ShaderMaterial({ ...base, fragmentShader: shadowFragmentShader });
+  const colours = stops.slice(0, 6).map(srgb);
+  while (colours.length < 6) colours.push(colours[colours.length - 1] as Vector3);
   return new ShaderMaterial({
-    vertexShader: shadowVertexShader,
-    fragmentShader: shadowFragmentShader,
-    toneMapped: false,
-    depthTest: false,
-    depthWrite: false,
+    ...base,
+    fragmentShader: gradientShadowFragmentShader,
+    uniforms: { uStops: { value: colours }, uCount: { value: Math.min(stops.length, 6) } },
   });
 }

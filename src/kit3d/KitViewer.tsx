@@ -27,6 +27,10 @@ type KitViewerProps = {
   height?: number;
   /** Parts to fit the camera to instead of the kit's own, so the view holds still while sliders move the kit. */
   frame?: Part[];
+  /** CSS pixels per dither pixel. Unset keeps PIXEL_ROWS rows whatever the height; 1 is the finest. */
+  pixelScale?: number;
+  /** Colours for a gradient shadow, centre first (see createShadowMaterial). Unset keeps the plain shadow. */
+  shadowStops?: readonly string[];
 };
 
 const styles = stylex.create({
@@ -69,25 +73,25 @@ function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimu
   cam.updateProjectionMatrix();
 }
 
-export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, height = 360, frame }: KitViewerProps) {
+export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops }: KitViewerProps) {
   return (
     <div data-kit-viewer {...stylex.props(styles.box(height))}>
       <Canvas
         orthographic
         flat
         frameloop={spin ? "always" : "demand"}
-        dpr={PIXEL_ROWS / height}
+        dpr={pixelScale ? 1 / pixelScale : PIXEL_ROWS / height}
         gl={{ antialias: false, alpha: false }}
         camera={{ position: [0, 0, 100], near: 0.1, far: 10000 }}
       >
         <color attach="background" args={["#FFFFFF"]} />
-        <Scene parts={kit.parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} />
+        <Scene parts={kit.parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} shadowStops={shadowStops} />
       </Canvas>
     </div>
   );
 }
 
-function Scene({ parts, spin, elevation, azimuth, frame }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: Part[] | undefined }) {
+function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: Part[] | undefined; shadowStops: readonly string[] | undefined }) {
   const { camera, size, gl, invalidate } = useThree();
   const built = usePerPart(parts, buildPart, disposeGeometry);
   const framed = useMemo(() => (frame ? measureParts(frame) : undefined), [frame]);
@@ -103,7 +107,7 @@ function Scene({ parts, spin, elevation, azimuth, frame }: { parts: Part[]; spin
   const materials = usePerPart(parts, makeMaterial, disposeMaterial);
 
   const shadowGeometry = useMemo(() => new PlaneGeometry(2, 2).rotateX(-Math.PI / 2), []);
-  const shadowMaterial = useMemo(createShadowMaterial, []);
+  const shadowMaterial = useMemo(() => createShadowMaterial(shadowStops), [shadowStops]);
   useEffect(
     () => () => {
       shadowGeometry.dispose();

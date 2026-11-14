@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
 import { colors, fonts } from "../tokens.stylex.ts";
 import { PRIMITIVES, type Primitive, type Values, formatSlider, framingParts, initialValues } from "./library.ts";
+import { SYNTHWAVE } from "./parts.ts";
+import type { Level } from "./types.ts";
 
 const VIEWER_HEIGHT = 360;
 
@@ -26,7 +28,7 @@ const styles = stylex.create({
   body: { margin: 0, fontSize: 15, lineHeight: 1.5, color: colors.graphite },
   sliders: { display: "flex", flexDirection: "column", gap: 4 },
   sliderRow: { display: "grid", gridTemplateColumns: "84px 1fr 72px", alignItems: "center", gap: 12, minHeight: 40 },
-  range: { width: "100%", margin: 0, accentColor: colors.ink, height: 32, cursor: "pointer" },
+  range: { width: "100%", margin: 0, accentColor: "#ff0087", height: 32, cursor: "pointer" },
   value: { fontFamily: fonts.mono, fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" },
   readouts: { display: "flex", flexDirection: "column", gap: 6, padding: 14, borderRadius: 14, backgroundColor: "#F4F4F4" },
   readout: { display: "flex", justifyContent: "space-between", gap: 12, fontFamily: fonts.mono, fontSize: 13 },
@@ -52,7 +54,8 @@ const styles = stylex.create({
     textAlign: "left",
     cursor: "pointer",
   },
-  rowActive: { color: colors.orange },
+  rowActive: { color: "#ff0087" },
+  section: { display: "flex", flexDirection: "column", gap: 8 },
   rowIndex: { fontFamily: fonts.mono, fontSize: 12 },
   rowName: { fontSize: 16, fontWeight: 600 },
   rowKind: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: colors.graphite },
@@ -71,7 +74,7 @@ export default function PrimitivesPage() {
 
   const parts = useMemo(() => primitive.build(v), [primitive, v]);
   const frame = useMemo(() => framingParts(primitive), [primitive]);
-  const kit = useMemo(() => ({ name: primitive.name, summary: primitive.idea, parts }), [primitive, parts]);
+  const kit = useMemo(() => ({ name: primitive.name, summary: primitive.job, parts }), [primitive, parts]);
 
   const select = (next: string) => {
     setId(next);
@@ -81,19 +84,29 @@ export default function PrimitivesPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const index = PRIMITIVES.indexOf(primitive) + 1;
-  const buildsOn = primitive.buildsOn.flatMap((b) => PRIMITIVES.filter((p) => p.id === b));
+  const sameLevel = PRIMITIVES.filter((p) => p.level === primitive.level);
+  const index = sameLevel.indexOf(primitive) + 1;
+  const madeOf = primitive.madeOf.flatMap((b) => PRIMITIVES.filter((p) => p.id === b));
+  const usedIn = PRIMITIVES.filter((p) => p.madeOf.includes(primitive.id));
 
   return (
     <main {...stylex.props(styles.page)}>
       <div>
         <p {...stylex.props(styles.label)}>
-          Primitive {String(index).padStart(2, "0")} of {PRIMITIVES.length} · {primitive.kind}
+          {primitive.level} {String(index).padStart(2, "0")} of {sameLevel.length}
         </p>
         <h1 {...stylex.props(styles.title)}>{primitive.name}</h1>
       </div>
 
-      <KitViewer kit={kit} frame={frame} elevation={primitive.view.elevation} azimuth={primitive.view.azimuth} height={VIEWER_HEIGHT} />
+      <KitViewer
+        kit={kit}
+        frame={frame}
+        elevation={primitive.view.elevation}
+        azimuth={primitive.view.azimuth}
+        height={VIEWER_HEIGHT}
+        pixelScale={1}
+        shadowStops={SYNTHWAVE}
+      />
 
       <div {...stylex.props(styles.sliders)}>
         {primitive.sliders.map((s) => (
@@ -125,40 +138,51 @@ export default function PrimitivesPage() {
         ))}
       </div>
 
-      <p {...stylex.props(styles.idea)}>{primitive.idea}</p>
+      <p {...stylex.props(styles.idea)}>{primitive.job}</p>
       <p {...stylex.props(styles.body)}>{primitive.howItWorks}</p>
 
-      {buildsOn.length > 0 && (
-        <div {...stylex.props(styles.chips)}>
-          <span {...stylex.props(styles.label)}>Builds on</span>
-          {buildsOn.map((b) => (
-            <button key={b.id} type="button" {...stylex.props(styles.link)} onClick={() => select(b.id)}>
-              {b.name}
-            </button>
-          ))}
-        </div>
+      {[
+        { label: "Made of", items: madeOf },
+        { label: "Used in", items: usedIn },
+      ].map(
+        ({ label, items }) =>
+          items.length > 0 && (
+            <div key={label} {...stylex.props(styles.chips)}>
+              <span {...stylex.props(styles.label)}>{label}</span>
+              {items.map((b) => (
+                <button key={b.id} type="button" {...stylex.props(styles.link)} onClick={() => select(b.id)}>
+                  {b.name}
+                </button>
+              ))}
+            </div>
+          ),
       )}
 
       <div {...stylex.props(styles.chips)}>
-        <span {...stylex.props(styles.label)}>Found in</span>
-        {primitive.foundIn.map((f) => (
+        <span {...stylex.props(styles.label)}>Seen in</span>
+        {primitive.seenIn.map((f) => (
           <span key={f} {...stylex.props(styles.chip)}>
             {f}
           </span>
         ))}
       </div>
 
-      <ul {...stylex.props(styles.list)}>
-        {PRIMITIVES.map((p, i) => (
-          <li key={p.id}>
-            <button type="button" {...stylex.props(styles.row, p.id === primitive.id && styles.rowActive)} onClick={() => select(p.id)}>
-              <span {...stylex.props(styles.rowIndex)}>{String(i + 1).padStart(2, "0")}</span>
-              <span {...stylex.props(styles.rowName)}>{p.name}</span>
-              <span {...stylex.props(styles.rowKind)}>{p.kind}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {(["Element", "Mechanism"] as Level[]).map((level) => (
+        <section key={level} {...stylex.props(styles.section)}>
+          <p {...stylex.props(styles.label)}>{level === "Element" ? "Elements · one piece, one job" : "Mechanisms · elements combined into a new job"}</p>
+          <ul {...stylex.props(styles.list)}>
+            {PRIMITIVES.filter((p) => p.level === level).map((p, i) => (
+              <li key={p.id}>
+                <button type="button" {...stylex.props(styles.row, p.id === primitive.id && styles.rowActive)} onClick={() => select(p.id)}>
+                  <span {...stylex.props(styles.rowIndex)}>{String(i + 1).padStart(2, "0")}</span>
+                  <span {...stylex.props(styles.rowName)}>{p.name}</span>
+                  <span {...stylex.props(styles.rowKind)}>{p.madeOf.length > 0 ? p.madeOf.join(" + ") : ""}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </main>
   );
 }
