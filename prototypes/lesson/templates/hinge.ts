@@ -4,9 +4,9 @@
 // the blade across the pivot).
 import { clamp01, easeOut, smooth } from "../ease.ts";
 import type { Part } from "../../../shared/kit.ts";
-import { type Axis, AXIS, type Mark, type Values, type Vec, vec, type Window } from "../model.ts";
+import { type Axis, AXIS, type Mark, type Values, type Vec, type Window } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";
-import { add, arrowMark, carry, latheAxis, overlay, type Pair, scale, sub, targetOf, type Template, tenth } from "./pair.ts";
+import { add, arrowMark, carry, cross, dot, latheAxis, overlay, type Pair, rotate, scale, sub, targetOf, type Template, tenth, unit } from "./pair.ts";
 
 /** Arm ratios that pass. Game numbers. */
 const WINDOW: Window = [2.5, 4];
@@ -32,18 +32,7 @@ const farEnough = (r: number) => HAND_MM * 10 >= JOB_MM * Math.round(r * 10);
  */
 type Lever = { pivot: Vec; turn: Vec; hand: Vec; handPart: Part; work: Vec; arm: number; open: number; middle: boolean; push: { at: Vec; dir: Vec } };
 
-const unit = (v: Vec) => scale(v, 1 / (Math.hypot(v.x, v.y, v.z) || 1));
-const dot = (a: Vec, b: Vec) => a.x * b.x + a.y * b.y + a.z * b.z;
-const cross = (a: Vec, b: Vec) => vec(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
 const across = (v: Vec, axis: Vec) => sub(v, scale(axis, dot(v, axis)));
-
-function rotate(p: Vec, pivot: Vec, axis: Vec, deg: number): Vec {
-  const [c, s] = [Math.cos(deg * DEG), Math.sin(deg * DEG)];
-  const d = sub(p, pivot);
-  const k = unit(axis);
-  // Rodrigues' rotation formula.
-  return add(pivot, add(add(scale(d, c), scale(cross(k, d), s)), scale(k, dot(k, d) * (1 - c))));
-}
 
 /** +1 when a positive turn moves `point` away from `from`, else -1. */
 const opening = (point: Vec, pivot: Vec, axis: Vec, from: Vec) => {

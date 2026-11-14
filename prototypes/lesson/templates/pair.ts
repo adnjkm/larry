@@ -43,6 +43,18 @@ const DEG = Math.PI / 180;
 export const add = (a: Vec, b: Vec): Vec => vec(a.x + b.x, a.y + b.y, a.z + b.z);
 export const scale = (a: Vec, k: number): Vec => vec(a.x * k, a.y * k, a.z * k);
 export const sub = (a: Vec, b: Vec): Vec => add(a, scale(b, -1));
+export const unit = (v: Vec) => scale(v, 1 / (Math.hypot(v.x, v.y, v.z) || 1));
+export const dot = (a: Vec, b: Vec) => a.x * b.x + a.y * b.y + a.z * b.z;
+export const cross = (a: Vec, b: Vec) => vec(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+
+/** `p` turned `deg` degrees about `axis` through `pivot`, by Rodrigues' rotation formula. */
+export function rotate(p: Vec, pivot: Vec, axis: Vec, deg: number): Vec {
+  const [c, s] = [Math.cos(deg * DEG), Math.sin(deg * DEG)];
+  const d = sub(p, pivot);
+  const k = unit(axis);
+  return add(pivot, add(add(scale(d, c), scale(cross(k, d), s)), scale(k, dot(k, d) * (1 - c))));
+}
+
 const dominant = (v: Vec): Axis => AXES.reduce((best, a) => (Math.abs(v[a]) > Math.abs(v[best]) ? a : best), "y");
 
 /** A round part's own axis (a lathe's or a ring's local y), turned as the part is. */
