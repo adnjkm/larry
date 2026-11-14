@@ -1,13 +1,9 @@
-import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import { type KitEvent, kitJsonSchema, Part, parseKit } from "../shared/kit.ts";
-import { createKitScanner } from "./kitStream.ts";
+import { Kit, type KitEvent, kitJsonSchema, Part, parseKit } from "../shared/kit.ts";
+import { type Brain, streamStructured } from "./claude.ts";
 
 export type Photo = { mediaType: "image/jpeg" | "image/png" | "image/webp"; base64: string };
 
-const MODEL = "claude-opus-5-5";
-
-const SYSTEM_PROMPT = `You are Larry. You look at photos of an everyday object and rebuild it as a kit of simple 3D parts, the way it was really made and put together, so a 10-year-old can see how it works and build it themselves.
+const SYSTEM_PROMPT = `You are Larry. You look at photos of an everyday object and rebuild it as a kit of simple 3D parts, the way it was really made and put together, so a curious person can see how it works and rebuild it from first principles.
 
 The kit is drawn as low-resolution dithered pixel art, about 150 pixels tall. Overall proportions, silhouette, colour and how the parts sit together decide whether it looks right. Small details like text, logos and tiny ridges never show, so leave them out.
 
@@ -39,74 +35,37 @@ Joints: every part except the main one names its parent, the part it attaches to
 
 If the photos show several objects, build the one most centred and in focus. All photos show the same object; the first is the main view.`;
 
-export type Effort = "low" | "medium" | "high";
-
 export type KitStats = { ms: number; firstPartMs: number | undefined; costUsd: number };
 
+const Header = Kit.pick({ name: true, summary: true });
+
 /** Yields the header and each part as Claude writes them, then the checked kit. `onStats` fires just before `done`. */
-export async function* streamKit(photos: Photo[], effort: Effort = "low", onStats?: (stats: KitStats) => void): AsyncGenerator<KitEvent> {
+export const KIT_BRAIN: Brain = { model: "claude-opus-5-5", effort: "low" };
+
+export async function* streamKit(photos: Photo[], brain: Brain = KIT_BRAIN, onStats?: (stats: KitStats) => void): AsyncGenerator<KitEvent> {
   const started = Date.now();
   let firstPartMs: number | undefined;
-  let result: { output: unknown; costUsd: number } | undefined;
-  let scanner = createKitScanner();
 
-  for await (const message of query({
-    prompt: userMessage(photos),
-    options: {
-      model: MODEL,
-      effort,
-      systemPrompt: SYSTEM_PROMPT,
-      outputFormat: { type: "json_schema", schema: kitJsonSchema },
-      includePartialMessages: true,
-      // Without this the API holds back a whole top-level value until it is complete, so `parts` would arrive in one burst at the end.
-      env: { ...process.env, CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING: "1" },
-      tools: [],
-      settingSources: [],
-      persistSession: false,
-      maxTurns: 5,
-    },
-  })) {
-    if (message.type === "stream_event") {
-      const { event } = message;
-      // A retry after a schema failure writes the output again from the start.
-      if (event.type === "content_block_start" && event.content_block.type === "tool_use") scanner = createKitScanner();
-      if (event.type !== "content_block_delta" || event.delta.type !== "input_json_delta") continue;
-      for (const scanned of scanner.push(event.delta.partial_json)) {
-        if (scanned.type === "started") {
-          yield scanned;
-          continue;
-        }
-        const part = Part.safeParse(scanned.part);
-        if (!part.success) continue;
-        firstPartMs ??= Date.now() - started;
-        yield { type: "part", part: part.data };
-      }
-      continue;
+  const content = [
+    ...photos.map((photo) => ({ type: "image" as const, source: { type: "base64" as const, media_type: photo.mediaType, data: photo.base64 } })),
+    { type: "text" as const, text: photos.length === 1 ? "Build the kit for this object." : `Build the kit for this object. These ${photos.length} photos show it from different sides.` },
+  ];
+
+  for await (const event of streamStructured({ system: SYSTEM_PROMPT, schema: kitJsonSchema, brain, content, streamKey: "parts" })) {
+    if (event.type === "header") {
+      const header = Header.safeParse(event.value);
+      if (header.success) yield { type: "started", ...header.data };
+    } else if (event.type === "item") {
+      const part = Part.safeParse(event.value);
+      if (!part.success) continue;
+      firstPartMs ??= Date.now() - started;
+      yield { type: "part", part: part.data };
+    } else {
+      const kit = parseKit(event.output);
+      onStats?.({ ms: Date.now() - started, firstPartMs, costUsd: event.costUsd });
+      yield { type: "done", kit };
+      return;
     }
-    if (message.type !== "result") continue;
-    if (message.subtype !== "success") throw new Error(`Kit generation failed: ${message.subtype}`);
-    result = { output: message.structured_output, costUsd: message.total_cost_usd };
   }
-
-  if (!result) throw new Error("Kit generation ended without a result");
-  const kit = parseKit(result.output);
-  onStats?.({ ms: Date.now() - started, firstPartMs, costUsd: result.costUsd });
-  yield { type: "done", kit };
-}
-
-async function* userMessage(photos: Photo[]): AsyncGenerator<SDKUserMessage> {
-  yield {
-    type: "user",
-    parent_tool_use_id: null,
-    message: {
-      role: "user",
-      content: [
-        ...photos.map((photo) => ({
-          type: "image" as const,
-          source: { type: "base64" as const, media_type: photo.mediaType, data: photo.base64 },
-        })),
-        { type: "text", text: photos.length === 1 ? "Build the kit for this object." : `Build the kit for this object. These ${photos.length} photos show it from different sides.` },
-      ],
-    },
-  };
+  throw new Error("Kit generation ended without a result");
 }

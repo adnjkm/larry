@@ -1,0 +1,286 @@
+{
+  "title": "Striped click pen",
+  "hook": [
+    "A click pen writes only where its tip touches paper. It rides in a pocket without leaking or marking the cloth. One press brings the tip out and the next press hides it again.",
+    "Inside the striped barrel there are only a few parts. We will rebuild the pen from an open tube of ink and find out why each part has to be there."
+  ],
+  "chapters": [
+    {
+      "kind": "module",
+      "id": "line",
+      "need": "It must leave a thin, even line of ink.",
+      "why": "This is the pen's whole job. Everything else protects it or switches it on and off.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "line-naive",
+          "title": "An open tube of ink",
+          "story": [
+            "The crudest pen is a narrow tube of ink with an open end. Tilt it onto paper and let the ink run out where it touches.",
+            "Ink is mostly liquid. Nothing in an open 2 mm hole pushes back against gravity."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Write a word",
+            "outcome": "Ink runs out the moment the tube points down. Within about 3 seconds there is a blot roughly 15 mm wide and no letters, and the tube keeps dripping after we lift it."
+          },
+          "payoff": [
+            "We need ink that comes out only while the tip moves across paper, and in a thin film rather than a stream. This tube of ink is the start of the refill."
+          ],
+          "earns": [
+            "refill"
+          ]
+        },
+        {
+          "id": "line-ball",
+          "title": "A ball in the hole",
+          "story": [
+            "Put a tiny ball, about 0.7 mm across, in a socket at the end of the tube. The socket is crimped so the ball cannot fall out, and the gap around it is only a few thousandths of a millimetre.",
+            "When the ball rolls on paper, its back side gets coated with ink inside the tube. The ink is carried round and left on the paper. When the ball stops, the narrow gap and the thick ink block the hole. None of our catalogue figures shows this rolling seal, so we describe it in words."
+          ],
+          "primitive": null,
+          "problem": null,
+          "payoff": [
+            "The ball works as a ink pump and a plug in one part. It is made of tungsten carbide because it rolls for kilometres against paper fibres and a steel socket. A softer ball would wear out of round, the gap would grow, and the pen would start to blob.",
+            "Our simplification: we have ignored the paste-like ink and the small air hole at the back of the tube that lets air in as ink leaves."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "retract",
+      "need": "It must hide its tip when not writing, and bring it out with a press.",
+      "why": "The ball tip is always wet and always out. In a pocket it leaves a line on the cloth every time the pen moves.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "retract-naive",
+          "title": "Slide the refill by hand",
+          "story": [
+            "Let the refill slide loosely in a tube that is about 12 mm longer than it. To write, push the back end so the tip comes out. To put the pen away, let it slide back in."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Turn pen over",
+            "outcome": "Point the pen down and the refill slides out by its full 12 mm under its own few grams of weight. Point it up and it falls back in mid-word. Its position depends on which way the pen is held."
+          },
+          "payoff": [
+            "Gravity is the only thing setting the refill's position, and it changes with every tilt. Something has to push the refill back toward the inside, whichever way the pen is pointing."
+          ],
+          "earns": []
+        },
+        {
+          "id": "retract-spring",
+          "title": "Something to push it back",
+          "story": [
+            "We want a constant push toward the back of the pen. It must give way when a thumb pushes harder, then return the refill once the thumb lets go."
+          ],
+          "primitive": "spring",
+          "problem": {
+            "type": "pick",
+            "question": "What can keep pushing the refill back in, whichever way the pen points?",
+            "options": [
+              {
+                "primitive": "spring",
+                "works": true,
+                "outcome": "A coil around the refill's front end, resting against the narrow tip, pushes it back with the same force at any angle. A thumb compresses it, and it gives the stored work back to send the refill home."
+              },
+              {
+                "primitive": "weight",
+                "works": false,
+                "outcome": "A heavy slug pulls toward the ground, not toward the back of the pen. Turn the pen tip-down and it pulls the refill out."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "Friction can hold the refill still in any position, but it doesn't push. The refill would stay wherever we left it, including sticking out."
+              }
+            ]
+          },
+          "payoff": [
+            "A spring stores the thumb's work and returns it. It sits around the narrow front of the refill, against the inside of the tip, so it pushes the refill toward the back and is out of the way of the ink."
+          ],
+          "earns": []
+        },
+        {
+          "id": "retract-stiff",
+          "title": "Soft enough for a thumb",
+          "story": [
+            "Our figure is scaled up. Here a thumb press is the 30 N on the slider, and the click mechanism needs between 10 and 13.6 mm of travel. Less than 10 mm and the tip does not come out far enough to latch. More than 13.6 mm and the coils press solid against each other.",
+            "Squeeze is x = F ÷ k, so stiffness decides how far the press moves the refill."
+          ],
+          "primitive": "spring",
+          "problem": {
+            "type": "tune",
+            "goal": "Set the stiffness so the 30 N press gives a squeeze between 10 and 13.6 mm.",
+            "slider": "stiffness",
+            "min": 2.2,
+            "max": 3,
+            "tooLow": "Below 2.2 N/mm the press squeezes more than 13.6 mm. The coils hit each other and stop, so the thumb pushes against solid wire and the spring is overstressed.",
+            "tooHigh": "Above 3 N/mm the press squeezes less than 10 mm. The tip stays short of the latch point and springs back as soon as we let go.",
+            "justRight": "Between 2.2 and 3 N/mm the full press moves the refill exactly the distance the click needs, and the spring still has room before its coils touch."
+          },
+          "payoff": [
+            "Now the refill always comes back in. But it also comes back the moment we lift our thumb, so we cannot write with it."
+          ],
+          "earns": []
+        },
+        {
+          "id": "retract-cam",
+          "title": "One press out, next press in",
+          "story": [
+            "The spring wins whenever the thumb lets go. We need something that holds the refill out after one press and releases it after the next. The same push has to mean two different things, depending on how many presses came before."
+          ],
+          "primitive": "cam",
+          "problem": {
+            "type": "pick",
+            "question": "What can make alternate presses do opposite things?",
+            "options": [
+              {
+                "primitive": "cam",
+                "works": true,
+                "outcome": "The button pushes a toothed collar that is turned a little on each press by angled teeth. The collar alternately sits on a high step, holding the tip out, and drops into a deep slot, letting it in. The order of presses is built into the shape of the teeth."
+              },
+              {
+                "primitive": "catch",
+                "works": false,
+                "outcome": "A spring latch catches the refill on the first press. A second push only pushes it harder into the notch, so we would have to pull it out by hand."
+              },
+              {
+                "primitive": "ratchet",
+                "works": false,
+                "outcome": "A ratchet only lets motion go one way. It would stop the spring from returning the refill at all, and it would push the refill further out on every press."
+              }
+            ]
+          },
+          "payoff": [
+            "This is a cam. Each press turns the rotating collar half a step, so its sloped edges present a high ledge and a low slot in turn. The part that drives it is the click button at the back: the plunger. Its own angled teeth are the wedge faces that turn the collar."
+          ],
+          "earns": [
+            "plunger"
+          ]
+        },
+        {
+          "id": "retract-lift",
+          "title": "Height of the step",
+          "story": [
+            "The difference between the high ledge and the low slot sets how far the tip comes out. When it is retracted, the ball sits about 5 mm inside the metal tip and must clear it by at least 1 mm. The tip only fits about 9 mm of travel before the refill's shoulder hits the inside of the nose."
+          ],
+          "primitive": "cam",
+          "problem": {
+            "type": "tune",
+            "goal": "Set the cam's lift so the ball comes out past the tip by at least 1 mm, while the refill moves no more than 9 mm.",
+            "slider": "lift",
+            "min": 6,
+            "max": 9,
+            "tooLow": "Below 6 mm the ball stays level with or inside the tip's opening. The metal edge reaches the paper first and scrapes, and no ink is laid down.",
+            "tooHigh": "Above 9 mm the refill's shoulder hits the inside of the tip before the collar reaches its ledge. The click never latches and the button jams halfway.",
+            "justRight": "Between 6 and 9 mm the ball stands 1 to 4 mm clear of the tip, which is far enough to write with and still within the space inside the nose."
+          },
+          "payoff": [
+            "The lift is a fixed shape, so the tip comes out the same distance every time. That is why a click pen feels the same after its ten-thousandth click."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "join",
+      "id": "write",
+      "title": "Write with the tip out",
+      "steps": [
+        {
+          "id": "write-run",
+          "title": "Press down and write",
+          "story": [
+            "Now we click the tip out and write. Writing pushes the ball back into the pen with about 1 to 2 N, and the refill rests on the collar's high ledge."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Write a page",
+            "outcome": "The tip stays out across a full page. The 2 N of writing pressure goes straight onto the ledge's flat top, which only turns the collar when pushed along its slope. Ten clicks later, the tip has hidden and come out ten times, 7 mm each time."
+          },
+          "payoff": [
+            "The cam's ledge is flat on top for a reason. Pushing straight down on a flat surface has no sideways part that could turn the collar, so writing pressure cannot set off a click. Only the button's angled teeth can do that."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "casing",
+      "id": "body",
+      "title": "Barrel, tip and clip",
+      "steps": [
+        {
+          "id": "body-nose",
+          "title": "Opening to change refills",
+          "story": [
+            "Everything must stay in line in a tube: refill, spring, collar, button. The tube must also open, because the refill runs dry after a few kilometres of writing. The front piece has to stay on through thousands of 2 N writing pushes and spring loads, and still come off by hand."
+          ],
+          "primitive": "thread",
+          "problem": {
+            "type": "pick",
+            "question": "How should the metal tip attach to the striped barrel?",
+            "options": [
+              {
+                "primitive": "thread",
+                "works": true,
+                "outcome": "A few turns of thread hold it firmly. The spring's push cannot unscrew it, because the friction in a shallow thread holds it in place. A few turns by hand opens it."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "A friction press-fit holds at first. The spring pushes on it on every click, and after a few hundred cycles it loosens and comes off in a pocket."
+              },
+              {
+                "primitive": "catch",
+                "works": false,
+                "outcome": "A snap-fit holds well but needs a sharp pull to open. A slippery metal cone gives fingers almost nothing to pull on, and the plastic snaps wear out after a few refills."
+              }
+            ]
+          },
+          "payoff": [
+            "The metal tip screws on. Its cone narrows to a hole just wider than the refill's point, so the refill stays centred and does not wobble. The spring rests against the inside of this narrow end. The striped barrel is the tube that holds everything else in line and is the part your hand holds."
+          ],
+          "earns": [
+            "nose-cone",
+            "barrel"
+          ]
+        },
+        {
+          "id": "body-clip",
+          "title": "Holding on in a pocket",
+          "story": [
+            "The pen spends most of its life in a pocket, where walking and bending pull on it with up to about 20 N. The clip is a springy arm that pinches the cloth against the barrel, and friction does the holding."
+          ],
+          "primitive": "grip",
+          "problem": {
+            "type": "tune",
+            "goal": "With a 20 N tug as the load, set the squeeze so the friction limit is at least 20 N, without crushing the cloth.",
+            "slider": "squeeze",
+            "min": 25,
+            "max": 35,
+            "tooLow": "Below 25 N each side, the limit μ × 2N falls under 20 N. Bending over is enough to pull the pen out, and it falls.",
+            "tooHigh": "Above 35 N the arm has to bend so far to fit over the cloth that it takes a permanent bend. It also pulls threads every time we slip the pen out.",
+            "justRight": "Between 25 and 35 N the friction limit is 20 to 28 N. That holds through a day of moving about and still lets a hand slide the pen out."
+          },
+          "payoff": [
+            "The pocket clip is pressed onto the barrel at the back, near the button. A pen held tip-down in a pocket hides the button under the clip, so it is harder to click the tip out by accident against the cloth."
+          ],
+          "earns": [
+            "clip"
+          ]
+        }
+      ]
+    }
+  ],
+  "closing": [
+    "Click it now and we can follow the chain: the plunger turns the cam, the cam's ledge holds the refill against the spring, and the tungsten carbide ball rolls ink out only while it moves. The threaded tip keeps the refill centred and can be opened to replace it. The clip holds the pen in a pocket with the button covered."
+  ]
+}

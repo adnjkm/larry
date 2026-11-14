@@ -1,0 +1,349 @@
+{
+  "title": "Desk Stapler",
+  "hook": [
+    "Press the blue top and a thin wire goes through twenty sheets of paper. Its legs come out folded flat. Then the arm springs back up with the next staple already in place.",
+    "A staple is wire about 0.5 mm thick. If you push it with your thumb, it bends before it gets through the paper. How does a hinged arm and a strip of metal make it go straight through, fold it flat and get the next one ready?"
+  ],
+  "chapters": [
+    {
+      "kind": "module",
+      "id": "drive",
+      "need": "It must drive a staple straight through a stack of paper.",
+      "why": "This is the stapler's job. Everything else is there to support it.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "drive-naive",
+          "title": "A staple and a thumb",
+          "story": [
+            "Start with the crudest stapler there is. Hold a staple upright on the paper and press its crown with your thumb.",
+            "Getting two points through 20 sheets takes about 100 N, roughly the weight of a 10 kg bag. The wire is only 0.5 mm thick and 12 mm long."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Press with a thumb",
+            "outcome": "The legs buckle sideways at about 30 N, long before they get through. The press is off-centre and nothing holds the wire straight, so it folds instead of piercing."
+          },
+          "payoff": [
+            "We need two things at once: a force well above what a thumb gives comfortably, and a guide that holds the wire straight until its tips are through."
+          ],
+          "earns": []
+        },
+        {
+          "id": "drive-lever",
+          "title": "Multiply the press",
+          "story": [
+            "The guide is the easy part. A narrow slot just as wide as the staple keeps the legs from bowing out sideways. A thin flat blade fits in the same slot above the crown and pushes the staple evenly along its whole width.",
+            "Next, the force. The blade only has to move about 12 mm, and a hand can easily move further than that. We need something that takes a long, light motion and turns it into a short, strong one."
+          ],
+          "primitive": "lever",
+          "problem": {
+            "type": "pick",
+            "question": "What turns a long, light press into a short, strong stroke of the blade?",
+            "options": [
+              {
+                "primitive": "lever",
+                "works": true,
+                "outcome": "Put a hinged arm over the slot with the blade near the hinge. When the hand presses further out, the push grows by the arm ratio and the blade moves straight down."
+              },
+              {
+                "primitive": "wheel",
+                "works": false,
+                "outcome": "A wheel gains force by turning, so we would have to wind a cord to pull the blade down. It is far too slow and fiddly for a stroke this short."
+              },
+              {
+                "primitive": "pulley",
+                "works": false,
+                "outcome": "Strands of cord can multiply a pull, but cord can only pull. Something has to pass the force down past the slot to push the blade, and that adds a mechanism a single bar does without."
+              }
+            ]
+          },
+          "payoff": [
+            "Our naive build had nothing like this, so this is a real gain: a bar on a pin is the simplest force multiplier there is. That bar is the top arm, hinged on the hinge pin at the back. The blade is fixed to its underside at the front.",
+            "The slot is the staple channel. Its walls are what stop the 0.5 mm wire from buckling."
+          ],
+          "earns": [
+            "top-arm",
+            "pivot-pin",
+            "magazine"
+          ]
+        },
+        {
+          "id": "drive-ratio",
+          "title": "How much advantage",
+          "story": [
+            "The figure assumes a 100 N load at the blade. A firm press with the heel of a hand gives about 50 to 70 N, and it gets tiring above that.",
+            "The blade has to sit over the staple at the front of the stapler. A big ratio would mean an arm much longer than the channel, with the hand far out in front of the paper."
+          ],
+          "primitive": "lever",
+          "problem": {
+            "type": "tune",
+            "goal": "Bring the Push needed readout down to 67 N or less, but keep the arm length within 2.5 times the blade's distance from the pivot.",
+            "slider": "ratio",
+            "min": 1.5,
+            "max": 2.5,
+            "tooLow": "Below 1.5× you need more than 67 N to push. That works for a few sheets and fails on a thick stack.",
+            "tooHigh": "Above 2.5× the arm reaches far past the staple, and the hand has to travel more than 30 mm to move the blade 12 mm.",
+            "justRight": "Between 1.5× and 2.5× the push is 40 to 67 N and the stroke stays short enough for one quick press. The pivot sits at the back and the hand presses just beyond the blade."
+          },
+          "payoff": [
+            "A stapler does not have much leverage, and it does not need much. Most of the force comes from the downward push of your arm. The lever mainly puts that push in the right place and keeps it square to the paper."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "clinch",
+      "need": "It must fold the legs flat behind the paper.",
+      "why": "The staple now goes through the paper, but its legs stick straight out the back. Pull the sheets gently and they slide off it.",
+      "surprise": true,
+      "steps": [
+        {
+          "id": "clinch-naive",
+          "title": "Straight legs",
+          "story": [
+            "Drive a staple through 20 sheets lying on a hard, flat desk. The tips hit the desk and stop."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Staple onto a desk",
+            "outcome": "The legs come through about 6 mm and then crumple in random directions against the flat surface. One leg often folds back into the paper. The sheets come apart under a pull of about 2 N."
+          },
+          "payoff": [
+            "Bending the legs is right, but the direction matters. Both legs have to turn inward, toward each other, so they grip the stack from behind."
+          ],
+          "earns": []
+        },
+        {
+          "id": "clinch-wedge",
+          "title": "Steer the tips inward",
+          "story": [
+            "The tips are already moving straight down with up to 100 N behind them. If we can turn that downward push into a sideways one, the stapler will fold the legs by itself, with no second motion needed."
+          ],
+          "primitive": "wedge",
+          "problem": {
+            "type": "pick",
+            "question": "What can turn a leg's downward push into an inward bend?",
+            "options": [
+              {
+                "primitive": "wedge",
+                "works": true,
+                "outcome": "A sloped groove under each tip deflects it sideways as it pushes in. The groove curves inward, so the legs roll toward each other and lie flat."
+              },
+              {
+                "primitive": "lever",
+                "works": false,
+                "outcome": "A small folding arm under the paper could bend the legs, but it would need its own push that comes in just after the tips arrive. That means a second timed motion the press does not provide."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "Friction could hold a tip in place, but holding is not bending. The leg just buckles wherever the wire is weakest."
+              }
+            ]
+          },
+          "payoff": [
+            "This is the anvil plate on the base: a hard steel plate with two curved grooves pressed into it. Each groove is a wedge face bent into an arc. A tip slides along it and leaves curled inward.",
+            "The anvil is riveted on because 100 N lands on it with every press. A soft or loose plate would let the tips dig in rather than slide."
+          ],
+          "earns": [
+            "anvil"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "reset",
+      "need": "It must get ready for the next staple by itself.",
+      "why": "After one press the arm stays down on the paper, and the blade sits in the slot where the next staple has to go.",
+      "surprise": true,
+      "steps": [
+        {
+          "id": "reset-naive",
+          "title": "The arm stays down",
+          "story": [
+            "Press once, let go, and try to staple a second sheet."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Staple twice",
+            "outcome": "The arm only weighs about 1 N, and nothing lifts it. It rests on the paper with the blade still 12 mm down the slot. The next staple can't get under it, so you have to pull the arm up by hand every time."
+          },
+          "payoff": [
+            "We need something that saves a little of each press and gives it back as a lift once the hand lets go."
+          ],
+          "earns": []
+        },
+        {
+          "id": "reset-spring",
+          "title": "Store some of the press",
+          "story": [
+            "The press puts in more work than the staple needs. If a small part of it went into a store, the arm could push itself back up."
+          ],
+          "primitive": "spring",
+          "problem": {
+            "type": "pick",
+            "question": "What could lift the arm back after each press?",
+            "options": [
+              {
+                "primitive": "spring",
+                "works": true,
+                "outcome": "Squeezed between the arm and the channel, it pushes back harder the further the arm goes down. When you let go, it returns that work and lifts the arm."
+              },
+              {
+                "primitive": "weight",
+                "works": false,
+                "outcome": "A counterweight behind the pivot would lift the arm, but you would have to push down extra mass every time. It also stops working when the stapler is tilted or upside down."
+              },
+              {
+                "primitive": "catch",
+                "works": false,
+                "outcome": "A catch holds a position until it is pushed hard enough. It could keep the arm up, but it cannot lift the arm there."
+              }
+            ]
+          },
+          "payoff": [
+            "This is the return spring, which sits inside the arm. A second, longer spring in the channel pushes the row of staples forward. As soon as the blade rises, that spring slides the next staple under it.",
+            "Both are inside the arm and channel parts we already have, so they add no new piece to the kit."
+          ],
+          "earns": []
+        },
+        {
+          "id": "reset-stiffness",
+          "title": "Stiff enough, not too stiff",
+          "story": [
+            "When the arm is fully down, the return spring is squeezed by about 15 mm. The spring has to lift the arm and pull the blade back out of the slot, where it rubs. That takes about 18 N. Anything the spring pushes back with is also force your hand has to beat."
+          ],
+          "primitive": "spring",
+          "problem": {
+            "type": "tune",
+            "goal": "At 15 mm of squeeze, the spring force (k × 15 mm) should be between 18 N and 27 N.",
+            "slider": "stiffness",
+            "min": 1.2,
+            "max": 1.8,
+            "tooLow": "Below 1.2 N/mm it gives less than 18 N at full squeeze. The blade sticks in the slot and the arm stays half down.",
+            "tooHigh": "Above 1.8 N/mm it gives more than 27 N. That adds almost half again to the 67 N press, and the arm snaps up hard.",
+            "justRight": "Between 1.2 and 1.8 N/mm the arm springs back quickly. It takes about a fifth of the effort and stores roughly 0.15 to 0.2 J per press."
+          },
+          "payoff": [
+            "The spring takes back only a small part of the press. Almost all of the work goes into the staple, and just enough is kept to reset the arm."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "join",
+      "id": "together",
+      "title": "Press it on a desk",
+      "steps": [
+        {
+          "id": "join-run",
+          "title": "Everything at once",
+          "story": [
+            "Now put the parts together. The lever drives the blade, the channel guides the staple, the anvil folds the legs and the spring resets the arm. Press it on a smooth desk."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Staple on a desk",
+            "outcome": "The staple goes in clean. But the hand pushes down and slightly forward, and the stapler skids about 20 mm. The staple lands off its mark, sometimes past the edge of the anvil."
+          },
+          "payoff": [
+            "The press is never perfectly vertical. A 60 N press tilted by 10° pushes sideways with about 10 N, and a hard base on a varnished desk resists only a few newtons."
+          ],
+          "earns": []
+        },
+        {
+          "id": "join-grip",
+          "title": "Hold the desk",
+          "story": [
+            "We need the stapler's downward push to stop it sliding sideways as well."
+          ],
+          "primitive": "grip",
+          "problem": {
+            "type": "pick",
+            "question": "What keeps the base from skidding under a slanted press?",
+            "options": [
+              {
+                "primitive": "grip",
+                "works": true,
+                "outcome": "A soft, high-friction pad underneath resists up to μ times the downward force. Under a 60 N press that is well over the 10 N sideways push."
+              },
+              {
+                "primitive": "weight",
+                "works": false,
+                "outcome": "A heavier base raises the friction limit only a little. With hard plastic on varnish, μ is about 0.2, so even 1 kg of extra mass adds only 2 N."
+              },
+              {
+                "primitive": "seal",
+                "works": false,
+                "outcome": "Squeezing rubber to seal gaps is the right material for the wrong job. Nothing needs to be kept from leaking here, and a suction foot would let go as soon as it tilts."
+              }
+            ]
+          },
+          "payoff": [
+            "This is the rubber foot, pressed into the base. The harder you press, the more firmly it holds, so it grips best at exactly the moment the sideways push is largest."
+          ],
+          "earns": [
+            "rubber-pad"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "casing",
+      "id": "body",
+      "title": "The body",
+      "steps": [
+        {
+          "id": "casing-base",
+          "title": "A spine for the stroke",
+          "story": [
+            "The anvil has to stay exactly under the blade, about 40 mm forward of the hinge. The channel has to swing up for reloading, and the foot has to sit under the point where you press."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Press without a base",
+            "outcome": "If the anvil sits on a separate block, it drifts about 1 mm from the blade's line. One leg then misses its groove and folds outward."
+          },
+          "payoff": [
+            "The white base holds everything in line. The anvil is riveted at the front, the channel is hinged at the back, and the foot is underneath. Its length is set by the hinge-to-blade distance the lever needed. It is open at the front so paper can slide in up to the staple line."
+          ],
+          "earns": [
+            "base"
+          ]
+        },
+        {
+          "id": "casing-cap",
+          "title": "Where the hand goes",
+          "story": [
+            "The arm's top edge is a thin strip of steel. A 60 N press on a strip 2 mm wide is about 30 times the pressure a palm can take comfortably."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Press the bare arm",
+            "outcome": "The edge digs into the palm, and the hand slides around looking for a spot to push, which changes the lever ratio from press to press."
+          },
+          "payoff": [
+            "The blue press pad snaps onto the arm. It spreads the press over about 15 cm² and marks the one spot, just over the blade, where the ratio we chose actually applies."
+          ],
+          "earns": [
+            "blue-cap"
+          ]
+        }
+      ]
+    }
+  ],
+  "closing": [
+    "Look at a stapler now and every part is there for a reason. The arm is a modest lever with its blade near the front. The channel stops the wire from buckling. The anvil's grooves turn the push sideways to fold the legs. A spring keeps a little of each press to reset the arm. The rubber foot holds hardest when you press hardest."
+  ]
+}

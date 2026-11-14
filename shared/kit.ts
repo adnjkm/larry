@@ -59,7 +59,7 @@ export type Finish = z.infer<typeof Finish>;
 
 export const Part = z.object({
   id: z.string().describe("Short kebab-case id, unique in the kit."),
-  name: z.string().describe("What a kid would call it, 1 to 3 words."),
+  name: z.string().describe("Its everyday name, 1 to 3 words."),
   role: z.string().describe("One plain sentence on what the part does for the object."),
   parentId: z
     .string()
@@ -76,7 +76,7 @@ export type Part = z.infer<typeof Part>;
 
 export const Kit = z.object({
   name: z.string().describe("What the object is, 1 to 4 words."),
-  summary: z.string().describe("One sentence a 10-year-old would understand about how it works."),
+  summary: z.string().describe("One plain sentence on how it works."),
   parts: z.array(Part),
 });
 export type Kit = z.infer<typeof Kit>;

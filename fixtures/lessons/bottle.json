@@ -1,0 +1,312 @@
+{
+  "title": "Insulated Water Bottle",
+  "hook": [
+    "Pour in coffee at 90 °C in the morning and it is still above 60 °C at dinner. Tip the bottle upside down in a bag and not a drop comes out. Then one hand unscrews the cap in about a turn.",
+    "It looks like a can with a lid. How does a can do all that? We will build one, starting with a plain steel cup and letting each failure tell us what to add."
+  ],
+  "chapters": [
+    {
+      "kind": "module",
+      "id": "m-keep",
+      "need": "It must keep the drink hot or cold for hours.",
+      "why": "This is the bottle's job. Carrying water is easy. Keeping its temperature is the hard part.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "s-cup",
+          "title": "A plain steel cup",
+          "story": [
+            "The simplest thing that holds a drink is a steel cup. Steel is strong, doesn't break when dropped, and won't flavour the coffee.",
+            "Fill it with 500 ml at 90 °C and watch the thermometer."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Pour in coffee",
+            "outcome": "In 30 minutes the coffee is down to about 55 °C, and the outside of the cup is too hot to hold. Steel conducts heat well, so the wall passes heat from the coffee straight to your hand and the air."
+          },
+          "payoff": [
+            "Heat has three ways out: it conducts through solids, it gets carried off by moving air, and it radiates as infrared. A single metal wall stops none of them."
+          ],
+          "earns": []
+        },
+        {
+          "id": "s-vacuum",
+          "title": "Nothing between two walls",
+          "story": [
+            "Heat conducts and convects only through matter. So suppose we put a second steel wall around the first and pump the gap down to almost nothing. Heat can't cross empty space by conduction or convection.",
+            "The two walls touch only at the neck, where they're welded together. The inner faces are polished or plated so they reflect infrared back instead of radiating it across the gap.",
+            "None of the catalogue's primitives does this. It is a property of the gap, not a mechanism, so here we describe it in words."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Fill the double wall",
+            "outcome": "With the cup still open, the coffee loses about 20 °C an hour, and almost all of that loss is steam and warm air leaving through the 45 mm mouth. The outside wall stays at room temperature."
+          },
+          "payoff": [
+            "This is the bottle body: two steel shells welded at the rim with a vacuum between them. The only solid path for heat is the thin neck, and that is why the neck is the narrowest, thinnest part of the steel.",
+            "With the walls taken care of, nearly all the remaining heat escapes through the open top."
+          ],
+          "earns": [
+            "body"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "m-close",
+      "need": "It must close firmly and open by hand.",
+      "why": "With the walls insulated, the open mouth loses most of the heat, and anything that tips the bottle spills it.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "s-lid",
+          "title": "A lid set on top",
+          "story": [
+            "The obvious fix is a steel lid that sits on the mouth, double-walled too, so it doesn't become the new weak spot."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Tip the bottle",
+            "outcome": "At about 40° of tilt the lid slides off, and 500 ml goes over the table. A loose lid stays on only because of its own weight, about 0.5 N, and nothing holds it to the neck."
+          },
+          "payoff": [
+            "The lid has to be pulled down onto the neck by a force much bigger than its weight, and that force has to stay when you let go."
+          ],
+          "earns": []
+        },
+        {
+          "id": "s-thread",
+          "title": "Hold the lid down",
+          "story": [
+            "We need a clamp a hand can work. A wrist turns easily and pushes along an axis poorly, so it helps if turning the lid produces a strong pull along the neck.",
+            "We also want the clamp to stay done without anyone holding it."
+          ],
+          "primitive": "thread",
+          "problem": {
+            "type": "pick",
+            "question": "What can pull the cap hard onto the neck and stay put?",
+            "options": [
+              {
+                "primitive": "thread",
+                "works": true,
+                "outcome": "A twist of the wrist climbs the cap along a wrapped wedge. The force on it is multiplied many times, and friction keeps it from backing off."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "A press-fit lid holds only as tightly as you can push it on. Once warm steam builds pressure inside, it pops off, and a stiffer fit would be too hard to pull off."
+              },
+              {
+                "primitive": "catch",
+                "works": false,
+                "outcome": "A snap latch holds until the pull reaches its release force and no further. It gives no steady clamping force to press down on anything, and it adds springs and hinges to an object that gets dropped."
+              }
+            ]
+          },
+          "payoff": [
+            "This is the steel cap. Its inside is cut with a thread that matches one on the neck. One turn moves it by one pitch, and the hand's turning force arrives at the neck multiplied, ideally, by the circumference divided by the pitch.",
+            "Most of that ideal gain is lost to friction. That loss is useful, because it's what keeps a tightened cap from loosening when you let go."
+          ],
+          "earns": [
+            "cap"
+          ]
+        },
+        {
+          "id": "s-pitch",
+          "title": "How steep a thread",
+          "story": [
+            "The cap has a short neck to travel along, about 8 mm. The pitch decides how many turns that takes, and how much the wrist's force is multiplied."
+          ],
+          "primitive": "thread",
+          "problem": {
+            "type": "tune",
+            "goal": "Close the cap's roughly 8 mm of travel in about 2 to 3 turns while keeping a high gain, so a hand clamps hard and the thread doesn't back off.",
+            "slider": "pitch",
+            "min": 2.5,
+            "max": 3.5,
+            "tooLow": "Below 2.5 mm it takes more than 3 turns to close. The fine ridges also cross-thread easily when they meet at a slight angle.",
+            "tooHigh": "Above 3.5 mm the gain falls, so the same twist clamps less firmly. A steep thread can also creep loose when the bottle gets knocked around in a bag.",
+            "justRight": "Around 3 mm, two or three turns close the cap, and the gain is large enough that a gentle twist clamps hard."
+          },
+          "payoff": [
+            "That is why a bottle cap's ridges are coarse and few compared with a bolt's. It trades a little gain for fast opening, and the friction is still more than enough to hold."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "m-seal",
+      "need": "It must not leak, even upside down.",
+      "why": "The cap is clamped hard, but steel pressed on steel still weeps when the bottle is inverted.",
+      "surprise": true,
+      "steps": [
+        {
+          "id": "s-metal",
+          "title": "Steel on steel",
+          "story": [
+            "The cap is tightened. Shiny steel faces look flat, so it seems like nothing could get between them."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Turn it upside down",
+            "outcome": "Over an hour, about 5 ml of coffee seeps along the thread and drips out. Even polished faces touch only at their high points, and the liquid flows through the valleys between them."
+          },
+          "payoff": [
+            "Tighter clamping won't fix this. Hard surfaces flatten only a little before the thread strips. Something soft has to fill the valleys."
+          ],
+          "earns": []
+        },
+        {
+          "id": "s-ring",
+          "title": "Fill the valleys",
+          "story": [
+            "We need a material that the cap's clamping force can squeeze into every microscopic gap, and that pushes back on both faces while it's squeezed."
+          ],
+          "primitive": "seal",
+          "problem": {
+            "type": "pick",
+            "question": "What can close the tiny gaps between cap and neck?",
+            "options": [
+              {
+                "primitive": "seal",
+                "works": true,
+                "outcome": "A soft ring clamped between cap and neck flows into the hills and valleys and presses back on both, so there is no path left for liquid."
+              },
+              {
+                "primitive": "valve",
+                "works": false,
+                "outcome": "A check valve lets fluid through one way above a set pressure. Hot coffee builds pressure inside, so it would open and spray, which is the leak we were trying to stop."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "Friction stops the cap from sliding, but it does nothing about liquid. Water doesn't need the cap to move to get through the gaps."
+              }
+            ]
+          },
+          "payoff": [
+            "This is the seal ring. It is a soft plastic ring at the neck, and the cap's thread squeezes it."
+          ],
+          "earns": [
+            "seal-ring"
+          ]
+        },
+        {
+          "id": "s-squeeze",
+          "title": "How hard to squeeze",
+          "story": [
+            "How much the ring compresses is set by how far the cap travels once it touches the ring. Hot coffee adds a little steam pressure inside that pushes on the ring and tries to open the gaps."
+          ],
+          "primitive": "seal",
+          "problem": {
+            "type": "tune",
+            "goal": "Squeeze the ring firmly enough that it still seals with steam pressure behind it, but without crushing it, aiming for the upper part of the usual 15 to 30% range.",
+            "slider": "squeeze",
+            "min": 0.22,
+            "max": 0.32,
+            "tooLow": "Below about 22%, a 12 mm ring compressed only to about 9.4 mm leaves the deepest valleys half-filled, and a hot drink seeps past it.",
+            "tooHigh": "Above about 32% the ring gets crushed and forced out of its groove. After a few dozen closings it takes a permanent set and stops pushing back.",
+            "justRight": "Around a quarter compression, the ring fills the gaps and still has plenty of push left to keep them closed."
+          },
+          "payoff": [
+            "The ring pushes back because it's compressed. That is also why a cap that is only finger-tight still seals. The thread does the clamping, and the ring does the sealing."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "join",
+      "id": "j-open",
+      "title": "Hot drink, closed cap, open again",
+      "steps": [
+        {
+          "id": "s-together",
+          "title": "Run the whole bottle",
+          "story": [
+            "Fill it at 90 °C, screw on the cap, carry it upside down for a day, and then open it."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Carry it all day",
+            "outcome": "After 12 hours the coffee is at 65 °C and nothing has leaked. When we unscrew the cap, though, the ring turns with it about half the time and lifts out of the neck, because the cap's face drags on it."
+          },
+          "payoff": [
+            "Each module works, and the problem appears where they meet. The ring has to stay put while the cap slides over it."
+          ],
+          "earns": []
+        },
+        {
+          "id": "s-press",
+          "title": "Keep the ring in the neck",
+          "story": [
+            "The ring needs to stay in the neck against the cap's twisting drag. It also has to come out for washing, because coffee residue collects under it."
+          ],
+          "primitive": "grip",
+          "problem": {
+            "type": "pick",
+            "question": "What can hold the ring in place but still let it come out for cleaning?",
+            "options": [
+              {
+                "primitive": "grip",
+                "works": true,
+                "outcome": "A press-fit squeezes the ring against the neck wall. Friction holds it up to a limit above the cap's drag, and a firm pull is enough to get past that limit."
+              },
+              {
+                "primitive": "thread",
+                "works": false,
+                "outcome": "If the ring were threaded in, the unscrewing cap would just unscrew the ring along with it."
+              },
+              {
+                "primitive": "catch",
+                "works": false,
+                "outcome": "A sprung latch would hold, but it would put springs and slots where coffee residue collects, which is exactly what we wanted to keep clean."
+              }
+            ]
+          },
+          "payoff": [
+            "The ring is pressed into a groove in the neck. Its outer rim is slightly oversize, so the neck squeezes it all the way round, and the friction limit ends up well above the few newtons of drag from the cap."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "casing",
+      "id": "c-hand",
+      "title": "What the hand touches",
+      "steps": [
+        {
+          "id": "s-tab",
+          "title": "Getting the ring out",
+          "story": [
+            "A press-fit ring sits flush in the neck with no edge to hold. Wet fingertips slip on it before they reach its friction limit."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Pull the ring",
+            "outcome": "With a small tab molded into the ring, a pinch delivers the roughly 15 N needed to break the press-fit, and the ring peels out from one side, so you only overcome part of the grip at a time."
+          },
+          "payoff": [
+            "This is the ring tab. It is molded as part of the ring so there's no join for residue to collect in. Everything else is set by what's inside: the narrow neck limits heat loss, the outer wall stays cool because of the vacuum, and the cap is shiny steel because it's double-walled like the body."
+          ],
+          "earns": [
+            "ring-tab"
+          ]
+        }
+      ]
+    }
+  ],
+  "closing": [
+    "Look at the bottle again. Two walls with nothing between them keep the heat in. A coarse thread clamps the cap in two or three turns. A soft ring, squeezed by about a quarter, fills the gaps that steel can't. A press-fit holds that ring in place, and a small tab lets you pull it out to clean."
+  ]
+}
