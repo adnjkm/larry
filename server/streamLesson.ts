@@ -1,6 +1,5 @@
-import { z } from "zod";
 import type { Kit } from "../shared/kit.ts";
-import { Chapter, chapterProblems, headerProblems, Lesson, LessonError, type LessonEvent, lessonJsonSchema, lessonProblems, parseLesson, WORDS } from "../shared/lesson.ts";
+import { Chapter, chapterProblems, headerProblems, Lesson, LessonError, LessonHeader, type Shown, type LessonEvent, lessonJsonSchema, lessonProblems, parseLesson, WORDS } from "../shared/lesson.ts";
 import { CATALOG } from "../src/primitives/catalog.ts";
 import { PRIMITIVES, formatSlider, initialValues } from "../src/primitives/library.ts";
 import { type Brain, streamStructured } from "./claude.ts";
@@ -76,13 +75,11 @@ export const LESSON_BRAIN: Brain = { model: "claude-opus-5-5", effort: "low" };
 
 export type LessonStats = { ms: number; firstChapterMs: number | undefined; costUsd: number; attempts: number };
 
-const Header = Lesson.pick({ title: true, hook: true });
-
 /**
  * Puts the title, hook and chapters the reader has already been shown back in front of a rewrite, so
  * the finished lesson never changes what they have played. The rewrite supplies the rest.
  */
-export function keepShown(rewrite: Lesson, header: z.infer<typeof Header> | undefined, shown: Chapter[]): Lesson {
+export function keepShown(rewrite: Lesson, header: LessonHeader | undefined, shown: Chapter[]): Lesson {
   return { ...rewrite, ...header, chapters: [...shown, ...rewrite.chapters.slice(shown.length)] };
 }
 
@@ -90,15 +87,19 @@ export function keepShown(rewrite: Lesson, header: z.infer<typeof Header> | unde
  * Yields the title and hook, then each chapter, as soon as each is written and passes its own checks,
  * then the whole checked lesson. Chapters stop streaming at the first one that fails.
  * If the finished lesson breaks a rule, Claude rewrites it once: the rewrite keeps the chapters
- * already shown, streams the ones after them, and `done` carries the whole.
+ * already shown, streams the ones after them, and `done` carries the whole. `resume` continues a
+ * lesson a reader was partly shown before it failed, the same way.
  */
-export async function* streamLesson(kit: Kit, brain: Brain = LESSON_BRAIN, onStats?: (stats: LessonStats) => void, ask: typeof streamStructured = streamStructured): AsyncGenerator<LessonEvent> {
+export async function* streamLesson(
+  kit: Kit,
+  { brain = LESSON_BRAIN, onStats, ask = streamStructured, resume }: { brain?: Brain; onStats?: (stats: LessonStats) => void; ask?: typeof streamStructured; resume?: Shown } = {},
+): AsyncGenerator<LessonEvent> {
   const started = Date.now();
   let firstChapterMs: number | undefined;
   let costUsd = 0;
-  let feedback = "";
-  let header: z.infer<typeof Header> | undefined;
-  const shown: Chapter[] = [];
+  let header = resume?.header;
+  const shown: Chapter[] = [...(resume?.chapters ?? [])];
+  let feedback = shown.length > 0 || header ? `${alreadyShown(header, shown)}\n\nWhat they were shown:\n${JSON.stringify({ ...header, chapters: shown })}` : "";
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     let chaptersOk = true;
@@ -111,7 +112,7 @@ export async function* streamLesson(kit: Kit, brain: Brain = LESSON_BRAIN, onSta
         output = event.output;
         costUsd += event.costUsd;
       } else if (event.type === "header") {
-        const parsed = Header.safeParse(event.value);
+        const parsed = LessonHeader.safeParse(event.value);
         if (parsed.success && !header && headerProblems(parsed.data).length === 0) {
           header = parsed.data;
           yield { type: "started", ...header };
@@ -135,9 +136,13 @@ export async function* streamLesson(kit: Kit, brain: Brain = LESSON_BRAIN, onSta
       yield { type: "done", lesson: parseLesson(lesson, kit, CATALOG) };
       return;
     }
-    const reader = shown.length > 0 ? `\n\nThe reader has already been shown the title, the hook and the first ${shown.length} chapter(s) below, so they cannot change. Rewrite the lesson with those kept word for word, then fix everything after them.` : "";
-    feedback = `\n\nYour previous lesson broke these rules. Write it again with them fixed, keeping what was good:\n${problems.map((p) => `- ${p}`).join("\n")}${reader}\n\nPrevious lesson:\n${JSON.stringify(lesson)}`;
+    feedback = `\n\nYour previous lesson broke these rules. Write it again with them fixed, keeping what was good:\n${problems.map((p) => `- ${p}`).join("\n")}${alreadyShown(header, shown)}\n\nPrevious lesson:\n${JSON.stringify(lesson)}`;
   }
+}
+
+function alreadyShown(header: LessonHeader | undefined, shown: Chapter[]): string {
+  const what = [header && "the title and the hook", shown.length > 0 && `the first ${shown.length} chapter(s)`].filter(Boolean).join(" and ");
+  return what ? `\n\nThe reader has already been shown ${what}, so they cannot change. Write the lesson with those kept word for word, then everything after them.` : "";
 }
 
 /**

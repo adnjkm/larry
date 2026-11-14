@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { type Context, Hono } from "hono";
 import { stream } from "hono/streaming";
 import { KitError, parseKit } from "../shared/kit.ts";
-import { LessonError } from "../shared/lesson.ts";
+import { LessonError, Shown } from "../shared/lesson.ts";
 import { MAX_PHOTOS } from "../shared/photos.ts";
 import { KIT_BRAIN, type Photo, streamKit } from "./streamKit.ts";
 import { LESSON_BRAIN, streamLesson } from "./streamLesson.ts";
@@ -42,13 +42,20 @@ const app = new Hono()
   })
   .post("/api/lessons", async (c) => {
     const body: unknown = await c.req.json().catch(() => null);
+    const request = (body ?? {}) as { kit?: unknown; resume?: unknown };
     let kit;
     try {
-      kit = parseKit((body as { kit?: unknown } | null)?.kit);
+      kit = parseKit(request.kit);
     } catch {
       return c.json({ error: "Send the kit to plan a lesson for" }, 400);
     }
-    const events = streamLesson(kit, LESSON_BRAIN,(s) => console.log(`lesson: first chapter ${s.firstChapterMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}, ${s.attempts} attempt(s)`));
+    const resume = request.resume === undefined ? undefined : Shown.safeParse(request.resume);
+    if (resume && !resume.success) return c.json({ error: "The lesson to continue from is not valid" }, 400);
+    const events = streamLesson(kit, {
+      brain: LESSON_BRAIN,
+      resume: resume?.data,
+      onStats: (s) => console.log(`lesson: first chapter ${s.firstChapterMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}, ${s.attempts} attempt(s)`),
+    });
     return ndjson(c, events, (error) => (error instanceof LessonError ? "Larry's plan didn't hold together" : "Larry couldn't plan this one"));
   });
 

@@ -8,7 +8,7 @@ import { requestKit } from "./capture/requestKit.ts";
 import { Dots } from "./Dots.tsx";
 import { KitViewer } from "./kit3d/KitViewer.tsx";
 import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
-import { type LessonLoad, addLessonEvent, arrivedOf, hookOf, loadDemo, planning, requestLesson } from "./lesson/lessonSource.ts";
+import { type FailedLoad, type LessonLoad, addLessonEvent, arrivedOf, hookOf, loadDemo, planning, requestLesson, shownOf } from "./lesson/lessonSource.ts";
 import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
 import { buttons, layout, notes, type } from "./styles.ts";
 import { colors, fonts } from "./tokens.stylex.ts";
@@ -76,15 +76,15 @@ export function App() {
   const planner = useRef<AbortController>(undefined);
 
   /** The lesson is written while the person looks at the model, and it keeps arriving while they play it. */
-  async function planLesson(kit: Kit) {
+  async function planLesson(kit: Kit, after?: FailedLoad) {
     planner.current?.abort();
     const controller = new AbortController();
     planner.current = controller;
     const update = (change: (lesson: LessonLoad) => LessonLoad) =>
       setState((s) => ((s.phase === "viewing" || s.phase === "building") && s.kit === kit ? { ...s, lesson: change(s.lesson) } : s));
-    update(planning);
+    update(() => planning(after));
     try {
-      for await (const event of requestLesson(kit, controller.signal)) update((lesson) => addLessonEvent(lesson, event));
+      for await (const event of requestLesson(kit, controller.signal, after && shownOf(after))) update((lesson) => addLessonEvent(lesson, event));
     } catch (error) {
       if (controller.signal.aborted) return;
       const message = error instanceof DOMException && error.name === "TimeoutError" ? "Larry took too long to plan this one" : messageOf(error);
@@ -139,6 +139,7 @@ export function App() {
         : undefined;
 
   const hook = state.phase === "viewing" ? hookOf(state.lesson) : undefined;
+  const failedLesson = (state.phase === "viewing" || state.phase === "building") && state.lesson.status === "failed" ? state.lesson : undefined;
 
   return (
     <main {...stylex.props(layout.page)}>
@@ -174,7 +175,7 @@ export function App() {
               kit={state.kit}
               lesson={state.lesson}
               onStart={() => setState({ ...state, phase: "building" })}
-              onRetry={() => void planLesson(state.kit)}
+              onRetry={() => void planLesson(state.kit, failedLesson)}
               onRestart={restart}
             />
           ) : (
@@ -193,7 +194,7 @@ export function App() {
         <LessonPlayer
           kit={state.kit}
           arrived={arrivedOf(state.lesson)}
-          stalled={state.lesson.status === "failed" ? { message: state.lesson.message, onRetry: () => void planLesson(state.kit) } : undefined}
+          stalled={failedLesson && { message: failedLesson.message, onRetry: () => void planLesson(state.kit, failedLesson) }}
           onRestart={restart}
         />
       )}

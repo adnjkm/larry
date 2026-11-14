@@ -26,7 +26,7 @@ const results = await Promise.allSettled(
   selected.map(async (name) => {
     const kit = parseKit(JSON.parse(await readFile(new URL(`${name}.json`, kitDir), "utf8")));
     let stats: LessonStats | undefined;
-    for await (const event of streamLesson(kit, brain, (s) => (stats = s))) {
+    for await (const event of streamLesson(kit, { brain, onStats: (s) => (stats = s) })) {
       if (event.type === "failed") throw new Error(event.message);
       if (event.type !== "done") continue;
       await writeFile(new URL(`${name}.json`, outDir), `${JSON.stringify(event.lesson, null, 2)}\n`);

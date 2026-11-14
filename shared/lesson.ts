@@ -97,6 +97,13 @@ export const Lesson = z.object({
 });
 export type Lesson = z.infer<typeof Lesson>;
 
+export const LessonHeader = Lesson.pick({ title: true, hook: true });
+export type LessonHeader = z.infer<typeof LessonHeader>;
+
+/** What a reader was shown of a lesson before it failed. A retry sends it back so the new lesson continues from it. */
+export const Shown = z.object({ header: LessonHeader.optional(), chapters: z.array(Chapter) });
+export type Shown = z.infer<typeof Shown>;
+
 const { $schema: _dialect, ...lessonSchemaBody } = z.toJSONSchema(Lesson);
 export const lessonJsonSchema: Record<string, unknown> = lessonSchemaBody;
 

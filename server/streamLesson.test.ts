@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseKit } from "../shared/kit.ts";
-import { Lesson, type LessonEvent, WORDS, chapterProblems, lessonProblems } from "../shared/lesson.ts";
+import { Lesson, type LessonEvent, type Shown, WORDS, chapterProblems, lessonProblems } from "../shared/lesson.ts";
 import { CATALOG } from "../src/primitives/catalog.ts";
 import type { StructuredEvent } from "./claude.ts";
 import { keepShown, streamLesson } from "./streamLesson.ts";
@@ -41,10 +41,10 @@ function scripted(...answers: StructuredEvent[][]) {
   };
 }
 
-async function play(ask: ReturnType<typeof scripted>) {
+async function play(ask: ReturnType<typeof scripted>, resume?: Shown) {
   const events: LessonEvent[] = [];
   let attempts = 0;
-  for await (const event of streamLesson(kit, undefined, (s) => (attempts = s.attempts), ask)) events.push(event);
+  for await (const event of streamLesson(kit, { onStats: (s) => (attempts = s.attempts), ask, resume })) events.push(event);
   const done = events.at(-1);
   assert.ok(done?.type === "done");
   const streamed = events.flatMap((e) => (e.type === "chapter" ? [e.chapter.id] : []));
@@ -77,6 +77,18 @@ test("a hook that runs long is held back, and the rewrite's title and hook are t
   assert.deepEqual(started.map((e) => e.title), ["Rewritten"]);
   assert.equal(lesson.title, "Rewritten");
   assert.deepEqual(lesson.hook, pen.hook);
+});
+
+test("a retry continues from what the reader was shown and streams only what is new", async () => {
+  const rewrite = { ...pen, title: "Rewritten", chapters: [{ ...first, id: "rewritten-first" }, second, ...rest] };
+  const items = rewrite.chapters.map((value): StructuredEvent => ({ type: "item", value }));
+
+  const { events, streamed, lesson } = await play(scripted([header(rewrite), ...items, result(rewrite)]), { header: { title: pen.title, hook: pen.hook }, chapters: [first] });
+
+  assert.equal(events.filter((e) => e.type === "started").length, 0);
+  assert.deepEqual(streamed, [second.id, ...rest.map((c) => c.id)]);
+  assert.equal(lesson.title, pen.title);
+  assert.deepEqual(lesson.chapters.map((c) => c.id), pen.chapters.map((c) => c.id));
 });
 
 const words = (count: number) => Array.from({ length: count }, () => "word").join(" ");
