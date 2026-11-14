@@ -10,9 +10,12 @@ export const colors = stylex.defineConsts({
   soft: "#F4F4F4",
   segmentTodo: "#D6D6D6",
   accent: "#FF5A1F",
+  /** The accent darkened (same hue) to reach 4.5:1 on paper, for small text. */
+  accentText: "#C8460F",
   accentSoft: "#FF5A1F0F",
   blue: "#2F6BFF",
   pink: "#FF0087",
+  pinkText: "#D6006F",
   fail: "#C8281C",
   failSoft: "#FDECEA",
   ok: "#0B7A3E",

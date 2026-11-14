@@ -3,7 +3,7 @@ import { colors, fonts, radii } from "./tokens.stylex.ts";
 
 export const type = stylex.create({
   label: { margin: 0, fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", color: colors.graphite },
-  labelAccent: { color: colors.accent },
+  labelAccent: { color: colors.accentText },
   title: { margin: 0, fontSize: 24, lineHeight: "30px", fontWeight: 600, letterSpacing: "-0.02em", textWrap: "balance" },
   task: { margin: 0, fontSize: 22, lineHeight: "28px", fontWeight: 600, letterSpacing: "-0.02em", textWrap: "balance" },
   story: { margin: 0, fontSize: 16, lineHeight: "22px", color: colors.ink },
@@ -19,7 +19,10 @@ export const layout = stylex.create({
     maxWidth: 480,
     minHeight: "100dvh",
     margin: "0 auto",
-    padding: 20,
+    paddingTop: "calc(20px + env(safe-area-inset-top, 0px))",
+    paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))",
+    paddingLeft: "max(20px, env(safe-area-inset-left, 0px))",
+    paddingRight: "max(20px, env(safe-area-inset-right, 0px))",
     display: "flex",
     flexDirection: "column",
     gap: 20,
@@ -42,10 +45,11 @@ export const buttons = stylex.create({
     fontFamily: fonts.sans,
     cursor: "pointer",
     touchAction: "manipulation",
+    userSelect: "none",
     opacity: { default: 1, ":active": 0.8 },
   },
   primary: { minHeight: 48, padding: "0 20px", borderRadius: radii.pill, backgroundColor: colors.ink, color: colors.paper, fontSize: 16, lineHeight: "20px", fontWeight: 600 },
-  secondary: { minHeight: 36, padding: "0 12px", backgroundColor: "transparent", color: colors.graphite, fontSize: 14, lineHeight: "18px", fontWeight: 500 },
+  secondary: { minHeight: 44, padding: "0 12px", backgroundColor: "transparent", color: colors.graphite, fontSize: 14, lineHeight: "18px", fontWeight: 500 },
   disabled: { backgroundColor: colors.soft, color: colors.graphite, cursor: "not-allowed" },
 });
 

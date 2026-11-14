@@ -30,7 +30,7 @@ const styles = stylex.create({
     textAlign: "left",
     cursor: "pointer",
   },
-  rowActive: { color: colors.pink },
+  rowActive: { color: colors.pinkText },
   section: { display: "flex", flexDirection: "column", gap: 8 },
   rowIndex: { fontFamily: fonts.mono, fontSize: 12 },
   rowName: { fontSize: 16, fontWeight: 600 },
@@ -53,7 +53,7 @@ export default function PrimitivesPage() {
     const url = new URL(location.href);
     url.searchParams.set("primitives", next);
     history.replaceState(null, "", url);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
   };
 
   const sameLevel = PRIMITIVES.filter((p) => p.level === primitive.level);
