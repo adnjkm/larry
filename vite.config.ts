@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [stylex.vite(), react()],
   server: {
-    proxy: { "/api": "http://localhost:8787" },
+    // LARRY_API_PORT moves the API server off 8787, for a second checkout running at the same time.
+    proxy: { "/api": `http://localhost:${process.env.LARRY_API_PORT ?? 8787}` },
   },
 });

@@ -54,4 +54,4 @@ const app = new Hono()
 
 export type AppType = typeof app;
 
-serve({ fetch: app.fetch, port: 8787 }, ({ port }) => console.log(`server on :${port}`));
+serve({ fetch: app.fetch, port: Number(process.env.LARRY_API_PORT ?? 8787) }, ({ port }) => console.log(`server on :${port}`));
