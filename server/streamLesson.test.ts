@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseKit } from "../shared/kit.ts";
-import { type LessonEvent, Lesson } from "../shared/lesson.ts";
+import { Lesson, type LessonEvent, WORDS, chapterProblems, lessonProblems } from "../shared/lesson.ts";
+import { CATALOG } from "../src/primitives/catalog.ts";
 import type { StructuredEvent } from "./claude.ts";
 import { keepShown, streamLesson } from "./streamLesson.ts";
 
@@ -63,4 +64,29 @@ test("a rewrite after a broken chapter keeps what was streamed and streams the r
   assert.deepEqual(streamed, pen.chapters.map((c) => c.id));
   assert.equal(lesson.title, pen.title);
   assert.deepEqual(lesson.chapters.map((c) => c.id), streamed);
+});
+
+const words = (count: number) => Array.from({ length: count }, () => "word").join(" ");
+
+const [firstStep, ...otherSteps] = first.steps;
+assert.ok(firstStep);
+
+const withStep = (change: Partial<typeof firstStep>): typeof first => ({ ...first, steps: [{ ...firstStep, ...change }, ...otherSteps] });
+const withStory = (story: string[]) => withStep({ story });
+
+test("a story that rambles past the limit sends its chapter back, and a normal one passes", () => {
+  assert.deepEqual(chapterProblems(withStory([words(WORDS.story.aim)]), CATALOG), []);
+  assert.deepEqual(chapterProblems(withStory([words(WORDS.story.max)]), CATALOG), [], "a story at the limit still passes");
+  const problems = chapterProblems(withStory([words(40), words(WORDS.story.max - 39)]), CATALOG);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0] ?? "", new RegExp(`story is ${WORDS.story.max + 1} words`), "the words are counted across paragraphs");
+});
+
+test("a payoff, hook or closing past its limit is a problem for the lesson", () => {
+  const over = (key: "hook" | "closing") => lessonProblems({ ...pen, [key]: [words(WORDS[key].max + 1)] }, kit, CATALOG);
+  assert.deepEqual(lessonProblems(pen, kit, CATALOG), []);
+  assert.match(over("hook").join("\n"), /hook is \d+ words/);
+  assert.match(over("closing").join("\n"), /closing is \d+ words/);
+  const longPayoff = { ...pen, chapters: [withStep({ payoff: [words(WORDS.payoff.max + 1)] }), second, ...rest] };
+  assert.match(lessonProblems(longPayoff, kit, CATALOG).join("\n"), /payoff is \d+ words/);
 });

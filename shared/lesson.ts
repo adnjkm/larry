@@ -1,6 +1,14 @@
 import { z } from "zod";
 import type { Kit } from "./kit.ts";
 
+/** Word budgets for the text a reader sees. `aim` is what the prompt asks for; `max` is the hard limit, well above it so a draft that runs a little long is kept and only a rambling one is sent back. */
+export const WORDS = {
+  story: { aim: 35, max: 75 },
+  payoff: { aim: 40, max: 60 },
+  hook: { aim: 50, max: 75 },
+  closing: { aim: 40, max: 60 },
+} as const;
+
 const Paragraphs = z.array(z.string()).describe("Short paragraphs, 1 to 3 sentences each.");
 
 const Run = z
@@ -47,10 +55,10 @@ export type ProblemType = Problem["type"];
 export const Step = z.object({
   id: z.string(),
   title: z.string().describe("3 to 6 words."),
-  story: Paragraphs.describe("Leads from the previous failure to this step's problem. Explain only what this step needs, and introduce a principle just before it is used."),
+  story: Paragraphs.describe(`One short paragraph of about ${WORDS.story.aim} words. Leads from the previous failure to this step's problem. Explain only what this step needs, and introduce a principle just before it is used.`),
   primitive: z.string().nullable().describe("The catalogue primitive this step is about, or null when no primitive is involved yet (a naive build)."),
   problem: Problem.nullable(),
-  payoff: Paragraphs.describe("Shown once the problem is solved: why it works, the name of the part now that its job has been shown, and any small detail that exists for a reason."),
+  payoff: Paragraphs.describe(`Under ${WORDS.payoff.aim} words. Shown once the problem is solved: why it works, the name of the part now that its job has been shown, and any small detail that exists for a reason.`),
   earns: z.array(z.string()).describe("Ids of the scanned kit's parts this step adds to the build. Can be empty."),
 });
 export type Step = z.infer<typeof Step>;
@@ -83,9 +91,9 @@ export type Chapter = z.infer<typeof Chapter>;
 
 export const Lesson = z.object({
   title: z.string().describe("The invention's name."),
-  hook: Paragraphs.describe("Opening over the finished object: what it does, and the question the lesson will answer. Under 50 words."),
+  hook: Paragraphs.describe(`Opening over the finished object: what it does, and the question the lesson will answer. Under ${WORDS.hook.aim} words.`),
   chapters: z.array(Chapter).describe("Modules in order of need, joins where modules meet, the casing last."),
-  closing: Paragraphs.describe("Shown over the finished build: what the reader now sees when they look at one. Under 40 words."),
+  closing: Paragraphs.describe(`Shown over the finished build: what the reader now sees when they look at one. Under ${WORDS.closing.aim} words.`),
 });
 export type Lesson = z.infer<typeof Lesson>;
 
@@ -113,6 +121,13 @@ export const LessonEvent = z.discriminatedUnion("type", [
 ]);
 export type LessonEvent = z.infer<typeof LessonEvent>;
 
+const wordCount = (paragraphs: string[]) => paragraphs.join(" ").split(/\s+/).filter(Boolean).length;
+
+function overLength(where: string, what: keyof typeof WORDS, paragraphs: string[]): string[] {
+  const words = wordCount(paragraphs);
+  return words > WORDS[what].max ? [`${where} ${what} is ${words} words; write about ${WORDS[what].aim}`] : [];
+}
+
 /** Checks that need only the chapter itself, so a chapter can be shown as soon as it is written. */
 export function chapterProblems(chapter: Chapter, catalog: CatalogEntry[]): string[] {
   const primitives = new Map(catalog.map((p) => [p.id, p]));
@@ -120,6 +135,7 @@ export function chapterProblems(chapter: Chapter, catalog: CatalogEntry[]): stri
   if (chapter.steps.length === 0) problems.push(`${chapter.id} has no steps`);
   for (const step of chapter.steps) {
     const where = `${chapter.id}/${step.id}`;
+    problems.push(...overLength(where, "story", step.story), ...overLength(where, "payoff", step.payoff));
     const primitive = step.primitive === null ? undefined : primitives.get(step.primitive);
     if (step.primitive !== null && !primitive) problems.push(`${where} uses unknown primitive ${step.primitive}`);
     const problem = step.problem;
@@ -150,6 +166,7 @@ export function lessonProblems(lesson: Lesson, kit: Kit, catalog: CatalogEntry[]
   if (kinds[0] !== "module") problems.push("the first chapter must be a module");
   if (kinds.at(-1) !== "casing") problems.push("the last chapter must be the casing");
   if (kinds.filter((k) => k === "casing").length !== 1) problems.push("there must be exactly one casing chapter");
+  problems.push(...overLength("the lesson", "hook", lesson.hook), ...overLength("the lesson", "closing", lesson.closing));
 
   const partIds = new Set(kit.parts.map((p) => p.id));
   const earned = new Map<string, string>();
