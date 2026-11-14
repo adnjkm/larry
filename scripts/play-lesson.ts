@@ -1,21 +1,28 @@
-// Plays a whole lesson in a phone-sized browser: pnpm exec node scripts/play-lesson.ts [name]
+// Plays a whole lesson in a phone-sized browser: node scripts/play-lesson.ts [name] [--live]
 // Uses fixtures/lessons/<name>.json when it exists, otherwise serves out/sample-lesson.json from a stubbed POST /api/lessons.
+// --live loads the kit fixture and asks the real API server (node server/index.ts, port 8787) to write the lesson, and plays
+// it while it streams in. Every line of the stream is timestamped on the way through, so the log shows what arrived when.
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { request as httpRequest, createServer as createHttpServer } from "node:http";
+import { connect } from "node:net";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { type Locator, type Page, chromium } from "playwright-core";
 import { createServer } from "vite";
 import { parseKit } from "../shared/kit.ts";
-import { type Lesson, parseLesson } from "../shared/lesson.ts";
+import { type Chapter, type Lesson, LessonEvent, parseLesson } from "../shared/lesson.ts";
 import { CATALOG, PRIMITIVE_BY_ID } from "../src/primitives/catalog.ts";
 
 const root = resolve(import.meta.dirname, "..");
-const outDir = join(root, "out", "play");
-const name = process.argv[2] ?? "pen";
+const live = process.argv.includes("--live");
+const outDir = join(root, "out", live ? "play-live" : "play");
+const name = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? "pen";
+const API_PORT = Number(process.env.LARRY_API_PORT ?? 8787);
 const cache = join(homedir(), "Library", "Caches", "ms-playwright");
 const READY_TIMEOUT_MS = 90_000;
 const STEP_TIMEOUT_MS = 20_000;
+const LIVE_TIMEOUT_MS = 150_000;
 
 const browserLayouts = [
   { dir: "chromium_headless_shell", executable: "chrome-headless-shell-mac-arm64/chrome-headless-shell" },
@@ -37,10 +44,48 @@ function findChromium(): string {
 
 const kit = parseKit(JSON.parse(readFileSync(join(root, "fixtures", "kits", `${name}.json`), "utf8")));
 const fixturePath = join(root, "fixtures", "lessons", `${name}.json`);
-const stubbed = !existsSync(fixturePath);
+const stubbed = !live && !existsSync(fixturePath);
 const lessonPath = stubbed ? join(root, "out", "sample-lesson.json") : fixturePath;
-const lessonRaw: unknown = JSON.parse(readFileSync(lessonPath, "utf8"));
-const lesson: Lesson = parseLesson(lessonRaw, kit, CATALOG);
+const lessonRaw: unknown = live ? null : JSON.parse(readFileSync(lessonPath, "utf8"));
+const lesson: Lesson | undefined = live ? undefined : parseLesson(lessonRaw, kit, CATALOG);
+
+/** What the live stream has delivered so far, each event stamped with the time it passed through the tee. */
+const arrivals: { t: number; event: LessonEvent }[] = [];
+const t0 = Date.now();
+const since = (t = Date.now()) => `${((t - t0) / 1000).toFixed(1)}s`;
+const arrival = (type: LessonEvent["type"]) => arrivals.filter((a) => a.event.type === type);
+const finalLesson = () => {
+  const done = arrival("done")[0]?.event;
+  return done?.type === "done" ? done.lesson : undefined;
+};
+
+/** Forwards the app's lesson request to the API server unchanged and records each NDJSON line as it goes by. */
+function teeToApi() {
+  return createHttpServer((req, res) => {
+    const upstream = httpRequest({ host: "127.0.0.1", port: API_PORT, method: req.method, path: req.url, headers: req.headers }, (up) => {
+      res.writeHead(up.statusCode ?? 502, up.headers);
+      let buffer = "";
+      up.on("data", (chunk: Buffer) => {
+        res.write(chunk);
+        buffer += chunk.toString("utf8");
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.trim()) arrivals.push({ t: Date.now(), event: LessonEvent.parse(JSON.parse(line)) });
+        }
+      });
+      up.on("end", () => res.end());
+    });
+    upstream.on("error", () => res.writeHead(502).end());
+    req.pipe(upstream);
+  });
+}
+
+const apiIsUp = () =>
+  new Promise<boolean>((done) => {
+    const socket = connect(API_PORT, "127.0.0.1", () => (socket.destroy(), done(true)));
+    socket.on("error", () => done(false));
+  });
 
 const shot = (page: Page, file: string, fullPage = true) => page.screenshot({ path: join(outDir, file), fullPage });
 
@@ -80,7 +125,14 @@ async function download(page: Page, button: Locator, file: string) {
 }
 
 mkdirSync(outDir, { recursive: true });
-const server = await createServer({ root, logLevel: "warn", server: { port: 0, host: "127.0.0.1", forwardConsole: false } });
+if (live && !(await apiIsUp())) throw new Error(`--live needs the API server: node server/index.ts (port ${API_PORT})`);
+const tee = live ? teeToApi().listen(0, "127.0.0.1") : undefined;
+const teePort = tee ? await new Promise<number>((r) => tee.once("listening", () => r((tee.address() as { port: number }).port))) : 0;
+const server = await createServer({
+  root,
+  logLevel: "warn",
+  server: { port: 0, host: "127.0.0.1", forwardConsole: false, ...(tee ? { proxy: { "/api": `http://127.0.0.1:${teePort}` } } : {}) },
+});
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 let exitCode = 0;
 const pageErrors: string[] = [];
@@ -103,11 +155,38 @@ try {
       lessonRequests++;
       await new Promise((r) => setTimeout(r, 1200));
       if (lessonRequests === 1) await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Larry's planner is asleep" }) });
-      else await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ lesson: lessonRaw }) });
+      else {
+        const whole = parseLesson(lessonRaw, kit, CATALOG);
+        const events: LessonEvent[] = [{ type: "started", title: whole.title, hook: whole.hook }, ...whole.chapters.map((chapter): LessonEvent => ({ type: "chapter", chapter })), { type: "done", lesson: whole }];
+        await route.fulfill({ status: 200, contentType: "application/x-ndjson", body: events.map((e) => JSON.stringify(e)).join("\n") + "\n" });
+      }
     });
   }
 
-  await page.goto(`${url}?demo=${name}`, { waitUntil: "domcontentloaded" });
+  /** The chapter at `c`: from the fixture, or from the stream once it has arrived (waiting on the player's own waiting state if the script outruns it). */
+  const known = (c: number): Chapter | undefined => {
+    const event = arrivals.filter((a) => a.event.type === "chapter")[c]?.event;
+    return event?.type === "chapter" ? event.chapter : finalLesson()?.chapters[c];
+  };
+  let waitingShot = false;
+  async function chapterAt(c: number): Promise<Chapter | undefined> {
+    if (lesson) return lesson.chapters[c];
+    if (!known(c) && !finalLesson()) {
+      const waited = await page.locator("[data-waiting]").waitFor({ timeout: 3000 }).then(() => true, () => false);
+      if (waited) {
+        console.log(`${since()} waiting state shown: out of chapters at ${c}, ${arrival("chapter").length} streamed`);
+        if (!waitingShot) await shot(page, "03-waiting-for-next-part.png", false);
+        waitingShot = true;
+      } else assert.ok(known(c) || finalLesson(), `chapter ${c + 1} has not arrived, so the player must show its waiting state`);
+    }
+    while (!known(c) && !finalLesson()) {
+      if (arrival("failed").length > 0) throw new Error(`lesson stream failed: ${JSON.stringify(arrival("failed")[0]?.event)}`);
+      await page.waitForTimeout(100);
+    }
+    return known(c);
+  }
+
+  await page.goto(`${url}?demo=${name}${live ? "&live" : ""}`, { waitUntil: "domcontentloaded" });
   const start = page.locator("[data-action=start]");
   if (stubbed) {
     await page.getByText("Larry is planning your build…").waitFor();
@@ -119,7 +198,27 @@ try {
     console.log("lesson failure state shown, retrying");
     await page.locator("[data-action=retry]").click();
   }
-  await page.locator("[data-action=start]:not([disabled])").waitFor();
+  if (live) {
+    await page.locator("[data-hook]").waitFor({ timeout: LIVE_TIMEOUT_MS });
+    const hookSeen = Date.now();
+    const chaptersAtHook = arrival("chapter").length;
+    assert.equal(chaptersAtHook, 0, "the hook is shown before any chapter has arrived");
+    assert.equal(await start.isDisabled(), true, "Start is disabled until the first chapter arrives");
+    console.log(`${since(hookSeen)} hook shown (started arrived ${since(arrival("started")[0]?.t)}), Start disabled, 0 chapters`);
+    await viewersReady(page);
+    await shot(page, "00-north-star-hook-only.png");
+  }
+  await page.locator("[data-action=start]:not([disabled])").waitFor({ timeout: live ? LIVE_TIMEOUT_MS : STEP_TIMEOUT_MS });
+  if (live) {
+    const enabled = Date.now();
+    const chapters = arrival("chapter").length;
+    const rows = await page.locator("[data-requirements] li").count();
+    const finished = arrival("done").length;
+    console.log(`${since(enabled)} Start building enabled with ${chapters} chapter(s) streamed (first at ${since(arrival("chapter")[0]?.t)}), ${rows} requirement row(s) shown, lesson done: ${finished > 0 ? "yes" : "no"}`);
+    assert.ok(chapters >= 1, "Start enables only once a chapter has arrived");
+    assert.equal(finished, 0, "Start enables while the rest of the lesson is still arriving");
+    await shot(page, "02-north-star-first-chapter.png");
+  }
   assert.equal(await start.innerText(), "Start building");
   await viewersReady(page);
   await shot(page, "01-north-star.png");
@@ -129,7 +228,10 @@ try {
 
   let chapterNumber = 0;
   let firstTune = true;
-  for (const chapter of lesson.chapters) {
+  let midStreamShot = false;
+  for (let c = 0; ; c++) {
+    const chapter = await chapterAt(c);
+    if (!chapter) break;
     chapterNumber++;
     for (const [index, step] of chapter.steps.entries()) {
       const article = page.locator(`article[data-step="${step.id}"]`);
@@ -199,7 +301,12 @@ try {
       }
 
       const solved = await article.getAttribute("data-complete");
-      console.log(`${chapter.id} | ${step.title} | ${type} | solved: ${solved !== null ? "yes" : "no"}`);
+      console.log(`${live ? `${since()} ` : ""}${chapter.id} | ${step.title} | ${type} | solved: ${solved !== null ? "yes" : "no"}`);
+      if (live && !midStreamShot && index === 1 && !finalLesson()) {
+        midStreamShot = true;
+        await shot(page, "04-mid-stream-step.png", false);
+        console.log(`${since()} mid-stream: playing ${chapter.id}/${step.id} with ${arrival("chapter").length} chapter(s) streamed, lesson not done`);
+      }
       assert.notEqual(solved, null, `${step.id} can be completed`);
       if (step.earns.length > 0) assert.equal(await page.locator("[data-added]").count(), 1, "earned parts are announced");
       assert.equal(await next.isEnabled(), true, `${step.id}: Next is enabled once the step is complete`);
@@ -217,7 +324,12 @@ try {
   await viewersReady(page);
   await shot(page, "99-finish.png");
   const done = await page.locator("[data-roadmap] [data-status=done]").count();
-  assert.equal(done, lesson.chapters.length, "every roadmap chip is ticked at the finish");
+  assert.equal(done, chapterNumber, "every roadmap chip is ticked at the finish");
+  assert.equal(await page.locator("[data-roadmap] [data-placeholder]").count(), 0, "no placeholder chip once the lesson is done");
+  if (live) {
+    assert.ok(finalLesson(), "the stream ended with done");
+    console.log(`${since()} finish shown: ${chapterNumber} chapters played, stream timeline ${arrivals.map((a) => `${a.event.type}@${since(a.t)}`).join(" ")}`);
+  }
   await download(page, page.locator("[data-action=download]"), `${name}.glb`);
   await page.locator("[data-action=restart]").click();
   await page.locator("[data-finish]").waitFor({ state: "detached" });
@@ -230,5 +342,6 @@ try {
   if (pageErrors.length > 0) console.error(`[page errors] ${pageErrors.join(" | ")}`);
   await browser?.close();
   await server.close();
+  tee?.close();
 }
 process.exit(exitCode);

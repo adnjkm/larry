@@ -1,39 +1,58 @@
-// Where a lesson comes from: the server, or (demo mode) a fixture checked into the repo.
+// Where a lesson comes from: the server, streamed chapter by chapter, or (demo mode) a fixture checked into the repo.
 import { type Kit, parseKit } from "../../shared/kit.ts";
-import { type Lesson, parseLesson } from "../../shared/lesson.ts";
+import { type Chapter, type Lesson, LessonEvent, parseLesson } from "../../shared/lesson.ts";
+import { readEvents } from "../ndjson.ts";
 import { CATALOG } from "../primitives/catalog.ts";
+import { type Arrived, arrivedWhole } from "./model.ts";
 
 const LESSON_TIMEOUT_MS = 240_000;
 
-export type LessonLoad = { status: "loading" } | { status: "ready"; lesson: Lesson } | { status: "failed"; message: string };
+type Started = { title: string; hook: string[] };
 
-function errorText(body: unknown, status: number): string {
-  if (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string") return body.error;
-  return `Request failed (${status})`;
+/** A failure keeps what arrived before it, so a player already running keeps its place. */
+export type LessonLoad =
+  | { status: "planning"; started?: Started; chapters: Chapter[] }
+  | { status: "complete"; lesson: Lesson }
+  | { status: "failed"; message: string; started?: Started; chapters: Chapter[] };
+
+export const planning = (): LessonLoad => ({ status: "planning", chapters: [] });
+
+export const arrivedOf = (load: LessonLoad): Arrived => (load.status === "complete" ? arrivedWhole(load.lesson) : { chapters: load.chapters, done: null });
+
+export const hookOf = (load: LessonLoad): string[] | undefined => (load.status === "complete" ? load.lesson.hook : load.started?.hook);
+
+export function addLessonEvent(load: LessonLoad, event: LessonEvent): LessonLoad {
+  if (load.status !== "planning") return load;
+  switch (event.type) {
+    case "started":
+      return { ...load, started: { title: event.title, hook: event.hook } };
+    case "chapter":
+      return { ...load, chapters: [...load.chapters, event.chapter] };
+    case "done":
+      return { status: "complete", lesson: event.lesson };
+    case "failed":
+      return { status: "failed", message: event.message, started: load.started, chapters: load.chapters };
+  }
 }
 
-export async function requestLesson(kit: Kit): Promise<Lesson> {
+/** Chapters were checked on the server as they were written. The finished lesson is checked here against the kit. */
+export async function* requestLesson(kit: Kit, signal: AbortSignal): AsyncGenerator<LessonEvent> {
   const response = await fetch("/api/lessons", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ kit }),
-    signal: AbortSignal.timeout(LESSON_TIMEOUT_MS),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(LESSON_TIMEOUT_MS)]),
   });
-  const body: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(errorText(body, response.status));
-  if (typeof body !== "object" || body === null || !("lesson" in body)) throw new Error("Larry sent back something that doesn't add up");
-  try {
-    return parseLesson(body.lesson, kit, CATALOG);
-  } catch {
-    throw new Error("Larry's lesson didn't hold together");
-  }
-}
-
-export async function loadLesson(kit: Kit): Promise<LessonLoad> {
-  try {
-    return { status: "ready", lesson: await requestLesson(kit) };
-  } catch (error) {
-    return { status: "failed", message: error instanceof Error ? error.message : String(error) };
+  for await (const event of readEvents(response, LessonEvent)) {
+    if (event.type !== "done") {
+      yield event;
+      continue;
+    }
+    try {
+      yield { type: "done", lesson: parseLesson(event.lesson, kit, CATALOG) };
+    } catch {
+      throw new Error("Larry's lesson didn't hold together");
+    }
   }
 }
 
@@ -42,11 +61,11 @@ const lessonFixtures = import.meta.glob<unknown>("../../fixtures/lessons/*.json"
 
 const fixtureAt = <T>(fixtures: Record<string, () => Promise<T>>, dir: string, name: string) => fixtures[`../../fixtures/${dir}/${name}.json`];
 
-/** A kit and, when one is checked in, its lesson. A fixture that exists but is invalid throws; a missing lesson is left to the server. */
-export async function loadDemo(name: string): Promise<{ kit: Kit; lesson: Lesson | undefined }> {
+/** A kit and, unless `live` or none is checked in, its lesson. A fixture that exists but is invalid throws; a missing lesson is left to the server. */
+export async function loadDemo(name: string, live: boolean): Promise<{ kit: Kit; lesson: Lesson | undefined }> {
   const kitFixture = fixtureAt(kitFixtures, "kits", name);
   if (!kitFixture) throw new Error(`No demo called "${name}"`);
   const kit = parseKit(await kitFixture());
-  const lessonFixture = fixtureAt(lessonFixtures, "lessons", name);
+  const lessonFixture = live ? undefined : fixtureAt(lessonFixtures, "lessons", name);
   return { kit, lesson: lessonFixture ? parseLesson(await lessonFixture(), kit, CATALOG) : undefined };
 }

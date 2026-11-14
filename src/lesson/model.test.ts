@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { parseKit } from "../../shared/kit.ts";
 import { parseLesson } from "../../shared/lesson.ts";
 import { CATALOG } from "../primitives/catalog.ts";
-import { type Action, type LessonState, chapterStatus, earnedParts, isComplete, isFinished, reduce, startLesson } from "./model.ts";
+import { type Action, type Arrived, type LessonState, arrivedWhole, chapterStatus, earnedParts, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
 
 const kit = parseKit(JSON.parse(readFileSync(new URL("../../fixtures/kits/pen.json", import.meta.url), "utf8")));
 
@@ -46,12 +46,28 @@ const lesson = parseLesson(
   CATALOG,
 );
 
+const whole = arrivedWhole(lesson);
+const [moduleChapter, casingChapter] = lesson.chapters;
+assert.ok(moduleChapter && casingChapter);
+/** Only the module has been written, so the lesson is still growing. */
+const partial: Arrived = { chapters: [moduleChapter], done: null };
+const grow = (arrived: Arrived): Action => ({ type: "grow", arrived });
+const solveModule: Action[] = [
+  { type: "problem", action: { type: "run" } },
+  { type: "next" },
+  { type: "problem", action: { type: "pick", option: 1 } },
+  { type: "next" },
+  { type: "slider", id: "stiffness", value: 3 },
+  { type: "problem", action: { type: "tune" } },
+  { type: "next" },
+];
+
 const run = (s: LessonState, ...actions: Action[]) => actions.reduce(reduce, s);
 const tryTune = { type: "problem", action: { type: "tune" } } as const;
 
 describe("lesson player", () => {
   it("blocks Next until the step's problem is solved", () => {
-    const s = startLesson(lesson);
+    const s = startLesson(whole);
     assert.equal(reduce(s, { type: "next" }).at, 0);
     const ran = run(s, { type: "problem", action: { type: "run" } });
     assert.equal(isComplete(ran, 0), true);
@@ -59,7 +75,7 @@ describe("lesson player", () => {
   });
 
   it("lets a wrong pick fail once, then the right one solve", () => {
-    const s = run(startLesson(lesson), { type: "problem", action: { type: "run" } }, { type: "next" });
+    const s = run(startLesson(whole), { type: "problem", action: { type: "run" } }, { type: "next" });
     const wrong = reduce(s, { type: "problem", action: { type: "pick", option: 0 } });
     assert.deepEqual(wrong.steps[1]?.problem, { type: "pick", tried: [0], solved: false });
     assert.equal(reduce(wrong, { type: "problem", action: { type: "pick", option: 0 } }), wrong);
@@ -71,7 +87,7 @@ describe("lesson player", () => {
   it("judges a tune step below, above, then inside the window", () => {
     const at = (value: number) => run(toTune(), { type: "slider", id: "stiffness", value }, tryTune);
     const toTune = () =>
-      run(startLesson(lesson), { type: "problem", action: { type: "run" } }, { type: "next" }, { type: "problem", action: { type: "pick", option: 1 } }, { type: "next" });
+      run(startLesson(whole), { type: "problem", action: { type: "run" } }, { type: "next" }, { type: "problem", action: { type: "pick", option: 1 } }, { type: "next" });
     assert.deepEqual(at(2).steps[2]?.problem, { type: "tune", attempts: 1, verdict: "below", solved: false });
     assert.deepEqual(at(3.8).steps[2]?.problem, { type: "tune", attempts: 1, verdict: "above", solved: false });
     const solved = run(at(3.8), { type: "slider", id: "stiffness", value: 3 }, tryTune);
@@ -79,7 +95,7 @@ describe("lesson player", () => {
   });
 
   it("earns parts only from completed steps the player has reached", () => {
-    let s = startLesson(lesson);
+    let s = startLesson(whole);
     assert.deepEqual([...earnedParts(s)], []);
     s = run(s, { type: "problem", action: { type: "run" } });
     assert.deepEqual([...earnedParts(s)].sort(), ["barrel", "plunger", "refill"]);
@@ -88,7 +104,7 @@ describe("lesson player", () => {
 
   it("walks to the finish and keeps earned parts when going back", () => {
     let s = run(
-      startLesson(lesson),
+      startLesson(whole),
       { type: "problem", action: { type: "run" } },
       { type: "next" },
       { type: "problem", action: { type: "pick", option: 1 } },
@@ -106,5 +122,81 @@ describe("lesson player", () => {
     assert.equal(back.at, 2);
     assert.equal(earnedParts(back).size, kit.parts.length);
     assert.equal(reduce(back, { type: "next" }).at, 3);
+  });
+
+  describe("as the lesson grows", () => {
+    it("keeps the state of unchanged steps and plays on into the new chapter", () => {
+      const s = run(startLesson(partial), ...solveModule.slice(0, 3));
+      const grown = reduce(s, grow(whole));
+      assert.equal(grown.flat.length, 4);
+      assert.equal(grown.at, 1);
+      assert.equal(isComplete(grown, 0), true);
+      assert.deepEqual(grown.steps[1]?.problem, { type: "pick", tried: [1], solved: true });
+      assert.equal(grown.steps[1]?.values.stiffness, s.steps[1]?.values.stiffness);
+    });
+
+    it("keeps slider values and a pick in progress", () => {
+      const s = run(startLesson(partial), ...solveModule.slice(0, 2), { type: "problem", action: { type: "pick", option: 0 } }, { type: "next" });
+      const grown = reduce(s, grow(whole));
+      assert.deepEqual(grown.steps[1]?.problem, { type: "pick", tried: [0], solved: false });
+    });
+
+    it("resets only the step whose content changed", () => {
+      const s = run(startLesson(whole), ...solveModule.slice(0, 3));
+      const [run0, ...rest] = moduleChapter.steps;
+      assert.ok(run0 && moduleChapter.kind === "module");
+      const edited = { ...moduleChapter, steps: [{ ...run0, title: "rewritten" }, ...rest] };
+      const rewritten: Arrived = { chapters: [edited, casingChapter], done: { ...lesson, chapters: [edited, casingChapter] } };
+      const grown = reduce(s, grow(rewritten));
+      assert.equal(isComplete(grown, 0), false, "the rewritten step starts over");
+      assert.equal(isComplete(grown, 1), true, "the untouched pick keeps its answer");
+      assert.equal(grown.at, 1);
+    });
+
+    it("keeps state when only earns changed, which is how the server repairs a finished lesson", () => {
+      const s = run(startLesson(partial), { type: "problem", action: { type: "run" } });
+      const [first, ...rest] = moduleChapter.steps;
+      assert.ok(first && moduleChapter.kind === "module");
+      const repaired = { ...moduleChapter, steps: [{ ...first, earns: ["barrel"] }, ...rest] };
+      const grown = reduce(s, grow({ chapters: [repaired, casingChapter], done: null }));
+      assert.equal(isComplete(grown, 0), true);
+      assert.deepEqual([...earnedParts(grown)], ["barrel"]);
+    });
+
+    it("waits at the end of a partial lesson and moves on by itself when the next chapter arrives", () => {
+      const atEnd = run(startLesson(partial), ...solveModule);
+      assert.equal(atEnd.at, 3);
+      assert.equal(isWaiting(atEnd), true);
+      assert.equal(isFinished(atEnd), false);
+      assert.equal(reduce(atEnd, { type: "next" }), atEnd);
+      const grown = reduce(atEnd, grow({ chapters: lesson.chapters, done: null }));
+      assert.equal(isWaiting(grown), false);
+      assert.equal(grown.flat[grown.at]?.step.id, "clip");
+      assert.equal(chapterStatus(grown, 0), "done");
+    });
+
+    it("finishes only when the lesson is complete", () => {
+      const allWritten: Arrived = { chapters: lesson.chapters, done: null };
+      const atEnd = run(startLesson(allWritten), ...solveModule, { type: "next" });
+      assert.equal(atEnd.at, 4);
+      assert.equal(isFinished(atEnd), false);
+      assert.equal(isWaiting(atEnd), true);
+      const done = reduce(atEnd, grow(whole));
+      assert.equal(isFinished(done), true);
+      assert.equal(earnedParts(done).size, kit.parts.length);
+    });
+
+    it("clamps its place when the lesson shrinks", () => {
+      const atEnd = run(startLesson(whole), ...solveModule, { type: "next" });
+      assert.equal(atEnd.at, 4);
+      const shrunk = reduce(atEnd, grow(partial));
+      assert.equal(shrunk.at, 3);
+      assert.equal(shrunk.reached, 3);
+    });
+
+    it("does nothing for the same lesson", () => {
+      const s = startLesson(whole);
+      assert.equal(reduce(s, grow({ chapters: whole.chapters, done: whole.done })), s);
+    });
   });
 });

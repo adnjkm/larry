@@ -7,11 +7,14 @@ import { colors } from "../tokens.stylex.ts";
 import { BuildViewer } from "./BuildViewer.tsx";
 import { DownloadButton } from "./DownloadButton.tsx";
 import { ui } from "./lessonTokens.stylex.ts";
-import { type LessonState, earnedParts, isComplete, isFinished, reduce, startLesson } from "./model.ts";
+import { type Arrived, type LessonState, earnedParts, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
 import { PrimitiveFigure } from "./PrimitiveFigure.tsx";
 import { ProblemView } from "./ProblemViews.tsx";
 import { Roadmap } from "./Roadmap.tsx";
 import { buttons, layout, notes, type } from "./styles.ts";
+
+/** Set when the lesson stopped arriving before it was done. */
+export type Stalled = { message: string; onRetry: () => void };
 
 const styles = stylex.create({
   step: { display: "flex", flexDirection: "column", gap: 20 },
@@ -26,21 +29,33 @@ const styles = stylex.create({
 
 type Dispatch = (action: Parameters<typeof reduce>[1]) => void;
 
-export function LessonPlayer({ kit, lesson, onRestart }: { kit: Kit; lesson: Lesson; onRestart: () => void }) {
-  const [state, dispatch] = useReducer(reduce, lesson, startLesson);
+/** Plays the lesson as far as it has arrived. A newer `arrived` is folded in without disturbing the steps that haven't changed. */
+export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; arrived: Arrived; stalled?: Stalled; onRestart: () => void }) {
+  const [state, dispatch] = useReducer(reduce, arrived, startLesson);
   const earned = useMemo(() => earnedParts(state), [state]);
   const finished = isFinished(state);
 
   useEffect(() => {
+    dispatch({ type: "grow", arrived: { chapters: arrived.chapters, done: arrived.done } });
+  }, [arrived.chapters, arrived.done]);
+
+  const waiting = isWaiting(state);
+  useEffect(() => {
     window.scrollTo(0, 0);
-  }, [state.at]);
+  }, [state.at, waiting]);
 
   return (
     <>
       <BuildViewer kit={kit} earned={earned} />
       <Roadmap state={state} />
-      {finished ? <Finish kit={kit} lesson={lesson} onRestart={onRestart} /> : <StepScreen key={state.at} kit={kit} state={state} dispatch={dispatch} />}
-      {finished && state.at > 0 && (
+      {state.done && finished ? (
+        <Finish kit={kit} lesson={state.done} onRestart={onRestart} />
+      ) : waiting ? (
+        <Waiting stalled={stalled} />
+      ) : (
+        <StepScreen key={state.at} kit={kit} state={state} dispatch={dispatch} />
+      )}
+      {state.at >= state.flat.length && state.at > 0 && (
         <button type="button" {...stylex.props(buttons.base, buttons.quiet)} onClick={() => dispatch({ type: "back" })}>
           Back to the last step
         </button>
@@ -54,13 +69,13 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
   const current = state.steps[state.at];
   if (!flat || !current) return null;
   const { step } = flat;
-  const chapter = state.lesson.chapters[flat.chapter];
+  const chapter = state.chapters[flat.chapter];
   const inChapter = state.flat.filter((f) => f.chapter === flat.chapter).length;
   const complete = isComplete(state, state.at);
   const primitive = step.primitive === null ? undefined : PRIMITIVE_BY_ID.get(step.primitive);
   const partsById = new Map(kit.parts.map((p) => [p.id, p]));
   const added = step.earns.flatMap((id) => partsById.get(id) ?? []);
-  const last = state.at === state.flat.length - 1;
+  const last = state.done !== null && state.at === state.flat.length - 1;
 
   const figure = primitive && (
     <PrimitiveFigure
@@ -140,6 +155,27 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
         </button>
       </div>
     </>
+  );
+}
+
+function Waiting({ stalled }: { stalled?: Stalled }) {
+  if (stalled)
+    return (
+      <section data-lesson-failed {...stylex.props(layout.stack)}>
+        <div {...stylex.props(notes.base, notes.observation, notes.fail)}>
+          <p {...stylex.props(type.label, notes.failText)}>Larry stopped writing</p>
+          <p {...stylex.props(type.body)}>{stalled.message}</p>
+        </div>
+        <button type="button" data-action="retry" {...stylex.props(buttons.base, buttons.primary)} onClick={stalled.onRetry}>
+          Try again
+        </button>
+      </section>
+    );
+  return (
+    <section data-waiting role="status" {...stylex.props(layout.stack)}>
+      <p {...stylex.props(type.label, type.labelAccent)}>Up next</p>
+      <p {...stylex.props(type.lead)}>Larry is still writing the next part…</p>
+    </section>
   );
 }
 

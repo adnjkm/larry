@@ -4,7 +4,7 @@ import type { Kit } from "../../shared/kit.ts";
 import { colors } from "../tokens.stylex.ts";
 import { DownloadButton } from "./DownloadButton.tsx";
 import { ui } from "./lessonTokens.stylex.ts";
-import type { LessonLoad } from "./lessonSource.ts";
+import { type LessonLoad, arrivedOf, hookOf } from "./lessonSource.ts";
 import { buttons, layout, notes, type } from "./styles.ts";
 
 const styles = stylex.create({
@@ -15,15 +15,18 @@ const styles = stylex.create({
 });
 
 export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { kit: Kit; lesson: LessonLoad; onStart: () => void; onRetry: () => void; onRestart: () => void }) {
-  const modules = lesson.status === "ready" ? lesson.lesson.chapters.flatMap((c) => (c.kind === "module" ? [c] : [])) : [];
+  const { chapters } = arrivedOf(lesson);
+  const hook = hookOf(lesson);
+  const modules = chapters.flatMap((c) => (c.kind === "module" ? [c] : []));
   const known = modules.filter((m) => !m.surprise);
   const surprises = modules.length - known.length;
+  const ready = chapters.length > 0 && lesson.status !== "failed";
 
   return (
     <>
-      {lesson.status === "ready" && (
+      {hook && (
         <section data-hook {...stylex.props(layout.stack)}>
-          {lesson.lesson.hook.map((p) => (
+          {hook.map((p) => (
             <p key={p} {...stylex.props(type.lead)}>
               {p}
             </p>
@@ -31,7 +34,7 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
         </section>
       )}
 
-      {lesson.status === "ready" && known.length > 0 && (
+      {known.length > 0 && (
         <section data-requirements {...stylex.props(layout.tight)}>
           <p {...stylex.props(type.label)}>To make a {kit.name.toLowerCase()}, it must…</p>
           <ul {...stylex.props(styles.needs)}>
@@ -47,6 +50,12 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
                 <span>
                   {surprises === 1 ? "One more you will only notice once it fails" : `${surprises} more you will only notice once they fail`}
                 </span>
+              </li>
+            )}
+            {lesson.status === "planning" && (
+              <li data-more {...stylex.props(styles.need, styles.surprise)}>
+                <span {...stylex.props(styles.needMark)}>…</span>
+                <span>Larry is still writing the rest</span>
               </li>
             )}
           </ul>
@@ -65,8 +74,8 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
           Try again
         </button>
       ) : (
-        <button type="button" data-action="start" disabled={lesson.status !== "ready"} {...stylex.props(buttons.base, lesson.status === "ready" ? buttons.primary : buttons.disabled)} onClick={onStart}>
-          {lesson.status === "ready" ? "Start building" : "Larry is planning your build…"}
+        <button type="button" data-action="start" disabled={!ready} {...stylex.props(buttons.base, ready ? buttons.primary : buttons.disabled)} onClick={onStart}>
+          {ready ? "Start building" : "Larry is planning your build…"}
         </button>
       )}
 

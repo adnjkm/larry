@@ -23,6 +23,7 @@ const styles = stylex.create({
   small: { fontSize: 12, padding: "4px 10px" },
   current: { backgroundColor: ui.accent, color: "#FFFFFF" },
   done: { backgroundColor: colors.paper, color: colors.ink, boxShadow: `inset 0 0 0 1px ${ui.line}` },
+  more: { backgroundColor: "transparent", boxShadow: `inset 0 0 0 1px ${ui.line}` },
   tick: { fontWeight: 700, color: ui.ok },
 });
 
@@ -33,14 +34,13 @@ const short = (need: string) => {
 };
 
 export function Roadmap({ state }: { state: LessonState }) {
-  const { lesson } = state;
   const chapterAt = (step: number) => state.flat[Math.min(step, state.flat.length - 1)]?.chapter ?? 0;
   const furthest = Math.max(chapterAt(state.at), chapterAt(state.reached));
   return (
     <nav aria-label="Roadmap" data-roadmap {...stylex.props(layout.tight)}>
       <p {...stylex.props(type.label)}>It must…</p>
       <div {...stylex.props(layout.row)}>
-        {lesson.chapters.map((chapter, i) => {
+        {state.chapters.map((chapter, i) => {
           const status = chapterStatus(state, i);
           const hidden = chapter.kind === "module" && chapter.surprise && i > furthest && status === "upcoming";
           const label = chapter.kind === "module" ? (hidden ? "?" : short(chapter.need)) : chapter.title;
@@ -51,6 +51,11 @@ export function Roadmap({ state }: { state: LessonState }) {
             </span>
           );
         })}
+        {state.done === null && (
+          <span data-placeholder aria-label="More to come" {...stylex.props(styles.chip, styles.small, styles.more)}>
+            …
+          </span>
+        )}
       </div>
     </nav>
   );

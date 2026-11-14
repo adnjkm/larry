@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Kit, KitEvent, Part } from "../shared/kit.ts";
 import type { Lesson } from "../shared/lesson.ts";
 import { CapturePicker } from "./capture/CapturePicker.tsx";
@@ -7,7 +7,7 @@ import { preparePhoto } from "./capture/preparePhoto.ts";
 import { requestKit } from "./capture/requestKit.ts";
 import { KitViewer } from "./kit3d/KitViewer.tsx";
 import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
-import { type LessonLoad, loadDemo, loadLesson } from "./lesson/lessonSource.ts";
+import { type LessonLoad, addLessonEvent, arrivedOf, loadDemo, planning, requestLesson } from "./lesson/lessonSource.ts";
 import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
 import { colors, fonts } from "./tokens.stylex.ts";
 
@@ -19,12 +19,13 @@ type State =
   | { phase: "capture" }
   | { phase: "loading" }
   | Generating
-  | { phase: "viewing"; kit: Kit; lesson: LessonLoad }
-  | { phase: "building"; kit: Kit; lesson: Lesson }
+  | { phase: "viewing" | "building"; kit: Kit; lesson: LessonLoad }
   | { phase: "failed"; message: string; retry: () => void };
 
-/** `?demo=<name>` loads a kit and lesson checked into fixtures/, so the app runs with no camera and no network. */
-const DEMO = new URLSearchParams(location.search).get("demo");
+/** `?demo=<name>` loads a kit and lesson checked into fixtures/, so the app runs with no camera and no network. Add `&live` to plan the lesson on the server instead. */
+const params = new URLSearchParams(location.search);
+const DEMO = params.get("demo");
+const LIVE = params.has("live");
 
 const styles = stylex.create({
   page: {
@@ -72,22 +73,34 @@ function addEvent(state: Generating, event: Extract<KitEvent, { type: "started" 
 export function App() {
   const [state, setState] = useState<State>(DEMO ? { phase: "loading" } : { phase: "capture" });
 
-  /** The lesson is planned while the person looks at the model, so it is usually ready by the time they want it. */
+  const planner = useRef<AbortController>(undefined);
+
+  /** The lesson is written while the person looks at the model, and it keeps arriving while they play it. */
   async function planLesson(kit: Kit) {
-    const update = (lesson: LessonLoad) => setState((s) => (s.phase === "viewing" && s.kit === kit ? { ...s, lesson } : s));
-    update({ status: "loading" });
-    update(await loadLesson(kit));
+    planner.current?.abort();
+    const controller = new AbortController();
+    planner.current = controller;
+    const update = (change: (lesson: LessonLoad) => LessonLoad) =>
+      setState((s) => ((s.phase === "viewing" || s.phase === "building") && s.kit === kit ? { ...s, lesson: change(s.lesson) } : s));
+    update(planning);
+    try {
+      for await (const event of requestLesson(kit, controller.signal)) update((lesson) => addLessonEvent(lesson, event));
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const message = error instanceof DOMException && error.name === "TimeoutError" ? "Larry took too long to plan this one" : error instanceof Error ? error.message : String(error);
+      update((lesson) => (lesson.status === "planning" ? { ...lesson, status: "failed", message } : lesson));
+    }
   }
 
   function showKit(kit: Kit, lesson?: Lesson) {
-    setState({ phase: "viewing", kit, lesson: lesson ? { status: "ready", lesson } : { status: "loading" } });
+    setState({ phase: "viewing", kit, lesson: lesson ? { status: "complete", lesson } : planning() });
     if (!lesson) void planLesson(kit);
   }
 
   useEffect(() => {
     if (!DEMO) return;
     let live = true;
-    loadDemo(DEMO).then(
+    loadDemo(DEMO, LIVE).then(
       ({ kit, lesson }) => live && showKit(kit, lesson),
       (error: unknown) => live && setState({ phase: "failed", message: error instanceof Error ? error.message : String(error), retry: () => location.reload() }),
     );
@@ -113,7 +126,10 @@ export function App() {
     }
   }
 
-  const restart = () => setState({ phase: "capture" });
+  const restart = () => {
+    planner.current?.abort();
+    setState({ phase: "capture" });
+  };
 
   const view =
     state.phase === "viewing"
@@ -136,7 +152,7 @@ export function App() {
             <NorthStarPanel
               kit={state.kit}
               lesson={state.lesson}
-              onStart={() => state.lesson.status === "ready" && setState({ phase: "building", kit: state.kit, lesson: state.lesson.lesson })}
+              onStart={() => setState({ ...state, phase: "building" })}
               onRetry={() => void planLesson(state.kit)}
               onRestart={restart}
             />
@@ -152,7 +168,14 @@ export function App() {
           )}
         </>
       )}
-      {state.phase === "building" && <LessonPlayer kit={state.kit} lesson={state.lesson} onRestart={restart} />}
+      {state.phase === "building" && (
+        <LessonPlayer
+          kit={state.kit}
+          arrived={arrivedOf(state.lesson)}
+          stalled={state.lesson.status === "failed" ? { message: state.lesson.message, onRetry: () => void planLesson(state.kit) } : undefined}
+          onRestart={restart}
+        />
+      )}
       {state.phase === "failed" && (
         <>
           <p {...stylex.props(styles.status)}>{state.message}</p>
