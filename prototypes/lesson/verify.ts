@@ -2,8 +2,9 @@
 // Usage: node prototypes/lesson/verify.ts [run ...]
 //   run = a sample id (e.g. bottle) for the lesson that sample opens with (hand-written, name-matched,
 //   generated or Inspect), generated-<sample> for the lesson generated from that sample's joints,
-//   inspect-<sample> for the Inspect lesson derived from its kit, or templates to check every joint
-//   template's rules on every fixture kit's geometry without a browser. With no runs: every sample's
+//   inspect-<sample> for the Inspect lesson derived from its kit, story-<sample> for the story generated
+//   from its kit, templates to check every joint template's rules on every fixture kit's geometry
+//   without a browser, or stories to generate a story from every fixture kit and check its rules. With no runs: every sample's
 //   own lesson, templates, and the generated and Inspect lessons each sample does not already open with. Screenshots go to out/lesson/<run>-<nn>-<stage>.png.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
@@ -17,8 +18,9 @@ import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { lessonFor, LESSONS } from "./lessons/index.ts";
 import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { EVIDENCE, generatedLesson, JOINT_TEMPLATES, standOf } from "./templates/index.ts";
+import { generatedStory } from "./stories/index.ts";
 import { aim, idsOf, resting, sharesOf, SPRING, springsAt, type Springs, step } from "./explode.ts";
-import { bindStory, familyOf, faultValues, fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, type Run as TestRun, type Shares, sliderSteps, type Story, type TestCtx, type Values, type Window, type Workshop, zoneAt } from "./model.ts";
+import { bindStory, familyOf, faultValues, fixedValues, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, type Run as TestRun, type Shares, sliderSteps, type Story, type TestCtx, type Values, type Window, type Workshop, zoneAt } from "./model.ts";
 import { corners, drawObject, extents, restCentre } from "./pose.ts";
 import { COLOR, SYNTHWAVE } from "./primitives/parts.ts";
 
@@ -121,7 +123,7 @@ function decodePng(png: Buffer): { width: number; height: number; px: (x: number
   return { width, height, px: (x, y) => [out[y * stride + x * channels]!, out[y * stride + x * channels + 1]!, out[y * stride + x * channels + 2]!] };
 }
 
-type Query = "" | "?inspect" | "?generated";
+type Query = "" | "?inspect" | "?generated" | "?story";
 type Row = { run: string; step: string; ok: boolean; detail: string };
 const rows: Row[] = [];
 
@@ -597,7 +599,11 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
  * can go past that zone, the two sides fail differently. Every verdict and live line is words only,
  * and the final passes at the tuning the modules leave.
  */
-function checkStory(r: Run, story: Story, kit: Kit) {
+/** The grip's words on one module's Make it work: where it starts, where it works, and past that (if it can go there). */
+type Grip = { start: string; works: string; over: string | null };
+
+function checkStory(r: Run, story: Story, kit: Kit): Grip[] {
+  const grips: Grip[] = [];
   const ctxOf = (present: string[]): TestCtx => ({ kit, present, centre: restCentre(kit, present, story.rest({ kit, present })) });
   const STEPS = 200;
   const SAMPLES = 24;
@@ -625,6 +631,7 @@ function checkStory(r: Run, story: Story, kit: Kit) {
     const fromStart = runs(c.start).filter((x) => !x.pass).map((x) => x.line);
     r.check(`${tag} rules: fails at the start and passes exactly where the grip reads ${truthful?.word ?? "?"}`, fromStart.length > 0 && truthful !== undefined, `${passing.length} passing of ${values.length}`);
     const past = zones.indexOf(truthful!) < zones.length - 1;
+    grips.push({ start: zoneAt(zones, c.start).word, works: truthful!.word, over: past ? zones[zones.length - 1]!.word : null });
     if (past) {
       const fromEnd = runs(zones[zones.length - 1]!.until).filter((x) => !x.pass).map((x) => x.line);
       r.check(`${tag} rules: too little and too much fail differently`, fromEnd.length > 0 && !fromEnd.some((l) => fromStart.includes(l)), `${fromStart.join(" / ")} | ${fromEnd.join(" / ")}`);
@@ -635,6 +642,7 @@ function checkStory(r: Run, story: Story, kit: Kit) {
   const final = story.final.tests.map((t) => words(`final ${t.id}`, t.run(tuning, all)).verdict);
   r.check(`rules: the final passes at the modules' tuning ${JSON.stringify(tuning)}`, final.every((v) => v.pass), final.map((v) => v.line).join(" / "));
   r.check("rules: every verdict and live line is words only", numbered.size === 0, [...numbered].slice(0, 3).join(" | "));
+  return grips;
 }
 
 type Rz = { r: number; y: number };
@@ -722,6 +730,20 @@ function checkExplode(r: Run, story: Story, kit: Kit) {
   const centre = restCentre(kit, present, scene);
   const owner = new Map(plan.order.flatMap((l) => familyOf(kit, l.id).map((id) => [id, l.id] as const)));
   const ids = idsOf(plan);
+  // The cuts below are taken through the y axis, so they hold only for an object round about it whose
+  // assemblies lift along it. Anything else is checked fully apart: no two assemblies' boxes meet.
+  const main = kit.parts.find((p) => p.parentId === null)!;
+  const alongAxis = main.shape.kind === "lathe" && upright(main) && plan.order.every((l) => {
+    const o = l.at(1).offset ?? { x: 0, y: 0, z: 0 };
+    return Math.abs(o.x) < 1e-6 && Math.abs(o.z) < 1e-6;
+  });
+  if (!alongAxis) {
+    const apart = drawObject({ kit, present, scene, explode: Object.fromEntries(ids.map((id) => [id, 1])), plan, pink: new Set(), centre });
+    const groups = [...new Set(present.map((id) => owner.get(id) ?? "body"))].map((id) => ({ id, box: extents(apart.filter((p) => (owner.get(p.id) ?? "body") === id)) }));
+    const meet = groups.flatMap((a, i) => groups.slice(i + 1).filter((b) => (["x", "y", "z"] as const).every((k) => a.box.min[k] < b.box.max[k] - 0.5 && b.box.min[k] < a.box.max[k] - 0.5)).map((b) => `${a.id} and ${b.id}`));
+    r.check(`explode: fully apart, no two assemblies' boxes meet (${groups.length} groups)`, meet.length === 0, meet.join(", "));
+    return;
+  }
   const frames: { label: string; shares: Shares }[] = [];
   const DT = 1000 / 60;
   const play = (label: string, from: number, to: number, reverseAt?: number) => {
@@ -741,15 +763,18 @@ function checkExplode(r: Run, story: Story, kit: Kit) {
     play(`closed then reversed at ${t} ms,`, 1, 0, t);
   }
   ids.forEach((id, k) => [0.25, 0.5, 0.75, 1].forEach((x) => frames.push({ label: `prefix ${id} at ${x}`, shares: Object.fromEntries(ids.map((other, j) => [other, j < k ? 1 : j === k ? x : 0])) })));
+  // A scanned kit's parts can already overlap at rest (a seal sunk into its rim); only new overlaps count.
+  const cutsAt = (shares: Shares) => drawObject({ kit, present, scene, explode: shares, plan, pink: new Set(), centre }).filter((p) => present.includes(p.id)).map((p) => ({ id: p.id, owner: owner.get(p.id) ?? "body", section: sectionOf(p) }));
+  const home = cutsAt(Object.fromEntries(ids.map((id) => [id, 0])));
+  const atRest = new Set(home.flatMap((a, i) => home.slice(i + 1).filter((b) => a.owner !== b.owner && interpenetrate(a.section, b.section)).map((b) => `${a.id}|${b.id}`)));
   const clashes: string[] = [];
   for (const f of frames) {
-    const parts = drawObject({ kit, present, scene, explode: f.shares, plan, pink: new Set(), centre }).filter((p) => present.includes(p.id));
-    const cut = parts.map((p) => ({ id: p.id, owner: owner.get(p.id) ?? "body", section: sectionOf(p) }));
+    const cut = cutsAt(f.shares);
     for (const [i, a] of cut.entries())
-      for (const b of cut.slice(i + 1)) if (a.owner !== b.owner && interpenetrate(a.section, b.section)) clashes.push(`${f.label}: ${a.id} into ${b.id}`);
+      for (const b of cut.slice(i + 1)) if (a.owner !== b.owner && !atRest.has(`${a.id}|${b.id}`) && interpenetrate(a.section, b.section)) clashes.push(`${f.label}: ${a.id} into ${b.id}`);
     if (clashes.length > 0) break;
   }
-  r.check(`explode: no assembly passes into another in ${frames.length} replayed frames (opening, closing, ${reversals.length} reversals each way, prefix states)`, clashes.length === 0, clashes.slice(0, 3).join(" | "));
+  r.check(`explode: no assembly passes into another in ${frames.length} replayed frames${atRest.size > 0 ? ` (${atRest.size} overlaps already at rest left out)` : ""} (opening, closing, ${reversals.length} reversals each way, prefix states)`, clashes.length === 0, clashes.slice(0, 3).join(" | "));
   const apart = drawObject({ kit, present, scene, explode: Object.fromEntries(ids.map((id) => [id, 1])), plan, pink: new Set(), centre }).filter((p) => present.includes(p.id));
   const boxOf = (id: string) => extents(apart.filter((p) => (owner.get(p.id) ?? "body") === id));
   const gaps = ids.map((id, k) => {
@@ -760,14 +785,14 @@ function checkExplode(r: Run, story: Story, kit: Kit) {
 }
 
 /** Plays a story lesson: each module's failure, Learn in words, Build, then twisting the cap by hand until it works. No number may show on any screen. */
-async function playStory(r: Run, written: Story, sample: string, url: string) {
+async function playStory(r: Run, written: Story, sample: string, url: string, query: Query = "") {
   const scanned = KITS[sample];
   if (!scanned) throw new Error(`no fixture kit for ${sample}`);
   const { story, kit } = bindStory(written, scanned);
-  checkStory(r, story, kit);
+  const grips = checkStory(r, story, kit);
   checkExplode(r, story, kit);
   r.fillLo = HELD_FILL_LO;
-  await r.open(sample, "", url, true);
+  await r.open(sample, query, url, true);
   const said = async () => ((await r.page.textContent("h1.do")) ?? "").trim();
   for (const [i, m] of story.modules.entries()) {
     const tag = `m${i + 1}`;
@@ -817,10 +842,11 @@ async function playStory(r: Run, written: Story, sample: string, url: string) {
     if (i === 0) await r.shadowHolds("play");
     const ids = m.play.tests.map((t) => t.id);
     const zone = () => r.page.getAttribute("[data-strip] .grip", "aria-valuetext");
-    r.check(`${tag} play starts Loose`, (await zone()) === "Loose", (await zone()) ?? "");
-    const loose = await r.runTests(ids, `${tag}-loose`, true, LATER_MS);
+    const want = grips[i]!;
+    r.check(`${tag} play starts ${want.start}`, (await zone()) === want.start, (await zone()) ?? "");
+    const loose = await r.runTests(ids, `${tag}-start`, true, LATER_MS);
     const fails = ids.filter((id) => loose[id] === "fail").length;
-    r.check(`${tag} loose cap fails`, fails > 0, JSON.stringify(loose));
+    r.check(`${tag} at ${want.start} it fails`, fails > 0, JSON.stringify(loose));
     await r.inSheet(async () => {
       await r.noDigits(`${tag} Hint`);
       const hints = await r.page.locator("[data-sheet][open] [data-hint]").count();
@@ -828,19 +854,18 @@ async function playStory(r: Run, written: Story, sample: string, url: string) {
       await r.shot(`${tag}-hint`);
     });
     const end = await r.page.getAttribute("[data-strip] .grip", "aria-valuemax");
-    const canOverdo = m.play.tests.some((t) => t.id === "open");
-    if (canOverdo) {
-      await r.twistTo("Too tight", 1);
+    if (want.over) {
+      await r.twistTo(want.over, 1);
       await r.drag("[data-strip] .grip", 400);
-      await r.shot(`${tag}-too-tight`);
-      const tight = await r.runTests(ids, `${tag}-tight`, true, LATER_MS);
-      r.check(`${tag} too tight fails differently from loose`, ids.some((id) => tight[id] === "fail") && ids.some((id) => tight[id] !== loose[id]), `${JSON.stringify(loose)} | ${JSON.stringify(tight)} (grip ends at ${end})`);
-      await r.twistTo("Snug", -1);
-    } else await r.twistTo("Snug", 1);
-    await r.shot(`${tag}-snug`);
-    const snug = await r.runTests(ids, `${tag}-snug`, true);
+      await r.shot(`${tag}-over`);
+      const tight = await r.runTests(ids, `${tag}-over`, true, LATER_MS);
+      r.check(`${tag} ${want.over} fails differently from ${want.start}`, ids.some((id) => tight[id] === "fail") && ids.some((id) => tight[id] !== loose[id]), `${JSON.stringify(loose)} | ${JSON.stringify(tight)} (grip ends at ${end})`);
+      await r.twistTo(want.works, -1);
+    } else await r.twistTo(want.works, 1);
+    await r.shot(`${tag}-works`);
+    const snug = await r.runTests(ids, `${tag}-works`, true);
     await r.stage("earned");
-    r.check(`${tag} snug passes every test and says the part's job`, ids.every((id) => snug[id] === "pass") && (await said()) === m.job, `${JSON.stringify(snug)} "${await said()}"`);
+    r.check(`${tag} ${want.works} passes every test and says the part's job`, ids.every((id) => snug[id] === "pass") && (await said()) === m.job, `${JSON.stringify(snug)} "${await said()}"`);
     await r.page.waitForTimeout(SETTLE_MS);
     await r.framed("earned", `${tag} earned`, true, shareOf(kit, m.produces));
     await r.noDigits(`${tag} earned`);
@@ -1008,6 +1033,39 @@ function checkTemplates(r: Run) {
   r.check(`the stand template reads upright roots from geometry alone (${plainStands.join(", ")}) and the stapler's rubber foot from its name`, plainStands.join() === "bottle,jar,mug" && standOf(KITS.stapler!)?.footing.part.id === "rubber-pad");
 }
 
+/**
+ * A cheap guard for kits never seen: the story generated from every fixture kit, as scanned and with
+ * its words and joints scrambled the ways a scan gets them wrong (digits in names, long names, every
+ * joint the same), loads without a throw and keeps the story rules: no digit, short lines, each grip
+ * word telling the truth.
+ */
+function checkStories(r: Run) {
+  const start = rows.length;
+  const odd = (kit: Kit): { label: string; kit: Kit }[] => [
+    { label: "as scanned", kit },
+    { label: "numbered names", kit: { ...kit, name: `${kit.name} 2000`, parts: kit.parts.map((p, i) => ({ ...p, name: `${p.name} ${i + 1}mm`, role: `${p.role} Fits a 12 mm hole.` })) } },
+    { label: "long names", kit: { ...kit, name: "Very large heavy duty kitchen thing", parts: kit.parts.map((p) => ({ ...p, name: `Big round shiny ${p.name}` })) } },
+    { label: "all press-fit", kit: { ...kit, parts: kit.parts.map((p) => ({ ...p, joint: p.parentId === null ? null : "press-fit" })) } },
+    { label: "all thread", kit: { ...kit, parts: kit.parts.map((p) => ({ ...p, joint: p.parentId === null ? null : "thread" })) } },
+  ];
+  let made = 0;
+  for (const [sample, kit] of Object.entries(KITS))
+    for (const v of odd(kit)) {
+      const each = new Run(`stories ${sample} ${v.label}`, r.page);
+      try {
+        const story = generatedStory(v.kit, each.name, true);
+        if (!story) continue;
+        made += 1;
+        checkStory(each, story, v.kit);
+      } catch (error) {
+        if (!rows.slice(start).some((row) => row.run === each.name && !row.ok)) rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n").slice(0, 2).join(" ") });
+      }
+    }
+  const checked = rows.splice(start);
+  rows.push(...checked.filter((row) => !row.ok));
+  r.check(`every generated story loads and keeps the story rules (${made} stories, ${checked.length} checks)`, checked.every((row) => row.ok));
+}
+
 const SAMPLE_IDS = Object.keys(KITS);
 const opensWith = (id: string) => {
   const lesson = lessonFor(KITS[id]!, id);
@@ -1017,6 +1075,7 @@ const wanted = process.argv.slice(2);
 const runs = wanted.length > 0 ? wanted : [
   ...SAMPLE_IDS,
   "templates",
+  "stories",
   ...SAMPLE_IDS.filter((id) => opensWith(id) !== "generated" && generatedLesson(KITS[id]!) !== null).map((id) => `generated-${id}`),
   ...SAMPLE_IDS.filter((id) => opensWith(id) !== "inspect").map((id) => `inspect-${id}`),
 ];
@@ -1053,14 +1112,21 @@ try {
     try {
       const own = KITS[name] ? lessonFor(KITS[name], name) : undefined;
       const generated = name.startsWith("generated-") ? KITS[name.slice("generated-".length)] : undefined;
+      const storied = name.startsWith("story-") ? name.slice("story-".length) : undefined;
       if (own) await (own.kind === "workshop" ? playWorkshop(r, own, name, "", url) : own.kind === "story" ? playStory(r, own, name, url) : playInspect(r, name, "", url));
       else if (name === "templates") checkTemplates(r);
+      else if (name === "stories") checkStories(r);
+      else if (storied && KITS[storied]) {
+        const made = generatedStory(KITS[storied], name, true);
+        if (!made) throw new Error(`${name}: no story template applies to this kit`);
+        await playStory(r, made, storied, url, "?story");
+      }
       else if (generated) {
         const made = generatedLesson(generated, name);
         if (!made) throw new Error(`${name}: no joint in this kit moves, so it has no generated lesson`);
         await playWorkshop(r, made, name.slice("generated-".length), "?generated", url);
       } else if (name.startsWith("inspect-")) await playInspect(r, name.slice("inspect-".length), "?inspect", url);
-      else throw new Error(`unknown run ${name}: use a sample id (${SAMPLE_IDS.join(", ")}), generated-<sample>, inspect-<sample> or templates`);
+      else throw new Error(`unknown run ${name}: use a sample id (${SAMPLE_IDS.join(", ")}), generated-<sample>, inspect-<sample>, story-<sample>, templates or stories`);
     } catch (error) {
       if (!rows.some((row) => row.run === name && !row.ok)) rows.push({ run: name, step: "aborted", ok: false, detail: error instanceof Error ? error.message.split("\n")[0]! : String(error) });
       await r.shot("aborted").catch(() => {});
