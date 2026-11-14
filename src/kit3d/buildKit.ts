@@ -24,13 +24,29 @@ export function buildPart(part: Part): BuiltPart {
   return { part, geometry: buildGeometry(part.shape), rotation: rotationOf(part) };
 }
 
-/** Bounds of parts that are only measured, never drawn. Their geometry is freed straight away. */
-export function measureParts(parts: Part[]): KitBounds {
-  const built = parts.map(buildPart);
-  const bounds = measure(built);
-  for (const { geometry } of built) geometry.dispose();
+/**
+ * Bounds of each pose of a kit, for poses that are only measured, never drawn.
+ * A shape the next pose also uses is built once and carried over, so a pose that moves a few parts costs only those.
+ */
+export function measurePoses(poses: Part[][]): KitBounds[] {
+  let live = new Map<string, BufferGeometry>();
+  const bounds = poses.map((parts) => {
+    const next = new Map<string, BufferGeometry>();
+    const built = parts.map((part): BuiltPart => {
+      const key = JSON.stringify(part.shape);
+      const geometry = next.get(key) ?? live.get(key) ?? buildGeometry(part.shape);
+      next.set(key, geometry);
+      return { part, geometry, rotation: rotationOf(part) };
+    });
+    for (const [key, geometry] of live) if (!next.has(key)) geometry.dispose();
+    live = next;
+    return measure(built);
+  });
+  for (const geometry of live.values()) geometry.dispose();
   return bounds;
 }
+
+export const measureParts = (parts: Part[]): KitBounds => measurePoses([parts])[0]!;
 
 export function measure(parts: BuiltPart[]): KitBounds {
   const min = new Vector3(Infinity, Infinity, Infinity);

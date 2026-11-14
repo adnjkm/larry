@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Kit, kitProblems } from "../../shared/kit.ts";
-import { PRIMITIVES, framingParts, initialValues, type Values } from "./library.ts";
+import { type KitBounds, measureParts } from "../kit3d/buildKit.ts";
+import { PRIMITIVES, framingParts, initialValues, poses, type Values } from "./library.ts";
 import { COLOR, SYNTHWAVE } from "./parts.ts";
 
 /** Each slider at its minimum, start and maximum, with the others at their start. */
@@ -44,8 +45,15 @@ describe("primitives library", () => {
       }
     });
 
-    it(`${p.id} framing covers every slider extreme`, () => {
-      assert.equal(framingParts(p).length, p.build(initialValues(p)).length * 2 ** p.sliders.length);
+    it(`${p.id} stays inside its framing at every slider setting`, () => {
+      const frame = framingParts(p);
+      const framed = measureParts(frame);
+      for (const v of poses(p, 13)) {
+        const withPose = measureParts([...frame, ...p.build(v)]);
+        for (const key of Object.keys(framed) as (keyof KitBounds)[]) {
+          assert.ok(Math.abs(withPose[key] - framed[key]) < 1e-6, `${p.id} at ${JSON.stringify(v)} grows the framing's ${key} from ${framed[key].toFixed(2)} to ${withPose[key].toFixed(2)}`);
+        }
+      }
     });
   }
 });
