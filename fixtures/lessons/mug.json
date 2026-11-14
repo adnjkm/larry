@@ -1,195 +1,117 @@
 {
   "title": "Coffee mug",
   "hook": [
-    "A mug holds 350 ml of coffee at 85 °C, and you can carry it across a room without burning your hand or spilling a drop. It looks like it has no mechanism at all.",
-    "It has two parts: a thick ceramic cup and a loop on its side. Why that loop, why that much ceramic, and why it's shaped the way it is all follow from a few small failures."
+    "A mug holds 85 °C coffee for twenty minutes. You can lift 0.7 kg of it with two fingers and never touch the hot wall.",
+    "It looks like a cup with an ear. Why is the wall so thick, and why is the ear that size and in that place?"
   ],
   "chapters": [
     {
       "kind": "module",
-      "id": "m-hold",
-      "need": "It must hold a hot drink.",
-      "why": "This is the object's job: keep 350 ml of near-boiling liquid in one place long enough to drink it.",
+      "id": "hold",
+      "need": "It must hold a hot drink without the outside turning scalding at once.",
+      "why": "This is the object's job: keep about 350 ml of near-boiling liquid in one place.",
       "surprise": false,
       "steps": [
         {
-          "id": "s-cup",
-          "title": "An open-topped cylinder",
+          "id": "s1",
+          "title": "A thin cup of coffee",
           "story": [
-            "The simplest container is a cylinder closed at the bottom and open at the top. Make it 80 mm across and 95 mm tall and it holds about 400 ml, enough for 350 ml of coffee with room so it doesn't slop over the rim.",
-            "Ceramic is fired clay. It doesn't rust, doesn't flavour the drink and doesn't soften at 100 °C. Its glaze is a layer of glass fused onto the surface, and it closes the clay's pores so the liquid can't soak in. No moving part is needed for that, so no primitive here."
+            "The crudest container is a thin shell, like a 1 mm glass tumbler. We pour in 350 ml of coffee at 85 °C and put a hand around it."
           ],
           "primitive": null,
           "problem": {
             "type": "run",
-            "action": "Pour the coffee",
-            "outcome": "It holds all 350 ml without leaking. With a 1.5 mm wall, though, the outside reaches about 80 °C within ten seconds, only 5 °C below the coffee itself."
+            "action": "Pour and hold",
+            "outcome": "Heat crosses 1 mm of glass in well under a second. The outside reaches about 75 °C, and skin starts to hurt above roughly 45 to 50 °C. The hand lets go within 2 seconds."
           },
           "payoff": [
-            "The cup body does its first job: it holds the liquid. But a thin wall passes heat almost straight through, so the outside is nearly as hot as the drink."
+            "Heat flows through a wall in proportion to the temperature difference and inversely to the thickness. Ceramic conducts heat poorly, and a 5 mm wall slows the flow about five times.",
+            "That is why the cup body is thick and heavy, not thin."
           ],
           "earns": [
             "body"
           ]
-        },
-        {
-          "id": "s-wall",
-          "title": "Thicken the wall",
-          "story": [
-            "Heat crosses a wall at a rate that falls as the wall gets thicker, and ceramic conducts heat poorly to begin with, about a thousandth as well as copper. A thicker wall also holds more heat itself, so once it has warmed up it gives that heat back to the coffee rather than taking more from it."
-          ],
-          "primitive": null,
-          "problem": {
-            "type": "run",
-            "action": "Thicken to 5 mm",
-            "outcome": "The outside now settles around 60–65 °C instead of 80 °C, and the empty cup's mass rises from about 120 g to 350 g. Skin still burns on 60 °C ceramic after a few seconds of contact."
-          },
-          "payoff": [
-            "That's why mug walls are thick: the wall slows heat on its way out and acts as a heat store. It isn't enough to make the outside safe to hold, and the extra mass will come back later in the lesson. This model ignores heat lost through the open top, which is actually the largest loss."
-          ],
-          "earns": []
         }
       ]
     },
     {
       "kind": "module",
-      "id": "m-lift",
-      "need": "It must be lifted without burning the hand.",
-      "why": "The wall still sits at about 60 °C, and the only way to lift the cup so far is to hold that wall.",
-      "surprise": false,
+      "id": "lift",
+      "need": "It must be lifted without the hand touching the hot wall.",
+      "why": "Even a thick ceramic body settles at about 60 °C on the outside after a minute. It slows the heat; it cannot stop it.",
+      "surprise": true,
       "steps": [
         {
-          "id": "s-grip",
-          "title": "Squeeze the hot wall",
+          "id": "s2",
+          "title": "Pinch it by the rim",
           "story": [
-            "Holding a smooth cylinder from the sides relies on friction. Fingers and thumb press inward, and the cup can't slide down until its weight beats μ times the total squeeze. For skin on glaze, μ is about 0.4.",
-            "A full mug weighs about 6.5 N. A jolt, a tilt or a damp glaze can easily triple that demand, so treat the load as 20 N."
+            "The rim is the one place we can grab without wrapping a hand round the wall. Two fingertips squeeze it from either side, and friction must carry the mug's weight."
           ],
           "primitive": "grip",
           "problem": {
-            "type": "tune",
-            "goal": "With the load at 20 N, set the squeeze so the friction limit is at least 20 N while each finger presses as little as possible on the 60 °C wall.",
-            "slider": "squeeze",
-            "min": 25,
-            "max": 35,
-            "tooLow": "Below 25 N per pad the limit is under 20 N (μ × 2 × 24 = 19 N), and the mug slides out of your hand on the first jolt.",
-            "tooHigh": "Above 35 N per pad the fingertips flatten against the 60 °C glaze. More skin touches the hot wall, and it hurts within a second or two.",
-            "justRight": "Between 25 and 35 N per pad, the limit of 20–28 N covers the load with no wasted pressure."
+            "type": "run",
+            "action": "Pinch and lift",
+            "outcome": "Each fingertip presses 40 N, giving a friction limit of 32 N against a 20 N load, so it holds. But the pads are pressed hard onto 60 °C ceramic, and the pinch fails from pain in about 5 seconds."
           },
           "payoff": [
-            "The grip holds, but only for about two seconds. Friction needs pressure, and pressure pushes skin onto the hot wall. Any hold that touches the wall will fail for the same reason."
+            "Friction only holds if we squeeze, and squeezing means pressing skin onto the hot surface. Any grip that depends on friction holds us against the heat."
           ],
           "earns": []
         },
         {
-          "id": "s-handle",
-          "title": "Hold it somewhere cooler",
+          "id": "s3",
+          "title": "Hold without squeezing",
           "story": [
-            "We need to carry the cup's weight with fingers that never touch the wall. That means something attached to the cup that sticks out into cooler air, which the fingers can take hold of without squeezing."
+            "We need to carry the weight without pressing skin onto the wall. The mug should hang on the fingers, not be clamped by them, and from somewhere away from the wall."
           ],
           "primitive": "lever",
           "problem": {
             "type": "pick",
-            "question": "What can carry the cup's weight while the fingers stay away from the hot wall?",
+            "question": "What lets fingers carry the mug away from the hot wall?",
             "options": [
               {
                 "primitive": "lever",
                 "works": true,
-                "outcome": "A rigid arm molded onto the wall reaches about 25 mm out. Fingers hook under it, so the shape carries the load instead of friction. The arm passes the cup's weight and its twisting effect back to the hand."
+                "outcome": "A rigid loop sticking out from the side. Fingers hook through it and press on its ends, holding the weight without squeezing the wall, and the loop resists the mug's urge to tip."
               },
               {
                 "primitive": "grip",
                 "works": false,
-                "outcome": "Squeezing harder only raises the friction limit. The fingers are still on the 60 °C wall, and pressing harder puts more skin against it."
+                "outcome": "Rough texture on the wall raises friction, but the fingers still have to press onto 60 °C ceramic to use it."
               },
               {
                 "primitive": "cord",
                 "works": false,
-                "outcome": "A loop of string would hang the cup without touching the wall, but string can't push. The cup swings freely below your hand and tips coffee out as soon as you move."
+                "outcome": "A string loop keeps fingers off the wall, but a cord cannot push. The mug hangs from it, swings and tips, and coffee spills over the rim."
               }
             ]
           },
           "payoff": [
-            "This is the handle: a rigid lever molded onto the body. The fingers hook through it, so the hold depends on the handle's shape rather than on squeeze, and no squeeze means very little heat reaches the skin.",
-            "Ceramic carries heat slowly, so a handle 25 mm long cools along its length. Where the fingers sit it's about 40 °C, warm but safe to hold."
+            "The handle is a lever. The mug's weight acts at its centre, about 50 mm out from the fingers, and tries to rotate the mug downward. The top and bottom of the loop press against fingers to stop it."
           ],
           "earns": [
             "handle"
           ]
         },
         {
-          "id": "s-twist",
-          "title": "The weight is off-centre",
+          "id": "s4",
+          "title": "How tall a handle",
           "story": [
-            "The fingers are now off to one side, but the cup's weight acts at its centre. That makes a lever: the hook point is the pivot, and the weight pulls down about 65 mm away from it."
+            "The weight acts out at the mug's centre while the fingers hold at the side, so the mug tries to tip. The taller the loop, compared with that sideways offset, the gentler the fingers' work."
           ],
-          "primitive": null,
+          "primitive": "lever",
           "problem": {
-            "type": "run",
-            "action": "Lift by the handle",
-            "outcome": "The mug tries to rotate away from the hand with a torque of 6.5 N × 0.065 m ≈ 0.42 N·m. The thumb on top of the handle and the fingers below hold against it from about 20 mm apart, which takes about 21 N. The wrist manages it easily, and the cup stays level."
+            "type": "tune",
+            "goal": "Set the ratio of handle height to the 50 mm offset of the mug's centre, so the fingers' push stays under about 0.8 of the 7 N weight and the handle still fits on a 95 mm mug.",
+            "slider": "ratio",
+            "min": 1.2,
+            "max": 2,
+            "tooLow": "Below 1.2 the loop is under 60 mm tall. One finger fits, and it must push more than 6 N to hold back the tip, enough to tire a hand on a long walk.",
+            "tooHigh": "Above 2 the loop is over 100 mm, taller than the 95 mm body it hangs on. It no longer fits the side of the mug.",
+            "justRight": "A loop 60 to 100 mm tall takes two or three fingers, and the push needed stays a few newtons, well within comfort."
           },
           "payoff": [
-            "This is why a handle is a loop and not a peg. The top of the loop gives the thumb something to press on and the bottom gives the fingers something to hook under, so together they resist the twist."
-          ],
-          "earns": []
-        }
-      ]
-    },
-    {
-      "kind": "module",
-      "id": "m-stand",
-      "need": "It must stay upright on the table.",
-      "why": "With a handle sticking out on one side, a nudge from a hand reaching for it is enough to rock the cup.",
-      "surprise": true,
-      "steps": [
-        {
-          "id": "s-tip",
-          "title": "Nudge a light cup",
-          "story": [
-            "Imagine we'd kept the 1.5 mm wall to save material. An empty 120 g cup with a handle sits on the table, and a hand reaching for the handle brushes it from the side."
-          ],
-          "primitive": null,
-          "problem": {
-            "type": "run",
-            "action": "Brush the handle",
-            "outcome": "A sideways push of about 0.6 N at the handle's height is enough to tip the light cup over its 70 mm foot. Half-full, it slides about 15 mm and the coffee slops over the rim."
-          },
-          "payoff": [
-            "A light cup is easy to tip and easy to slide. Whatever resists a careless hand has to be something the cup already has."
-          ],
-          "earns": []
-        },
-        {
-          "id": "s-mass",
-          "title": "What resists the nudge",
-          "story": [
-            "To tip over, a cup has to lift its own centre over the edge of its foot. Sliding it means overcoming friction, which depends on how hard the cup presses down. Both resistances grow with one thing."
-          ],
-          "primitive": "weight",
-          "problem": {
-            "type": "pick",
-            "question": "What makes the cup shrug off a 0.6 N brush?",
-            "options": [
-              {
-                "primitive": "weight",
-                "works": true,
-                "outcome": "The 350 g ceramic body weighs 3.4 N and resists being moved. Tipping it now takes about 2 N at the handle, and its inertia soaks up a quick brush before it can move much."
-              },
-              {
-                "primitive": "grip",
-                "works": false,
-                "outcome": "A rubber pad on the foot raises μ and stops sliding. But tipping lifts the cup off the pad, so the pad does nothing against it."
-              },
-              {
-                "primitive": "spring",
-                "works": false,
-                "outcome": "A sprung base would push back on a nudge, but it gives the energy straight back too. The cup rocks and the coffee sloshes harder."
-              }
-            ]
-          },
-          "payoff": [
-            "The thick wall we chose to block heat also gives the cup its weight. One choice of 5 mm of ceramic both keeps the outside cooler and keeps the cup steady."
+            "Most handles are about two-thirds the mug's height for this reason. Fingers through the loop and a thumb on top form the lever, so no part of the hand touches the wall."
           ],
           "earns": []
         }
@@ -197,23 +119,23 @@
     },
     {
       "kind": "join",
-      "id": "j-carry",
-      "title": "Carry a full mug",
+      "id": "carry",
+      "title": "Carry the full mug",
       "steps": [
         {
-          "id": "s-carry",
-          "title": "Across the room",
+          "id": "s5",
+          "title": "Does the handle get hot",
           "story": [
-            "Now everything works together: 350 ml at 85 °C, a 5 mm ceramic wall, a molded loop handle, and a total mass of about 700 g."
+            "The handle is ceramic too, and it is fused to the hot body. Heat could simply flow along it into our fingers. We fill the mug and hold it by the handle for five minutes."
           ],
           "primitive": null,
           "problem": {
             "type": "run",
-            "action": "Carry it",
-            "outcome": "The fingers stay about 25 mm from the wall and touch glaze at around 40 °C. The 0.42 N·m twist is held without effort. Set down, the cup needs about 3 N at the handle to tip, and the coffee stays above 60 °C for about 20 minutes."
+            "action": "Hold for five minutes",
+            "outcome": "The wall stays near 60 °C, but the handle's outer edge reads only about 35 °C. Heat must squeeze through two small joints, roughly 1.5 cm² each, and the loop loses it to air along the way."
           },
           "payoff": [
-            "Each requirement is met, and the parts overlap: the wall that slows heat also adds the weight, and the handle that keeps fingers off the wall also resists the twist."
+            "The handle is molded on at two narrow joints and stands about 25 mm from the wall. The narrow path and the air on all sides keep the part we touch cool enough to hold."
           ],
           "earns": []
         }
@@ -221,24 +143,39 @@
     },
     {
       "kind": "casing",
-      "id": "c-shape",
-      "title": "The shape of a mug",
+      "id": "shell",
+      "title": "The glazed body",
       "steps": [
         {
-          "id": "s-shape",
-          "title": "Why it looks like this",
+          "id": "s6",
+          "title": "Stop the coffee soaking in",
           "story": [
-            "The body is a cylinder rather than a bowl. A tall, narrow shape exposes less coffee surface to the air, and its upright wall gives the handle something to attach to.",
-            "The handle's opening is about 25 by 50 mm, big enough for two or three fingers, and it's molded in the same firing as the body. A glued joint would creep under repeated heat. A fused joint is a single piece of ceramic that carries the twist."
+            "Fired clay is full of tiny pores. Bare, it absorbs coffee, stains, and slowly weeps damp through the wall onto the table. The surface itself has to close."
           ],
-          "primitive": null,
+          "primitive": "seal",
           "problem": {
-            "type": "run",
-            "action": "Wash and reuse",
-            "outcome": "After 1000 cycles through hot water there are no seams to leak and no joint to loosen. The only failure left is the one ceramic always has: a 1 m drop onto tile breaks it."
+            "type": "pick",
+            "question": "What stops liquid creeping into the ceramic?",
+            "options": [
+              {
+                "primitive": "seal",
+                "works": true,
+                "outcome": "A layer of glass, the glaze, melted onto the surface. It flows into the pores and closes them, so liquid has no path in."
+              },
+              {
+                "primitive": "valve",
+                "works": false,
+                "outcome": "A valve controls flow through one opening. Here there are millions of pores, and none of them should ever open."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "Pressing the coffee against the wall harder does nothing to the pores. Friction holds solids, not liquid seeping through gaps."
+              }
+            ]
           },
           "payoff": [
-            "Every feature you can see has a reason. The thickness is for heat and stability, the cylinder is for less surface and a wall to hold the handle, the loop is for the twist, and molding it in one piece makes the joint last."
+            "The glaze seals the body inside and out, and also smooths the lip against the mouth. The foot ring is often left bare so the mug does not fuse to the kiln shelf."
           ],
           "earns": []
         }
@@ -246,6 +183,6 @@
     }
   ],
   "closing": [
-    "The mug you pick up now explains itself. Its wall is thick to slow heat and to add weight, the loop keeps your fingers off the hot ceramic and resists the twist, and the whole thing is fired as one piece. It has no moving parts, but every bit of it is there for a reason."
+    "A thick wall to slow the heat, a glaze to close the pores, and a tall loop that works as a lever. It hangs on two narrow joints, so the hand never meets the coffee's heat."
   ]
 }
