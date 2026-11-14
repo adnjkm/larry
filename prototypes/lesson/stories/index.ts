@@ -2,8 +2,8 @@
 // words, drag the piece on, then make it work with a wordless grip. templates/evidence.ts says which
 // mechanism a part is, as for the Workshop; each mechanism with a story template becomes a module:
 // a thread or a tight fit (closure.ts), a seal (seal.ts), a spring (spring.ts), a hinge or pin
-// (hinge.ts), and standing up (stand.ts). Snap-fits and pins that clamp have no story template; their
-// parts are built with the module above them. A template that cannot read a part is left out, so an
+// (hinge.ts), and, when none of those applies, standing up (stand.ts). Snap-fits and pins that clamp
+// have no story template; their parts are built with the module above them. A template that cannot read a part is left out, so an
 // odd kit still gets the modules it can.
 import type { Kit, Part } from "../../../shared/kit.ts";
 import { defineStory, listOf, type Scene, type Story, type StoryModuleSpec, type Test } from "../model.ts";
@@ -70,7 +70,9 @@ function candidatesOf(kit: Kit): Candidate[] {
       } });
     }
   }
-  const stand = standOf(kit);
+  // Standing is taught only when nothing else is: its module builds the main part, so with any other
+  // module the first Build would drag the whole object onto its own outline.
+  const stand = out.length === 0 ? standOf(kit) : null;
   if (stand) out.push({ kind: "stand", part: stand.root, anchors: [stand.root.id], last: false, build: (earns) => {
     const produces = earns([stand.root.id]);
     return storyStand(stand, produces, produces);

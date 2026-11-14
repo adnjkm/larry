@@ -732,10 +732,10 @@ function checkExplode(r: Run, story: Story, kit: Kit) {
   const ids = idsOf(plan);
   // The cuts below are taken through the y axis, so they hold only for an object round about it whose
   // assemblies lift along it. Anything else is checked fully apart: no two assemblies' boxes meet.
-  const alongAxis = plan.order.every((l) => {
+  const main = kit.parts.find((p) => p.parentId === null)!;
+  const alongAxis = main.shape.kind === "lathe" && upright(main) && plan.order.every((l) => {
     const o = l.at(1).offset ?? { x: 0, y: 0, z: 0 };
-    const c = extents(kit.parts.filter((p) => familyOf(kit, l.id).includes(p.id)));
-    return Math.abs(o.x) < 1e-6 && Math.abs(o.z) < 1e-6 && Math.abs(c.min.x + c.max.x) < 2 && Math.abs(c.min.z + c.max.z) < 2;
+    return Math.abs(o.x) < 1e-6 && Math.abs(o.z) < 1e-6;
   });
   if (!alongAxis) {
     const apart = drawObject({ kit, present, scene, explode: Object.fromEntries(ids.map((id) => [id, 1])), plan, pink: new Set(), centre });
@@ -763,15 +763,18 @@ function checkExplode(r: Run, story: Story, kit: Kit) {
     play(`closed then reversed at ${t} ms,`, 1, 0, t);
   }
   ids.forEach((id, k) => [0.25, 0.5, 0.75, 1].forEach((x) => frames.push({ label: `prefix ${id} at ${x}`, shares: Object.fromEntries(ids.map((other, j) => [other, j < k ? 1 : j === k ? x : 0])) })));
+  // A scanned kit's parts can already overlap at rest (a seal sunk into its rim); only new overlaps count.
+  const cutsAt = (shares: Shares) => drawObject({ kit, present, scene, explode: shares, plan, pink: new Set(), centre }).filter((p) => present.includes(p.id)).map((p) => ({ id: p.id, owner: owner.get(p.id) ?? "body", section: sectionOf(p) }));
+  const home = cutsAt(Object.fromEntries(ids.map((id) => [id, 0])));
+  const atRest = new Set(home.flatMap((a, i) => home.slice(i + 1).filter((b) => a.owner !== b.owner && interpenetrate(a.section, b.section)).map((b) => `${a.id}|${b.id}`)));
   const clashes: string[] = [];
   for (const f of frames) {
-    const parts = drawObject({ kit, present, scene, explode: f.shares, plan, pink: new Set(), centre }).filter((p) => present.includes(p.id));
-    const cut = parts.map((p) => ({ id: p.id, owner: owner.get(p.id) ?? "body", section: sectionOf(p) }));
+    const cut = cutsAt(f.shares);
     for (const [i, a] of cut.entries())
-      for (const b of cut.slice(i + 1)) if (a.owner !== b.owner && interpenetrate(a.section, b.section)) clashes.push(`${f.label}: ${a.id} into ${b.id}`);
+      for (const b of cut.slice(i + 1)) if (a.owner !== b.owner && !atRest.has(`${a.id}|${b.id}`) && interpenetrate(a.section, b.section)) clashes.push(`${f.label}: ${a.id} into ${b.id}`);
     if (clashes.length > 0) break;
   }
-  r.check(`explode: no assembly passes into another in ${frames.length} replayed frames (opening, closing, ${reversals.length} reversals each way, prefix states)`, clashes.length === 0, clashes.slice(0, 3).join(" | "));
+  r.check(`explode: no assembly passes into another in ${frames.length} replayed frames${atRest.size > 0 ? ` (${atRest.size} overlaps already at rest left out)` : ""} (opening, closing, ${reversals.length} reversals each way, prefix states)`, clashes.length === 0, clashes.slice(0, 3).join(" | "));
   const apart = drawObject({ kit, present, scene, explode: Object.fromEntries(ids.map((id) => [id, 1])), plan, pink: new Set(), centre }).filter((p) => present.includes(p.id));
   const boxOf = (id: string) => extents(apart.filter((p) => (owner.get(p.id) ?? "body") === id));
   const gaps = ids.map((id, k) => {
