@@ -11,12 +11,12 @@ import { add, arrowMark, carry, farFace, outBy, overlay, type Pair, scale, sub, 
 /** Stiffness in N/mm. Game numbers. */
 const WINDOW: Window = [1.3, 3];
 /** How far a full press squeezes the spring, in mm. */
-const TRAVEL = 10;
+export const TRAVEL = 10;
 const FRICTION = 12;
 const HAND = 30;
 /** A child at least this many times longer than it is thick, lying across the way it comes off, can be a jaw. */
 const JAW_RATIO = 3;
-const SPRING_WORDS = /\bsprings?\b/i;
+export const SPRING_WORDS = /\bsprings?\b/i;
 
 const stiffnessOf = (v: Values) => tenth(v.stiffness ?? 2);
 /** Spring push at full travel, F = k × x. */
@@ -25,9 +25,9 @@ const springsBack = (k: number) => pushOf(k) > FRICTION;
 const pressedMm = (k: number) => Math.min(TRAVEL, tenth(HAND / k));
 
 /** How the child moves when pressed `mm` of the full travel, and where the hand pushes. */
-type Motion = { kind: "button" | "jaw"; move: (mm: number) => PartMove; hand: { at: Vec; dir: Vec } };
+export type Motion = { kind: "button" | "jaw"; move: (mm: number) => PartMove; hand: { at: Vec; dir: Vec } };
 
-function motionOf(pair: Pair): Motion {
+export function motionOf(pair: Pair): Motion {
   const press = scale(pair.out, -1);
   const button: Motion = { kind: "button", move: (mm) => outBy(pair, -mm), hand: { at: farFace(pair), dir: press } };
   const axes: Axis[] = ["x", "y", "z"];

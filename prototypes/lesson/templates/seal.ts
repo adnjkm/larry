@@ -3,7 +3,7 @@
 // over it, and that part no longer opens by hand.
 import type { Kit, Part, Shape } from "../../../shared/kit.ts";
 import { clamp01, easeOut, smooth } from "../ease.ts";
-import { AXIS, type Mark, type PartMove, type Rigid, STILL, type Test, type Values, type Vec, vec, type Window } from "../model.ts";
+import { AXIS, type Mark, type PartMove, type Rigid, STILL, type Test, type TestCtx, type Values, type Vec, vec, type Window } from "../model.ts";
 import { extents, rigidPoint } from "../pose.ts";
 import { add, carry, clearance, latheAxis, overlay, type Pair, pairOf, scale, shudder, targetOf, type Template, tenth } from "./pair.ts";
 
@@ -28,7 +28,7 @@ const threaded = (p: Part) => p.joint === "thread" || p.joint === "screw";
  * What you open to get past the seal: the nearest threaded part beside it or above it in the kit tree
  * (a jar's screw ring, a flashlight's head), else the part the seal sits on, else the seal itself.
  */
-function closerOf(kit: Kit, seal: Part): Part {
+export function closerOf(kit: Kit, seal: Part): Part {
   const parentOf = (p: Part) => kit.parts.find((q) => q.id === p.parentId);
   for (let at: Part | undefined = seal; at && at.parentId !== null; at = parentOf(at)) {
     if (at !== seal && threaded(at)) return at;
@@ -40,7 +40,7 @@ function closerOf(kit: Kit, seal: Part): Part {
 }
 
 /** Points round the seal's ring, in the kit's frame. */
-function ringOf(seal: Part, pair: Pair): Vec[] {
+export function ringOf(seal: Part, pair: Pair): Vec[] {
   const axis = seal.shape.kind === "torus" || seal.shape.kind === "lathe" ? latheAxis(seal) : AXIS[pair.axis];
   const radius = seal.shape.kind === "torus" ? seal.shape.radius : Math.max(...(["x", "y", "z"] as const).filter((a) => Math.abs(axis[a]) < 0.9).map((a) => pair.half[a]));
   const helper = Math.abs(axis.y) < 0.9 ? vec(0, 1, 0) : vec(1, 0, 0);
@@ -64,6 +64,16 @@ const sphere = (r: number): Shape => ({
 });
 const splash = (r: number): Shape => ({ kind: "lathe", profile: [{ r: 0, y: 0 }, { r: 1.4 * r, y: 0 }, { r: 1.4 * r, y: 0.35 * r }, { r: 0, y: 0.35 * r }] });
 
+/** How far up an object is held while it turns over: clear of the ground, with room for drops to fall. */
+export function flipFrame(ctx: TestCtx) {
+  const parts = ctx.kit.parts.filter((p) => ctx.present.includes(p.id));
+  const box = extents(parts);
+  const height = box.max.y - box.min.y;
+  const size = Math.max(height, box.max.x - box.min.x, box.max.z - box.min.z);
+  const reach = Math.max(...parts.flatMap((p) => { const b = extents([p]); return [b.min, b.max]; }).map((c) => Math.hypot(c.x - ctx.centre.x, c.y - ctx.centre.y)));
+  return { box, size, lift: Math.max(0, reach - (ctx.centre.y - box.min.y)) + 0.3 * height + 10 };
+}
+
 const FLIP_UP = 800;
 const FLIP_BACK = 900;
 const DROP_GAP = 130;
@@ -74,13 +84,7 @@ function flip(pair: Pair, between: string): Test {
     label: `Flip · ${pair.noun}`,
     run: (values, ctx) => {
       const drops = dropsAt(squeezeOf(values));
-      const parts = ctx.kit.parts.filter((p) => ctx.present.includes(p.id));
-      const box = extents(parts);
-      const height = box.max.y - box.min.y;
-      const size = Math.max(height, box.max.x - box.min.x, box.max.z - box.min.z);
-      // Far enough up that the object clears the ground while it turns over, with room for drops to fall.
-      const reach = Math.max(...parts.flatMap((p) => { const b = extents([p]); return [b.min, b.max]; }).map((c) => Math.hypot(c.x - ctx.centre.x, c.y - ctx.centre.y)));
-      const lift = Math.max(0, reach - (ctx.centre.y - box.min.y)) + 0.3 * height + 10;
+      const { box, size, lift } = flipFrame(ctx);
       const r = Math.min(6, Math.max(1.5, 0.03 * size));
       const g = 4.2 * size;
       const held: Rigid = { dx: 0, dy: lift, angle: 180 };

@@ -30,7 +30,7 @@ const farEnough = (r: number) => HAND_MM * 10 >= JOB_MM * Math.round(r * 10);
  * Without a pin the hinge is guessed from the child's shape: at its end that reaches away from its
  * parent, with the hand at the far end and the work between.
  */
-type Lever = { pivot: Vec; turn: Vec; hand: Vec; handPart: Part; work: Vec; arm: number; open: number; middle: boolean; push: { at: Vec; dir: Vec } };
+export type Lever = { pivot: Vec; turn: Vec; hand: Vec; handPart: Part; work: Vec; arm: number; open: number; middle: boolean; push: { at: Vec; dir: Vec } };
 
 const across = (v: Vec, axis: Vec) => sub(v, scale(axis, dot(v, axis)));
 
@@ -40,7 +40,7 @@ const opening = (point: Vec, pivot: Vec, axis: Vec, from: Vec) => {
   return dist(rotate(point, pivot, axis, 5)) > dist(point) ? 1 : -1;
 };
 
-function leverOf(pair: Pair): Lever {
+export function leverOf(pair: Pair): Lever {
   const { kit, child } = pair;
   const riders = kit.parts.filter((p) => p.id !== child.id && pair.subtree.includes(p.id));
   if (pair.pin) {
