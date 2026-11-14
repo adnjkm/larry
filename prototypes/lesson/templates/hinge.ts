@@ -208,6 +208,7 @@ export const hingeTemplate: Template = {
         ? `A part turning on a pivot is a lever. With the pivot between your hand and the work, the force at the work is your force times your distance from the pivot divided by its distance, and its travel is divided by the same ratio. No work is gained, only a trade of force for distance.`
         : `A part turning on a ${centre} is a lever. Pushing farther from the ${centre} than the load multiplies your force by the arm ratio and divides your travel by it. No work is gained, only a trade of force for distance.`,
       gameNote: `Game numbers: your hand pushes ${HAND_N} N and moves ${HAND_MM} mm on ${yours}, ${arm} mm from the ${centre}, and ${there} has to press ${JOB_N} N and move ${JOB_MM} mm. ${pin ? `The pivot is the centre of the ${pin} in the kit.` : "Where the hinge sits is a guess from the part's shape."} Where ${there} sits is set by the ratio, not read from the ${pair.objectName}. The lever law is real. The purple block marks ${there}.`,
+      hideLearnReadouts: true,
       numbers: (v) => {
         const r = ratioOf(v);
         return [

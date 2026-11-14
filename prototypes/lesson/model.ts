@@ -90,6 +90,12 @@ export type Module = {
   gameNote: string;
   /** Values for the fault primitive's other sliders, so its library readouts describe this object. */
   readoutWith?: (value: number) => Values;
+  /**
+   * The fault primitive's library readouts are shown beside the fix "as in Learn". Hide them when
+   * numbers fixed in the primitive (the lever's 100 N load and 150 mm bar) would sit beside different
+   * numbers of this object's, so the fix card never shows two answers to one question.
+   */
+  hideLearnReadouts?: true;
   /** The object's own numbers at the current tuning, shown beside the fix control. */
   numbers: (values: Values) => readonly Readout[];
 };
@@ -118,6 +124,7 @@ export type Inspect = {
   teach: readonly { primitive: Primitive; joints: readonly string[]; parts: readonly Part[] }[];
   /** Quiz order: each prompt is a part, asked by its kit role text. */
   prompts: readonly Part[];
+  view: View;
 };
 
 export type Lesson = Workshop | Inspect;

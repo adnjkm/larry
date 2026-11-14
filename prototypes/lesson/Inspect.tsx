@@ -115,7 +115,7 @@ function Apart({ lesson, kit, note, onNext }: { lesson: Inspect; kit: Kit; note:
       <Header kicker="Inspect · Take it apart" title={`What each part of the ${kit.name.toLowerCase()} does.`} />
       {note ? <div className="card" data-structure><p>{note}</p></div> : null}
       <p className="hint">Pull Explode to separate the parts. Tap each part to see its job.</p>
-      <Viewer name={lesson.objectName} parts={object.draw(explode, new Set(picked ? [picked.id] : []))} subject={object.subject(explode)} height={400} />
+      <Viewer name={lesson.objectName} parts={object.draw(explode, new Set(picked ? [picked.id] : []))} subject={object.subject(explode)} view={lesson.view} height={400} />
       <ExplodeSlider value={explode} onChange={setExplode} />
       <div className="pchips">
         {kit.parts.map((p) => (
@@ -149,7 +149,7 @@ function Jobs({ lesson, kit, onNext }: { lesson: Inspect; kit: Kit; onNext: () =
     <main className="page" data-stage="jobs">
       <Header kicker={`Inspect · Name the jobs · ${at + 1} of ${lesson.prompts.length}`} title="Which part does this?" />
       <blockquote className="prompt" data-prompt={prompt.id}>{prompt.role}</blockquote>
-      <Viewer name={lesson.objectName} parts={object.draw(explode, new Set(tapped ? [tapped.id] : []))} subject={object.subject(explode)} height={360} />
+      <Viewer name={lesson.objectName} parts={object.draw(explode, new Set(tapped ? [tapped.id] : []))} subject={object.subject(explode)} view={lesson.view} height={360} />
       <ExplodeSlider value={explode} onChange={setExplode} />
       <div className="pchips">
         {kit.parts.map((p) => (
@@ -188,7 +188,7 @@ function Together({ lesson, kit, done, onDone, onRestart, onHome }: { lesson: In
   return (
     <main className="page" data-stage="final">
       <Header kicker="Inspect · Piece it together" title={`Put the ${kit.name.toLowerCase()} back together.`} />
-      <Viewer name={lesson.objectName} parts={object.draw(explode, new Set())} subject={object.subject(explode)} height={400} />
+      <Viewer name={lesson.objectName} parts={object.draw(explode, new Set())} subject={object.subject(explode)} view={lesson.view} height={400} />
       <ExplodeSlider value={explode} onChange={(v) => { token.current++; setExplode(v); }} />
       {done ? (
         <>

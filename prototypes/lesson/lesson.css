@@ -102,3 +102,5 @@
 .pchip[data-seen]:not([data-on]) { box-shadow: 0 0 0 1px var(--ink) inset; }
 .pchip:disabled { cursor: default; }
 @media (prefers-reduced-motion: reduce) { .scan[data-go] .reveal, .scan[data-go] .beam { transition: none; } .parts li { animation: none; } }
+/* A test result names its test as the button does ("Flip · seal"); keep that name on one line. */
+.log-row[data-result] > span:first-child { flex: none; white-space: nowrap; }

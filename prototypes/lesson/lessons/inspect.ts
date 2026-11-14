@@ -3,6 +3,7 @@
 import type { Joint, Kit, Part } from "../../../shared/kit.ts";
 import type { Primitive } from "../../../src/primitives/library.ts";
 import { type Inspect, primitiveById } from "../model.ts";
+import { facingView } from "../pose.ts";
 import { readPart } from "../templates/evidence.ts";
 
 /**
@@ -43,5 +44,7 @@ export function inspectLesson(kit: Kit): Inspect {
     teach: [...groups].map(([primitive, g]) => ({ primitive, joints: [...g.joints], parts: g.parts })),
     // Start with an attached part rather than the main body, which is the easy one.
     prompts: [...kit.parts.slice(1), ...kit.parts.slice(0, 1)],
+    // Nothing is earned here, so the view only has to show the object widest.
+    view: facingView(kit, []),
   };
 }

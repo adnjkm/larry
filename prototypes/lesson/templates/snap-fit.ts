@@ -18,6 +18,8 @@ export const snapFitTemplate: Template = {
   primitive: "catch",
   module: (pair: Pair) => {
     const { childName: child, parentName: parent } = pair;
+    const tugTest = `Tug · ${pair.noun}`;
+    const unclipTest = `Unclip · ${pair.noun}`;
     return {
       id: "snap-fit",
       title: `Clip on the ${child}`,
@@ -36,7 +38,7 @@ export const snapFitTemplate: Template = {
       tests: [
         {
           id: "catch-tug",
-          label: `Tug · ${pair.noun}`,
+          label: tugTest,
           run: (values, ctx) => {
             const f = forceOf(values);
             const ok = f > TUG;
@@ -48,7 +50,7 @@ export const snapFitTemplate: Template = {
         },
         {
           id: "catch-unclip",
-          label: `Unclip · ${pair.noun}`,
+          label: unclipTest,
           run: (values, ctx) => {
             const f = forceOf(values);
             const peak = f + PEAK_EXTRA;
@@ -61,15 +63,15 @@ export const snapFitTemplate: Template = {
         },
       ],
       hints: {
-        observe: `Run Tug and watch the ${child}. It pops off the ${parent} at the first pull.`,
+        observe: `Run ${tugTest} and watch the ${child}. It pops off the ${parent} at the first pull.`,
         principle: `A snap-fit is a catch: a wedge held out by a spring. It holds until a pull beats its release force. Unclipping by hand means pushing past the peak, which in Learn is about ${PEAK_EXTRA} N above the release force.`,
-        direction: `Raise the release force above the ${TUG} N tug, and keep the peak under what a finger gives. Check Tug and Unclip together.`,
+        direction: `Raise the release force above the ${TUG} N tug, and keep the peak under what a finger gives. Check ${tugTest} and ${unclipTest} together.`,
         low: `A light tug pops the ${child} off.`,
         high: `The peak is over the ${FINGER} N a finger gives, so it will not unclip.`,
       },
       suspect: pair.child.id,
-      misses: { [pair.parent.id]: `The ${parent} holds still. Watch the part that pops off during Tug.` },
-      missDefault: "That part does not move during Tug. Watch which one pops off.",
+      misses: { [pair.parent.id]: `The ${parent} holds still. Watch the part that pops off during ${tugTest}.` },
+      missDefault: `That part does not move during ${tugTest}. Watch which one pops off.`,
       why: `A snap-fit is a catch. Its sloped face lets the ${child} click on with a light push, and its steep face holds against a pull until the spring behind the wedge gives. A stronger spring holds harder, and is harder to unclip.`,
       gameNote: `Game numbers: a ${TUG} N tug and a ${FINGER} N finger, with the peak ${PEAK_EXTRA} N over the release force as in Learn. None of them is measured from the ${pair.objectName}. A real snap-fit's spring is usually the bent plastic itself.`,
       numbers: (v) => {

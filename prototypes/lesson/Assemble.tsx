@@ -24,7 +24,8 @@ const PIECE_GAP = 10;
 function focusPieces(module: Module): Part[] {
   let x = 0;
   return assembledFrom(module).flatMap((p) => {
-    const parts = p.build(initialValues(p)).filter((q) => q.color === COLOR.focus);
+    // Drawn matte whatever the primitive's finish, so a rubber pad or a metal coil floats in the same bright pink as the part it becomes.
+    const parts = p.build(initialValues(p)).filter((q) => q.color === COLOR.focus).map((q) => ({ ...q, finish: "matte" as const }));
     if (parts.length === 0) return [];
     const box = extents(parts);
     const shift = vec(x - box.min.x, -(box.min.y + box.max.y) / 2, -(box.min.z + box.max.z) / 2);

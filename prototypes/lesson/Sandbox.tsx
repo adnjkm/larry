@@ -213,13 +213,17 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
           <SliderRow slider={module.fault.slider} value={tuning[module.fault.key] ?? module.fault.start} onChange={tune} disabled={!found || earned} band={band ?? undefined} />
           {found ? (
             <div className="readouts" data-readouts>
-              <span className="mono">{module.fault.primitive.name}, as in Learn</span>
-              {module.fault.primitive.readouts(readoutValues(module, tuning)).map((r) => (
-                <div key={r.label} className="readout">
-                  <span>{r.label}</span>
-                  <span>{r.value}</span>
-                </div>
-              ))}
+              {module.hideLearnReadouts ? null : (
+                <>
+                  <span className="mono">{module.fault.primitive.name}, as in Learn</span>
+                  {module.fault.primitive.readouts(readoutValues(module, tuning)).map((r) => (
+                    <div key={r.label} className="readout">
+                      <span>{r.label}</span>
+                      <span>{r.value}</span>
+                    </div>
+                  ))}
+                </>
+              )}
               <span className="mono">In the {object}</span>
               {module.numbers(tuning).map((r) => (
                 <div key={r.label} className="readout" data-number>
