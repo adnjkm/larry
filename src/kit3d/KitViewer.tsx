@@ -18,6 +18,8 @@ const FIT_EASE_SECONDS = 0.1;
 
 type Fit = { zoom: number; targetY: number; distance: number };
 
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
 type KitViewerProps = {
   parts: Part[];
   spin?: boolean;
@@ -41,7 +43,8 @@ const styles = stylex.create({
     width: "100%",
     height,
     backgroundColor: colors.paper,
-    touchAction: "none",
+    // Horizontal drags turn the model; vertical swipes stay with the page so a tall viewer never traps the scroll.
+    touchAction: "pan-y",
     overflow: "hidden",
   }),
 });
@@ -96,7 +99,8 @@ function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimu
   cam.updateProjectionMatrix();
 }
 
-export function KitViewer({ parts, spin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops }: KitViewerProps) {
+export function KitViewer({ parts, spin: wantsSpin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops }: KitViewerProps) {
+  const spin = wantsSpin && !reducedMotion.matches;
   return (
     <div data-kit-viewer {...stylex.props(styles.box(height))}>
       <Canvas
@@ -163,7 +167,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts:
 
   useEffect(() => {
     const canvas = gl.domElement;
-    Object.assign(canvas.style, { imageRendering: "pixelated", width: "100%", height: "100%", touchAction: "none", cursor: "grab" });
+    Object.assign(canvas.style, { imageRendering: "pixelated", width: "100%", height: "100%", touchAction: "pan-y", cursor: "grab" });
     let lastX = 0;
     const down = (e: PointerEvent) => {
       dragging.current = true;
@@ -197,7 +201,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts:
     const current = fit.current;
     const goal = fitGoal.current;
     if (current && goal) {
-      const k = 1 - Math.exp(-delta / FIT_EASE_SECONDS);
+      const k = reducedMotion.matches ? 1 : 1 - Math.exp(-delta / FIT_EASE_SECONDS);
       let moving = false;
       for (const key of ["zoom", "targetY", "distance"] as const) {
         const gap = goal[key] - current[key];
