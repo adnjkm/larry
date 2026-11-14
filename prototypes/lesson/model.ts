@@ -98,6 +98,8 @@ export type Lesson = Workshop | Inspect;
 
 export type ModuleSpec = Omit<Module, "teach" | "main" | "fault" | "enter"> & {
   primitive: string;
+  /** Primitive ids taught, in order, when the module teaches more than the main primitive's own parts (it must include `primitive`). */
+  teach?: readonly string[];
   fault: { primitive: string; slider: string; start: number };
   enter?: Vec;
 };
@@ -121,7 +123,8 @@ export function defineLesson(spec: WorkshopSpec): Workshop {
   };
   const modules = spec.modules.map((m): Module => {
     const main = primitiveById(m.primitive);
-    const teach = [...new Set([...main.madeOf, main.id])].map(primitiveById);
+    const teach = [...new Set(m.teach ?? [...main.madeOf, main.id])].map(primitiveById);
+    if (!teach.includes(main)) problems.push(`${m.id}: the main primitive ${main.id} is not taught in this module`);
     const primitive = primitiveById(m.fault.primitive);
     const slider = primitive.sliders.find((s) => s.id === m.fault.slider);
     if (!teach.includes(primitive)) problems.push(`${m.id}: fault primitive ${primitive.id} is not taught in this module`);

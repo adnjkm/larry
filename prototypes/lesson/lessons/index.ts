@@ -3,10 +3,11 @@
 import type { Kit } from "../../../shared/kit.ts";
 import { type Lesson, missingParts, type Workshop } from "../model.ts";
 import bottle from "./bottle.ts";
+import pen from "./pen.ts";
 import { inspectLesson } from "./inspect.ts";
 import stapler from "./stapler.ts";
 
-export const LESSONS: Readonly<Record<string, Workshop>> = { bottle, stapler };
+export const LESSONS: Readonly<Record<string, Workshop>> = { bottle, pen, stapler };
 
 /**
  * The lesson for a kit: the one written for this sample, else one whose name pattern matches the
