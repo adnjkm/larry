@@ -3,6 +3,7 @@ import type { Part } from "../../shared/kit.ts";
 import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "../../src/primitives/library.ts";
 import { SYNTHWAVE } from "../../src/primitives/parts.ts";
+import { Dither } from "./dither.tsx";
 import { reuseParts } from "./pose.ts";
 
 export type View = { elevation: number; azimuth: number };
@@ -19,6 +20,18 @@ export function Viewer(props: { name: string; parts: Part[]; frame: Part[]; view
       {props.live ? <span className="live" aria-live="polite">{props.live}</span> : null}
       <span className="drag">{props.hint ?? "Drag to turn"}</span>
     </div>
+  );
+}
+
+export function ExplodeSlider({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) {
+  return (
+    <label className="slider" data-explode>
+      <span className="mono">Explode</span>
+      <span className="track">
+        <input type="range" min={0} max={1} step={0.01} value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} />
+      </span>
+      <span className="val">{Math.round(value * 100)}%</span>
+    </label>
   );
 }
 
@@ -44,5 +57,36 @@ export function Header(props: { kicker: string; title: string; children?: ReactN
       <h1 className="need">{props.title}</h1>
       {props.children}
     </div>
+  );
+}
+
+export type Step = { key: string; title: string; state: "done" | "now" | "todo"; enabled: boolean; go: () => void };
+
+/** The lesson's top bar: object name, the scanned photo as the goal, and the progress strip. */
+export function Shell({ objectName, kind, photo, steps, onHome, children }: { objectName: string; kind: string; photo: string; steps: Step[]; onHome: () => void; children: ReactNode }) {
+  return (
+    <>
+      <header className="top">
+        <div className="top-row">
+          <div className="top-name">
+            <button type="button" className="crumb mono" data-home onClick={onHome}>← Photos · {kind}</button>
+            <strong>{objectName}</strong>
+          </div>
+          <figure className="north" title="The scanned photo: what you are building">
+            <Dither src={photo} aspect={1} className="thumb" />
+            <figcaption className="mono">Goal</figcaption>
+          </figure>
+        </div>
+        <nav className="strip" aria-label="Progress" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+          {steps.map((s, i) => (
+            <button key={s.key} type="button" className="step-pill" data-state={s.state} data-pill={s.key} disabled={!s.enabled} onClick={s.go}>
+              <span className="mono">{s.state === "done" ? "✓" : String(i + 1).padStart(2, "0")}</span>
+              <span>{s.title}</span>
+            </button>
+          ))}
+        </nav>
+      </header>
+      {children}
+    </>
   );
 }

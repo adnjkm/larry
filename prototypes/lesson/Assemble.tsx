@@ -1,39 +1,54 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Part } from "../../shared/kit.ts";
+import type { Kit, Part } from "../../shared/kit.ts";
 import { initialValues } from "../../src/primitives/library.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { clamp01, easeOut, lerp } from "./ease.ts";
-import { lessonPrimitives } from "./Learn.tsx";
-import { type Lesson, presentAfter } from "./model.ts";
-import { bottleParts, CAP, extents, frameBox, type Move, placeParts, REST, RING, rigOf, vec } from "./pose.ts";
-import { Header, Viewer } from "./ui.tsx";
+import { type PartMove, presentAfter, type Scene, type Target, vec, type Vec, type Workshop } from "./model.ts";
+import { compose, drawObject, extents, frameAround, placeParts, restCentre } from "./pose.ts";
+import { ExplodeSlider, Header, Viewer } from "./ui.tsx";
 
-const FRAME = frameBox(-45, 165, 0, 236, 40);
-const PIECE_AT = vec(112, 112, 0);
-const PIECE_SIZE = 100;
 const FLIGHT_MS = 650;
 /** The piece is spent on the way in; the part appears for the last quarter of the flight and settles. */
 const LAND = 0.75;
-const ENTER: Record<string, ReturnType<typeof vec>> = { [CAP]: vec(0, 50, 0), [RING]: vec(60, 0, 0), "ring-tab": vec(60, 0, 0) };
+const GAP = 24;
 
-export function Assemble({ lesson, index, onNext }: { lesson: Lesson; index: number; onNext: () => void }) {
+const ringRotation = (axis: Target["ring"]["axis"]): Vec => (axis === "x" ? vec(0, 0, 90) : axis === "z" ? vec(90, 0, 0) : vec());
+const sub = (a: Vec | undefined, b: Vec | undefined) => vec((a?.x ?? 0) - (b?.x ?? 0), (a?.y ?? 0) - (b?.y ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
+
+export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit: Kit; index: number; onNext: () => void }) {
   const module = lesson.modules[index]!;
   const alive = useAlive();
-  const piece = useMemo(() => {
-    const main = lessonPrimitives(module).at(-1)!;
-    const raw = main.build(initialValues(main));
-    const box = extents(raw);
-    return { name: main.name, raw, centre: vec((box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2, 0), scale: Math.min(1, PIECE_SIZE / Math.max(box.maxX - box.minX, box.maxY - box.minY)) };
-  }, [module]);
-  const before = presentAfter(lesson, index - 1);
-  const after = presentAfter(lesson, index);
+  const setup = useMemo(() => {
+    const before = presentAfter(lesson, kit, index - 1);
+    const after = presentAfter(lesson, kit, index);
+    const restBefore = lesson.rest({ kit, present: before });
+    const restAfter = lesson.rest({ kit, present: after });
+    const centre = restCentre(kit, after, restAfter);
+    const whole = (explode: number) => drawObject({ kit, present: after, scene: restAfter, explode, pink: new Set(), centre, apart: lesson.apart });
+    const box = extents(whole(0));
+    const raw = module.main.build(initialValues(module.main));
+    const rawBox = extents(raw);
+    const size = Math.min(100, Math.max(40, 0.55 * Math.max(box.max.x - box.min.x, box.max.y - box.min.y)));
+    const scale = Math.min(1, size / Math.max(rawBox.max.x - rawBox.min.x, rawBox.max.y - rawBox.min.y));
+    const piece = { raw, scale, centre: vec((rawBox.min.x + rawBox.max.x) / 2, (rawBox.min.y + rawBox.max.y) / 2, 0), at: vec(box.max.x + GAP + size / 2, Math.max(size / 2 + 8, (box.min.y + box.max.y) / 2), 0) };
+    const target: Part = {
+      id: "target", name: "target", role: "", parentId: null, joint: null,
+      shape: { kind: "torus", radius: module.target.ring.radius, tube: 2, arcDegrees: 360 },
+      position: module.target.at, rotation: ringRotation(module.target.ring.axis), color: COLOR.accent, finish: "matte",
+    };
+    const frame = frameAround([...whole(0), ...whole(1), ...placeParts(raw, piece.centre, scale, vec(piece.at.x, piece.at.y + 10, 0)), target]);
+    return { before, after, restBefore, restAfter, centre, piece, target, frame };
+  }, [lesson, kit, index, module]);
+
   const [picked, setPicked] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+  const [explode, setExplode] = useState(0);
   const [warn, setWarn] = useState(false);
   const [tick, setTick] = useState(0);
   const landed = progress !== null && progress >= LAND;
   const placed = progress === 1;
+  const flying = progress !== null && !placed;
 
   useEffect(() => {
     if (progress !== null) return;
@@ -44,7 +59,11 @@ export function Assemble({ lesson, index, onNext }: { lesson: Lesson; index: num
   const fly = () => {
     if (progress !== null) return;
     setPicked(true);
-    void play(FLIGHT_MS, (ms) => setProgress(ms / FLIGHT_MS), alive);
+    const from = explode;
+    void play(FLIGHT_MS, (ms) => {
+      setProgress(ms / FLIGHT_MS);
+      setExplode(from * (1 - easeOut(clamp01(ms / FLIGHT_MS / LAND))));
+    }, alive);
   };
   const drop = () => {
     if (!picked) return setWarn(true);
@@ -52,54 +71,54 @@ export function Assemble({ lesson, index, onNext }: { lesson: Lesson; index: num
   };
 
   const parts = useMemo(() => {
+    const { before, after, restBefore, restAfter, centre, piece, target } = setup;
     const p = progress ?? 0;
-    const settle = landed ? easeOut(clamp01((p - LAND) / (1 - LAND))) : 0;
-    const moves: Record<string, Partial<Move>> = {};
     if (landed) {
-      for (const id of module.produces) {
-        const from = ENTER[id] ?? vec(0, 50, 0);
-        moves[id] = { dx: from.x * (1 - settle), dy: from.y * (1 - settle) };
+      const settle = 1 - easeOut(clamp01((p - LAND) / (1 - LAND)));
+      const moves: Record<string, PartMove> = {};
+      for (const id of after) {
+        const from = before.includes(id) ? sub(restBefore.moves[id]?.offset, restAfter.moves[id]?.offset) : module.enter;
+        moves[id] = { offset: vec(from.x * settle, from.y * settle, from.z * settle) };
       }
-      if (module.produces.includes(RING)) moves[CAP] = { dy: -rigOf(lesson.kit, before).seatDrop * (1 - settle) };
+      const scene: Scene = compose(restAfter, { moves, marks: [] });
+      return drawObject({ kit, present: after, scene, explode, pink: new Set(module.produces), centre, apart: lesson.apart });
     }
-    const bottle = bottleParts(lesson.kit, landed ? after : before, { ...REST, moves }, new Set(landed ? module.produces : []));
-    if (landed) return bottle;
+    const object = drawObject({ kit, present: before, scene: restBefore, explode, pink: new Set(), centre, apart: lesson.apart });
     const q = easeOut(clamp01(p / LAND));
     const bob = progress === null ? 4 * Math.sin(tick * 0.3) + (picked ? 10 : 0) : 0;
-    const at = vec(lerp(PIECE_AT.x, 0, q), lerp(PIECE_AT.y + bob, module.target.y, q), 0);
+    const at = vec(lerp(piece.at.x, module.target.at.x, q), lerp(piece.at.y + bob, module.target.at.y, q), lerp(0, module.target.at.z, q));
     const floating = placeParts(piece.raw, piece.centre, lerp(piece.scale, piece.scale * 0.12, q), at).map<Part>((part) => ({ ...part, id: `piece-${part.id}` }));
-    const marker: Part = {
-      id: "target", name: "target", role: "", parentId: null, joint: null,
-      shape: { kind: "torus", radius: 33, tube: picked ? 3 : 2, arcDegrees: 360 },
-      position: vec(0, module.target.y, 0), rotation: vec(), color: COLOR.accent, finish: "matte",
-    };
-    return [...bottle, ...floating, marker];
-  }, [lesson.kit, module, before, after, progress, landed, tick, picked, piece]);
+    const marker: Part = picked ? { ...target, shape: { kind: "torus", radius: module.target.ring.radius, tube: 3, arcDegrees: 360 } } : target;
+    return [...object, ...floating, marker];
+  }, [setup, kit, lesson.apart, module, progress, landed, tick, picked, explode]);
 
-  const names = module.produces.map((id) => lesson.kit.parts.find((q) => q.id === id)?.name ?? id).join(" and ");
+  const names = module.produces.map((id) => kit.parts.find((q) => q.id === id)?.name ?? id).join(" and ");
+  const piece = module.main.name.toLowerCase();
+  const object = lesson.objectName.toLowerCase();
 
   return (
     <main className="page" data-stage="assemble">
-      <Header kicker={`Module ${index + 1} · Build the part`} title={`Turn the ${piece.name.toLowerCase()} into the ${names}.`} />
-      <p className="hint">The {piece.name.toLowerCase()} floats beside the bottle. Pick it up, then drop it on the {module.target.label.toLowerCase()}.</p>
-      <Viewer name={lesson.objectName} parts={parts} frame={FRAME} height={400} />
+      <Header kicker={`Module ${index + 1} · Build the part`} title={`Turn the ${piece} into the ${names.toLowerCase()}.`} />
+      <p className="hint">The {piece} floats beside the {object}. Pick it up, then drop it on the {module.target.label.toLowerCase()}.</p>
+      <Viewer name={lesson.objectName} parts={parts} frame={setup.frame} height={400} />
+      <ExplodeSlider value={explode} onChange={setExplode} disabled={flying} />
       <div className="row steps">
         <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>
           <span className="mono">1 · Pick up</span>
-          <strong>{piece.name}</strong>
+          <strong>{module.main.name}</strong>
         </button>
         <button type="button" className="step" data-step="target" data-on={placed ? "" : undefined} disabled={progress !== null} onClick={drop}>
           <span className="mono">2 · Drop on</span>
           <strong>{module.target.label}</strong>
         </button>
       </div>
-      {warn ? <p className="hint warn">Pick up the {piece.name.toLowerCase()} first.</p> : null}
+      {warn ? <p className="hint warn">Pick up the {piece} first.</p> : null}
       {placed ? (
         <>
           <div className="earned">
             <span className="mono" style={{ color: COLOR.focus }}>Part built</span>
             <strong>{names}</strong>
-            <span>The {piece.name.toLowerCase()} is now the {names} on the bottle. It is pink because it is the piece this module is about.</span>
+            <span>The {piece} is now the {names.toLowerCase()} on the {object}. It is pink because it is the piece this module is about.</span>
           </div>
           <button type="button" className="btn" data-next onClick={onNext}>Next: test it</button>
         </>

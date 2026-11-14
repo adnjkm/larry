@@ -1,24 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { framingParts, initialValues, PRIMITIVES, type Primitive, type Values } from "../../src/primitives/library.ts";
-import type { Module } from "./model.ts";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { framingParts, initialValues, type Primitive, type Values } from "../../src/primitives/library.ts";
+import { primitiveById } from "./model.ts";
 import { Header, SliderRow, Viewer } from "./ui.tsx";
 
 const SWEEP_SECONDS = 4;
 
-function primitiveById(id: string): Primitive {
-  const p = PRIMITIVES.find((q) => q.id === id);
-  if (!p) throw new Error(`no primitive ${id}`);
-  return p;
-}
+type Props = { list: readonly Primitive[]; kicker: string; title: string; hint: string; next: string; children?: ReactNode; onNext: () => void };
 
-/** The module's primitive, preceded by the elements it is made of, so the pieces come before the whole. */
-export function lessonPrimitives(module: Module): Primitive[] {
-  const main = primitiveById(module.primitives[module.primitives.length - 1]!);
-  return [...main.madeOf.map(primitiveById), main];
-}
-
-export function Learn({ module, index, onNext }: { module: Module; index: number; onNext: () => void }) {
-  const list = useMemo(() => lessonPrimitives(module), [module]);
+/** One tab per primitive, each a live figure with its sliders, so the user plays with every piece before using it. */
+export function Learn({ list, kicker, title, hint, next, children, onNext }: Props) {
   const [tab, setTab] = useState(0);
   const [seen, setSeen] = useState<ReadonlySet<number>>(new Set([0]));
   const [values, setValues] = useState<Record<string, Values>>(() => Object.fromEntries(list.map((p) => [p.id, initialValues(p)])));
@@ -50,8 +40,9 @@ export function Learn({ module, index, onNext }: { module: Module; index: number
 
   return (
     <main className="page" data-stage="learn">
-      <Header kicker={`Module ${index + 1} · Learn`} title={module.need} />
-      <p className="hint">First the parts it is made of, then the whole. Play with each one.</p>
+      <Header kicker={kicker} title={title} />
+      <p className="hint">{hint}</p>
+      {children}
       {list.length > 1 ? (
         <div className="tabs" role="tablist">
           {list.map((q, i) => (
@@ -95,7 +86,7 @@ export function Learn({ module, index, onNext }: { module: Module; index: number
           <span className="chip"><b>Seen in</b>{p.seenIn.join(", ")}</span>
         </div>
       </div>
-      <button type="button" className="btn" data-next onClick={onNext}>Next: build the part</button>
+      <button type="button" className="btn" data-next onClick={onNext}>{next}</button>
     </main>
   );
 }

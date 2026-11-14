@@ -3,9 +3,10 @@
 .top-name { display: flex; flex-direction: column; gap: 2px; }
 .top-name strong { font-size: 17px; letter-spacing: -0.01em; }
 .north { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.north img { width: 48px; height: 48px; object-fit: cover; border-radius: 12px; background: var(--soft); box-shadow: 0 0 0 1px var(--rule); }
+.north .thumb { width: 48px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--rule); }
 .north figcaption { font-size: 9px; }
-.strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.crumb { align-self: flex-start; padding: 0; border: 0; background: none; cursor: pointer; }
+.strip { display: grid; gap: 6px; }
 .step-pill { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; min-height: 52px; padding: 8px 10px; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px var(--rule) inset; text-align: left; font-size: 12px; font-weight: 600; line-height: 15px; cursor: pointer; transition: transform 160ms var(--ease-out), box-shadow 150ms ease-out; }
 .step-pill:active:not(:disabled) { transform: scale(0.97); }
 .step-pill:disabled { opacity: 0.4; cursor: default; }
@@ -63,3 +64,27 @@
 .pchip[data-on] { box-shadow: 0 0 0 2px var(--pink) inset; }
 .note-line { font-weight: 500; }
 .note-line[data-found] { color: var(--ink); }
+
+.dither { position: relative; width: 100%; }
+.dither canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.dither[style] canvas { height: 100%; }
+.samples { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sample { display: flex; flex-direction: column; gap: 6px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; transition: transform 160ms var(--ease-out); }
+.sample:active { transform: scale(0.97); }
+.sample .tile { border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px var(--rule); }
+.sample > span:not(.mono) { font-size: 15px; font-weight: 600; }
+.scan { position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 0 0 1px var(--rule) inset; }
+.scan .faint { opacity: 0.25; }
+.scan .reveal { position: absolute; inset: 0; clip-path: inset(0 0 100% 0); }
+.scan[data-go] .reveal { clip-path: inset(0 0 0 0); transition: clip-path 1400ms linear; }
+.scan .beam { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--pink); box-shadow: 0 0 12px var(--pink); opacity: 0; }
+.scan[data-go] .beam { opacity: 1; top: 100%; transition: top 1400ms linear, opacity 200ms 1300ms ease-out; }
+.parts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.parts li { display: flex; justify-content: space-between; gap: 10px; font-family: "Geist Mono", monospace; font-size: 13px; animation: pop 260ms var(--ease-out); }
+.parts li span:last-child { color: var(--graphite); }
+.prompt { margin: 0; padding: 14px 16px; border-radius: 14px; background: var(--soft); font-size: 17px; line-height: 24px; font-weight: 500; }
+.prompt::before { content: "“"; }
+.prompt::after { content: "”"; }
+.pchip[data-seen]:not([data-on]) { box-shadow: 0 0 0 1px var(--ink) inset; }
+.pchip:disabled { cursor: default; }
+@media (prefers-reduced-motion: reduce) { .scan[data-go] .reveal, .scan[data-go] .beam { transition: none; } .parts li { animation: none; } }
