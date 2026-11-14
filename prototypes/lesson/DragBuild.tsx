@@ -41,6 +41,8 @@ const PRESS_MS = 320;
 const SNAP_MS = 160;
 const LOWER_MS = 420;
 const REVEAL_MS = 700;
+/** An exploded object closes up this fast once a piece is dropped on it, and always before the piece seats. */
+const CLOSE_MS = 380;
 const SCREW_TURNS = 2;
 const PRESS_DIP = 1.5;
 
@@ -181,11 +183,18 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
 
   const land = (from: Vec) => {
     stopBack.current?.();
-    const to = ghostCentre();
+    // The piece lands on the object put back together: aim at the ghost's assembled spot, and close
+    // any explode while the piece flies in, so it is whole before the piece seats (or at once, for
+    // reduced motion).
+    const to = centreOf(extents(setup.ghost(0)));
     const path = landingPath(reducedMotion.matches ? "snap" : screws ? "screw" : "press", from, to, setup.hover, setup.lifts);
+    const opened = explode;
+    const closeMs = reducedMotion.matches ? 0 : Math.min(CLOSE_MS, path.seatMs * 0.7);
+    if (closeMs === 0) setExplode(0);
     let seated = false;
     setPhase({ kind: "landing", from, to, ms: 0 });
     void play(path.totalMs, (ms) => {
+      if (opened > 0 && closeMs > 0) setExplode(opened * (1 - smooth(Math.min(1, ms / closeMs))));
       if (!seated && ms >= path.seatMs) {
         seated = true;
         navigator.vibrate?.(18);

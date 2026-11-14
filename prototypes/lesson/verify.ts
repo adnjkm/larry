@@ -355,6 +355,9 @@ class Run {
       await this.shot(`${tag}-build-turned`);
     }
 
+    // Built while exploded: the drop must put the object back together before the piece seats.
+    await this.setRange('[data-stage="assemble"] [data-explode] input', 1);
+    await this.page.waitForTimeout(SETTLE_MS);
     const from = await this.centreOf(piece);
     const to = await this.centreOf(ghost);
     await mouse.move(from.x, from.y);
@@ -367,6 +370,8 @@ class Run {
     await mouse.up();
     await this.page.waitForTimeout(400);
     await this.shot(`${tag}-build-landing`);
+    const closing = Number(await this.page.inputValue('[data-stage="assemble"] [data-explode] input'));
+    this.check(`${tag} dropping on an exploded object closes it up before the piece seats`, closing === 0, `explode ${closing} at 400 ms`);
     await this.page.waitForSelector('[data-stage="assemble"] [data-next]:not([disabled])', { timeout: 10_000 });
   }
 
