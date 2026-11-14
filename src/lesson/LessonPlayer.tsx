@@ -21,7 +21,7 @@ const styles = stylex.create({
   header: { display: "flex", flexDirection: "column", gap: 8, paddingBottom: 18, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: colors.rule },
   swatch: { width: 10, height: 10, borderRadius: 999, boxShadow: `inset 0 0 0 1px ${colors.rule}` },
   part: { display: "inline-flex", alignItems: "center", gap: 6 },
-  nav: { display: "flex", gap: 10, paddingTop: 4, paddingBottom: "env(safe-area-inset-bottom)" },
+  nav: { display: "flex", gap: 10, paddingTop: 4 },
   back: { width: "auto", flexShrink: 0 },
   next: { flexGrow: 1 },
 });
@@ -46,7 +46,8 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
   return (
     <>
       <Roadmap state={state} />
-      <BuildViewer kit={kit} earned={earned} />
+      {/* Short during steps so the step's own figure and controls start higher on a phone. */}
+      <BuildViewer kit={kit} earned={earned} height={state.done && finished ? 270 : 180} />
       {state.done && finished ? (
         <Finish kit={kit} lesson={state.done} onRestart={onRestart} />
       ) : waiting ? (
@@ -101,7 +102,7 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
           <p {...stylex.props(type.label)}>
             Step {flat.index + 1} of {inChapter}
           </p>
-          <h3 {...stylex.props(type.title)}>{step.title}</h3>
+          <h2 {...stylex.props(type.title)}>{step.title}</h2>
         </div>
 
         <GlowCard data-story>
@@ -161,7 +162,7 @@ function Waiting({ stalled }: { stalled?: Stalled }) {
   if (stalled)
     return (
       <section data-lesson-failed {...stylex.props(layout.stack)}>
-        <div {...stylex.props(notes.base, notes.fail)}>
+        <div role="alert" {...stylex.props(notes.base, notes.fail)}>
           <p {...stylex.props(type.label, notes.failText)}>Larry stopped writing</p>
           <p {...stylex.props(type.body)}>{stalled.message}</p>
         </div>
@@ -194,7 +195,7 @@ function Finish({ kit, lesson, onRestart }: { kit: Kit; lesson: Lesson; onRestar
       </GlowCard>
       <DownloadButton kit={kit} />
       <button type="button" data-action="restart" {...stylex.props(buttons.base, buttons.primary)} onClick={onRestart}>
-        Scan something else
+        Photograph something else
       </button>
     </section>
   );

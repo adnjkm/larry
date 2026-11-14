@@ -9,7 +9,7 @@ import { KitViewer } from "./kit3d/KitViewer.tsx";
 import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
 import { type LessonLoad, addLessonEvent, arrivedOf, loadDemo, planning, requestLesson } from "./lesson/lessonSource.ts";
 import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
-import { buttons, layout, type } from "./styles.ts";
+import { buttons, layout, notes, type } from "./styles.ts";
 import { colors, fonts } from "./tokens.stylex.ts";
 
 type Header = { name: string; summary: string };
@@ -113,7 +113,11 @@ export function App() {
   return (
     <main {...stylex.props(layout.page)}>
       {state.phase === "capture" && <CapturePicker onPick={(files) => void generate(files)} />}
-      {state.phase === "loading" && <p {...stylex.props(styles.status)}>Loading…</p>}
+      {state.phase === "loading" && (
+        <p role="status" {...stylex.props(styles.status)}>
+          Loading…
+        </p>
+      )}
       {state.phase === "generating" && !view && <GeneratingPhoto photo={state.first} />}
       {view && (
         <>
@@ -155,12 +159,15 @@ export function App() {
       )}
       {state.phase === "failed" && (
         <>
-          <p {...stylex.props(styles.status)}>{state.message}</p>
+          <div role="alert" {...stylex.props(notes.base, notes.fail)}>
+            <p {...stylex.props(type.label, notes.failText)}>Larry couldn't take it apart</p>
+            <p {...stylex.props(type.body)}>{state.message}</p>
+          </div>
           <button type="button" {...stylex.props(buttons.base, buttons.primary)} onClick={state.retry}>
             Try again
           </button>
           <button type="button" {...stylex.props(buttons.base, buttons.secondary)} onClick={restart}>
-            Use other photos
+            Take new photos
           </button>
         </>
       )}
@@ -179,7 +186,9 @@ function GeneratingPhoto({ photo }: { photo: Blob }) {
   return (
     <>
       {url && <img src={url} alt="Your photo" {...stylex.props(styles.photo)} />}
-      <p {...stylex.props(styles.status)}>Larry is taking it apart…</p>
+      <p role="status" {...stylex.props(styles.status)}>
+        Larry is taking it apart…
+      </p>
     </>
   );
 }

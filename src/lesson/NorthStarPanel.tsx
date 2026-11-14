@@ -69,7 +69,7 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
       )}
 
       {lesson.status === "failed" && (
-        <div data-lesson-failed {...stylex.props(notes.base, notes.fail)}>
+        <div data-lesson-failed role="alert" {...stylex.props(notes.base, notes.fail)}>
           <p {...stylex.props(type.label, notes.failText)}>Larry could not plan the build</p>
           <p {...stylex.props(type.body)}>{lesson.message}</p>
         </div>
@@ -87,7 +87,7 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
 
       <DownloadButton kit={kit} />
       <button type="button" {...stylex.props(buttons.base, buttons.secondary)} onClick={onRestart}>
-        Scan something else
+        Photograph something else
       </button>
     </>
   );
