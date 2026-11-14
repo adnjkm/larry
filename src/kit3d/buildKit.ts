@@ -18,12 +18,10 @@ export type KitBounds = {
 
 const DEG = Math.PI / 180;
 
+export const rotationOf = (part: Part) => new Euler(part.rotation.x * DEG, part.rotation.y * DEG, part.rotation.z * DEG, "XYZ");
+
 export function buildPart(part: Part): BuiltPart {
-  return {
-    part,
-    geometry: buildGeometry(part.shape),
-    rotation: new Euler(part.rotation.x * DEG, part.rotation.y * DEG, part.rotation.z * DEG, "XYZ"),
-  };
+  return { part, geometry: buildGeometry(part.shape), rotation: rotationOf(part) };
 }
 
 /** Bounds of parts that are only measured, never drawn. Their geometry is freed straight away. */
@@ -37,24 +35,25 @@ export function measureParts(parts: Part[]): KitBounds {
 export function measure(parts: BuiltPart[]): KitBounds {
   const min = new Vector3(Infinity, Infinity, Infinity);
   const max = new Vector3(-Infinity, -Infinity, -Infinity);
-  const world: Vector3[] = [];
-  const matrix = new Matrix4();
+  const matrices = parts.map(({ part, rotation }) =>
+    new Matrix4().compose(new Vector3(part.position.x, part.position.y, part.position.z), new Quaternion().setFromEuler(rotation), new Vector3(1, 1, 1)),
+  );
   const v = new Vector3();
+  const eachVertex = (visit: (v: Vector3) => void) =>
+    parts.forEach(({ geometry }, i) => {
+      const position = geometry.getAttribute("position");
+      for (let k = 0; k < position.count; k++) visit(v.fromBufferAttribute(position, k).applyMatrix4(matrices[i]!));
+    });
 
-  for (const { part, geometry, rotation } of parts) {
-    matrix.compose(new Vector3(part.position.x, part.position.y, part.position.z), new Quaternion().setFromEuler(rotation), new Vector3(1, 1, 1));
-    const position = geometry.getAttribute("position");
-    for (let i = 0; i < position.count; i++) {
-      v.fromBufferAttribute(position, i).applyMatrix4(matrix);
-      min.min(v);
-      max.max(v);
-      world.push(v.clone());
-    }
-  }
-
+  eachVertex((p) => {
+    min.min(p);
+    max.max(p);
+  });
   const centerX = (min.x + max.x) / 2;
   const centerZ = (min.z + max.z) / 2;
   let radius = 0;
-  for (const p of world) radius = Math.max(radius, Math.hypot(p.x - centerX, p.z - centerZ));
+  eachVertex((p) => {
+    radius = Math.max(radius, Math.hypot(p.x - centerX, p.z - centerZ));
+  });
   return { centerX, centerZ, minY: min.y, maxY: max.y, radius, halfX: (max.x - min.x) / 2, halfZ: (max.z - min.z) / 2 };
 }

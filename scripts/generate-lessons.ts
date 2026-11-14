@@ -1,15 +1,15 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import type { Effort, Model } from "../server/claude.ts";
-import { type LessonStats, streamLesson } from "../server/streamLesson.ts";
+import { LESSON_BRAIN, type LessonStats, streamLesson } from "../server/streamLesson.ts";
 import { parseKit } from "../shared/kit.ts";
 import { allSteps } from "../shared/lesson.ts";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
-    model: { type: "string", default: "claude-opus-5-5" },
-    effort: { type: "string", default: "low" },
+    model: { type: "string", default: LESSON_BRAIN.model },
+    effort: { type: "string", default: LESSON_BRAIN.effort },
     out: { type: "string", default: "fixtures/lessons" },
   },
 });

@@ -1,9 +1,10 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
+import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
 import type { Kit, Part } from "../../shared/kit.ts";
-import { type BuiltPart, buildPart, measure, measureParts } from "./buildKit.ts";
+import { type BuiltPart, measure, measureParts, rotationOf } from "./buildKit.ts";
+import { buildGeometry } from "./geometry.ts";
 import { createDitherMaterial, createShadowMaterial } from "./ditherMaterial.ts";
 
 /** The canvas draws this many pixels tall and is scaled up in CSS. */
@@ -44,22 +45,43 @@ const styles = stylex.create({
   }),
 });
 
-/** Makes one resource per part object and keeps it across rebuilds, disposing it only once its part is gone. */
-function usePerPart<T>(parts: Part[], make: (part: Part) => T, dispose: (item: T) => void): T[] {
-  const cache = useRef(new Map<Part, T>());
-  const items = useMemo(() => parts.map((part) => cache.current.get(part) ?? make(part)), [parts, make]);
+/**
+ * One resource per distinct key, shared by every part with that key and kept across rebuilds.
+ * A slider tick builds new part objects, but most parts only move, so their shapes and looks are reused.
+ */
+function useShared<T>(parts: Part[], key: (part: Part) => string, make: (part: Part) => T, dispose: (item: T) => void): T[] {
+  const cache = useRef(new Map<string, T>());
+  const items = useMemo(
+    () =>
+      parts.map((part) => {
+        const k = key(part);
+        let item = cache.current.get(k);
+        if (item === undefined) {
+          item = make(part);
+          cache.current.set(k, item);
+        }
+        return item;
+      }),
+    [parts, key, make],
+  );
   useEffect(() => {
-    const live = new Map(parts.map((part, i) => [part, items[i] as T]));
-    for (const [part, item] of cache.current) if (!live.has(part)) dispose(item);
-    cache.current = live;
-  }, [parts, items, dispose]);
+    const live = new Set(parts.map(key));
+    for (const [k, item] of cache.current) {
+      if (live.has(k)) continue;
+      dispose(item);
+      cache.current.delete(k);
+    }
+  }, [parts, key, dispose]);
   useEffect(() => () => cache.current.forEach(dispose), [dispose]);
   return items;
 }
 
+const shapeKey = (part: Part) => JSON.stringify(part.shape);
+const makeGeometry = (part: Part) => buildGeometry(part.shape);
+const disposeGeometry = (geometry: BufferGeometry) => geometry.dispose();
+const lookKey = (part: Part) => `${part.color} ${part.finish}`;
 const makeMaterial = (part: Part) => createDitherMaterial(part.color, part.finish);
 const disposeMaterial = (material: ShaderMaterial) => material.dispose();
-const disposeGeometry = ({ geometry }: BuiltPart) => geometry.dispose();
 
 function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimuth: number) {
   const el = (elevation * Math.PI) / 180;
@@ -93,7 +115,8 @@ export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, hei
 
 function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: Part[] | undefined; shadowStops: readonly string[] | undefined }) {
   const { camera, size, gl, invalidate } = useThree();
-  const built = usePerPart(parts, buildPart, disposeGeometry);
+  const geometries = useShared(parts, shapeKey, makeGeometry, disposeGeometry);
+  const built = useMemo((): BuiltPart[] => parts.map((part, i) => ({ part, geometry: geometries[i]!, rotation: rotationOf(part) })), [parts, geometries]);
   const framed = useMemo(() => (frame ? measureParts(frame) : undefined), [frame]);
   const bounds = useMemo(() => framed ?? measure(built), [framed, built]);
   const pivot = useRef<Group>(null);
@@ -104,7 +127,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts:
   const fit = useRef<Fit>(undefined);
   const fitGoal = useRef<Fit>(undefined);
 
-  const materials = usePerPart(parts, makeMaterial, disposeMaterial);
+  const materials = useShared(parts, lookKey, makeMaterial, disposeMaterial);
 
   const shadowGeometry = useMemo(() => new PlaneGeometry(2, 2).rotateX(-Math.PI / 2), []);
   const shadowMaterial = useMemo(() => createShadowMaterial(shadowStops), [shadowStops]);

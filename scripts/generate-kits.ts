@@ -1,14 +1,14 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import type { Effort, Model } from "../server/claude.ts";
-import { streamKit } from "../server/streamKit.ts";
+import { KIT_BRAIN, streamKit } from "../server/streamKit.ts";
 import type { Kit } from "../shared/kit.ts";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
-    model: { type: "string", default: "claude-opus-5-5" },
-    effort: { type: "string", default: "low" },
+    model: { type: "string", default: KIT_BRAIN.model },
+    effort: { type: "string", default: KIT_BRAIN.effort },
     out: { type: "string", default: "fixtures/kits" },
   },
 });
