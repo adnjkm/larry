@@ -4,8 +4,9 @@ import type { Kit } from "../../../shared/kit.ts";
 import { type Lesson, missingParts, type Workshop } from "../model.ts";
 import bottle from "./bottle.ts";
 import { inspectLesson } from "./inspect.ts";
+import stapler from "./stapler.ts";
 
-export const LESSONS: Readonly<Record<string, Workshop>> = { bottle };
+export const LESSONS: Readonly<Record<string, Workshop>> = { bottle, stapler };
 
 /**
  * The lesson for a kit: the one written for this sample, else one whose name pattern matches the
