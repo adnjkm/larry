@@ -309,7 +309,11 @@ try {
         if (wrong >= 0) {
           await page.locator(`[data-option="${wrong}"] button`).click();
           await page.locator(`[data-option="${wrong}"][data-tried]`).waitFor();
-          assert.equal(await page.locator(`[data-option="${wrong}"] button`).isDisabled(), true, "a failed option cannot be re-picked");
+          const tried = page.locator(`[data-option="${wrong}"] button`);
+          assert.equal(await tried.getAttribute("aria-disabled"), "true", "a failed option is marked as tried");
+          await tried.click({ force: true });
+          assert.equal(await page.locator("[data-option][data-tried]").count(), 1, "a failed option cannot be re-picked");
+          assert.ok((await tried.evaluate((b) => b === document.activeElement)), "a failed option keeps focus");
           assert.equal(await next.count(), 0, "a wrong pick does not complete the step");
           await viewersReady(page);
           if (index === 1) await shot(page, `pick-wrong-${step.id}.png`);
@@ -320,11 +324,11 @@ try {
         const slider = primitive?.sliders.find((s) => s.id === problem.slider);
         assert.ok(primitive && slider, `${step.id}: tune slider exists`);
         const input = page.locator(`[data-slider="${slider.id}"] input`);
-        const readouts = page.locator("[data-readouts]");
+        assert.equal(await page.locator("[data-readouts]").count(), 0, "a lesson figure has no readouts");
+        assert.equal(await page.locator("[data-slider]").count(), 1, "a tune step shows only its own slider");
 
         await setSlider(input, slider.min);
         await page.waitForTimeout(150);
-        const lowReadouts = await readouts.innerText();
         await page.locator('[data-note="fail"]').waitFor();
         assert.ok((await page.locator('[data-note="fail"]').innerText()).includes(problem.tooLow.slice(0, 20)), "too-low text shown below the window");
         assert.equal(await next.count(), 0, "a failed try does not complete the step");
@@ -332,9 +336,7 @@ try {
         await input.focus();
         await page.keyboard.press("End");
         await page.waitForTimeout(150);
-        const highReadouts = await readouts.innerText();
         await page.waitForFunction((t) => document.querySelector('[data-note="fail"]')?.textContent?.includes(t), problem.tooHigh.slice(0, 20));
-        console.log(`  readouts change with the slider: ${lowReadouts !== highReadouts ? "yes" : "NO"}`);
 
         const inside = snap(slider, (problem.min + problem.max) / 2);
         assert.ok(inside >= problem.min && inside <= problem.max, `${step.id}: slider step can land inside the window (got ${inside})`);

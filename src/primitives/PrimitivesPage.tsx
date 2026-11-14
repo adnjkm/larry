@@ -74,7 +74,7 @@ export default function PrimitivesPage() {
         values={v}
         onSlider={(sliderId, n) => setValues((all) => ({ ...all, [primitive.id]: { ...v, [sliderId]: n } }))}
         height={VIEWER_HEIGHT}
-        pink
+        library
       />
 
       <p {...stylex.props(styles.idea)}>{primitive.job}</p>

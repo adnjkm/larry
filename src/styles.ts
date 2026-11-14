@@ -9,8 +9,6 @@ export const type = stylex.create({
   story: { margin: 0, fontSize: 16, lineHeight: "22px", color: colors.ink },
   body: { margin: 0, fontSize: 14, lineHeight: "19px", color: colors.ink },
   muted: { margin: 0, fontSize: 14, lineHeight: "19px", color: colors.graphite },
-  numeral: { margin: 0, fontSize: 84, lineHeight: "80px", fontWeight: 200, letterSpacing: "-0.05em" },
-  numeralUnit: { margin: 0, fontSize: 17, lineHeight: "22px" },
 });
 
 export const layout = stylex.create({

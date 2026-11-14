@@ -2,8 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useEffect, useRef } from "react";
 import type { Problem, ProblemType } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
-import { initialValues } from "../primitives/library.ts";
-import { PrimitiveFigure } from "../primitives/PrimitiveFigure.tsx";
 import { buttons, layout, notes, type } from "../styles.ts";
 import { colors, radii } from "../tokens.stylex.ts";
 import type { ProblemAction, ProblemState } from "./problems.ts";
@@ -50,7 +48,7 @@ const styles = stylex.create({
 
 function Observation({ label, children, tone }: { label: string; children: ReactNode; tone?: "fail" | "ok" }) {
   return (
-    <div data-note={tone ?? "observation"} aria-live="polite" {...stylex.props(notes.base, tone === "fail" && notes.fail, tone === "ok" && notes.ok)}>
+    <div data-note={tone ?? "observation"} {...stylex.props(notes.base, tone === "fail" && notes.fail, tone === "ok" && notes.ok)}>
       <p {...stylex.props(type.label, tone === "fail" && notes.failText, tone === "ok" && notes.okText)}>{label}</p>
       <p {...stylex.props(type.body)}>{children}</p>
     </div>
@@ -61,19 +59,20 @@ function RunView({ problem, state, dispatch, figure }: ViewProps<"run">) {
   return (
     <div {...stylex.props(layout.stack)}>
       {figure}
-      {state.ran ? (
-        <Observation label="What happened">{problem.outcome}</Observation>
-      ) : (
-        <button type="button" data-action="run" {...stylex.props(buttons.base, buttons.primary)} onClick={() => dispatch({ type: "run" })}>
-          {problem.action}
-        </button>
-      )}
+      <div aria-live="polite">
+        {state.ran ? (
+          <Observation label="What happened">{problem.outcome}</Observation>
+        ) : (
+          <button type="button" data-action="run" {...stylex.props(buttons.base, buttons.primary)} onClick={() => dispatch({ type: "run" })}>
+            {problem.action}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
 function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
-  const lastFailed = state.tried.findLast((i) => !problem.options[i]?.works);
   return (
     <div {...stylex.props(layout.stack)}>
       <p {...stylex.props(layout.inset, type.story)}>{problem.question}</p>
@@ -83,7 +82,8 @@ function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
         const frozen = tried || state.solved;
         return (
           <div key={i} data-option={i} data-tried={tried || undefined} {...stylex.props(styles.card, tried && !option.works && styles.cardFail, tried && option.works && styles.cardOk)}>
-            <button type="button" disabled={frozen} aria-label={`${primitive?.name ?? option.primitive}: ${primitive?.job ?? ""}`} {...stylex.props(styles.option, frozen && styles.optionDone)} onClick={() => dispatch({ type: "pick", option: i })}>
+            {/* aria-disabled, not disabled, so a tried option keeps focus and its verdict stays readable. */}
+            <button type="button" aria-disabled={frozen} {...stylex.props(styles.option, frozen && styles.optionDone)} onClick={() => frozen || dispatch({ type: "pick", option: i })}>
               {tried && <span {...stylex.props(type.label, option.works ? notes.okText : notes.failText)}>{option.works ? "This works" : "This fails"}</span>}
               <span {...stylex.props(styles.optionName)}>{primitive?.name ?? option.primitive}</span>
               {primitive && <span {...stylex.props(styles.optionJob)}>{primitive.job}</span>}
@@ -92,7 +92,6 @@ function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
             {tried && (
               <div {...stylex.props(styles.cardBody)}>
                 <p {...stylex.props(type.body)}>{option.outcome}</p>
-                {lastFailed === i && primitive && !state.solved && <PrimitiveFigure primitive={primitive} values={initialValues(primitive)} height={180} />}
               </div>
             )}
           </div>
@@ -107,7 +106,7 @@ function TuneView({ problem, state, figure }: ViewProps<"tune">) {
   const verdict = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = verdict.current;
-    if (!el) return;
+    if (!el || !state.verdict) return;
     const { top, bottom } = el.getBoundingClientRect();
     if (top >= 0 && bottom <= innerHeight) return;
     el.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
@@ -120,13 +119,11 @@ function TuneView({ problem, state, figure }: ViewProps<"tune">) {
         <p {...stylex.props(type.body)}>{problem.goal}</p>
       </div>
       {figure}
-      {state.verdict && (
-        <div ref={verdict}>
-          {state.verdict === "below" && <Observation label="Too low" tone="fail">{problem.tooLow}</Observation>}
-          {state.verdict === "above" && <Observation label="Too high" tone="fail">{problem.tooHigh}</Observation>}
-          {state.verdict === "inside" && <Observation label="Just right" tone="ok">{problem.justRight}</Observation>}
-        </div>
-      )}
+      <div ref={verdict} aria-live="polite">
+        {state.verdict === "below" && <Observation label="Too low" tone="fail">{problem.tooLow}</Observation>}
+        {state.verdict === "above" && <Observation label="Too high" tone="fail">{problem.tooHigh}</Observation>}
+        {state.verdict === "inside" && <Observation label="Just right" tone="ok">{problem.justRight}</Observation>}
+      </div>
     </div>
   );
 }

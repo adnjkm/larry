@@ -59,6 +59,10 @@ const styles = stylex.create({
   status: { margin: 0, fontFamily: fonts.mono, fontSize: 14, lineHeight: "20px" },
 });
 
+/** fetch rejects with a TypeError only when the request never reached the server. */
+const messageOf = (error: unknown): string =>
+  error instanceof TypeError ? "Larry couldn't reach the server. Check your connection and try again." : error instanceof Error ? error.message : String(error);
+
 function addEvent(state: GeneratingState, event: Extract<KitEvent, { type: "started" | "part" }>): GeneratingState {
   if (event.type === "started") return { ...state, header: { name: event.name, summary: event.summary } };
   // A schema retry on the server can send a part again, so a repeated id replaces the earlier copy.
@@ -83,7 +87,7 @@ export function App() {
       for await (const event of requestLesson(kit, controller.signal)) update((lesson) => addLessonEvent(lesson, event));
     } catch (error) {
       if (controller.signal.aborted) return;
-      const message = error instanceof DOMException && error.name === "TimeoutError" ? "Larry took too long to plan this one" : error instanceof Error ? error.message : String(error);
+      const message = error instanceof DOMException && error.name === "TimeoutError" ? "Larry took too long to plan this one" : messageOf(error);
       update((lesson) => (lesson.status === "planning" ? { ...lesson, status: "failed", message } : lesson));
     }
   }
@@ -118,7 +122,7 @@ export function App() {
         else setState((s) => (s.phase === "generating" ? addEvent(s, event) : s));
       }
     } catch (error) {
-      fail(error instanceof Error ? error.message : String(error));
+      fail(messageOf(error));
     }
   }
 
@@ -203,7 +207,7 @@ export function App() {
             Try again
           </button>
           <button type="button" {...stylex.props(buttons.base, buttons.secondary)} onClick={restart}>
-            Take new photos
+            Photograph something else
           </button>
         </>
       )}

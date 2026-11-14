@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import type { Lesson } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
@@ -18,6 +18,7 @@ import { Roadmap } from "./Roadmap.tsx";
 type Stalled = { message: string; onRetry: () => void };
 
 const styles = stylex.create({
+  screen: { display: "contents" },
   step: { display: "flex", flexDirection: "column", gap: 20 },
   header: { display: "flex", flexDirection: "column", gap: 8, paddingBottom: 18, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: colors.rule },
   swatch: { width: 10, height: 10, borderRadius: 999, boxShadow: `inset 0 0 0 1px ${colors.rule}` },
@@ -40,25 +41,25 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
   }, [arrived.chapters, arrived.done]);
 
   const waiting = isWaiting(state);
+  const screen = useRef<HTMLDivElement>(null);
   useEffect(() => {
     window.scrollTo(0, 0);
+    // Tells a screen reader the step changed; the heading is the first thing on every screen.
+    screen.current?.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
   }, [state.at, waiting]);
 
   return (
     <>
       <Roadmap state={state} />
-      {state.done && finished ? (
-        <Finish kit={kit} earned={earned} lesson={state.done} onRestart={onRestart} />
-      ) : waiting ? (
-        <Waiting stalled={stalled} />
-      ) : (
-        <StepScreen key={state.at} kit={kit} earned={earned} state={state} dispatch={dispatch} />
-      )}
-      {state.at >= state.flat.length && state.at > 0 && (
-        <button type="button" {...stylex.props(buttons.base, buttons.secondary)} onClick={() => dispatch({ type: "back" })}>
-          Back to the last step
-        </button>
-      )}
+      <div ref={screen} {...stylex.props(styles.screen)}>
+        {state.done && finished ? (
+          <Finish kit={kit} earned={earned} lesson={state.done} onRestart={onRestart} />
+        ) : waiting ? (
+          <Waiting stalled={stalled} onBack={state.at > 0 ? () => dispatch({ type: "back" }) : undefined} />
+        ) : (
+          <StepScreen key={state.at} kit={kit} earned={earned} state={state} dispatch={dispatch} />
+        )}
+      </div>
     </>
   );
 }
@@ -76,16 +77,17 @@ function StepScreen({ kit, earned, state, dispatch }: { kit: Kit; earned: Readon
   const added = step.earns.flatMap((id) => partsById.get(id) ?? []);
   const last = state.done !== null && state.at === state.flat.length - 1;
 
-  // A run step shows the build at the setting where it fails, so the outcome always matches what is drawn.
-  const still = step.problem?.type === "run";
+  // Only a tune step is about a setting, so every other figure is drawn still: a run step at the setting where it fails, so the outcome matches what is drawn.
+  const tune = step.problem?.type === "tune" ? step.problem : undefined;
   const figure = primitive && (
     <PrimitiveFigure
       primitive={primitive}
       values={current.values}
-      onSlider={still ? undefined : (id, value) => dispatch({ type: "slider", id, value })}
-      focus={step.problem?.type === "tune" ? step.problem.slider : undefined}
-      onCommit={(id) => step.problem?.type === "tune" && step.problem.slider === id && dispatch({ type: "problem", action: { type: "tune" } })}
-      introduce={flat.introduces}
+      onSlider={tune && ((id, value) => dispatch({ type: "slider", id, value }))}
+      focus={tune?.slider}
+      onCommit={(id) => tune?.slider === id && dispatch({ type: "problem", action: { type: "tune" } })}
+      // A pick step's option card has already named the piece.
+      introduce={flat.introduces && step.problem?.type !== "pick"}
     />
   );
 
@@ -95,7 +97,7 @@ function StepScreen({ kit, earned, state, dispatch }: { kit: Kit; earned: Readon
         {flat.index === 0 && chapter && (
           <header data-chapter-header {...stylex.props(layout.inset, styles.header)}>
             <p {...stylex.props(type.label, type.labelAccent)}>{chapter.kind === "module" ? "The next requirement" : chapter.kind === "join" ? "Putting it together" : "The last piece"}</p>
-            <h2 {...stylex.props(type.task)}>{chapter.kind === "module" ? chapter.need : chapter.title}</h2>
+            <h2 tabIndex={-1} {...stylex.props(type.title)}>{chapter.kind === "module" ? chapter.need : chapter.title}</h2>
             {chapter.kind === "module" && <p {...stylex.props(type.muted)}>{chapter.why}</p>}
           </header>
         )}
@@ -106,7 +108,7 @@ function StepScreen({ kit, earned, state, dispatch }: { kit: Kit; earned: Readon
               Step {flat.index + 1} of {inChapter}
             </p>
           )}
-          <h2 {...stylex.props(type.title)}>{step.title}</h2>
+          <h2 tabIndex={-1} {...stylex.props(type.task)}>{step.title}</h2>
         </div>
 
         <GlowCard data-story>
@@ -165,26 +167,37 @@ function StepScreen({ kit, earned, state, dispatch }: { kit: Kit; earned: Readon
   );
 }
 
-function Waiting({ stalled }: { stalled?: Stalled }) {
-  if (stalled)
-    return (
-      <section data-lesson-failed {...stylex.props(layout.stack)}>
+function Waiting({ stalled, onBack }: { stalled?: Stalled; onBack?: () => void }) {
+  return (
+    <section data-waiting={stalled ? undefined : ""} data-lesson-failed={stalled ? "" : undefined} {...stylex.props(layout.stack)}>
+      {stalled ? (
         <div role="alert" {...stylex.props(notes.base, notes.fail)}>
-          <p {...stylex.props(type.label, notes.failText)}>Larry stopped writing</p>
+          <h2 tabIndex={-1} {...stylex.props(type.label, notes.failText)}>
+            Larry stopped writing
+          </h2>
           <p {...stylex.props(type.body)}>{stalled.message}</p>
         </div>
+      ) : (
+        <div role="status" {...stylex.props(layout.inset, layout.stack)}>
+          <h2 tabIndex={-1} {...stylex.props(type.label, type.labelAccent)}>
+            Up next
+          </h2>
+          <p {...stylex.props(type.story)}>
+            Larry is still writing the next part
+            <Dots />
+          </p>
+        </div>
+      )}
+      {stalled && (
         <button type="button" data-action="retry" {...stylex.props(buttons.base, buttons.primary)} onClick={stalled.onRetry}>
           Try again
         </button>
-      </section>
-    );
-  return (
-    <section data-waiting role="status" {...stylex.props(layout.inset, layout.stack)}>
-      <p {...stylex.props(type.label, type.labelAccent)}>Up next</p>
-      <p {...stylex.props(type.story)}>
-        Larry is still writing the next part
-        <Dots />
-      </p>
+      )}
+      {onBack && (
+        <button type="button" data-action="back" {...stylex.props(buttons.base, buttons.secondary)} onClick={onBack}>
+          Back to the last step
+        </button>
+      )}
     </section>
   );
 }
@@ -195,7 +208,7 @@ function Finish({ kit, earned, lesson, onRestart }: { kit: Kit; earned: Readonly
       <BuildViewer kit={kit} earned={earned} />
       <div {...stylex.props(layout.inset, layout.tight)}>
         <p {...stylex.props(type.label, type.labelAccent)}>You built it</p>
-        <h2 {...stylex.props(type.task)}>{lesson.title}</h2>
+        <h2 tabIndex={-1} {...stylex.props(type.task)}>{lesson.title}</h2>
       </div>
       <GlowCard>
         {lesson.closing.map((p) => (

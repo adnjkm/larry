@@ -2,7 +2,7 @@ import type { z } from "zod";
 
 function errorText(body: unknown, status: number): string {
   if (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string") return body.error;
-  return `Request failed (${status})`;
+  return `Larry's server had a problem (${status}). Try again in a moment.`;
 }
 
 /**

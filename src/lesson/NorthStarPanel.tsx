@@ -8,7 +8,6 @@ import { type LessonLoad, arrivedOf } from "./lessonSource.ts";
 import { needText } from "./needText.ts";
 
 const styles = stylex.create({
-  count: { display: "flex", alignItems: "baseline", gap: 8 },
   needs: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column" },
   line: { display: "flex", gap: 10, fontSize: 16, lineHeight: "22px" },
   need: { padding: "10px 0", borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: colors.rule },
@@ -22,15 +21,12 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
   const modules = chapters.flatMap((c) => (c.kind === "module" ? [c] : []));
   const known = modules.filter((m) => !m.surprise);
   const surprises = modules.length - known.length;
-  const ready = chapters.length > 0 && lesson.status !== "failed";
+  // A lesson that failed after its first chapter is still playable; the player offers the retry where the chapters run out.
+  const ready = chapters.length > 0;
+  const failed = lesson.status === "failed" && !ready ? lesson : undefined;
 
   return (
     <>
-      <div {...stylex.props(layout.inset, styles.count)}>
-        <p {...stylex.props(type.numeral)}>{kit.parts.length}</p>
-        <p {...stylex.props(type.numeralUnit)}>{kit.parts.length === 1 ? "part" : "parts"}</p>
-      </div>
-
       {known.length > 0 && (
         <section data-requirements {...stylex.props(layout.inset, layout.tight)}>
           <p {...stylex.props(type.label)}>To make a {kit.name.toLowerCase()}, it must…</p>
@@ -60,14 +56,14 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
         </section>
       )}
 
-      {lesson.status === "failed" && (
+      {failed && (
         <div data-lesson-failed role="alert" {...stylex.props(notes.base, notes.fail)}>
           <p {...stylex.props(type.label, notes.failText)}>Larry could not plan the build</p>
-          <p {...stylex.props(type.body)}>{lesson.message}</p>
+          <p {...stylex.props(type.body)}>{failed.message}</p>
         </div>
       )}
 
-      {lesson.status === "failed" ? (
+      {failed ? (
         <button type="button" data-action="retry" {...stylex.props(buttons.base, buttons.primary)} onClick={onRetry}>
           Try again
         </button>
