@@ -287,6 +287,7 @@ export default defineStory({
   id: "bottle",
   objectName: "Water bottle",
   match: /\b(bottle|flask|thermos)\b/i,
+  build: "drag",
   // Without the seal ring under it the cap sits lower, and a turn mark rides the cap so its spin shows.
   rest: (ctx): Scene => {
     if (!ctx.present.includes(CAP)) return EMPTY_SCENE;
@@ -318,8 +319,8 @@ export default defineStory({
       },
       uses: { thread: "A thread turns your twist into a grip that holds the cap down." },
       assemble: {
-        piece: "Thread nut",
-        title: "Drop the thread on the neck. It becomes the cap.",
+        piece: "Cap",
+        title: "The cap's thread grips the thread on the neck.",
         built: "The thread now runs inside the cap and round the neck.",
       },
       target: { label: "Neck", at: vec(0, 190, 0), ring: { radius: 33, axis: "y" } },
@@ -354,8 +355,8 @@ export default defineStory({
       },
       uses: { seal: "Squeezed rubber fills the tiny gaps, so water can't get out." },
       assemble: {
-        piece: "Rubber seal",
-        title: "Press the seal into the neck. It becomes the seal ring.",
+        piece: "Seal",
+        title: "The seal sits in the neck, under the cap.",
         built: "The rubber ring now sits where the cap meets the neck.",
       },
       target: { label: "Neck", at: vec(0, 180, 0), ring: { radius: 33, axis: "y" } },
