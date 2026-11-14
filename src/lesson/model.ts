@@ -12,7 +12,7 @@ type FlatStep = {
   /** Position inside its chapter. */
   index: number;
   step: Step;
-  /** True for the first step in the lesson that shows this step's primitive, which is when the player introduces it. */
+  /** True for the first step in the lesson that works with this step's primitive, which is when the player introduces it. A run step only draws it. */
   introduces: boolean;
 };
 
@@ -47,8 +47,9 @@ function flatten(chapters: Chapter[]): FlatStep[] {
   const seen = new Set<string>();
   return chapters.flatMap((chapter, c) =>
     chapter.steps.map((step, index): FlatStep => {
-      const introduces = step.primitive !== null && !seen.has(step.primitive);
-      if (step.primitive !== null) seen.add(step.primitive);
+      const worked = step.problem?.type === "run" ? null : step.primitive;
+      const introduces = worked !== null && !seen.has(worked);
+      if (worked !== null) seen.add(worked);
       return { chapter: c, index, step, introduces };
     }),
   );

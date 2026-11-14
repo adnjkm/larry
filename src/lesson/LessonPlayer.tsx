@@ -76,11 +76,13 @@ function StepScreen({ kit, earned, state, dispatch }: { kit: Kit; earned: Readon
   const added = step.earns.flatMap((id) => partsById.get(id) ?? []);
   const last = state.done !== null && state.at === state.flat.length - 1;
 
+  // A run step shows the build at the setting where it fails, so the outcome always matches what is drawn.
+  const still = step.problem?.type === "run";
   const figure = primitive && (
     <PrimitiveFigure
       primitive={primitive}
       values={current.values}
-      onSlider={(id, value) => dispatch({ type: "slider", id, value })}
+      onSlider={still ? undefined : (id, value) => dispatch({ type: "slider", id, value })}
       focus={step.problem?.type === "tune" ? step.problem.slider : undefined}
       onCommit={(id) => step.problem?.type === "tune" && step.problem.slider === id && dispatch({ type: "problem", action: { type: "tune" } })}
       introduce={flat.introduces}

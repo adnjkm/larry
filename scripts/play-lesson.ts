@@ -273,6 +273,7 @@ try {
 
   let chapterNumber = 0;
   let firstTune = true;
+  let firstRun = true;
   let midStreamShot = false;
   for (let c = 0; ; c++) {
     const chapter = await chapterAt(c);
@@ -294,6 +295,12 @@ try {
       if (problem) assert.equal(await next.count(), 0, `${step.id}: Next is not offered before the problem is solved`);
 
       if (problem?.type === "run") {
+        assert.equal(await page.locator("[data-figure]").count(), step.primitive === null ? 0 : 1, `${step.id}: a run step draws its primitive, if it has one`);
+        assert.equal(await page.locator("[data-figure] input[type=range]").count(), 0, `${step.id}: a run step's figure stays at its starting values`);
+        if (firstRun && step.primitive !== null) {
+          await shot(page, `run-figure-${step.id}.png`, false);
+          firstRun = false;
+        }
         await page.locator("[data-action=run]").click();
         await page.locator("[data-note]").waitFor();
       } else if (problem?.type === "pick") {
