@@ -139,7 +139,7 @@ function open(closer: Pair): Test {
       const at = (d: number, deg: number) => carry(closer, ctx.present, move(d, deg));
       if (!opens(s)) {
         return {
-          verdict: { pass: false, line: `It would not open. It needs ${need(s)} ${law.unit} and a hand gives about ${law.hand}.`, nudge: `The squeezed seal grips the ${closer.childName} far too hard.` },
+          verdict: { pass: false, line: `It would not open. It needs ${need(s)} ${law.unit} and a hand gives about ${law.hand} ${law.unit}.`, nudge: `The squeezed seal grips the ${closer.childName} far too hard.` },
           durationMs: REFUSE_MS,
           at: (ms) => {
             const w = shudder(clamp01(ms / REFUSE_MS));
@@ -149,7 +149,7 @@ function open(closer: Pair): Test {
       }
       const free = clearance(closer);
       return {
-        verdict: { pass: true, line: `Opened by hand with ${need(s)} ${law.unit}, under the ${law.hand} a hand gives.` },
+        verdict: { pass: true, line: `Opened by hand with ${need(s)} ${law.unit}, under the ${law.hand} ${law.unit} a hand gives.` },
         durationMs: TWIST_MS + LIFT_MS + HOLD + BACK,
         at: (ms) => {
           if (ms < TWIST_MS) {
@@ -216,7 +216,7 @@ export const sealTemplate: Template = {
         const drops = dropsAt(s);
         return [
           { label: "Upside down", value: drops > 0 ? `${drops} drops get through (dry from ${pct(WINDOW[0])}%)` : "dry" },
-          { label: "To open", value: `${law.base} + ${law.per} × ${s.toFixed(2)} = ${tenth(law.base + law.per * s)} ${law.unit} (a hand gives ${law.hand})` },
+          { label: "To open", value: `${law.base} + ${law.per} × ${s.toFixed(2)} = ${tenth(law.base + law.per * s)} ${law.unit} (a hand gives ${law.hand} ${law.unit})` },
         ];
       },
     };
