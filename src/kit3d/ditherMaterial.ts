@@ -31,11 +31,17 @@ const glslVec3 = (hex: string) => {
   return `vec3(${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)})`;
 };
 
+// The shaders build no local arrays: Mali GPUs (Pixel phones) refuse to compile array constructors ("no default precision
+// defined for variable 'vec3[5]'"), and indexing a local array by a computed index is slow on mobile GPUs anyway.
+
+/** The 4x4 Bayer matrix in closed form: 4 * B2(low bits) + B2(high bits), where B2 = (2x + 3y) mod 4 is [[0, 2], [3, 1]]. */
 const BAYER = /* glsl */ `
-const float BAYER[16] = float[16](0.,8.,2.,10., 12.,4.,14.,6., 3.,11.,1.,9., 15.,7.,13.,5.);
+float bayer2(vec2 p) {
+  return mod(2.0 * p.x + 3.0 * p.y, 4.0);
+}
 float bayer(vec2 p) {
   vec2 q = mod(floor(p), 4.0);
-  return (BAYER[int(q.y) * 4 + int(q.x)] + 0.5) / 16.0;
+  return (4.0 * bayer2(mod(q, 2.0)) + bayer2(floor(q / 2.0)) + 0.5) / 16.0;
 }
 const vec3 INK = ${glslVec3(colors.ink)};
 const vec3 ORANGE = ${glslVec3(colors.accent)};
@@ -74,15 +80,14 @@ void main() {
   shade += uSpecular * pow(max(dot(n, halfway), 0.0), uShininess);
   shade = clamp(shade, 0.0, 1.0);
 
-  vec3 tones[5] = vec3[5](
-    mix(uColor, INK, 0.85),
-    mix(uColor, INK, 0.5),
-    uColor,
-    mix(uColor, vec3(1.0), 0.5),
-    mix(uColor, vec3(1.0), 0.88)
-  );
-  int tone = int(clamp(floor(shade * 4.0 + threshold - 0.5 + 0.5), 0.0, 4.0));
-  gl_FragColor = vec4(tones[tone], 1.0);
+  // Five tones, darkest first: deep shadow, shadow, the colour, light, highlight.
+  float tone = clamp(floor(shade * 4.0 + threshold - 0.5 + 0.5), 0.0, 4.0);
+  vec3 colour = tone < 0.5 ? mix(uColor, INK, 0.85)
+    : tone < 1.5 ? mix(uColor, INK, 0.5)
+    : tone < 2.5 ? uColor
+    : tone < 3.5 ? mix(uColor, vec3(1.0), 0.5)
+    : mix(uColor, vec3(1.0), 0.88);
+  gl_FragColor = vec4(colour, 1.0);
 }
 `;
 
