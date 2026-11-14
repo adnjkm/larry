@@ -1,5 +1,6 @@
 // Screenshots every primitive in the library on a phone-sized page, for checking the renders.
-// Usage: node scripts/primitives.ts   -> out/primitives/<id>.png and out/primitives/page.png
+// Usage: node scripts/primitives.ts [id ...]   -> out/primitives/<id>.png (all ids when none given)
+//        and out/primitives/page-<id>.png, the full phone page, for each id.
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -46,12 +47,13 @@ try {
   });
   mkdirSync(outDir, { recursive: true });
 
-  for (const p of PRIMITIVES) {
+  const wanted = process.argv.slice(2);
+  for (const p of PRIMITIVES.filter((q) => wanted.length === 0 || wanted.includes(q.id))) {
     await page.goto(`${url}?primitives=${p.id}`, { waitUntil: "networkidle" });
     await page.waitForSelector("[data-kit-viewer][data-ready]", { timeout: 90_000 });
     await page.waitForTimeout(400);
     await page.locator("[data-kit-viewer]").screenshot({ path: join(outDir, `${p.id}.png`) });
-    if (p === PRIMITIVES[2]) await page.screenshot({ path: join(outDir, "page.png"), fullPage: true });
+    await page.screenshot({ path: join(outDir, `page-${p.id}.png`), fullPage: true });
     console.log(p.id);
   }
 } catch (error) {
