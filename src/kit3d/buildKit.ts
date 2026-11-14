@@ -26,6 +26,14 @@ export function buildPart(part: Part): BuiltPart {
   };
 }
 
+/** Bounds of parts that are only measured, never drawn. Their geometry is freed straight away. */
+export function measureParts(parts: Part[]): KitBounds {
+  const built = parts.map(buildPart);
+  const bounds = measure(built);
+  for (const { geometry } of built) geometry.dispose();
+  return bounds;
+}
+
 export function measure(parts: BuiltPart[]): KitBounds {
   const min = new Vector3(Infinity, Infinity, Infinity);
   const max = new Vector3(-Infinity, -Infinity, -Infinity);

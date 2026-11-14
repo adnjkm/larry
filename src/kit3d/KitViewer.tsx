@@ -3,7 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
 import type { Kit, Part } from "../../shared/kit.ts";
-import { type BuiltPart, buildPart, measure } from "./buildKit.ts";
+import { type BuiltPart, buildPart, measure, measureParts } from "./buildKit.ts";
 import { createDitherMaterial, createShadowMaterial } from "./ditherMaterial.ts";
 
 /** The canvas draws this many pixels tall and is scaled up in CSS. */
@@ -25,6 +25,8 @@ type KitViewerProps = {
   azimuth?: number;
   /** CSS height in px. Pick a multiple of 180 so the pixels stay square. */
   height?: number;
+  /** Parts to fit the camera to instead of the kit's own, so the view holds still while sliders move the kit. */
+  frame?: Part[];
 };
 
 const styles = stylex.create({
@@ -67,7 +69,7 @@ function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimu
   cam.updateProjectionMatrix();
 }
 
-export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, height = 360 }: KitViewerProps) {
+export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, height = 360, frame }: KitViewerProps) {
   return (
     <div data-kit-viewer {...stylex.props(styles.box(height))}>
       <Canvas
@@ -79,16 +81,17 @@ export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, hei
         camera={{ position: [0, 0, 100], near: 0.1, far: 10000 }}
       >
         <color attach="background" args={["#FFFFFF"]} />
-        <Scene parts={kit.parts} spin={spin} elevation={elevation} azimuth={azimuth} />
+        <Scene parts={kit.parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} />
       </Canvas>
     </div>
   );
 }
 
-function Scene({ parts, spin, elevation, azimuth }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number }) {
+function Scene({ parts, spin, elevation, azimuth, frame }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: Part[] | undefined }) {
   const { camera, size, gl, invalidate } = useThree();
   const built = usePerPart(parts, buildPart, disposeGeometry);
-  const bounds = useMemo(() => measure(built), [built]);
+  const framed = useMemo(() => (frame ? measureParts(frame) : undefined), [frame]);
+  const bounds = useMemo(() => framed ?? measure(built), [framed, built]);
   const pivot = useRef<Group>(null);
   const shadow = useRef<Mesh>(null);
   const yaw = useRef(0);
