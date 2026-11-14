@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { play, useAlive } from "./anim.ts";
 import { lerp, smooth } from "./ease.ts";
 import { type Overlay, presentAfter, type Run, STILL, type Story, type Test, type Values, type Verdict } from "./model.ts";
 import { compose, drawObject, restCentre } from "./pose.ts";
+import { Cheer } from "./Cheer.tsx";
 import { Actions, ExplodeSlider, Say, Strip, Viewer, Why } from "./ui.tsx";
 
 const CLOSE_MS = 350;
@@ -54,6 +55,16 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
     const reach = (run: Run, v: number): Part[] => [...draw(held(v), 0), ...Array.from({ length: FRAME_SAMPLES + 1 }, (_, i) => draw(run.at((run.durationMs * i) / FRAME_SAMPLES), 0)).flat()];
     return { present, ctx, draw, held, reach, zones: control.zones(ctx) };
   }, [story, kit, mode.kind, mode.kind === "final" ? -1 : mode.index, module, control]);
+
+  // A fix that just started working gets a short pop. Only the change counts, so coming back to a
+  // finished step stays quiet.
+  const [cheers, setCheers] = useState(0);
+  const wasDone = useRef(done);
+  useEffect(() => {
+    if (done && !wasDone.current && mode.kind !== "problem") setCheers((n) => n + 1);
+    wasDone.current = done;
+  }, [done, mode.kind]);
+  const cheer = module ? module.cheer : story.final.cheer;
 
   const [explode, setExplodeState] = useState(mode.kind === "final" ? 1 : 0);
   const explodeRef = useRef(explode);
@@ -146,6 +157,7 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
     <main className="page" data-stage={stage}>
       <Say kicker={kicker} why={sheet} found={done && mode.kind !== "problem"} note={mode.kind === "problem" && done}>{say}</Say>
       <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live || undefined} />
+      <Cheer text={cheer} show={cheers} />
       <ExplodeSlider value={explode} disabled={running !== null} onChange={(v) => { token.current++; setExplode(v); }} />
       {mode.kind === "problem" ? null : (
         <Strip id={control.key} label={control.verb} value={value} min={0} max={world.zones[world.zones.length - 1]!.until} zones={world.zones} disabled={running !== null || done} onChange={turn} />

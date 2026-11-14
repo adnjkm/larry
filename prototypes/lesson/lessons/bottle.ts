@@ -337,6 +337,7 @@ export default defineStory({
         "Without the thread, the first bump knocks the cap off and your drink spills.",
       ],
       job: "The thread holds the cap on.",
+      cheer: "Locked on!",
     },
     {
       id: "dry",
@@ -373,12 +374,14 @@ export default defineStory({
         "Without the seal, a closed bottle still drips when it tips over in your bag.",
       ],
       job: "The seal keeps it dry.",
+      cheer: "Sealed tight!",
     },
   ],
   final: {
     title: "Put it together",
     say: "Shake it, flip it, open it.",
     success: "You built a water bottle.",
+    cheer: "Cheers! Bottle built.",
     control: twist,
     tests: [shake, flip, open],
     why: ["Each part has one job, and the bottle needs all three.", "Take one away and it stops working: the cap falls off, or it leaks."],

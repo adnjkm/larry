@@ -188,6 +188,8 @@ export type StoryModule = Built & {
   why: readonly string[];
   /** The part's job in one line, said when it is earned. */
   job: string;
+  /** Two or three words that pop up when the fix works, e.g. "Locked on!". */
+  cheer: string;
 };
 
 export type Story = {
@@ -197,7 +199,7 @@ export type Story = {
   match: RegExp;
   modules: readonly StoryModule[];
   /** `payoff` names each part's job once the whole object works. */
-  final: { title: string; say: string; success: string; control: Control; tests: readonly Test[]; why: readonly string[]; payoff: readonly { part: string; job: string }[] };
+  final: { title: string; say: string; success: string; cheer: string; control: Control; tests: readonly Test[]; why: readonly string[]; payoff: readonly { part: string; job: string }[] };
   rest: (ctx: Ctx) => Scene;
   apart?: Readonly<Record<string, Vec>>;
   view?: View;
@@ -292,7 +294,7 @@ const DIGIT = /\d/;
 /** Resolves a story lesson's primitives and checks its copy: short instructions, no numbers, a rig and a use line for every taught primitive. */
 export function defineStory(spec: StorySpec): Story {
   const problems: string[] = [];
-  const copy: [string, string][] = [["object name", spec.objectName], ["final title", spec.final.title], ["final say", spec.final.say], ["final success", spec.final.success], ...spec.final.why.map((s): [string, string] => ["final why", s]), ...spec.final.payoff.flatMap((p): [string, string][] => [["final payoff", p.part], ["final payoff", p.job]])];
+  const copy: [string, string][] = [["object name", spec.objectName], ["final title", spec.final.title], ["final say", spec.final.say], ["final success", spec.final.success], ["final cheer", spec.final.cheer], ...spec.final.why.map((s): [string, string] => ["final why", s]), ...spec.final.payoff.flatMap((p): [string, string][] => [["final payoff", p.part], ["final payoff", p.job]])];
   const short = (where: string, s: string) => {
     if (words(s) > TASK_WORDS) problems.push(`${where} "${s}" is over ${TASK_WORDS} words`);
   };
@@ -309,7 +311,7 @@ export function defineStory(spec: StorySpec): Story {
       if (rig && Object.keys(rig.controls).length === 0) problems.push(`${m.id}: the ${p.id} rig shows no control`);
     }
     if (m.play.tests.length === 0) problems.push(`${m.id}: no tests`);
-    for (const [where, s] of [["without say", m.without.say], ["learn say", m.learn.say], ["play say", m.play.say], ["job", m.job]] as const) short(`${m.id}: ${where}`, s);
+    for (const [where, s] of [["without say", m.without.say], ["learn say", m.learn.say], ["play say", m.play.say], ["job", m.job], ["cheer", m.cheer]] as const) short(`${m.id}: ${where}`, s);
     copy.push(
       [`${m.id} title`, m.title], [`${m.id} without`, m.without.say], [`${m.id} without`, m.without.line], [`${m.id} learn`, m.learn.say], [`${m.id} play`, m.play.say],
       [`${m.id} verb`, m.play.control.verb], [`${m.id} job`, m.job], ...Object.values(m.assemble).map((s): [string, string] => [`${m.id} assemble`, s]),
