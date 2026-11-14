@@ -86,7 +86,7 @@ export default function PrimitivesPage() {
 
   const sameLevel = PRIMITIVES.filter((p) => p.level === primitive.level);
   const index = sameLevel.indexOf(primitive) + 1;
-  const madeOf = primitive.madeOf.flatMap((b) => PRIMITIVES.filter((p) => p.id === b));
+  const madeOf = [...new Set(primitive.madeOf)].flatMap((b) => PRIMITIVES.filter((p) => p.id === b));
   const usedIn = PRIMITIVES.filter((p) => p.madeOf.includes(primitive.id));
 
   return (

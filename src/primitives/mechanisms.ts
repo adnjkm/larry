@@ -74,7 +74,7 @@ const gear: Primitive = {
   job: "Change the speed or force of turning",
   howItWorks:
     "A gear is a wheel with teeth cut into its rim, so two of them cannot slip against each other. The same number of teeth pass the contact point on both, so a gear with twice the teeth turns half as fast and, because the work in equals the work out, with twice the turning force. Each mesh also reverses the direction of turn. This is the ideal case with friction ignored, drawn with straight-sided teeth; real teeth are curved so the ratio stays exact all the way through each tooth.",
-  madeOf: ["wheel"],
+  madeOf: ["wheel", "wheel"],
   seenIn: ["Watch", "Bike", "Hand drill"],
   sliders: [
     { id: "ratio", label: "Tooth ratio", min: 8 / 12, max: 2, step: 1 / 12, initial: 1.5, unit: "×" },
@@ -372,7 +372,7 @@ const linkage: Primitive = {
   job: "Reshape a motion, fold, or snap between two positions",
   howItWorks:
     "A linkage is levers joined end to end by pins. Here a short crank (the small bar on the left) turns all the way round, and a middle bar, the coupler, passes that motion to a long lever on the right, which can only rock to and fro. Because the bar lengths are fixed, the third joint can only sit where two circles meet, so every crank angle has exactly one pose. Change the long lever's length and the rock changes size. Friction and the bars' own weight are ignored.",
-  madeOf: ["lever"],
+  madeOf: ["lever", "lever"],
   seenIn: ["Umbrella", "Locking pliers", "Desk lamp"],
   sliders: [
     { id: "rocker", label: "Rocker bar", min: 50, max: 90, step: 1, initial: 66, unit: " mm" },
