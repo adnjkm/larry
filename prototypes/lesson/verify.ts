@@ -16,7 +16,7 @@ import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { lessonFor, LESSONS } from "./lessons/index.ts";
 import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { EVIDENCE, generatedLesson, JOINT_TEMPLATES, standOf } from "./templates/index.ts";
-import { faultValues, fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
+import { faultValues, fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, type Run as TestRun, sliderSteps, type Story, type TestCtx, type Values, type Window, type Workshop, zoneAt } from "./model.ts";
 import { extents, restCentre } from "./pose.ts";
 import { COLOR, SYNTHWAVE } from "../../src/primitives/parts.ts";
 
@@ -31,6 +31,8 @@ const READY = 90_000;
 const TEST_TIMEOUT = 30_000;
 /** Long enough into a test that the object is mid-move (the flip has turned over and drops are falling). */
 const MID_TEST_MS = 1300;
+/** A second look at a story's failing run, once the drops have fallen and the cap has landed. */
+const LATER_MS = 900;
 const FOCUS = [1, 3, 5].map((i) => parseInt(COLOR.focus.slice(i, i + 2), 16)).join(",");
 const SHADOW = new Set(SYNTHWAVE.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",")));
 /** The object, or the reach of its tests, fills this share of the viewer's width or height. */
@@ -183,7 +185,7 @@ class Run {
     await this.page.click("[data-sheet][open] [data-close]");
   }
 
-  async open(sample: string, query: Query, url: string) {
+  async open(sample: string, query: Query, url: string, plain = false) {
     await this.page.goto(`${url}prototypes/lesson/${query}`, { waitUntil: "networkidle" });
     await this.page.waitForSelector(`[data-sample="${sample}"] canvas[data-ready]`, { timeout: READY });
     await this.fits("home");
@@ -193,6 +195,7 @@ class Run {
     await this.fits("scan");
     const listed = await this.page.locator(".parts li").count();
     this.check("scan lists every kit part", listed === KITS[sample]!.parts.length, `${listed} of ${KITS[sample]!.parts.length}`);
+    if (plain) await this.noDigits("scan");
     await this.shot("scan");
     await this.page.click("[data-start]");
     const thumb = await this.page.locator(".north canvas[data-dither]").count();
@@ -283,13 +286,45 @@ class Run {
     await this.shot(`${tag}-learn-numbers`);
   }
 
-  /** Runs each test, screenshotting it mid-move, and returns the statuses. */
-  async runTests(ids: readonly string[], label: string): Promise<Record<string, string>> {
+  /** No digit anywhere in the text a person can see right now, an open sheet and the viewer's live line included. */
+  async noDigits(label: string) {
+    const lines = await this.page.evaluate(() => document.body.innerText.split("\n").filter((l) => /\d/.test(l)));
+    this.check(`${label}: no numbers on screen`, lines.length === 0, lines.slice(0, 3).join(" | "));
+  }
+
+  /** Drags a grip sideways by `px` with the mouse, the way a thumb would. */
+  async drag(selector: string, px: number) {
+    const box = await this.page.locator(selector).boundingBox();
+    if (!box) throw new Error(`no ${selector} on screen`);
+    const [x, y] = [box.x + box.width / 2, box.y + box.height / 2];
+    await this.page.mouse.move(x - px / 2, y);
+    await this.page.mouse.down();
+    await this.page.mouse.move(x + px / 2, y, { steps: 5 });
+    await this.page.mouse.up();
+  }
+
+  /** Twists the play grip in short drags, one way, until it reads `word`. */
+  async twistTo(word: string, dir: 1 | -1) {
+    const grip = "[data-strip] .grip";
+    for (let i = 0; i < 120; i++) {
+      if ((await this.page.getAttribute(grip, "aria-valuetext")) === word) return this.check(`the grip reads ${word} after ${i} drags`, true);
+      await this.drag(grip, 20 * dir);
+    }
+    this.check(`the grip reaches ${word}`, false, (await this.page.getAttribute(grip, "aria-valuetext")) ?? "");
+  }
+
+  /** Runs each test, screenshotting it mid-move (and again `later` ms on), and returns the statuses. `plain` also checks no number shows mid-test. */
+  async runTests(ids: readonly string[], label: string, plain = false, later = 0): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
     for (const id of ids) {
       await this.page.click(`[data-test="${id}"]`);
       await this.page.waitForTimeout(MID_TEST_MS);
+      if (plain) await this.noDigits(`${label} ${id} mid-run`);
       await this.shot(`${label}-${id}`);
+      if (later > 0 && (await this.page.locator(`[data-test="${id}"]:disabled`).count()) > 0) {
+        await this.page.waitForTimeout(later);
+        await this.shot(`${label}-${id}-later`);
+      }
       const done = await this.page.waitForSelector(`[data-test="${id}"]:not([disabled]):is([data-status="pass"], [data-status="fail"])`, { timeout: TEST_TIMEOUT });
       out[id] = (await done.getAttribute("data-status")) ?? "?";
     }
@@ -451,6 +486,158 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
   await r.page.waitForSelector('[data-stage="final"] [data-next]:not([disabled])', { timeout: 5_000 });
   await r.fits("final earned");
   r.check("final tests pass and the object is earned", finalIds.every((id) => statuses[id] === "pass"), JSON.stringify(statuses));
+  await r.shot("final-earned");
+}
+
+/**
+ * A story lesson's rules, checked from the tests without a browser. Each module's opener fails
+ * without its part. With the part, the control fails where it starts, and the values that pass every
+ * test are exactly one zone of the control, so the word on the grip tells the truth. Where the grip
+ * can go past that zone, the two sides fail differently. Every verdict and live line is words only,
+ * and the final passes at the tuning the modules leave.
+ */
+function checkStory(r: Run, story: Story, kit: Kit) {
+  const ctxOf = (present: string[]): TestCtx => ({ kit, present, centre: restCentre(kit, present, story.rest({ kit, present })) });
+  const STEPS = 200;
+  const SAMPLES = 24;
+  const numbered = new Set<string>();
+  const words = (label: string, run: TestRun) => {
+    if (/\d/.test(run.verdict.line)) numbered.add(`${label}: "${run.verdict.line}"`);
+    for (let i = 0; i <= SAMPLES; i++) {
+      const live = run.at((run.durationMs * i) / SAMPLES).live;
+      if (/\d/.test(live)) numbered.add(`${label} live: "${live}"`);
+    }
+    return run;
+  };
+  let tuning: Values = {};
+  for (const [i, m] of story.modules.entries()) {
+    const tag = `m${i + 1}`;
+    const opener = words(`${tag} without`, m.without.test.run({ ...tuning, ...m.without.values }, ctxOf([...presentAfter(story, kit, i - 1), ...m.without.adds])));
+    r.check(`${tag} rules: without the ${m.produces.join(" and ")}, ${m.without.test.id} fails`, !opener.verdict.pass, opener.verdict.line);
+    const ctx = ctxOf(presentAfter(story, kit, i));
+    const c = m.play.control;
+    const zones = c.zones(ctx);
+    const values = Array.from({ length: STEPS + 1 }, (_, k) => (zones[zones.length - 1]!.until * k) / STEPS);
+    const runs = (v: number) => m.play.tests.map((t) => words(`${tag} ${t.id}`, t.run({ ...tuning, [c.key]: v }, ctx)).verdict);
+    const passing = values.filter((v) => runs(v).every((x) => x.pass));
+    const truthful = zones.find((z) => passing.length > 0 && values.every((v) => passing.includes(v) === (zoneAt(zones, v).id === z.id)));
+    const fromStart = runs(c.start).filter((x) => !x.pass).map((x) => x.line);
+    r.check(`${tag} rules: fails at the start and passes exactly where the grip reads ${truthful?.word ?? "?"}`, fromStart.length > 0 && truthful !== undefined, `${passing.length} passing of ${values.length}`);
+    const past = zones.indexOf(truthful!) < zones.length - 1;
+    if (past) {
+      const fromEnd = runs(zones[zones.length - 1]!.until).filter((x) => !x.pass).map((x) => x.line);
+      r.check(`${tag} rules: too little and too much fail differently`, fromEnd.length > 0 && !fromEnd.some((l) => fromStart.includes(l)), `${fromStart.join(" / ")} | ${fromEnd.join(" / ")}`);
+    }
+    tuning = { ...tuning, [c.key]: passing[Math.floor(passing.length / 2)]! };
+  }
+  const all = ctxOf(kit.parts.map((p) => p.id));
+  const final = story.final.tests.map((t) => words(`final ${t.id}`, t.run(tuning, all)).verdict);
+  r.check(`rules: the final passes at the modules' tuning ${JSON.stringify(tuning)}`, final.every((v) => v.pass), final.map((v) => v.line).join(" / "));
+  r.check("rules: every verdict and live line is words only", numbered.size === 0, [...numbered].slice(0, 3).join(" | "));
+}
+
+/** Plays a story lesson: each module's failure, Learn in words, Build, then twisting the cap by hand until it works. No number may show on any screen. */
+async function playStory(r: Run, story: Story, sample: string, url: string) {
+  const kit = KITS[sample];
+  if (!kit) throw new Error(`no fixture kit for ${sample}`);
+  checkStory(r, story, kit);
+  await r.open(sample, "", url, true);
+  const said = async () => ((await r.page.textContent("h1.do")) ?? "").trim();
+  for (const [i, m] of story.modules.entries()) {
+    const tag = `m${i + 1}`;
+    await r.stage("problem");
+    await r.noDigits(`${tag} problem`);
+    await r.framed("problem", `${tag} problem`, false);
+    r.check(`${tag} opens on "${m.without.say}" with Next locked`, (await said()) === m.without.say && (await r.page.locator("[data-next]:disabled").count()) === 1);
+    const opener = await r.runTests([m.without.test.id], `${tag}-without`, true, LATER_MS);
+    r.check(`${tag} without the part, ${m.without.test.id} fails and says why`, opener[m.without.test.id] === "fail" && (await said()) === m.without.line, `${JSON.stringify(opener)} "${await said()}"`);
+    await r.shot(`${tag}-problem`);
+    await r.inSheet(async () => {
+      await r.noDigits(`${tag} problem Why`);
+      const text = await r.page.locator("[data-sheet][open] [data-why-text]").innerText();
+      r.check(`${tag} problem Why says what breaks without it`, m.why.every((l) => text.includes(l)));
+      await r.shot(`${tag}-problem-why`);
+    });
+    await r.page.click("[data-next]");
+
+    await r.stage("learn");
+    await r.noDigits(`${tag} learn`);
+    const grip = '[data-stage="learn"] [data-strip] .grip';
+    const before = await r.page.getAttribute(grip, "aria-valuenow");
+    await r.drag(grip, 120);
+    const after = await r.page.getAttribute(grip, "aria-valuenow");
+    r.check(`${tag} learn grip "${(await r.page.textContent('[data-stage="learn"] [data-strip] .mono')) ?? ""}" moves the rig`, before !== after, `${before} → ${after}`);
+    await r.noDigits(`${tag} learn after a drag`);
+    await r.shot(`${tag}-learn`);
+    await r.inSheet(async () => {
+      await r.noDigits(`${tag} learn Why`);
+      await r.shot(`${tag}-learn-why`);
+    });
+    await r.page.click("[data-next]");
+
+    await r.stage("assemble");
+    await r.noDigits(`${tag} build`);
+    await r.framed("assemble", `${tag} assemble`);
+    await r.page.click('[data-step="piece"]');
+    await r.page.click('[data-step="target"]');
+    await r.page.waitForSelector('[data-stage="assemble"] [data-next]:not([disabled])', { timeout: 10_000 });
+    await r.page.waitForTimeout(SETTLE_MS);
+    await r.framed("assemble", `${tag} built`, true, shareOf(kit, m.produces));
+    await r.noDigits(`${tag} built`);
+    await r.shot(`${tag}-built`);
+    await r.page.click("[data-next]");
+
+    await r.stage("play");
+    await r.noDigits(`${tag} play`);
+    await r.framed("play", `${tag} play`, true, shareOf(kit, m.produces));
+    const ids = m.play.tests.map((t) => t.id);
+    const zone = () => r.page.getAttribute("[data-strip] .grip", "aria-valuetext");
+    r.check(`${tag} play starts Loose`, (await zone()) === "Loose", (await zone()) ?? "");
+    const loose = await r.runTests(ids, `${tag}-loose`, true, LATER_MS);
+    const fails = ids.filter((id) => loose[id] === "fail").length;
+    r.check(`${tag} loose cap fails`, fails > 0, JSON.stringify(loose));
+    await r.inSheet(async () => {
+      await r.noDigits(`${tag} Hint`);
+      const hints = await r.page.locator("[data-sheet][open] [data-hint]").count();
+      r.check(`${tag} each failed run reveals a hint`, hints === Math.min(fails, m.hints.length), `${hints} hints after ${fails} failures`);
+      await r.shot(`${tag}-hint`);
+    });
+    const end = await r.page.getAttribute("[data-strip] .grip", "aria-valuemax");
+    const canOverdo = m.play.tests.some((t) => t.id === "open");
+    if (canOverdo) {
+      await r.twistTo("Too tight", 1);
+      await r.drag("[data-strip] .grip", 400);
+      await r.shot(`${tag}-too-tight`);
+      const tight = await r.runTests(ids, `${tag}-tight`, true, LATER_MS);
+      r.check(`${tag} too tight fails differently from loose`, ids.some((id) => tight[id] === "fail") && ids.some((id) => tight[id] !== loose[id]), `${JSON.stringify(loose)} | ${JSON.stringify(tight)} (grip ends at ${end})`);
+      await r.twistTo("Snug", -1);
+    } else await r.twistTo("Snug", 1);
+    await r.shot(`${tag}-snug`);
+    const snug = await r.runTests(ids, `${tag}-snug`, true);
+    await r.stage("earned");
+    r.check(`${tag} snug passes every test and says the part's job`, ids.every((id) => snug[id] === "pass") && (await said()) === m.job, `${JSON.stringify(snug)} "${await said()}"`);
+    await r.page.waitForTimeout(SETTLE_MS);
+    await r.framed("earned", `${tag} earned`, true, shareOf(kit, m.produces));
+    await r.noDigits(`${tag} earned`);
+    await r.inSheet(() => r.noDigits(`${tag} earned Why`));
+    await r.shot(`${tag}-earned`);
+    await r.page.click("[data-next]");
+  }
+
+  await r.stage("final");
+  await r.noDigits("final");
+  await r.framed("final", "final exploded");
+  await r.shot("final-exploded");
+  await r.page.click("[data-assemble]");
+  await r.page.waitForSelector("[data-assemble][disabled]", { timeout: 10_000 });
+  const ids = story.final.tests.map((t) => t.id);
+  const statuses = await r.runTests(ids, "final", true);
+  await r.page.waitForSelector('[data-stage="final"] [data-next]:not([disabled])', { timeout: 5_000 });
+  const payoff = await r.page.locator("[data-payoff] li").count();
+  r.check("final tests pass and each part's job is named", ids.every((id) => statuses[id] === "pass") && payoff === story.final.payoff.length, `${JSON.stringify(statuses)}, ${payoff} jobs`);
+  await r.noDigits("final earned");
+  await r.fits("final earned");
+  await r.inSheet(() => r.noDigits("final Why"));
   await r.shot("final-earned");
 }
 
@@ -641,7 +828,7 @@ try {
     try {
       const own = KITS[name] ? lessonFor(KITS[name], name) : undefined;
       const generated = name.startsWith("generated-") ? KITS[name.slice("generated-".length)] : undefined;
-      if (own) await (own.kind === "workshop" ? playWorkshop(r, own, name, "", url) : playInspect(r, name, "", url));
+      if (own) await (own.kind === "workshop" ? playWorkshop(r, own, name, "", url) : own.kind === "story" ? playStory(r, own, name, url) : playInspect(r, name, "", url));
       else if (name === "templates") checkTemplates(r);
       else if (generated) {
         const made = generatedLesson(generated, name);
