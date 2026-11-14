@@ -16,9 +16,15 @@ export type StructuredRequest = {
 
 export type StructuredEvent = ScannedEvent | { type: "result"; output: unknown; costUsd: number };
 
-/** Asks Claude for JSON matching `schema`, through the Claude Agent SDK (the user's Claude Code login). */
+/**
+ * Asks Claude for JSON matching `schema`, through the Claude Agent SDK (the user's Claude Code login).
+ * The header and each array item are yielded once, in order, even when a schema retry writes the output again.
+ */
 export async function* streamStructured(request: StructuredRequest): AsyncGenerator<StructuredEvent> {
   let scanner = createArrayScanner(request.streamKey);
+  let sentHeader = false;
+  let sentItems = 0;
+  let itemsThisTry = 0;
 
   for await (const message of query({
     prompt: oneMessage(request.content),
@@ -40,8 +46,17 @@ export async function* streamStructured(request: StructuredRequest): AsyncGenera
     if (message.type === "stream_event") {
       const { event } = message;
       // A retry after a schema failure writes the output again from the start.
-      if (event.type === "content_block_start" && event.content_block.type === "tool_use") scanner = createArrayScanner(request.streamKey);
-      if (event.type === "content_block_delta" && event.delta.type === "input_json_delta") yield* scanner.push(event.delta.partial_json);
+      if (event.type === "content_block_start" && event.content_block.type === "tool_use") {
+        scanner = createArrayScanner(request.streamKey);
+        itemsThisTry = 0;
+      }
+      if (event.type !== "content_block_delta" || event.delta.type !== "input_json_delta") continue;
+      for (const scanned of scanner.push(event.delta.partial_json)) {
+        if (scanned.type === "header" ? sentHeader : itemsThisTry++ < sentItems) continue;
+        if (scanned.type === "header") sentHeader = true;
+        else sentItems++;
+        yield scanned;
+      }
       continue;
     }
     if (message.type !== "result") continue;
