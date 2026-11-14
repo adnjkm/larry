@@ -3,6 +3,7 @@ import { Home, Scan } from "./Home.tsx";
 import { InspectFlow } from "./Inspect.tsx";
 import { lessonFor } from "./lessons/index.ts";
 import { inspectLesson } from "./lessons/inspect.ts";
+import { generatedStory } from "./stories/index.ts";
 import { generatedLesson } from "./templates/index.ts";
 import type { Lesson } from "./model.ts";
 import { type Sample, SAMPLES } from "./samples.ts";
@@ -10,9 +11,22 @@ import { StoryFlow } from "./Story.tsx";
 import { WorkshopFlow } from "./Workshop.tsx";
 
 const QUERY = new URLSearchParams(location.search);
-/** `?inspect` forces the Inspect lesson and `?generated` the joint-generated one, so either can be compared with a hand-written lesson. */
-const lessonOf = (s: Sample): Lesson =>
-  QUERY.has("inspect") ? inspectLesson(s.kit) : QUERY.has("generated") ? (generatedLesson(s.kit, `generated-${s.id}`) ?? inspectLesson(s.kit)) : lessonFor(s.kit, s.id);
+const lessons = new WeakMap<Sample, Lesson>();
+/** Worked out once per sample, so a generated lesson keeps its identity across renders. */
+const lessonOf = (s: Sample): Lesson => {
+  const known = lessons.get(s) ?? pick(s);
+  lessons.set(s, known);
+  return known;
+};
+/**
+ * `?inspect` forces the Inspect lesson, `?generated` the Workshop generated from joints, and `?story`
+ * the story generated from the kit, so each can be compared with a hand-written lesson.
+ */
+const pick = (s: Sample): Lesson =>
+  QUERY.has("inspect") ? inspectLesson(s.kit)
+  : QUERY.has("generated") ? (generatedLesson(s.kit, `generated-${s.id}`) ?? inspectLesson(s.kit))
+  : QUERY.has("story") ? (generatedStory(s.kit, `story-${s.id}`) ?? lessonFor(s.kit, s.id))
+  : lessonFor(s.kit, s.id);
 
 type Screen = { at: "home" } | { at: "scan"; sample: Sample } | { at: "lesson"; sample: Sample; run: number };
 
