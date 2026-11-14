@@ -1,11 +1,12 @@
 // The water bottle, told with no numbers: without a thread the cap falls off, without a seal it
 // leaks. The player twists the cap on by hand; how far it is twisted decides Shake, Flip and Open.
 // Rules and choreography live here as pure functions of the twist and the parts present.
-import type { Kit, Part, Shape } from "../../../shared/kit.ts";
+import type { Kit, Part } from "../../../shared/kit.ts";
 import { clamp01, easeOut, smooth } from "../ease.ts";
-import { AXIS, type Control, type Ctx, defineStory, EMPTY_SCENE, type ExplodePlan, familyOf, type Mark, type Overlay, type PartMove, type Rigid, type Scene, type Test, type Values, vec, type Vec, type Zone, zoneAt } from "../model.ts";
+import { AXIS, type Control, type Ctx, defineStory, EMPTY_SCENE, type ExplodePlan, familyOf, type Mark, type Overlay, type PartMove, type Rigid, type Scene, type Test, type Values, vec, type Zone, zoneAt } from "../model.ts";
 import { extents, rigidPoint } from "../pose.ts";
 import { BOTTLE_KIT } from "./bottle-kit.ts";
+import { type Drop, dropsAt } from "../stories/drops.ts";
 
 const CAP = "cap";
 const RING = "seal-ring";
@@ -41,11 +42,8 @@ const zonesOf = ({ present }: Ctx): Zone[] =>
 const twistOf = (v: Values) => v[TWIST] ?? 0;
 const zoneOf = (v: Values, ctx: Ctx) => zoneAt(zonesOf(ctx), twistOf(v)).id;
 
-/** Millimetres per second squared. Looks right on a bottle that is about a hand tall; not real gravity. */
-const G = 900;
 /** Drips gather at the cap's rim, just inside its knurled grip. */
 const NECK_RADIUS = 29;
-const DROP_RADIUS = 5;
 /** The turn mark sits on one ridge of the knurled grip, so the twist shows. */
 const MARK_ANGLE = -53.75;
 const MARK_RADIUS = 31.4;
@@ -124,60 +122,7 @@ const overlay = (rigid: Rigid, live: string, moves: Overlay["moves"] = {}, marks
 const wholeCap = (ctx: Ctx, move: PartMove) => Object.fromEntries(familyOf(ctx.kit, CAP).map((id) => [id, move]));
 const capOnly = (ctx: Ctx, c: CapPose) => wholeCap(ctx, capMove(rigOf(ctx).capPivot, c));
 
-/** A drop's outline, round at the front and drawn out into a tail behind it, longer the faster it falls. */
-const teardrop = (r: number, tail: number): Shape => ({
-  kind: "lathe",
-  profile: [[0, -1], [0.5, -0.87], [0.87, -0.5], [1, 0], [0.93, 0.4], [0.72, 0.8], [0.45, 0.8 + 0.5 * tail], [0.2, 0.8 + 0.85 * tail], [0, 0.8 + tail]].map(([x, y]) => ({ r: r * x!, y: r * y! })),
-});
-const DROP_SHAPE = teardrop(DROP_RADIUS, 0.9);
-const STREAK_SHAPE = teardrop(DROP_RADIUS * 0.85, 1.9);
-/** Above this speed (mm/s) a drop is drawn stretched. */
-const STREAK_SPEED = 380;
-/** A drop hitting the ground throws up a ring that widens and thins, then soaks into the puddle. */
-const CROWN_MS = 240;
-const CROWNS: Shape[] = [0, 1, 2, 3].map((k) => ({ kind: "torus", radius: 3.5 + 2.2 * k, tube: 1.5 - 0.3 * k, arcDegrees: 360 }));
-/** The puddle grows in whole millimetres, so its few sizes are each built once. */
-const puddle = (radius: number): Shape => ({
-  kind: "lathe",
-  profile: [{ r: 0, y: 0 }, { r: radius, y: 0 }, { r: radius - 0.3, y: 0.8 }, { r: radius - 1.6, y: 1.4 }, { r: 0, y: 1.5 }],
-});
-const PUDDLE_GROW_MS = 260;
-
-type Drop = { spawn: number; origin: Vec; vx: number; vy: number; vz: number };
-/** Seconds from leaving `origin` to reaching the ground (its lowest point a drop radius up). */
-const flightOf = (d: Drop) => (d.vy + Math.sqrt(d.vy * d.vy + 2 * G * Math.max(0, d.origin.y - DROP_RADIUS))) / G;
-const landOf = (d: Drop) => {
-  const t = flightOf(d);
-  return { ms: d.spawn + 1000 * t, x: d.origin.x + d.vx * t, z: d.origin.z + d.vz * t };
-};
-
-/** Drops thrown from their origins and falling under G, each splashing where it lands into one puddle that spreads as they arrive. */
-function dropMarks(drops: readonly Drop[], ms: number): Mark[] {
-  if (drops.length === 0) return [];
-  const lands = drops.map(landOf);
-  const middle = { x: lands.reduce((a, l) => a + l.x, 0) / lands.length, z: lands.reduce((a, l) => a + l.z, 0) / lands.length };
-  const reach = Math.max(...lands.map((l) => Math.hypot(l.x - middle.x, l.z - middle.z)));
-  const full = Math.min(40, Math.max(9, reach + 6));
-  const fallen = lands.reduce((a, l) => a + clamp01((ms - l.ms) / PUDDLE_GROW_MS), 0);
-  const size = Math.round(full * Math.sqrt(fallen / lands.length));
-  const pool: Mark[] = size >= 3 ? [{ id: "puddle", shape: puddle(size), at: vec(middle.x, 0.75, middle.z), ride: null }] : [];
-  return [...pool, ...drops.flatMap((d, i): Mark[] => {
-    const tau = (ms - d.spawn) / 1000;
-    const land = lands[i]!;
-    if (tau < 0) return [];
-    if (ms < land.ms) {
-      const vy = d.vy - G * tau;
-      const fast = Math.hypot(d.vx, vy, d.vz) > STREAK_SPEED;
-      // The tail trails the way it came from.
-      const lean = Math.atan2(d.vx, -vy) / DEG;
-      const at = vec(d.origin.x + d.vx * tau, d.origin.y + d.vy * tau - 0.5 * G * tau * tau, d.origin.z + d.vz * tau);
-      return [{ id: `drop-${i}`, shape: fast ? STREAK_SHAPE : DROP_SHAPE, at, rotation: vec(0, 0, lean), ride: null }];
-    }
-    const k = Math.floor((ms - land.ms) / (CROWN_MS / CROWNS.length));
-    const crown = CROWNS[k];
-    return crown ? [{ id: `crown-${i}`, shape: crown, at: vec(land.x, 1.5 + (crown.kind === "torus" ? crown.tube : 0), land.z), ride: null }] : [];
-  })];
-}
+const { g: G, marks: dropMarks } = dropsAt(1);
 
 const FLIP_UP = 1000;
 const FLIP_BACK = 900;
