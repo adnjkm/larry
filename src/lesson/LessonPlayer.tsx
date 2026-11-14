@@ -3,25 +3,24 @@ import { useEffect, useMemo, useReducer } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import type { Lesson } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
+import { PrimitiveFigure } from "../primitives/PrimitiveFigure.tsx";
+import { buttons, chips, layout, notes, type } from "../styles.ts";
 import { colors } from "../tokens.stylex.ts";
 import { BuildViewer } from "./BuildViewer.tsx";
 import { DownloadButton } from "./DownloadButton.tsx";
-import { ui } from "./lessonTokens.stylex.ts";
+import { GlowCard } from "./GlowCard.tsx";
 import { type Arrived, type LessonState, earnedParts, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
-import { PrimitiveFigure } from "./PrimitiveFigure.tsx";
 import { ProblemView } from "./ProblemViews.tsx";
 import { Roadmap } from "./Roadmap.tsx";
-import { buttons, layout, notes, type } from "./styles.ts";
 
 /** Set when the lesson stopped arriving before it was done. */
-export type Stalled = { message: string; onRetry: () => void };
+type Stalled = { message: string; onRetry: () => void };
 
 const styles = stylex.create({
   step: { display: "flex", flexDirection: "column", gap: 20 },
-  header: { display: "flex", flexDirection: "column", gap: 8, paddingBottom: 18, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: ui.line },
-  need: { margin: 0, fontSize: 30, lineHeight: 1.12, fontWeight: 600, letterSpacing: "-0.025em", textWrap: "balance" },
-  swatch: { width: 10, height: 10, borderRadius: 999, boxShadow: `inset 0 0 0 1px ${ui.line}` },
-  part: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, backgroundColor: colors.paper, fontSize: 14, fontWeight: 500 },
+  header: { display: "flex", flexDirection: "column", gap: 8, paddingBottom: 18, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: colors.rule },
+  swatch: { width: 10, height: 10, borderRadius: 999, boxShadow: `inset 0 0 0 1px ${colors.rule}` },
+  part: { display: "inline-flex", alignItems: "center", gap: 6 },
   nav: { display: "flex", gap: 10, paddingTop: 4, paddingBottom: "env(safe-area-inset-bottom)" },
   back: { width: "auto", flexShrink: 0 },
   next: { flexGrow: 1 },
@@ -46,8 +45,8 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
 
   return (
     <>
-      <BuildViewer kit={kit} earned={earned} />
       <Roadmap state={state} />
+      <BuildViewer kit={kit} earned={earned} />
       {state.done && finished ? (
         <Finish kit={kit} lesson={state.done} onRestart={onRestart} />
       ) : waiting ? (
@@ -56,7 +55,7 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
         <StepScreen key={state.at} kit={kit} state={state} dispatch={dispatch} />
       )}
       {state.at >= state.flat.length && state.at > 0 && (
-        <button type="button" {...stylex.props(buttons.base, buttons.quiet)} onClick={() => dispatch({ type: "back" })}>
+        <button type="button" {...stylex.props(buttons.base, buttons.secondary)} onClick={() => dispatch({ type: "back" })}>
           Back to the last step
         </button>
       )}
@@ -91,27 +90,27 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
     <>
       <article data-step={step.id} data-chapter={chapter?.id} data-complete={complete || undefined} {...stylex.props(styles.step)}>
         {flat.index === 0 && chapter && (
-          <header data-chapter-header {...stylex.props(styles.header)}>
+          <header data-chapter-header {...stylex.props(layout.inset, styles.header)}>
             <p {...stylex.props(type.label, type.labelAccent)}>{chapter.kind === "module" ? "The next requirement" : chapter.kind === "join" ? "Putting it together" : "The last piece"}</p>
-            <h2 {...stylex.props(styles.need)}>{chapter.kind === "module" ? chapter.need : chapter.title}</h2>
+            <h2 {...stylex.props(type.task)}>{chapter.kind === "module" ? chapter.need : chapter.title}</h2>
             {chapter.kind === "module" && <p {...stylex.props(type.muted)}>{chapter.why}</p>}
           </header>
         )}
 
-        <div {...stylex.props(layout.tight)}>
+        <div {...stylex.props(layout.inset, layout.tight)}>
           <p {...stylex.props(type.label)}>
             Step {flat.index + 1} of {inChapter}
           </p>
           <h3 {...stylex.props(type.title)}>{step.title}</h3>
         </div>
 
-        <div {...stylex.props(layout.stack)}>
+        <GlowCard data-story>
           {step.story.map((p) => (
-            <p key={p} {...stylex.props(type.lead)}>
+            <p key={p} {...stylex.props(type.story)}>
               {p}
             </p>
           ))}
-        </div>
+        </GlowCard>
 
         {step.problem && current.problem ? (
           <ProblemView problem={step.problem} state={current.problem} dispatch={(action) => dispatch({ type: "problem", action })} figure={figure} />
@@ -120,9 +119,9 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
         )}
 
         {complete && (
-          <div data-payoff {...stylex.props(layout.stack)}>
+          <div data-payoff {...stylex.props(layout.inset, layout.stack)}>
             {step.payoff.map((p) => (
-              <p key={p} {...stylex.props(type.body)}>
+              <p key={p} {...stylex.props(type.story)}>
                 {p}
               </p>
             ))}
@@ -130,11 +129,11 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
         )}
 
         {complete && added.length > 0 && (
-          <div data-added {...stylex.props(notes.base, notes.observation, notes.accent)}>
+          <div data-added {...stylex.props(notes.base, notes.accent)}>
             <p {...stylex.props(type.label, type.labelAccent)}>Added to your build</p>
             <div {...stylex.props(layout.row)}>
               {added.map((p) => (
-                <span key={p.id} {...stylex.props(styles.part)}>
+                <span key={p.id} {...stylex.props(chips.base, chips.grey, styles.part)}>
                   <span {...stylex.props(styles.swatch)} style={{ backgroundColor: p.color }} />
                   {p.name}
                 </span>
@@ -146,11 +145,11 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
 
       <div {...stylex.props(styles.nav)}>
         {state.at > 0 && (
-          <button type="button" data-action="back" {...stylex.props(buttons.base, buttons.quiet, styles.back)} onClick={() => dispatch({ type: "back" })}>
+          <button type="button" data-action="back" {...stylex.props(buttons.base, buttons.secondary, styles.back)} onClick={() => dispatch({ type: "back" })}>
             Back
           </button>
         )}
-        <button type="button" data-action="next" disabled={!complete} {...stylex.props(buttons.base, styles.next, complete ? buttons.primary : buttons.disabled)} onClick={() => dispatch({ type: "next" })}>
+        <button type="button" data-action="next" disabled={!complete} {...stylex.props(buttons.base, buttons.primary, styles.next, !complete && buttons.disabled)} onClick={() => dispatch({ type: "next" })}>
           {last ? "Finish" : "Next"}
         </button>
       </div>
@@ -162,7 +161,7 @@ function Waiting({ stalled }: { stalled?: Stalled }) {
   if (stalled)
     return (
       <section data-lesson-failed {...stylex.props(layout.stack)}>
-        <div {...stylex.props(notes.base, notes.observation, notes.fail)}>
+        <div {...stylex.props(notes.base, notes.fail)}>
           <p {...stylex.props(type.label, notes.failText)}>Larry stopped writing</p>
           <p {...stylex.props(type.body)}>{stalled.message}</p>
         </div>
@@ -172,9 +171,9 @@ function Waiting({ stalled }: { stalled?: Stalled }) {
       </section>
     );
   return (
-    <section data-waiting role="status" {...stylex.props(layout.stack)}>
+    <section data-waiting role="status" {...stylex.props(layout.inset, layout.stack)}>
       <p {...stylex.props(type.label, type.labelAccent)}>Up next</p>
-      <p {...stylex.props(type.lead)}>Larry is still writing the next part…</p>
+      <p {...stylex.props(type.story)}>Larry is still writing the next part…</p>
     </section>
   );
 }
@@ -182,15 +181,19 @@ function Waiting({ stalled }: { stalled?: Stalled }) {
 function Finish({ kit, lesson, onRestart }: { kit: Kit; lesson: Lesson; onRestart: () => void }) {
   return (
     <section data-finish {...stylex.props(layout.stack)}>
-      <p {...stylex.props(type.label, type.labelAccent)}>You built it</p>
-      <h2 {...stylex.props(styles.need)}>{lesson.title}</h2>
-      {lesson.closing.map((p) => (
-        <p key={p} {...stylex.props(type.lead)}>
-          {p}
-        </p>
-      ))}
+      <div {...stylex.props(layout.inset, layout.tight)}>
+        <p {...stylex.props(type.label, type.labelAccent)}>You built it</p>
+        <h2 {...stylex.props(type.task)}>{lesson.title}</h2>
+      </div>
+      <GlowCard>
+        {lesson.closing.map((p) => (
+          <p key={p} {...stylex.props(type.story)}>
+            {p}
+          </p>
+        ))}
+      </GlowCard>
       <DownloadButton kit={kit} />
-      <button type="button" data-action="restart" {...stylex.props(buttons.base)} onClick={onRestart}>
+      <button type="button" data-action="restart" {...stylex.props(buttons.base, buttons.primary)} onClick={onRestart}>
         Scan something else
       </button>
     </section>

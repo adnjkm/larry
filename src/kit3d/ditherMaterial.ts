@@ -1,5 +1,6 @@
 import { ShaderMaterial, DoubleSide, Vector3 } from "three";
 import type { Finish } from "../../shared/kit.ts";
+import { colors } from "../tokens.stylex.ts";
 
 type FinishParams = {
   /** Scales the shade around mid-grey. Above 1 is harder, below 1 is flatter. */
@@ -20,14 +21,24 @@ const FINISHES: Record<Finish, FinishParams> = {
   clear: { contrast: 0.9, bias: 0.05, specular: 0.4, shininess: 40, clear: 1 },
 };
 
+function srgb(hex: string): Vector3 {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return new Vector3(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+}
+
+const glslVec3 = (hex: string) => {
+  const { x, y, z } = srgb(hex);
+  return `vec3(${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)})`;
+};
+
 const BAYER = /* glsl */ `
 const float BAYER[16] = float[16](0.,8.,2.,10., 12.,4.,14.,6., 3.,11.,1.,9., 15.,7.,13.,5.);
 float bayer(vec2 p) {
   vec2 q = mod(floor(p), 4.0);
   return (BAYER[int(q.y) * 4 + int(q.x)] + 0.5) / 16.0;
 }
-const vec3 INK = vec3(0.078);
-const vec3 ORANGE = vec3(1.0, 0.353, 0.122);
+const vec3 INK = ${glslVec3(colors.ink)};
+const vec3 ORANGE = ${glslVec3(colors.accent)};
 `;
 
 const vertexShader = /* glsl */ `
@@ -95,11 +106,6 @@ void main() {
   gl_FragColor = vec4(strength > 0.62 + threshold * 0.3 ? INK : ORANGE, 1.0);
 }
 `;
-
-function srgb(hex: string): Vector3 {
-  const n = Number.parseInt(hex.slice(1), 16);
-  return new Vector3(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
-}
 
 // The base tone sits at shade 0.5, but lit faces shade around 0.7. Darker colours shift further down so a black part stays black and only its highlights go grey.
 function toneBias(rgb: Vector3): number {

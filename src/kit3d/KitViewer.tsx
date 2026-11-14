@@ -2,7 +2,8 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
-import type { Kit, Part } from "../../shared/kit.ts";
+import type { Part } from "../../shared/kit.ts";
+import { colors } from "../tokens.stylex.ts";
 import { type BuiltPart, measure, measureParts, rotationOf } from "./buildKit.ts";
 import { buildGeometry } from "./geometry.ts";
 import { createDitherMaterial, createShadowMaterial } from "./ditherMaterial.ts";
@@ -18,7 +19,7 @@ const FIT_EASE_SECONDS = 0.1;
 type Fit = { zoom: number; targetY: number; distance: number };
 
 type KitViewerProps = {
-  kit: Kit;
+  parts: Part[];
   spin?: boolean;
   /** Degrees above the ground plane. */
   elevation?: number;
@@ -26,7 +27,7 @@ type KitViewerProps = {
   azimuth?: number;
   /** CSS height in px. Pick a multiple of 180 so the pixels stay square. */
   height?: number;
-  /** Parts to fit the camera to instead of the kit's own, so the view holds still while sliders move the kit. */
+  /** Parts to fit the camera to instead of `parts`, so the view holds still while sliders move the kit. */
   frame?: Part[];
   /** CSS pixels per dither pixel. Unset keeps PIXEL_ROWS rows whatever the height; 1 is the finest. */
   pixelScale?: number;
@@ -39,7 +40,7 @@ const styles = stylex.create({
     position: "relative",
     width: "100%",
     height,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.paper,
     touchAction: "none",
     overflow: "hidden",
   }),
@@ -95,7 +96,7 @@ function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimu
   cam.updateProjectionMatrix();
 }
 
-export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops }: KitViewerProps) {
+export function KitViewer({ parts, spin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops }: KitViewerProps) {
   return (
     <div data-kit-viewer {...stylex.props(styles.box(height))}>
       <Canvas
@@ -106,8 +107,8 @@ export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, hei
         gl={{ antialias: false, alpha: false }}
         camera={{ position: [0, 0, 100], near: 0.1, far: 10000 }}
       >
-        <color attach="background" args={["#FFFFFF"]} />
-        <Scene parts={kit.parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} shadowStops={shadowStops} />
+        <color attach="background" args={[colors.paper]} />
+        <Scene parts={parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} shadowStops={shadowStops} />
       </Canvas>
     </div>
   );

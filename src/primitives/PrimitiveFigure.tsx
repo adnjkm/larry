@@ -1,29 +1,42 @@
 import * as stylex from "@stylexjs/stylex";
 import { useMemo } from "react";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
-import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
-import { type Primitive, type Values, formatSlider, framingParts } from "../primitives/library.ts";
-import { SYNTHWAVE } from "../primitives/parts.ts";
+import { chips, layout, notes, type } from "../styles.ts";
 import { colors, fonts } from "../tokens.stylex.ts";
-import { ui } from "./lessonTokens.stylex.ts";
-import { layout, type } from "./styles.ts";
+import { PRIMITIVE_BY_ID } from "./catalog.ts";
+import { type Primitive, type Values, formatSlider, framingParts } from "./library.ts";
+import { SYNTHWAVE } from "./parts.ts";
 
 const FIGURE_HEIGHT = 270;
 
+const thumb = { boxSizing: "border-box", width: 24, height: 24, borderRadius: 999, borderWidth: 0, backgroundColor: colors.paper, boxShadow: `0 0 0 1px ${colors.shadow}, 0 2px 6px ${colors.shadow}` } as const;
+const track = { height: 4, borderRadius: 2, backgroundColor: colors.rule } as const;
+
 const styles = stylex.create({
   figure: { display: "flex", flexDirection: "column", gap: 12 },
-  intro: { display: "flex", flexDirection: "column", gap: 4, padding: "14px 16px", borderRadius: 14, backgroundColor: ui.accentSoft },
-  introName: { margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: "-0.015em" },
+  intro: { display: "flex", flexDirection: "column", gap: 6 },
+  introName: { margin: 0, fontSize: 22, lineHeight: "28px", fontWeight: 600, letterSpacing: "-0.02em" },
   sliders: { display: "flex", flexDirection: "column", gap: 2 },
   sliderRow: { display: "grid", gridTemplateColumns: "84px 1fr 64px", alignItems: "center", gap: 10, minHeight: 44, padding: "0 8px", borderRadius: 10 },
-  sliderRowFocus: { backgroundColor: ui.accentSoft },
-  range: { width: "100%", margin: 0, accentColor: ui.accent, height: 32, cursor: "pointer" },
+  sliderRowFocus: { backgroundColor: colors.accentSoft },
+  range: { width: "100%", margin: 0, height: 32, cursor: "pointer" },
+  rangeNeutral: {
+    appearance: "none",
+    backgroundColor: "transparent",
+    "::-webkit-slider-runnable-track": track,
+    "::-moz-range-track": track,
+    "::-webkit-slider-thumb": { ...thumb, appearance: "none", marginTop: -10 },
+    "::-moz-range-thumb": thumb,
+  },
+  rangePink: { accentColor: colors.pink },
   value: { fontFamily: fonts.mono, fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" },
-  readouts: { display: "flex", flexDirection: "column", gap: 6, padding: 14, borderRadius: 14, backgroundColor: ui.surface },
+  readouts: { display: "flex", flexDirection: "column", gap: 6, padding: 14, borderRadius: 14, backgroundColor: colors.soft },
   readout: { display: "flex", justifyContent: "space-between", gap: 12, fontFamily: fonts.mono, fontSize: 13 },
   readoutValue: { textAlign: "right", color: colors.ink },
-  chip: { fontSize: 13, fontWeight: 500, padding: "4px 10px", borderRadius: 999, backgroundColor: ui.surface },
 });
+
+/** The primitives this one is built from, each once. */
+export const madeOfPrimitives = (primitive: Primitive): Primitive[] => [...new Set(primitive.madeOf)].flatMap((id) => PRIMITIVE_BY_ID.get(id) ?? []);
 
 type FigureProps = {
   primitive: Primitive;
@@ -35,18 +48,19 @@ type FigureProps = {
   /** Show the name, job and parts of a primitive the lesson has not shown before. */
   introduce?: boolean;
   height?: number;
+  /** Sliders are neutral inside a lesson. The primitives library page draws them pink. */
+  pink?: boolean;
 };
 
-export function PrimitiveFigure({ primitive, values, onSlider, focus, introduce = false, height = FIGURE_HEIGHT }: FigureProps) {
+export function PrimitiveFigure({ primitive, values, onSlider, focus, introduce = false, height = FIGURE_HEIGHT, pink = false }: FigureProps) {
   const parts = useMemo(() => primitive.build(values), [primitive, values]);
   const frame = useMemo(() => framingParts(primitive), [primitive]);
-  const kit = useMemo(() => ({ name: primitive.name, summary: primitive.job, parts }), [primitive, parts]);
-  const madeOf = [...new Set(primitive.madeOf)].flatMap((id) => PRIMITIVE_BY_ID.get(id) ?? []);
+  const madeOf = madeOfPrimitives(primitive);
 
   return (
     <div data-figure={primitive.id} {...stylex.props(styles.figure)}>
       {introduce && (
-        <div {...stylex.props(styles.intro)}>
+        <div {...stylex.props(notes.base, notes.accent)}>
           <p {...stylex.props(type.label, type.labelAccent)}>New piece</p>
           <h3 {...stylex.props(styles.introName)}>{primitive.name}</h3>
           <p {...stylex.props(type.body)}>{primitive.job}</p>
@@ -54,7 +68,7 @@ export function PrimitiveFigure({ primitive, values, onSlider, focus, introduce 
             <div {...stylex.props(layout.row)}>
               <span {...stylex.props(type.label)}>Made of</span>
               {madeOf.map((p) => (
-                <span key={p.id} {...stylex.props(styles.chip)}>
+                <span key={p.id} {...stylex.props(chips.base, chips.outline)}>
                   {p.name}
                 </span>
               ))}
@@ -63,7 +77,7 @@ export function PrimitiveFigure({ primitive, values, onSlider, focus, introduce 
         </div>
       )}
 
-      <KitViewer kit={kit} frame={frame} elevation={primitive.view.elevation} azimuth={primitive.view.azimuth} height={height} pixelScale={1} shadowStops={SYNTHWAVE} />
+      <KitViewer parts={parts} frame={frame} elevation={primitive.view.elevation} azimuth={primitive.view.azimuth} height={height} pixelScale={1} shadowStops={SYNTHWAVE} />
 
       {onSlider && (
         <>
@@ -79,7 +93,7 @@ export function PrimitiveFigure({ primitive, values, onSlider, focus, introduce 
                   step={s.step}
                   value={values[s.id] ?? s.initial}
                   onChange={(e) => onSlider(s.id, Number(e.currentTarget.value))}
-                  {...stylex.props(styles.range)}
+                  {...stylex.props(styles.range, pink ? styles.rangePink : styles.rangeNeutral)}
                 />
                 <span {...stylex.props(styles.value)}>{formatSlider(s, values[s.id] ?? s.initial)}</span>
               </label>

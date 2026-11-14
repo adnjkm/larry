@@ -9,16 +9,17 @@ import { KitViewer } from "./kit3d/KitViewer.tsx";
 import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
 import { type LessonLoad, addLessonEvent, arrivedOf, loadDemo, planning, requestLesson } from "./lesson/lessonSource.ts";
 import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
+import { buttons, layout, type } from "./styles.ts";
 import { colors, fonts } from "./tokens.stylex.ts";
 
 type Header = { name: string; summary: string };
 
-type Generating = { phase: "generating"; first: Blob; header?: Header; parts: Part[] };
+type GeneratingState = { phase: "generating"; first: Blob; header?: Header; parts: Part[] };
 
 type State =
   | { phase: "capture" }
   | { phase: "loading" }
-  | Generating
+  | GeneratingState
   | { phase: "viewing" | "building"; kit: Kit; lesson: LessonLoad }
   | { phase: "failed"; message: string; retry: () => void };
 
@@ -28,42 +29,13 @@ const DEMO = params.get("demo");
 const LIVE = params.has("live");
 
 const styles = stylex.create({
-  page: {
-    boxSizing: "border-box",
-    maxWidth: 480,
-    minHeight: "100dvh",
-    margin: "0 auto",
-    padding: 20,
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-    backgroundColor: colors.paper,
-    color: colors.ink,
-    fontFamily: fonts.sans,
-  },
-  title: { margin: 0, fontSize: 32, fontWeight: 600 },
-  summary: { margin: 0, fontSize: 16, lineHeight: 1.45, color: colors.graphite },
-  heading: { margin: 0, fontFamily: fonts.mono, fontSize: 13, fontWeight: 500, color: colors.graphite, textTransform: "uppercase" },
-  parts: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8, fontSize: 18 },
+  summary: { margin: 0, fontSize: 14, lineHeight: "19px", color: colors.graphite },
+  parts: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8, fontSize: 16, lineHeight: "22px" },
   photo: { width: "100%", maxHeight: "60dvh", objectFit: "contain" },
-  status: { margin: 0, fontFamily: fonts.mono, fontSize: 16 },
-  button: {
-    minHeight: 56,
-    borderWidth: 2,
-    borderStyle: "solid",
-    borderColor: colors.ink,
-    borderRadius: 0,
-    backgroundColor: colors.paper,
-    color: colors.ink,
-    fontFamily: fonts.sans,
-    fontSize: 18,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  primary: { backgroundColor: colors.orange },
+  status: { margin: 0, fontFamily: fonts.mono, fontSize: 14, lineHeight: "20px" },
 });
 
-function addEvent(state: Generating, event: Extract<KitEvent, { type: "started" | "part" }>): Generating {
+function addEvent(state: GeneratingState, event: Extract<KitEvent, { type: "started" | "part" }>): GeneratingState {
   if (event.type === "started") return { ...state, header: { name: event.name, summary: event.summary } };
   // A schema retry on the server can send a part again, so a repeated id replaces the earlier copy.
   const at = state.parts.findIndex((p) => p.id === event.part.id);
@@ -139,15 +111,20 @@ export function App() {
         : undefined;
 
   return (
-    <main {...stylex.props(styles.page)}>
+    <main {...stylex.props(layout.page)}>
       {state.phase === "capture" && <CapturePicker onPick={(files) => void generate(files)} />}
       {state.phase === "loading" && <p {...stylex.props(styles.status)}>Loading…</p>}
-      {state.phase === "generating" && !view && <Generating photo={state.first} />}
+      {state.phase === "generating" && !view && <GeneratingPhoto photo={state.first} />}
       {view && (
         <>
-          {view.header && <h1 {...stylex.props(styles.title)}>{view.header.name}</h1>}
-          {view.header && <p {...stylex.props(styles.summary)}>{view.header.summary}</p>}
-          <KitViewer kit={{ name: view.header?.name ?? "", summary: view.header?.summary ?? "", parts: view.parts }} spin />
+          {view.header && (
+            <div {...stylex.props(layout.inset, layout.tight)}>
+              <p {...stylex.props(type.label)}>Larry found a</p>
+              <h1 {...stylex.props(type.title)}>{view.header.name}</h1>
+              <p {...stylex.props(styles.summary)}>{view.header.summary}</p>
+            </div>
+          )}
+          <KitViewer parts={view.parts} spin />
           {state.phase === "viewing" ? (
             <NorthStarPanel
               kit={state.kit}
@@ -158,8 +135,8 @@ export function App() {
             />
           ) : (
             <>
-              <h2 {...stylex.props(styles.heading)}>{view.parts.length} parts</h2>
-              <ul {...stylex.props(styles.parts)}>
+              <h2 {...stylex.props(layout.inset, type.label)}>{view.parts.length} parts</h2>
+              <ul {...stylex.props(layout.inset, styles.parts)}>
                 {view.parts.map((part) => (
                   <li key={part.id}>{part.name}</li>
                 ))}
@@ -179,10 +156,10 @@ export function App() {
       {state.phase === "failed" && (
         <>
           <p {...stylex.props(styles.status)}>{state.message}</p>
-          <button type="button" {...stylex.props(styles.button, styles.primary)} onClick={state.retry}>
+          <button type="button" {...stylex.props(buttons.base, buttons.primary)} onClick={state.retry}>
             Try again
           </button>
-          <button type="button" {...stylex.props(styles.button)} onClick={restart}>
+          <button type="button" {...stylex.props(buttons.base, buttons.secondary)} onClick={restart}>
             Use other photos
           </button>
         </>
@@ -191,7 +168,7 @@ export function App() {
   );
 }
 
-function Generating({ photo }: { photo: Blob }) {
+function GeneratingPhoto({ photo }: { photo: Blob }) {
   const [url, setUrl] = useState<string>();
   useEffect(() => {
     const objectUrl = URL.createObjectURL(photo);

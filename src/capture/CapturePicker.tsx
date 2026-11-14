@@ -1,24 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { useRef } from "react";
-import { colors, fonts } from "../tokens.stylex.ts";
-
-export const MAX_PHOTOS = 4;
+import { MAX_PHOTOS } from "../../shared/photos.ts";
+import { buttons } from "../styles.ts";
 
 const styles = stylex.create({
-  button: {
-    width: "100%",
-    minHeight: 160,
-    borderWidth: 2,
-    borderStyle: "solid",
-    borderColor: colors.ink,
-    borderRadius: 0,
-    backgroundColor: colors.orange,
-    color: colors.ink,
-    fontFamily: fonts.sans,
-    fontSize: 28,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
+  centered: { marginBlock: "auto" },
   input: { display: "none" },
 });
 
@@ -26,8 +12,8 @@ export function CapturePicker({ onPick }: { onPick: (files: File[]) => void }) {
   const input = useRef<HTMLInputElement>(null);
 
   return (
-    <>
-      <button type="button" {...stylex.props(styles.button)} onClick={() => input.current?.click()}>
+    <div {...stylex.props(styles.centered)}>
+      <button type="button" {...stylex.props(buttons.base, buttons.primary)} onClick={() => input.current?.click()}>
         Photograph something
       </button>
       <input
@@ -43,6 +29,6 @@ export function CapturePicker({ onPick }: { onPick: (files: File[]) => void }) {
           if (files.length > 0) onPick(files);
         }}
       />
-    </>
+    </div>
   );
 }

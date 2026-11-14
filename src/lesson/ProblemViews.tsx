@@ -1,14 +1,12 @@
-// How each problem type looks and plays. Pair with the logic in problems.ts; the map below must have every type.
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import type { Problem, ProblemType } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
 import { initialValues } from "../primitives/library.ts";
-import { colors } from "../tokens.stylex.ts";
-import { ui } from "./lessonTokens.stylex.ts";
-import { PrimitiveFigure } from "./PrimitiveFigure.tsx";
+import { PrimitiveFigure } from "../primitives/PrimitiveFigure.tsx";
+import { buttons, layout, notes, type } from "../styles.ts";
+import { colors, radii } from "../tokens.stylex.ts";
 import type { ProblemAction, ProblemState } from "./problems.ts";
-import { buttons, layout, notes, type } from "./styles.ts";
 
 type Of<T extends ProblemType> = Extract<Problem, { type: T }>;
 
@@ -21,9 +19,10 @@ type ViewProps<T extends ProblemType> = {
 };
 
 const styles = stylex.create({
-  card: { display: "flex", flexDirection: "column", gap: 10, padding: 6, borderRadius: 16, borderWidth: 2, borderStyle: "solid", borderColor: ui.line },
-  cardFail: { borderColor: ui.failSoft, backgroundColor: ui.failSoft },
-  cardOk: { borderColor: ui.ok, backgroundColor: ui.okSoft },
+  card: { position: "relative", display: "flex", flexDirection: "column", gap: 10, padding: 6, borderRadius: radii.tile, backgroundColor: colors.paper, boxShadow: `0 1px 0 ${colors.hairline}, 0 0 0 1px ${colors.faint}` },
+  cardFail: { backgroundColor: colors.failSoft },
+  cardOk: { backgroundColor: colors.okSoft },
+  check: { position: "absolute", top: 8, right: 8, width: 18, height: 18, borderRadius: radii.pill, backgroundColor: colors.ink, color: colors.paper, fontSize: 11, lineHeight: "18px", textAlign: "center" },
   option: {
     boxSizing: "border-box",
     width: "100%",
@@ -41,17 +40,15 @@ const styles = stylex.create({
     cursor: "pointer",
     touchAction: "manipulation",
   },
-  optionOpen: { backgroundColor: ui.surface },
-  optionName: { fontSize: 18, fontWeight: 600 },
-  optionJob: { fontSize: 14, lineHeight: 1.4, color: colors.graphite },
+  optionName: { fontSize: 13, lineHeight: "16px", fontWeight: 500 },
+  optionJob: { fontSize: 14, lineHeight: "19px", color: colors.graphite },
   optionDone: { cursor: "default" },
   cardBody: { display: "flex", flexDirection: "column", gap: 10, padding: "0 8px 8px" },
-  outcome: { margin: 0, fontSize: 15, lineHeight: 1.5 },
 });
 
 function Observation({ label, children, tone }: { label: string; children: ReactNode; tone?: "fail" | "ok" }) {
   return (
-    <div data-note={tone ?? "observation"} aria-live="polite" {...stylex.props(notes.base, notes.observation, tone === "fail" && notes.fail, tone === "ok" && notes.ok)}>
+    <div data-note={tone ?? "observation"} aria-live="polite" {...stylex.props(notes.base, tone === "fail" && notes.fail, tone === "ok" && notes.ok)}>
       <p {...stylex.props(type.label, tone === "fail" && notes.failText, tone === "ok" && notes.okText)}>{label}</p>
       <p {...stylex.props(type.body)}>{children}</p>
     </div>
@@ -78,28 +75,29 @@ function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
   const tries = state.tried.length;
   return (
     <div {...stylex.props(layout.stack)}>
-      <p {...stylex.props(type.lead)}>{problem.question}</p>
+      <p {...stylex.props(layout.inset, type.story)}>{problem.question}</p>
       {problem.options.map((option, i) => {
         const primitive = PRIMITIVE_BY_ID.get(option.primitive);
         const tried = state.tried.includes(i);
         const frozen = tried || state.solved;
         return (
           <div key={i} data-option={i} data-tried={tried || undefined} {...stylex.props(styles.card, tried && !option.works && styles.cardFail, tried && option.works && styles.cardOk)}>
-            <button type="button" disabled={frozen} aria-label={`${primitive?.name ?? option.primitive}: ${primitive?.job ?? ""}`} {...stylex.props(styles.option, !frozen && styles.optionOpen, frozen && styles.optionDone)} onClick={() => dispatch({ type: "pick", option: i })}>
+            <button type="button" disabled={frozen} aria-label={`${primitive?.name ?? option.primitive}: ${primitive?.job ?? ""}`} {...stylex.props(styles.option, frozen && styles.optionDone)} onClick={() => dispatch({ type: "pick", option: i })}>
               {tried && <span {...stylex.props(type.label, option.works ? notes.okText : notes.failText)}>{option.works ? "This works" : "This fails"}</span>}
               <span {...stylex.props(styles.optionName)}>{primitive?.name ?? option.primitive}</span>
               {primitive && <span {...stylex.props(styles.optionJob)}>{primitive.job}</span>}
             </button>
+            {tried && option.works && <span aria-hidden {...stylex.props(styles.check)}>✓</span>}
             {tried && (
               <div {...stylex.props(styles.cardBody)}>
-                <p {...stylex.props(styles.outcome)}>{option.outcome}</p>
+                <p {...stylex.props(type.body)}>{option.outcome}</p>
                 {lastFailed === i && primitive && !state.solved && <PrimitiveFigure primitive={primitive} values={initialValues(primitive)} height={180} />}
               </div>
             )}
           </div>
         );
       })}
-      <p data-attempts {...stylex.props(type.label)}>
+      <p data-attempts {...stylex.props(layout.inset, type.label)}>
         {tries === 0 ? "Tap one to try it" : `${tries} ${tries === 1 ? "try" : "tries"}`}
       </p>
       {state.solved && figure}
@@ -110,7 +108,7 @@ function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
 function TuneView({ problem, state, dispatch, figure }: ViewProps<"tune">) {
   return (
     <div {...stylex.props(layout.stack)}>
-      <div {...stylex.props(notes.base, notes.observation, notes.accent)}>
+      <div {...stylex.props(notes.base, notes.accent)}>
         <p {...stylex.props(type.label, type.labelAccent)}>Goal</p>
         <p {...stylex.props(type.body)}>{problem.goal}</p>
       </div>
@@ -124,7 +122,7 @@ function TuneView({ problem, state, dispatch, figure }: ViewProps<"tune">) {
       {state.verdict === "above" && <Observation label="Too high" tone="fail">{problem.tooHigh}</Observation>}
       {state.verdict === "inside" && <Observation label="Just right" tone="ok">{problem.justRight}</Observation>}
       {state.attempts > 0 && (
-        <p data-attempts {...stylex.props(type.label)}>
+        <p data-attempts {...stylex.props(layout.inset, type.label)}>
           {state.attempts} {state.attempts === 1 ? "try" : "tries"}
         </p>
       )}
