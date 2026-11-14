@@ -128,7 +128,7 @@ export const threadTemplate: Template = {
       tests,
       hints: {
         observe: `Run ${shakeTest} and watch the ${child}. It turns and climbs along the thread a little with every shake.`,
-        principle: `A thread is a wedge wound round a rod, and pitch is how far the ${child} moves along it in one turn. On a steep thread a jolt can turn the ${child} and push it up the ramp.`,
+        principle: `Pitch is how far the ${child} moves along the thread in one turn. On a steep thread a jolt can turn the ${child} and push it up the ramp.`,
         direction: `Make the pitch smaller, but not too small. Each turn then moves the ${child} less, so undoing it takes more turns. Check ${shakeTest} and ${unscrewTest} together.`,
         low: `Undoing it takes more than ${MAX_TURNS} turns, and the ${child} is still on.`,
         high: `A shake walks the ${child} up the thread and off.`,
@@ -136,7 +136,9 @@ export const threadTemplate: Template = {
       suspect: pair.child.id,
       misses: { [pair.parent.id]: `The ${parent} holds still. Watch the part that turns during ${shakeTest}.` },
       missDefault: `That part does not move during ${shakeTest}. Watch which one climbs.`,
-      why: `A thread is a wedge wrapped round a rod. A shallow thread moves the ${child} only a little per turn, and friction on the shallow ramp holds it against jolts. The price is more turns to put it on and take it off.`,
+      uses: { thread: `The spiral where the ${child} meets the ${parent}. Twisting walks the ${child} along it.` },
+      task: "Find a pitch that stays on and unscrews.",
+      why: `Pitch is how far the ${child} moves in one turn. A shallow thread moves the ${child} only a little per turn, and friction on the shallow ramp holds it against jolts. The price is more turns to put it on and take it off.`,
       gameNote: `Game numbers: the ${child} rides on ${ENGAGE} mm of thread, each shake lifts it ${LIFT_PER_MM_OVER} mm for every mm of pitch over ${WINDOW[1]}, and still being on after ${MAX_TURNS} turns counts as too slow. None of this is measured from the ${pair.objectName}; it is set so both failures are easy to see. Turns to undo = thread length ÷ pitch is real.`,
       readoutWith: (pitch) => ({ turns: ENGAGE / pitch }),
       numbers: (v) => {

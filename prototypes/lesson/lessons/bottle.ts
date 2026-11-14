@@ -274,7 +274,7 @@ export default defineLesson({
       tests: [shake, open],
       hints: {
         observe: "Run Shake and watch the cap. It climbs the neck a little with every shake.",
-        principle: "A thread is a wedge wound around the neck, and pitch is how far the cap rises in one turn. On a steep thread a jolt can turn the cap and push it up the ramp.",
+        principle: "Pitch is how far the cap rises in one turn of the thread. On a steep thread a jolt can turn the cap and push it up the ramp.",
         direction: "Make the pitch smaller, but not too small. Every turn then lifts the cap less, so opening takes more turns.",
         low: "Opening takes more than 4 turns and the cap is still on.",
         high: "A shake walks the cap up the thread and off.",
@@ -282,7 +282,9 @@ export default defineLesson({
       suspect: CAP,
       misses: { [BODY]: "The body is what everything else rides on. Look for the part that moves relative to it." },
       missDefault: "That part stays where it is during Shake. Watch which one moves.",
-      why: "A thread is a wedge wrapped round a rod. A shallow one makes the cap climb slowly, and real threads mostly stay put by friction, which grows as the thread gets shallower. Finer pitch costs more turns to close.",
+      uses: { thread: "The spiral inside the cap and round the neck. Twisting rides the cap down it until it is tight." },
+      task: "Find a pitch that stays on and opens.",
+      why: "Pitch is how far the cap moves in one turn. A shallow thread makes the cap climb slowly, and real threads mostly stay put by friction, which grows as the thread gets shallower. Finer pitch costs more turns to close.",
       gameNote: "Game numbers: 12 mm of thread is engaged, each shake lifts the cap 4 mm for every mm of pitch over 4, and a cap still on after 4 turns counts as too slow. Real bottle threads are finer and open in one or two turns, so both failures are exaggerated to make them visible.",
       readoutWith: (pitch) => ({ turns: ENGAGE / pitch }),
       numbers: (v) => {
@@ -324,6 +326,8 @@ export default defineLesson({
         "ring-tab": "The tab is only a handle for your fingers. It never touches the water.",
       },
       missDefault: "That isn't where the water gets out. Run Flip and watch where the drops start.",
+      uses: { seal: "The rubber ring between the cap and the neck. Squeezed, it fills the gaps water would leak through." },
+      task: "Squeeze until it is dry but still opens.",
       why: "A rubber ring squeezed about 15 to 30 percent is pressed into the tiny gaps in the joint and closes them. Less leaks. More is crushed, and the cap becomes too hard to twist. Static seals are typically squeezed in that range.",
       numbers: (v) => {
         const squeeze = squeezeOf(v);

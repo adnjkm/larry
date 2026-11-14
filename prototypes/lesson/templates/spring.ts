@@ -144,6 +144,8 @@ export const springTemplate: Template = {
       suspect: pair.child.id,
       misses: { [pair.parent.id]: `The ${parent} holds still. Watch the part that should ${jaw ? "shut" : "come back"} during ${release}.` },
       missDefault: `That part does not move during ${release}. Watch which one ${stuck}.`,
+      uses: { spring: jaw ? `The spring between the ${child} and the ${parent}. It pushes the ${child} shut when you let go.` : `The spring between the ${child} and the ${parent}. It pushes the ${child} back after you press.` },
+      task: "Find a spring that returns but still presses.",
       why: jaw
         ? `A spring stores the work of your press and gives it back when you let go: it pushes the back ends apart, so the front ends close. Its push has to beat friction or the ${child} ${stuck}, and you press against that same push every time, so stiffness is a trade between the two.`
         : `A spring stores the work of your press and gives it back when you let go. Its push has to beat friction or the ${child} ${stuck}, and you press against that same push every time, so stiffness is a trade between the two.`,

@@ -294,6 +294,11 @@ export default defineLesson({
         clip: "The clip holds the pen in a pocket. It never touches the ink.",
       },
       missDefault: "That part is not where the ink gets out. Watch the point during Write and Tip down.",
+      uses: {
+        wheel: "The ball at the tip. It rolls on the paper and carries ink out.",
+        seal: "The socket round the ball. It hugs the ball, so ink leaves only when it rolls.",
+      },
+      task: "Seat the ball to roll without leaking.",
       why: "The ball in a ballpoint is a tiny wheel: it rolls against the paper and carries a thin film of ink out of the tube. Its socket works as a seal. Seated snugly, the socket blocks the gap, so ink moves only when the ball turns. Too loose and ink slips past. Too tight and the ball cannot roll, and the line skips.",
       numbers: (v) => {
         const seat = pct(squeezeOf(v));
@@ -306,7 +311,7 @@ export default defineLesson({
       title: "Click out, stay out",
       need: "It must click out, stay out while you write, and click back in.",
       primitive: "catch",
-      teach: ["spring", "wedge", "catch"],
+      teach: ["spring", "catch"],
       produces: [PLUNGER],
       assemble: {
         piece: "Catch",
@@ -333,6 +338,11 @@ export default defineLesson({
         refill: "The ink tube slides because something pushes it. What keeps it from sliding back is a different part.",
       },
       missDefault: "That part is not what holds the tip out. Watch what moves when the tip is pushed in.",
+      uses: {
+        spring: "The spring in the barrel. It pushes the ink tube back in.",
+        catch: "The latch at the click button. It holds the ink tube out while you write.",
+      },
+      task: "Set a catch that holds but still clicks.",
       why: "A catch is a wedge pushed out by a spring. The sloped face lets a push in and the steep face holds against a pull, so letting go takes a firm push. In the pen it holds the ink tube out against the return spring. Strong enough to hold under writing pressure, weak enough for a thumb. The kit has no separate part for it, so the click button stands for the catch. A real click pen alternates hold and release with a rotating cam, which is the next idea. The catch here is only the holding half.",
       numbers: (v) => {
         const force = forceOf(v);

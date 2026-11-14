@@ -287,6 +287,8 @@ export default defineLesson({
         [PIN]: "The pin is the point the arm swings about. It does not set how hard the staple is pushed.",
       },
       missDefault: "That part is not what limits the force at the staple. Run Squeeze and watch what turns.",
+      uses: { lever: "The top arm, hinged at the back. Your squeeze on it becomes the push that drives the staple." },
+      task: "Find a ratio that pushes hard and far.",
       why: "The arm is a lever hinged at the back. The force at the staple is your force times your distance from the hinge, divided by the staple's distance from it. A larger ratio multiplies your squeeze, and the staple moves the same ratio less far than your hand. No work is gained, only a better trade of force for distance.",
       readoutWith: () => ({ push: HAND_TRAVEL }),
       numbers: (v) => {
@@ -331,6 +333,8 @@ export default defineLesson({
         [PIN]: "The pin is only the hinge. It does not push.",
       },
       missDefault: "That is not what pushes the arm open. Run Release and watch where the push should come from.",
+      uses: { spring: "The spring under the top arm. It pushes the arm back open after every staple." },
+      task: "Find a spring that reopens but still squeezes.",
       why: "A spring stores the work of your squeeze and gives it back when you let go. It has to push harder than the hinge's friction, or the arm stays down. It also pushes against you on every staple, so a stiffer spring makes every squeeze harder. Stiffness is a trade between those two.",
       readoutWith: (k) => ({ force: tenth(SPRING_MM * k) }),
       numbers: (v) => {

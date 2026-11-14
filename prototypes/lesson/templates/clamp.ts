@@ -168,6 +168,8 @@ export const clampTemplate: Template = {
         ...pin.turners.map((id) => [id, `The ${kit.parts.find((p) => p.id === id)!.name.toLowerCase()} turns on the ${name}; it does not set how tight it is.`]),
       ]),
       missDefault: `That part does not hold the ${mainName} to the ${parent}. Watch what lifts during ${cut}.`,
+      uses: { grip: `The squeeze in the ${name}. It presses the ${mainName} against the ${parent} so they stay together.` },
+      task: "Squeeze until it holds but still turns.",
       why: `A pin that holds parts together and lets them turn is a grip. Its squeeze keeps the parts touching while they work, and friction resists turning up to μ times that squeeze, so it must be tight enough to hold them together and loose enough to turn by hand.`,
       gameNote: `Game numbers: the work pushes the parts apart with ${APART_N} N and a finger opens it with ${FINGER_N} N, with μ = ${MU} as in Learn. From the kit: the ${name} is ${tenth(2 * pin.radius)} mm across and your finger is on the ${fingerName}, ${Math.round(pin.arm)} mm from it. Assumed: friction acts on two faces at the ${name}'s radius. The gap is drawn wider than it would be. The friction law is real.`,
       readoutWith: () => ({ load: APART_N }),

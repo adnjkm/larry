@@ -84,6 +84,14 @@ export type Module = {
   /** What to say when another part is tapped instead, by part id. */
   misses: Readonly<Record<string, string>>;
   missDefault: string;
+  /**
+   * One plain sentence per taught primitive, keyed by its id: what that primitive does in this
+   * object (the thread is the spiral on the neck), never what it is made of. Learn shows it beside
+   * the object with this module's parts in pink.
+   */
+  uses: Readonly<Record<string, string>>;
+  /** What to do once the fault is found, in at most TASK_WORDS words. */
+  task: string;
   /** Shown when the module is earned. */
   why: string;
   /** What in the rules is a game number rather than a measured fact. */
@@ -131,7 +139,7 @@ export type Lesson = Workshop | Inspect;
 
 export type ModuleSpec = Omit<Module, "teach" | "main" | "fault" | "enter"> & {
   primitive: string;
-  /** Primitive ids taught, in order, when the module teaches more than the main primitive's own parts (it must include `primitive`). */
+  /** Primitive ids taught, in order, when the object uses more than the main primitive here (it must include `primitive`). Never the primitive's own components: Learn teaches what this object uses. */
   teach?: readonly string[];
   /**
    * `key` defaults to the slider id; set it when two modules tune sliders with the same id (a press-fit's and a seal's squeeze).
@@ -156,6 +164,10 @@ export function primitiveById(id: string): Primitive {
   return p;
 }
 
+/** On-screen instructions stay this short; the explanation lives behind Why. */
+export const TASK_WORDS = 8;
+const words = (s: string) => s.trim().split(/\s+/).length;
+
 /** A fix that cannot fail on one side is a trivial slider, so every window keeps this many steps clear of each end. */
 const ROOM_STEPS = 2;
 
@@ -171,8 +183,12 @@ export function defineLesson(spec: WorkshopSpec): Workshop {
   };
   const modules = spec.modules.map((m): Module => {
     const main = primitiveById(m.primitive);
-    const teach = [...new Set(m.teach ?? [...main.madeOf, main.id])].map(primitiveById);
+    const teach = [...new Set(m.teach ?? [main.id])].map(primitiveById);
     if (!teach.includes(main)) problems.push(`${m.id}: the main primitive ${main.id} is not taught in this module`);
+    const uses = Object.keys(m.uses);
+    for (const p of teach) if (!m.uses[p.id]) problems.push(`${m.id}: no line saying what the ${p.id} does in this object`);
+    for (const id of uses) if (!teach.some((p) => p.id === id)) problems.push(`${m.id}: a use line for ${id}, which this module does not teach`);
+    if (words(m.task) > TASK_WORDS) problems.push(`${m.id}: task "${m.task}" is over ${TASK_WORDS} words`);
     const primitive = primitiveById(m.fault.primitive);
     const own = primitive.sliders.find((s) => s.id === m.fault.slider);
     if (!teach.includes(primitive)) problems.push(`${m.id}: fault primitive ${primitive.id} is not taught in this module`);
