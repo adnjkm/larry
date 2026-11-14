@@ -1,38 +1,71 @@
-// The water bottle: close with a twist (thread pitch), stay dry upside down (seal squeeze).
-// Rules and choreography for Flip, Shake and Open live here, as pure functions of the tuned values.
+// The water bottle, told with no numbers: without a thread the cap falls off, without a seal it
+// leaks. The player twists the cap on by hand; how far it is twisted decides Shake, Flip and Open.
+// Rules and choreography live here as pure functions of the twist and the parts present.
 import type { Kit, Part, Shape } from "../../../shared/kit.ts";
 import { clamp01, easeOut, smooth } from "../ease.ts";
-import { AXIS, type Ctx, defineLesson, EMPTY_SCENE, type Scene, type Mark, type Overlay, type PartMove, type Rigid, STILL, type Test, type Values, vec, type Window } from "../model.ts";
+import { AXIS, type Control, type Ctx, defineStory, EMPTY_SCENE, type ExplodePlan, familyOf, type Mark, type Overlay, type PartMove, type Rigid, type Scene, type Test, type Values, vec, type Vec, type Zone, zoneAt } from "../model.ts";
 import { extents, rigidPoint } from "../pose.ts";
+import { BOTTLE_KIT } from "./bottle-kit.ts";
 
 const CAP = "cap";
 const RING = "seal-ring";
 const BODY = "body";
 const DEG = Math.PI / 180;
+const TWIST = "twist";
 
-/** Above 4 mm a shake walks the cap off; below 3 mm it takes more than MAX_TURNS to open. Game numbers. */
-const PITCH_WINDOW: Window = [3, 4];
-/** Squeeze that fills the gaps without crushing the rubber. The 15 to 30 percent band is the typical range for static seals. */
-const SQUEEZE_WINDOW: Window = [0.15, 0.3];
-const SHAKES = 5;
-/** Millimetres of thread the cap rides on. Game number. */
-const ENGAGE = 12;
-const LIFT_PER_PITCH_OVER = 4;
-const MAX_DROPS = 12;
-const HAND_TORQUE = 2.5;
-/** A cap that is still on after this many turns counts as too slow to open. Game number. */
-const MAX_TURNS = 4;
-/** Millimetres per second squared. Looks right on a bottle that is 214 mm tall; not real gravity. */
+/** Twist at which the cap first sits down on the neck (or on the seal). */
+const SEATED = 0.6;
+/** With no seal, metal meets metal just past seating and the cap stops. */
+const STOP_BARE = 0.72;
+/** Past this the cap crushes the seal and grips too hard to open. */
+const CRUSHED = 0.82;
+/** How far above its seat a loose cap rests, in mm. */
+const LIFT = 9;
+/** Turns the cap makes from resting loose to seated. */
+const TURNS_TO_SEAT = 2.5;
+/** How far a snug cap presses into the seal, in mm, and how far a crushing one does at the end of its travel: enough to see the pink band nearly vanish. */
+const SNUG_SINK = 1.5;
+const CRUSH_SINK = 6;
+/** How crooked a loose cap sits, in degrees: it rests on the thread without gripping it, and straightens as it twists down. */
+const CROOKED = 9;
+
+const LOOSE: Omit<Zone, "until"> = { id: "loose", word: "Loose", gain: 1 };
+const SNUG: Omit<Zone, "until"> = { id: "snug", word: "Snug", gain: 0.45 };
+const TIGHT: Omit<Zone, "until"> = { id: "tight", word: "Too tight", gain: 0.22 };
+/** With the seal there is something to squeeze, so the cap can go too far; without it, it stops at snug. */
+const zonesOf = ({ present }: Ctx): Zone[] =>
+  present.includes(RING)
+    ? [{ ...LOOSE, until: SEATED }, { ...SNUG, until: CRUSHED }, { ...TIGHT, until: 1 }]
+    : [{ ...LOOSE, until: SEATED }, { ...SNUG, gain: 0.35, until: STOP_BARE }];
+
+const twistOf = (v: Values) => v[TWIST] ?? 0;
+const zoneOf = (v: Values, ctx: Ctx) => zoneAt(zonesOf(ctx), twistOf(v)).id;
+
+/** Millimetres per second squared. Looks right on a bottle that is about a hand tall; not real gravity. */
 const G = 900;
-const NECK_RADIUS = 27;
-const DROP_RADIUS = 6;
-/** Direction the turn mark starts at, so it faces the default camera. */
-const MARK_ANGLE = -60;
-const MARK_RADIUS = 27.8;
+/** Drips gather at the cap's rim, just inside its knurled grip. */
+const NECK_RADIUS = 29;
+const DROP_RADIUS = 5;
+/** The turn mark sits on one ridge of the knurled grip, so the twist shows. */
+const MARK_ANGLE = -53.75;
+const MARK_RADIUS = 31.4;
+const MARK_Y = 188;
 
-const pitchOf = (v: Values) => v.pitch ?? 4;
-const squeezeOf = (v: Values) => v.squeeze ?? 0.2;
-const pct = (squeeze: number) => Math.round(squeeze * 100);
+/**
+ * Coming apart, the cap unscrews as it lifts (turning the way it came on, which is what a thread
+ * does), then the seal slides up off the neck. Far enough that the neck's thread shows bare between them.
+ */
+const CAP_RISE = 50;
+const SEAL_RISE = 32;
+const UNSCREW_TURNS = 1.5;
+/** The cap keeps turning for this share of its rise, so the spin is slow enough to follow. */
+const UNSCREW_SHARE = 0.85;
+const explode: ExplodePlan = {
+  order: [
+    { id: CAP, at: (s) => ({ offset: vec(0, CAP_RISE * s, 0), turns: [{ axis: AXIS.y, pivot: vec(), deg: -360 * UNSCREW_TURNS * Math.min(1, s / UNSCREW_SHARE) }] }) },
+    { id: RING, at: (s) => ({ offset: vec(0, SEAL_RISE * s, 0) }) },
+  ],
+};
 
 function find(kit: Kit, id: string): Part {
   const p = kit.parts.find((q) => q.id === id);
@@ -40,61 +73,138 @@ function find(kit: Kit, id: string): Part {
   return p;
 }
 
-/** Measurements the timelines need, read from the kit so nothing is typed in twice. */
+const rigs = new WeakMap<Kit, Map<string, ReturnType<typeof measure>>>();
+/** Measurements the timelines need, read from the kit so nothing is typed in twice. The twist asks every frame, so each is measured once. */
 function rigOf({ kit, present }: Ctx) {
+  const known = rigs.get(kit) ?? new Map<string, ReturnType<typeof measure>>();
+  rigs.set(kit, known);
+  const sealed = present.includes(RING) ? "sealed" : "bare";
+  const rig = known.get(sealed) ?? measure({ kit, present });
+  known.set(sealed, rig);
+  return rig;
+}
+
+function measure({ kit, present }: Ctx) {
   const cap = find(kit, CAP);
   const capBox = extents([cap]);
-  const seatDrop = present.includes(RING) ? 0 : capBox.min.y - extents([find(kit, BODY)]).max.y;
+  const whole = extents(kit.parts.filter((p) => familyOf(kit, CAP).includes(p.id)));
+  const neckY = extents([find(kit, BODY)]).max.y;
+  const seatDrop = present.includes(RING) ? 0 : capBox.min.y - neckY;
   return {
     capPivot: cap.position,
-    /** Height of the gap between cap and neck, where leaks start. */
+    /** Height of the gap between a seated cap and the neck, where leaks start. */
     jointY: capBox.min.y - seatDrop,
     capY: cap.position.y - seatDrop,
-    capHalf: (capBox.max.y - capBox.min.y) / 2,
+    /** How high a cap lying on its side holds its middle: the reach of its grip. */
+    capReach: Math.max(whole.max.x - cap.position.x, cap.position.x - whole.min.x, whole.max.z - cap.position.z, cap.position.z - whole.min.z),
+    neckY,
     seatDrop,
   };
 }
 
 type CapPose = { dx?: number; dy?: number; turn?: number; tilt?: number };
+/** Spun about its own axis first, then tipped, so a falling cap tumbles rather than wobbles. */
 const capMove = (pivot: Part["position"], c: CapPose): PartMove => ({
   offset: vec(c.dx ?? 0, c.dy ?? 0, 0),
-  turns: [{ axis: AXIS.z, pivot, deg: c.tilt ?? 0 }, { axis: AXIS.y, pivot, deg: c.turn ?? 0 }],
+  turns: [{ axis: AXIS.y, pivot, deg: c.turn ?? 0 }, { axis: AXIS.z, pivot, deg: c.tilt ?? 0 }],
 });
-const overlay = (rigid: Rigid, live: string, moves: Overlay["moves"] = {}, marks: Mark[] = []): Overlay => ({ rigid, live, moves, marks });
 
-const sphere = (r: number): Shape => ({
+/** The cap at a twist: it turns as it rides down the thread, sits, then presses into the seal if there is one. Turning positive moves its front to the right, with the finger on the grip. */
+function capAt(t: number, ctx: Ctx): Required<Pick<CapPose, "dy" | "turn" | "tilt">> {
+  const seat = Math.min(t / SEATED, 1);
+  const press = ctx.present.includes(RING) ? Math.max(0, t - SEATED) / (1 - SEATED) : Math.max(0, t - SEATED) / (STOP_BARE - SEATED);
+  const snug = Math.min(1, Math.max(0, t - SEATED) / (CRUSHED - SEATED));
+  const crush = Math.max(0, t - CRUSHED) / (1 - CRUSHED);
+  const sink = ctx.present.includes(RING) ? SNUG_SINK * snug + (CRUSH_SINK - SNUG_SINK) * crush : 0;
+  return { dy: LIFT * (1 - seat) - sink, turn: TURNS_TO_SEAT * 360 * seat + 70 * press, tilt: CROOKED * (1 - smooth(seat)) };
+}
+
+const overlay = (rigid: Rigid, live: string, moves: Overlay["moves"] = {}, marks: Mark[] = []): Overlay => ({ rigid, live, moves, marks });
+/** The same move for the cap and everything fixed to it. */
+const wholeCap = (ctx: Ctx, move: PartMove) => Object.fromEntries(familyOf(ctx.kit, CAP).map((id) => [id, move]));
+const capOnly = (ctx: Ctx, c: CapPose) => wholeCap(ctx, capMove(rigOf(ctx).capPivot, c));
+
+/** A drop's outline, round at the front and drawn out into a tail behind it, longer the faster it falls. */
+const teardrop = (r: number, tail: number): Shape => ({
   kind: "lathe",
-  profile: [0, 1, 2, 3, 4, 5, 6].map((i) => {
-    const a = (i / 6) * Math.PI - Math.PI / 2;
-    return { r: i === 0 || i === 6 ? 0 : r * Math.cos(a), y: r * Math.sin(a) };
-  }),
+  profile: [[0, -1], [0.5, -0.87], [0.87, -0.5], [1, 0], [0.93, 0.4], [0.72, 0.8], [0.45, 0.8 + 0.5 * tail], [0.2, 0.8 + 0.85 * tail], [0, 0.8 + tail]].map(([x, y]) => ({ r: r * x!, y: r * y! })),
 });
-const DROP_SHAPE = sphere(DROP_RADIUS);
-const SPLASH_SHAPE: Shape = { kind: "lathe", profile: [{ r: 0, y: 0 }, { r: 8, y: 0 }, { r: 8, y: 2 }, { r: 0, y: 2 }] };
+const DROP_SHAPE = teardrop(DROP_RADIUS, 0.9);
+const STREAK_SHAPE = teardrop(DROP_RADIUS * 0.85, 1.9);
+/** Above this speed (mm/s) a drop is drawn stretched. */
+const STREAK_SPEED = 380;
+/** A drop hitting the ground throws up a ring that widens and thins, then soaks into the puddle. */
+const CROWN_MS = 240;
+const CROWNS: Shape[] = [0, 1, 2, 3].map((k) => ({ kind: "torus", radius: 3.5 + 2.2 * k, tube: 1.5 - 0.3 * k, arcDegrees: 360 }));
+/** The puddle grows in whole millimetres, so its few sizes are each built once. */
+const puddle = (radius: number): Shape => ({
+  kind: "lathe",
+  profile: [{ r: 0, y: 0 }, { r: radius, y: 0 }, { r: radius - 0.3, y: 0.8 }, { r: radius - 1.6, y: 1.4 }, { r: 0, y: 1.5 }],
+});
+const PUDDLE_GROW_MS = 260;
+
+type Drop = { spawn: number; origin: Vec; vx: number; vy: number; vz: number };
+/** Seconds from leaving `origin` to reaching the ground (its lowest point a drop radius up). */
+const flightOf = (d: Drop) => (d.vy + Math.sqrt(d.vy * d.vy + 2 * G * Math.max(0, d.origin.y - DROP_RADIUS))) / G;
+const landOf = (d: Drop) => {
+  const t = flightOf(d);
+  return { ms: d.spawn + 1000 * t, x: d.origin.x + d.vx * t, z: d.origin.z + d.vz * t };
+};
+
+/** Drops thrown from their origins and falling under G, each splashing where it lands into one puddle that spreads as they arrive. */
+function dropMarks(drops: readonly Drop[], ms: number): Mark[] {
+  if (drops.length === 0) return [];
+  const lands = drops.map(landOf);
+  const middle = { x: lands.reduce((a, l) => a + l.x, 0) / lands.length, z: lands.reduce((a, l) => a + l.z, 0) / lands.length };
+  const reach = Math.max(...lands.map((l) => Math.hypot(l.x - middle.x, l.z - middle.z)));
+  const full = Math.min(40, Math.max(9, reach + 6));
+  const fallen = lands.reduce((a, l) => a + clamp01((ms - l.ms) / PUDDLE_GROW_MS), 0);
+  const size = Math.round(full * Math.sqrt(fallen / lands.length));
+  const pool: Mark[] = size >= 3 ? [{ id: "puddle", shape: puddle(size), at: vec(middle.x, 0.75, middle.z), ride: null }] : [];
+  return [...pool, ...drops.flatMap((d, i): Mark[] => {
+    const tau = (ms - d.spawn) / 1000;
+    const land = lands[i]!;
+    if (tau < 0) return [];
+    if (ms < land.ms) {
+      const vy = d.vy - G * tau;
+      const fast = Math.hypot(d.vx, vy, d.vz) > STREAK_SPEED;
+      // The tail trails the way it came from.
+      const lean = Math.atan2(d.vx, -vy) / DEG;
+      const at = vec(d.origin.x + d.vx * tau, d.origin.y + d.vy * tau - 0.5 * G * tau * tau, d.origin.z + d.vz * tau);
+      return [{ id: `drop-${i}`, shape: fast ? STREAK_SHAPE : DROP_SHAPE, at, rotation: vec(0, 0, lean), ride: null }];
+    }
+    const k = Math.floor((ms - land.ms) / (CROWN_MS / CROWNS.length));
+    const crown = CROWNS[k];
+    return crown ? [{ id: `crown-${i}`, shape: crown, at: vec(land.x, 1.5 + (crown.kind === "torus" ? crown.tube : 0), land.z), ride: null }] : [];
+  })];
+}
 
 const FLIP_UP = 1000;
 const FLIP_BACK = 900;
 const FLIP_LIFT = 90;
-const DROP_GAP = 130;
+const DROP_GAP = 160;
+const LEAK_DROPS = 7;
 
 const flip: Test = {
   id: "flip",
   label: "Flip",
   run: (values, ctx) => {
-    const squeeze = squeezeOf(values);
-    const gap = pct(SQUEEZE_WINDOW[0]) - pct(squeeze);
-    const drops = gap > 0 ? Math.max(1, Math.ceil((MAX_DROPS * gap) / pct(SQUEEZE_WINDOW[0]))) : 0;
-    const verdict = drops === 0
-      ? { pass: true, line: "Dry. Nothing got past the joint." }
-      : { pass: false, line: `${drops} drops got past the joint between the cap and the neck.` };
+    const sealed = ctx.present.includes(RING);
+    const leaks = !sealed || zoneOf(values, ctx) === "loose";
+    const verdict = !sealed
+      ? { pass: false, line: "Drips at the joint. Water got past the cap." }
+      : leaks
+        ? { pass: false, line: "Drips. The cap isn't pressing the seal." }
+        : { pass: true, line: "Dry. Not a drop." };
 
     const rig = rigOf(ctx);
+    const cap = capAt(twistOf(values), ctx);
+    const drops = leaks ? LEAK_DROPS : 0;
     const hold = Math.max(1000, 500 + drops * DROP_GAP + 700);
     const held: Rigid = { dx: 0, dy: FLIP_LIFT, angle: 180 };
-    const spawns = Array.from({ length: drops }, (_, i) => FLIP_UP + 150 + i * DROP_GAP);
-    const origins = spawns.map((_, i) => {
+    const falling: Drop[] = Array.from({ length: drops }, (_, i) => {
       const a = (-60 + (((i * 3) % 5) - 2) * 28) * DEG;
-      return rigidPoint(ctx.centre, held, vec(NECK_RADIUS * Math.cos(a), rig.jointY, -NECK_RADIUS * Math.sin(a)));
+      return { spawn: FLIP_UP + 150 + i * DROP_GAP, origin: rigidPoint(ctx.centre, held, vec(NECK_RADIUS * Math.cos(a), rig.jointY + cap.dy, -NECK_RADIUS * Math.sin(a))), vx: 0, vy: 0, vz: 0 };
     });
     return {
       verdict,
@@ -105,143 +215,142 @@ const flip: Test = {
           ms < FLIP_UP ? { dx: 0, dy: FLIP_LIFT * smooth(ms / FLIP_UP), angle: 180 * smooth(ms / FLIP_UP) }
           : ms < FLIP_UP + hold ? held
           : { dx: 0, dy: FLIP_LIFT * (1 - back), angle: 180 + 180 * back };
-        const falling = spawns.flatMap((spawn, i) => {
-          const tau = (ms - spawn) / 1000;
-          const origin = origins[i]!;
-          return tau >= 0 ? [{ origin, y: origin.y - 0.5 * G * tau * tau }] : [];
-        });
-        const marks = falling.map((d, i): Mark =>
-          d.y > DROP_RADIUS
-            ? { id: `drop-${i}`, shape: DROP_SHAPE, at: vec(d.origin.x, d.y, d.origin.z), ride: null }
-            : { id: `splash-${i}`, shape: SPLASH_SHAPE, at: vec(d.origin.x, 1.2, d.origin.z), ride: null });
-        return overlay(rigid, falling.length > 0 ? `Drops: ${falling.length}` : "Upside down", {}, marks);
+        const marks = dropMarks(falling, ms);
+        const live = ms < FLIP_UP ? "Flipping…" : leaks ? (marks.length > 0 ? "Dripping…" : "Upside down") : "Dry";
+        return overlay(rigid, live, capOnly(ctx, cap), marks);
       },
     };
   },
 };
 
+const SHAKES = 4;
 const SHAKE_EACH = 480;
 const SHAKE_SWING = SHAKES * SHAKE_EACH;
-const SHAKE_HOLD = 700;
+/** A loose cap pops off at the top of the second swing. */
+const OFF_AT = 1.25 * SHAKE_EACH;
+const SETTLE = 400;
+const SHAKE_HOLD = 800;
 const SHAKE_RESET = 650;
-const CAP_FLY_SPEED = 110;
+const SPILL_DROPS = 8;
+const SPILL_GAP = 70;
 
 const shake: Test = {
   id: "shake",
   label: "Shake",
   run: (values, ctx) => {
-    const pitch = pitchOf(values);
-    const liftPerShake = Math.max(0, pitch - PITCH_WINDOW[1]) * LIFT_PER_PITCH_OVER;
-    const falls = liftPerShake * SHAKES >= ENGAGE;
-    const verdict =
-      liftPerShake === 0 ? { pass: true, line: "The cap stayed seated through every shake." }
-      : falls ? { pass: false, line: `The cap walked off the neck on shake ${Math.ceil(ENGAGE / liftPerShake)}.` }
-      : { pass: false, line: `The cap crept up ${liftPerShake * SHAKES} mm and would be off in a few more shakes.` };
-
+    const holds = zoneOf(values, ctx) !== "loose";
+    const verdict = holds ? { pass: true, line: "The cap stayed on." } : { pass: false, line: "The cap rattled off. Drink everywhere." };
     const rig = rigOf(ctx);
-    const lift = (s: number) => liftPerShake * (Math.floor(s) + smooth(s - Math.floor(s)));
-    let freeAt: number | null = null;
-    if (falls) for (let ms = 0; ms <= SHAKE_SWING; ms += 4) if (lift(ms / SHAKE_EACH) >= ENGAGE) { freeAt = ms; break; }
-    const landDy = rig.capHalf - rig.capY;
-    const flight = Math.sqrt((2 * (ENGAGE - landDy)) / G);
-    const turnPerMm = 360 / pitch;
-    const capAt = (ms: number): CapPose => {
-      if (freeAt !== null && ms >= freeAt) {
-        const tau = Math.min((ms - freeAt) / 1000, flight);
-        return { dy: ENGAGE - 0.5 * G * tau * tau, dx: CAP_FLY_SPEED * tau, tilt: 35 * Math.sin((Math.PI * tau) / flight), turn: ENGAGE * turnPerMm + 540 * tau };
-      }
-      const l = lift(Math.min(ms, SHAKE_SWING) / SHAKE_EACH);
-      return { dy: l, turn: l * turnPerMm };
+    const cap = capAt(twistOf(values), ctx);
+    const neck = vec(0, rig.neckY, 0);
+    // A loose cap comes off, so the shaking dies away while the drink pours out; a held one rides it out.
+    const swing = (ms: number) => (holds ? 1 : 1 - smooth(clamp01((ms - OFF_AT) / SETTLE)));
+    const rigidAt = (ms: number): Rigid => {
+      const s = Math.min(ms, SHAKE_SWING) / SHAKE_EACH;
+      const k = swing(ms);
+      return { dx: 14 * k * Math.sin(2 * Math.PI * s), dy: 0, angle: 5 * k * Math.sin(2 * Math.PI * s) };
     };
-    const cap = (c: CapPose) => ({ [CAP]: capMove(rig.capPivot, c) });
-    const moved = liftPerShake > 0;
-    const end = capAt(SHAKE_SWING);
-    const live = (at: number) => (freeAt !== null && at >= freeAt ? "Cap off" : `Cap up ${(capAt(at).dy ?? 0).toFixed(0)} mm`);
+    if (holds)
+      return {
+        verdict,
+        durationMs: SHAKE_SWING + 400,
+        at: (ms) => overlay(rigidAt(ms), ms < SHAKE_SWING ? "Shaking…" : "Still on", capOnly(ctx, cap)),
+      };
+
+    const landDy = rig.capReach - rig.capY;
+    const pop = { vx: 170, vy: 260 };
+    const startDy = cap.dy + 4;
+    const flight = (pop.vy + Math.sqrt(pop.vy * pop.vy + 2 * G * (startDy - landDy))) / G;
+    const spill: Drop[] = Array.from({ length: SPILL_DROPS }, (_, i) => {
+      const spawn = OFF_AT + 60 + i * SPILL_GAP;
+      return { spawn, origin: rigidPoint(ctx.centre, rigidAt(spawn), neck), vx: 120 + 25 * ((i * 7) % 4), vy: 150 + 30 * ((i * 5) % 3), vz: -20 + 14 * ((i * 3) % 4) };
+    });
+    const capAtMs = (ms: number): CapPose => {
+      if (ms < OFF_AT) {
+        // Rattling: it hops on the thread it never gripped.
+        const hop = 4 * Math.abs(Math.sin((2 * Math.PI * ms) / SHAKE_EACH));
+        return { dy: cap.dy + hop, turn: cap.turn + 10 * Math.sin((4 * Math.PI * ms) / SHAKE_EACH), tilt: cap.tilt + 6 * Math.sin((2 * Math.PI * ms) / SHAKE_EACH) };
+      }
+      const tau = Math.min((ms - OFF_AT) / 1000, flight);
+      return { dx: pop.vx * tau, dy: startDy + pop.vy * tau - 0.5 * G * tau * tau, turn: cap.turn + 400 * tau, tilt: cap.tilt - 90 * (tau / flight) };
+    };
+    const end = capAtMs(OFF_AT + flight * 1000);
+    const offEnd = Math.max(SHAKE_SWING, OFF_AT + flight * 1000, spill[spill.length - 1]!.spawn + 900);
     return {
       verdict,
-      durationMs: SHAKE_SWING + (moved ? SHAKE_HOLD + SHAKE_RESET : 300),
+      durationMs: offEnd + SHAKE_HOLD + SHAKE_RESET,
       at: (ms) => {
-        const s = Math.min(ms, SHAKE_SWING) / SHAKE_EACH;
-        const rigid: Rigid = { dx: 14 * Math.sin(2 * Math.PI * s), dy: 0, angle: 5 * Math.sin(2 * Math.PI * s) };
-        if (ms < SHAKE_SWING) return overlay(rigid, `Shake ${Math.floor(s) + 1} of ${SHAKES} · ${live(ms)}`, cap(capAt(ms)));
-        if (!moved || ms < SHAKE_SWING + SHAKE_HOLD) return overlay(rigid, moved ? live(SHAKE_SWING) : "Cap seated", cap(end));
-        const p = smooth(clamp01((ms - SHAKE_SWING - SHAKE_HOLD) / SHAKE_RESET));
-        const back = (n: number | undefined) => (n ?? 0) * (1 - p);
-        return overlay(rigid, "Cap back on", cap({ dx: back(end.dx), dy: back(end.dy) + 45 * Math.sin(Math.PI * p), turn: back(end.turn), tilt: back(end.tilt) }));
+        if (ms < offEnd + SHAKE_HOLD) {
+          const live = ms < OFF_AT ? "Shaking…" : ms < offEnd ? "Cap off! Spilling…" : "Cap off";
+          return overlay(rigidAt(ms), live, capOnly(ctx, capAtMs(ms)), dropMarks(spill, ms));
+        }
+        const p = smooth(clamp01((ms - offEnd - SHAKE_HOLD) / SHAKE_RESET));
+        const mix = (a: number | undefined, b: number) => (a ?? 0) * (1 - p) + b * p;
+        return overlay(rigidAt(ms), "Cap back on", capOnly(ctx, { dx: mix(end.dx, 0), dy: mix(end.dy, cap.dy) + 45 * Math.sin(Math.PI * p), turn: mix(end.turn, cap.turn), tilt: mix(end.tilt, cap.tilt) }), dropMarks(spill, ms));
       },
     };
   },
 };
 
+const OPEN_TWIST = 1300;
 const OPEN_LIFTOFF = 450;
 const OPEN_HOLD = 550;
-const OPEN_BACK = 700;
+const OPEN_BACK = 800;
 const REFUSE_MS = 1700;
 
 const open: Test = {
   id: "open",
   label: "Open",
   run: (values, ctx) => {
-    const pitch = pitchOf(values);
-    const squeeze = squeezeOf(values);
-    const turns = ENGAGE / pitch;
-    const torque = 0.4 + 7 * squeeze;
-    const rig = rigOf(ctx);
-    const cap = (c: CapPose) => ({ [CAP]: capMove(rig.capPivot, c) });
-    if (pct(squeeze) > pct(SQUEEZE_WINDOW[1])) {
+    const cap = capAt(twistOf(values), ctx);
+    if (zoneOf(values, ctx) === "tight") {
       return {
-        verdict: { pass: false, line: `It refused. It needs ${torque.toFixed(1)} N·m and a hand gives about ${HAND_TORQUE}.`, nudge: "The rubber is gripping the cap far too hard." },
+        verdict: { pass: false, line: "Stuck. It's too tight to open by hand.", nudge: "The cap is crushing the seal." },
         durationMs: REFUSE_MS,
         at: (ms) => {
           const t = clamp01(ms / REFUSE_MS);
           const shudder = Math.sin(2 * Math.PI * 3.2 * t) * (1 - t);
-          return overlay({ dx: 1.2 * shudder, dy: 0, angle: 0 }, `Needs ${torque.toFixed(1)} N·m`, cap({ turn: 12 * shudder }));
+          return overlay({ dx: 1.2 * shudder, dy: 0, angle: 0 }, "Straining…", capOnly(ctx, { dy: cap.dy, turn: cap.turn - 6 * Math.abs(shudder), tilt: cap.tilt }));
         },
       };
     }
-    if (turns > MAX_TURNS + 1e-9) {
-      const gave = MAX_TURNS * 360;
-      const rise = MAX_TURNS * pitch;
-      const twistMs = 500 + MAX_TURNS * 260;
-      return {
-        verdict: { pass: false, line: `Still on after ${MAX_TURNS} turns. At ${pitch} mm a turn, freeing ${ENGAGE} mm of thread takes ${turns.toFixed(1)} turns.` },
-        durationMs: twistMs + OPEN_HOLD + OPEN_BACK,
-        at: (ms) => {
-          if (ms < twistMs) {
-            const p = smooth(ms / twistMs);
-            return overlay(STILL, `Turn ${(MAX_TURNS * p).toFixed(1)} of ${turns.toFixed(1)}`, cap({ dy: rise * p, turn: gave * p }));
-          }
-          if (ms < twistMs + OPEN_HOLD) return overlay(STILL, `Still on after ${MAX_TURNS} turns`, cap({ dy: rise, turn: gave }));
-          const p = smooth(clamp01((ms - twistMs - OPEN_HOLD) / OPEN_BACK));
-          return overlay(STILL, "Giving up", cap({ dy: rise * (1 - p), turn: gave * (1 - p) }));
-        },
-      };
-    }
-    const twist = 500 + turns * 260;
-    const total = turns * 360;
+    const top = LIFT + 50;
+    const free = -120;
     return {
-      verdict: { pass: true, line: `Opened by hand in ${turns.toFixed(1)} turns.` },
-      durationMs: twist + OPEN_LIFTOFF + OPEN_HOLD + OPEN_BACK,
+      verdict: { pass: true, line: "It opens by hand." },
+      durationMs: OPEN_TWIST + OPEN_LIFTOFF + OPEN_HOLD + OPEN_BACK,
       at: (ms) => {
-        if (ms < twist) {
-          const p = smooth(ms / twist);
-          return overlay(STILL, `Turn ${(turns * p).toFixed(1)} of ${turns.toFixed(1)}`, cap({ dy: ENGAGE * p, turn: total * p }));
+        if (ms < OPEN_TWIST) {
+          const p = smooth(ms / OPEN_TWIST);
+          return overlay({ dx: 0, dy: 0, angle: 0 }, "Opening…", capOnly(ctx, { dy: cap.dy + (LIFT - cap.dy) * p, turn: cap.turn + (free - cap.turn) * p, tilt: cap.tilt * (1 - p) }));
         }
-        if (ms < twist + OPEN_LIFTOFF + OPEN_HOLD) {
-          const q = easeOut(clamp01((ms - twist) / OPEN_LIFTOFF));
-          return overlay(STILL, `Open in ${turns.toFixed(1)} turns`, cap({ dy: ENGAGE + 50 * q, turn: total + 90 * q }));
+        if (ms < OPEN_TWIST + OPEN_LIFTOFF + OPEN_HOLD) {
+          const q = easeOut(clamp01((ms - OPEN_TWIST) / OPEN_LIFTOFF));
+          return overlay({ dx: 0, dy: 0, angle: 0 }, "Open", capOnly(ctx, { dy: LIFT + (top - LIFT) * q, turn: free }));
         }
-        const p = smooth(clamp01((ms - twist - OPEN_LIFTOFF - OPEN_HOLD) / OPEN_BACK));
-        return overlay(STILL, "Closing again", cap({ dy: (ENGAGE + 50) * (1 - p), turn: (total + 90) * (1 - p) }));
+        const p = smooth(clamp01((ms - OPEN_TWIST - OPEN_LIFTOFF - OPEN_HOLD) / OPEN_BACK));
+        return overlay({ dx: 0, dy: 0, angle: 0 }, "Closing again", capOnly(ctx, { dy: top + (cap.dy - top) * p, turn: free + (cap.turn - free) * p, tilt: cap.tilt * p }));
       },
     };
   },
 };
 
-export default defineLesson({
+/** The cap, twisted by dragging the grip. Both modules and the final twist the same cap, so they share one control. */
+const twist: Control = {
+  key: TWIST,
+  verb: "Twist",
+  start: 0,
+  zones: zonesOf,
+  pose: (t, ctx): Scene => (ctx.present.includes(CAP) ? { moves: capOnly(ctx, capAt(t, ctx)), marks: [] } : EMPTY_SCENE),
+};
+
+export default defineStory({
   id: "bottle",
   objectName: "Water bottle",
   match: /\b(bottle|flask|thermos)\b/i,
+  build: "drag",
+  kit: BOTTLE_KIT,
+  explode,
   // Without the seal ring under it the cap sits lower, and a turn mark rides the cap so its spin shows.
   rest: (ctx): Scene => {
     if (!ctx.present.includes(CAP)) return EMPTY_SCENE;
@@ -249,94 +358,100 @@ export default defineLesson({
     const c = rig.capPivot;
     const mark: Mark = {
       id: "turn-mark", ride: CAP,
-      shape: { kind: "box", width: 3, height: 20, depth: 5, cornerRadius: 1 },
-      at: vec(c.x + MARK_RADIUS * Math.cos(MARK_ANGLE * DEG), c.y, c.z - MARK_RADIUS * Math.sin(MARK_ANGLE * DEG)),
+      shape: { kind: "box", width: 2, height: 12, depth: 2.6, cornerRadius: 0.6 },
+      at: vec(c.x + MARK_RADIUS * Math.cos(MARK_ANGLE * DEG), MARK_Y, c.z - MARK_RADIUS * Math.sin(MARK_ANGLE * DEG)),
       rotation: vec(0, MARK_ANGLE, 0),
     };
-    return { moves: { [CAP]: { offset: vec(0, -rig.seatDrop, 0) } }, marks: [mark] };
+    return { moves: wholeCap(ctx, { offset: vec(0, -rig.seatDrop, 0) }), marks: [mark] };
   },
   modules: [
     {
-      id: "twist",
-      title: "Close with a twist",
-      need: "It must close with a twist and stay shut when shaken.",
+      id: "closed",
+      title: "Keep it closed",
       primitive: "thread",
       produces: [CAP],
+      without: { say: "Shake it. Watch the cap.", line: "A cap that just sits there falls off.", test: shake, adds: [CAP], values: { [TWIST]: 0 } },
+      learn: {
+        say: "Twist it. The nut rides the spiral.",
+        rigs: {
+          thread: {
+            controls: { turns: "Twist" },
+            why: ["A thread is a ramp wrapped round a post.", "Twist the nut and the ramp carries it along.", "On the bottle, that ramp pulls the cap down and holds it there."],
+          },
+        },
+      },
+      uses: { thread: "A thread turns your twist into a grip that holds the cap down." },
       assemble: {
-        piece: "Thread nut",
-        title: "Wind the thread onto the neck: it becomes the cap.",
-        built: "The thread's nut is now the steel cap, and its ramp winds round the neck.",
+        piece: "Cap",
+        title: "The cap's thread grips the thread on the neck.",
+        built: "The thread now runs inside the cap and round the neck.",
       },
       target: { label: "Neck", at: vec(0, 190, 0), ring: { radius: 33, axis: "y" } },
       enter: vec(0, 50, 0),
-      fault: { primitive: "thread", slider: "pitch", start: 6 },
-      fix: { window: PITCH_WINDOW },
-      tests: [shake, open],
-      hints: {
-        observe: "Run Shake and watch the cap. It climbs the neck a little with every shake.",
-        principle: "A thread is a wedge wound around the neck, and pitch is how far the cap rises in one turn. On a steep thread a jolt can turn the cap and push it up the ramp.",
-        direction: "Make the pitch smaller, but not too small. Every turn then lifts the cap less, so opening takes more turns.",
-        low: "Opening takes more than 4 turns and the cap is still on.",
-        high: "A shake walks the cap up the thread and off.",
-      },
-      suspect: CAP,
-      misses: { [BODY]: "The body is what everything else rides on. Look for the part that moves relative to it." },
-      missDefault: "That part stays where it is during Shake. Watch which one moves.",
-      why: "A thread is a wedge wrapped round a rod. A shallow one makes the cap climb slowly, and real threads mostly stay put by friction, which grows as the thread gets shallower. Finer pitch costs more turns to close.",
-      gameNote: "Game numbers: 12 mm of thread is engaged, each shake lifts the cap 4 mm for every mm of pitch over 4, and a cap still on after 4 turns counts as too slow. Real bottle threads are finer and open in one or two turns, so both failures are exaggerated to make them visible.",
-      readoutWith: (pitch) => ({ turns: ENGAGE / pitch }),
-      numbers: (v) => {
-        const pitch = pitchOf(v);
-        const lift = Math.max(0, pitch - PITCH_WINDOW[1]) * LIFT_PER_PITCH_OVER;
-        return [
-          { label: "To open", value: `${ENGAGE} mm ÷ ${pitch} mm = ${(ENGAGE / pitch).toFixed(1)} turns (limit ${MAX_TURNS})` },
-          { label: "Each shake", value: lift > 0 ? `cap climbs ${lift} mm (off after ${ENGAGE} mm)` : "cap stays put" },
-        ];
-      },
+      play: { say: "Twist the cap on. Then shake.", control: twist, tests: [shake] },
+      hints: [
+        "Watch the cap while it shakes. Does it stay down?",
+        "A loose cap only rests on the thread. Twist it further.",
+        "Drag the grip until it says Snug, then shake again.",
+      ],
+      why: [
+        "The cap closes the bottle, but on its own it just sits there.",
+        "The thread pulls the cap down and holds it tight.",
+        "Without the thread, the first bump knocks the cap off and your drink spills.",
+      ],
+      job: "The thread holds the cap on.",
+      cheer: "Locked on!",
     },
     {
       id: "dry",
-      title: "Stay dry upside down",
-      need: "It must stay dry upside down and still open by hand.",
+      title: "Keep it dry",
       primitive: "seal",
       produces: [RING, "ring-tab"],
+      without: { say: "Flip it. Any drips?", line: "Metal on metal leaves tiny gaps. Water finds them.", test: flip, adds: [], values: { [TWIST]: STOP_BARE } },
+      learn: {
+        say: "Squeeze it. The rubber fills the gaps.",
+        rigs: {
+          seal: {
+            controls: { squeeze: "Squeeze" },
+            why: ["Rubber is soft, so it changes shape when you squeeze it.", "Pressed between two hard faces, it spreads into every tiny gap.", "That closes the path water would take."],
+          },
+        },
+      },
+      uses: { seal: "Squeezed rubber fills the tiny gaps, so water can't get out." },
       assemble: {
         piece: "Seal",
-        title: "Press the seal into the neck: it becomes the seal ring.",
-        built: "The rubber ring now sits between the cap and the neck, ready to be squeezed into the gap.",
+        title: "The seal sits in the neck, under the cap.",
+        built: "The rubber ring now sits where the cap meets the neck.",
       },
-      target: { label: "Neck joint", at: vec(0, 180, 0), ring: { radius: 33, axis: "y" } },
+      target: { label: "Neck", at: vec(0, 180, 0), ring: { radius: 33, axis: "y" } },
       enter: vec(60, 0, 0),
-      fault: { primitive: "seal", slider: "squeeze", start: 0.03 },
-      fix: { window: SQUEEZE_WINDOW },
-      tests: [flip, open],
-      hints: {
-        observe: "Run Flip and watch where the drops start. They come out at the joint between the cap and the neck.",
-        principle: "A seal works by being squeezed. Two hard surfaces never fit perfectly, and squeezed rubber is pressed into the gaps between them. Squeeze it too little and the gaps stay open.",
-        direction: "Squeeze more, but not too far. Check Flip and Open together.",
-        low: "The gaps stay open and Flip leaks.",
-        high: "Crushed rubber grips the cap so hard that Open needs more torque than a hand gives.",
-      },
-      suspect: RING,
-      misses: {
-        [BODY]: "That holds the water, but it isn't where it leaks. Run Flip and watch where the drops start.",
-        [CAP]: "The cap stays on tight. The drops start lower, in the gap between the cap and the neck.",
-        "ring-tab": "The tab is only a handle for your fingers. It never touches the water.",
-      },
-      missDefault: "That isn't where the water gets out. Run Flip and watch where the drops start.",
-      why: "A rubber ring squeezed about 15 to 30 percent is pressed into the tiny gaps in the joint and closes them. Less leaks. More is crushed, and the cap becomes too hard to twist. Static seals are typically squeezed in that range.",
-      numbers: (v) => {
-        const squeeze = squeezeOf(v);
-        return [{ label: "Torque to open", value: `0.4 + 7 × ${squeeze.toFixed(2)} = ${(0.4 + 7 * squeeze).toFixed(1)} N·m (a hand gives ${HAND_TORQUE})` }];
-      },
-      gameNote: "Game numbers: a hand gives about 2.5 N·m, and the torque to open is taken as 0.4 + 7 × squeeze in N·m. The 15 to 30 percent band is the typical range for static seals, not a measured limit for this bottle.",
+      play: { say: "Twist it snug. Then flip it.", control: twist, tests: [flip, open] },
+      hints: [
+        "Watch where the drops come from: the gap under the cap.",
+        "The cap has to press the seal to close the gaps. Twist it further.",
+        "Too tight and you can't open it again. Stop at Snug.",
+      ],
+      why: [
+        "A cap and a neck never fit perfectly. There are tiny gaps.",
+        "The seal is soft rubber that the cap squeezes into those gaps.",
+        "Without the seal, a closed bottle still drips when it tips over in your bag.",
+      ],
+      job: "The seal keeps it dry.",
+      cheer: "Sealed tight!",
     },
   ],
   final: {
-    need: "It must stay shut when shaken, stay dry upside down, and open by hand.",
+    title: "Put it together",
+    say: "Shake it, flip it, open it.",
     success: "You built a water bottle.",
-    detail: "It stays shut when shaken, stays dry upside down, and opens by hand.",
-    tests: [flip, shake, open],
+    cheer: "Cheers! Bottle built.",
+    control: twist,
+    tests: [shake, flip, open],
+    why: ["Each part has one job, and the bottle needs all three.", "Take one away and it stops working: the cap falls off, or it leaks."],
+    payoff: [
+      { part: "Cap", job: "closes the bottle." },
+      { part: "Thread", job: "holds the cap on." },
+      { part: "Seal", job: "keeps it dry." },
+    ],
   },
 });
-

@@ -193,6 +193,8 @@ export const hingeTemplate: Template = {
         ...(against ? { [against.id]: `The ${against.name.toLowerCase()} holds still. Watch the part that turns during ${push}.` } : {}),
       },
       missDefault: `That part does not decide the force. Watch which part turns during ${push}.`,
+      uses: { lever: `The ${child} itself, turning on ${on}. Your push on ${yours} becomes force at ${there}.` },
+      task: "Find a ratio that pushes hard and far.",
       why: h.middle
         ? `A part turning on a pivot is a lever. With the pivot between your hand and the work, the force at the work is your force times your distance from the pivot divided by its distance, and its travel is divided by the same ratio. No work is gained, only a trade of force for distance.`
         : `A part turning on a ${centre} is a lever. Pushing farther from the ${centre} than the load multiplies your force by the arm ratio and divides your travel by it. No work is gained, only a trade of force for distance.`,

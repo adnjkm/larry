@@ -1,15 +1,13 @@
-import { Kit, type KitEvent } from "../shared/kit.ts";
-
-export type ScannedEvent = Extract<KitEvent, { type: "started" }> | { type: "part"; part: unknown };
-
-const Header = Kit.pick({ name: true, summary: true });
+export type ScannedEvent = { type: "header"; value: unknown } | { type: "item"; value: unknown };
 
 /**
- * Reads the kit JSON as it is written, one chunk at a time, and reports the header and each
- * finished part. It only looks at new characters, tracking string state and bracket depth:
- * depth 1 is the kit object, 2 the parts array, 3 a part object.
+ * Reads a JSON object as it is written, one chunk at a time. When the top-level key `arrayKey` is
+ * reached it reports the fields written before it, then each element of that array as soon as the
+ * element closes. It only looks at new characters, tracking string state and bracket depth:
+ * depth 1 is the root object, 2 the array, 3 an element object.
  */
-export function createKitScanner() {
+export function createArrayScanner(arrayKey: string) {
+  const quotedKey = JSON.stringify(arrayKey);
   let text = "";
   let pos = 0;
   let depth = 0;
@@ -19,13 +17,12 @@ export function createKitScanner() {
   let stringIsKey = false;
   let expectKey = false;
   let sentHeader = false;
-  let inParts = false;
-  let partStart = 0;
+  let inArray = false;
+  let itemStart = 0;
 
   function header(keyStart: number): ScannedEvent | undefined {
     try {
-      const parsed = Header.safeParse(JSON.parse(`${text.slice(0, keyStart)}"parts":[]}`));
-      return parsed.success ? { type: "started", ...parsed.data } : undefined;
+      return { type: "header", value: JSON.parse(`${text.slice(0, keyStart)}${quotedKey}:[]}`) };
     } catch {
       return undefined;
     }
@@ -41,7 +38,7 @@ export function createKitScanner() {
         else if (c === "\\") escaped = true;
         else if (c === '"') {
           inString = false;
-          if (stringIsKey && !sentHeader && text.slice(stringStart, pos + 1) === '"parts"') {
+          if (stringIsKey && !sentHeader && text.slice(stringStart, pos + 1) === quotedKey) {
             sentHeader = true;
             const started = header(stringStart);
             if (started) events.push(started);
@@ -57,18 +54,18 @@ export function createKitScanner() {
       } else if (c === "{" || c === "[") {
         depth++;
         if (c === "{" && depth === 1) expectKey = true;
-        if (c === "[" && depth === 2 && sentHeader) inParts = true;
-        if (c === "{" && depth === 3 && inParts) partStart = pos;
+        if (c === "[" && depth === 2 && sentHeader) inArray = true;
+        if (c === "{" && depth === 3 && inArray) itemStart = pos;
       } else if (c === "}" || c === "]") {
-        if (c === "}" && depth === 3 && inParts) {
+        if (c === "}" && depth === 3 && inArray) {
           try {
-            events.push({ type: "part", part: JSON.parse(text.slice(partStart, pos + 1)) });
+            events.push({ type: "item", value: JSON.parse(text.slice(itemStart, pos + 1)) });
           } catch {
-            // The done event carries the checked kit, so an unreadable part is only skipped here.
+            // The final result is parsed whole, so an unreadable element is only skipped here.
           }
         }
         depth--;
-        if (c === "]" && depth === 1) inParts = false;
+        if (c === "]" && depth === 1) inArray = false;
       } else if (c === "," && depth === 1) {
         expectKey = true;
       }

@@ -1,0 +1,275 @@
+{
+  "title": "Desk Stapler",
+  "hook": [
+    "Press the blue top and a stapler pushes one thin wire through a stack of paper, folds its legs flat, then springs back up with the next staple ready.",
+    "How does one palm press do all three? Each part is the answer to one way a simpler stapler fails."
+  ],
+  "chapters": [
+    {
+      "kind": "module",
+      "id": "drive",
+      "need": "It must drive a staple through the paper.",
+      "why": "This is the stapler's job: a wire 0.5 mm thick has to pierce a stack of sheets.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "drive-naive",
+          "title": "Push the staple by thumb",
+          "story": [
+            "The crudest stapler is a staple held over the paper and a flat metal strip pressed straight down on its crown. We push the strip with a thumb and see if the legs go through 20 sheets."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Press with a thumb",
+            "outcome": "Piercing 20 sheets takes about 100 N. A thumb manages roughly 40 N on a 0.7 mm edge before it hurts, so the legs stop 1 mm into the paper and buckle."
+          },
+          "payoff": [
+            "The force is not the problem in itself. The problem is that the hand pushes with the same force the staple needs.",
+            "We need something that trades a long, easy push for a short, hard one."
+          ],
+          "earns": []
+        },
+        {
+          "id": "drive-lever",
+          "title": "Trade distance for force",
+          "story": [
+            "The staple only has to move a few millimetres. A palm can easily move much further than that. What could turn a long, light push into a short, strong one?"
+          ],
+          "primitive": "lever",
+          "problem": {
+            "type": "pick",
+            "question": "What lets a 33 N push deliver 100 N to the staple?",
+            "options": [
+              {
+                "primitive": "lever",
+                "works": true,
+                "outcome": "With the blade 38 mm from a pivot and the palm 113 mm out, a 33 N push gives 100 N at the blade. The palm moves 8 mm and the blade moves 2.7 mm."
+              },
+              {
+                "primitive": "thread",
+                "works": false,
+                "outcome": "A screw would multiply force well, but you would twist it down for every staple and back up again. That is several turns per staple, not one press."
+              },
+              {
+                "primitive": "wedge",
+                "works": false,
+                "outcome": "A wedge pushes sideways, at right angles to its travel. We need the blade to go straight down, the same way the hand pushes."
+              }
+            ]
+          },
+          "payoff": [
+            "The long top arm is a lever and the hinge pin at its back end is the pivot. The blade sits near the pin, so the palm end does the travelling and the blade does the pushing.",
+            "No work is gained: three times the force for a third of the distance."
+          ],
+          "earns": [
+            "top-arm",
+            "pivot-pin"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "clinch",
+      "need": "It must fold the staple's legs flat.",
+      "why": "Once the legs are through, they stick straight out of the back of the stack and the staple slides back out.",
+      "surprise": true,
+      "steps": [
+        {
+          "id": "clinch-naive",
+          "title": "Staple onto a flat desk",
+          "story": [
+            "We drive the staple with the paper lying on a hard, flat surface. The legs come through the last sheet and hit the surface. Do they hold the pages together?"
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Staple on the desk",
+            "outcome": "The legs hit flat steel and crumple in random directions, or poke 6 mm out straight. A tug of under 2 N pulls the staple back out of the stack."
+          },
+          "payoff": [
+            "A straight leg holds nothing; the paper slides along it.",
+            "The legs have to be turned sideways, in a set direction, and pressed against the back sheet."
+          ],
+          "earns": []
+        },
+        {
+          "id": "clinch-wedge",
+          "title": "Turn the legs inward",
+          "story": [
+            "The legs arrive moving straight down. We need them moving sideways, toward each other, under the paper. What shape under the stack could steer a downward push into a sideways one?"
+          ],
+          "primitive": "wedge",
+          "problem": {
+            "type": "pick",
+            "question": "What could bend each leg inward as it is pushed down?",
+            "options": [
+              {
+                "primitive": "wedge",
+                "works": true,
+                "outcome": "Two curved slopes pressed into a small plate catch each leg tip and steer it sideways along the slope, curling it inward against the paper."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "Clamping the legs by friction holds them still but does not bend them. The staple stays straight and still slides out once the clamp lets go."
+              },
+              {
+                "primitive": "spring",
+                "works": false,
+                "outcome": "A spring under the paper just gives way. The legs push it down 5 mm, then spring back up straight."
+              }
+            ]
+          },
+          "payoff": [
+            "The anvil plate has two curved grooves, each a slope that turns the leg's downward push into a sideways one. The grooves face each other so the legs fold inward, not out.",
+            "It is riveted to the base so it cannot shift."
+          ],
+          "earns": [
+            "anvil"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "reload",
+      "need": "It must reset itself and line up the next staple.",
+      "why": "After one press the arm stays down on the anvil, and the next staple has to be placed by hand under the blade.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "reload-naive",
+          "title": "Press it twice",
+          "story": [
+            "We now have an arm, a blade and an anvil. We staple one stack, then try to staple a second. Nothing has lifted the arm or fed in another staple."
+          ],
+          "primitive": "lever",
+          "problem": {
+            "type": "run",
+            "action": "Staple again",
+            "outcome": "The arm stays down, 8 mm below where it started. There is 0 mm of staple under the blade, so the second press drives nothing."
+          },
+          "payoff": [
+            "Two things must happen after every press: the arm must rise, and the next staple must slide forward into the gap.",
+            "Both need a push that comes from nowhere the hand provides."
+          ],
+          "earns": []
+        },
+        {
+          "id": "reload-spring",
+          "title": "Store the push for later",
+          "story": [
+            "Pressing the arm puts work in. If some of it could be kept and handed back when the hand lets go, the arm could rise and the next staple could move up on its own."
+          ],
+          "primitive": "spring",
+          "problem": {
+            "type": "pick",
+            "question": "What can store part of the press and give it back?",
+            "options": [
+              {
+                "primitive": "spring",
+                "works": true,
+                "outcome": "Squeezed on the way down, it pushes back on the way up: it lifts the arm and pushes the row of staples forward one place."
+              },
+              {
+                "primitive": "weight",
+                "works": false,
+                "outcome": "A weight pulls only downward. It could slide the row along a sloped channel, but it cannot lift the arm, and the stapler would only work tilted."
+              },
+              {
+                "primitive": "cord",
+                "works": false,
+                "outcome": "A cord can carry a pull around a corner, but something still has to pull it. It stores nothing."
+              }
+            ]
+          },
+          "payoff": [
+            "Springs push from inside the long staple channel: one shoves the row of staples toward the blade, another lifts the arm. The channel holds the staples glued in a strip, so each press shears off exactly one."
+          ],
+          "earns": [
+            "magazine"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "join",
+      "id": "together",
+      "title": "Press, fold, return",
+      "steps": [
+        {
+          "id": "join-tune",
+          "title": "How hard the spring pushes",
+          "story": [
+            "Now the hand must beat the return spring as well as the paper. Too weak and the arm sticks halfway. Too strong and every press needs a much harder push."
+          ],
+          "primitive": "spring",
+          "problem": {
+            "type": "tune",
+            "goal": "When fully pressed, the spring must push back with 12 to 25 N: enough to lift the arm and feed a staple, but well below the 33 N the paper needs.",
+            "slider": "force",
+            "min": 12,
+            "max": 25,
+            "tooLow": "Below 12 N the spring cannot overcome the rubbing in the channel; the arm stops partway up and the next staple stays 2 mm short of the blade.",
+            "tooHigh": "Above 25 N the palm must push the paper's 33 N plus the spring, over 58 N in total, and the stapler snaps up hard enough to bounce.",
+            "justRight": "The arm returns briskly and the next staple clicks into place, while the press still feels mostly like pushing through paper."
+          },
+          "payoff": [
+            "The spring is a small tax on every press, paid back on the way up.",
+            "That is why a stapler feels slightly springy before it bites: you are loading the spring first."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "casing",
+      "id": "casing",
+      "title": "The base and the press pad",
+      "steps": [
+        {
+          "id": "casing-base",
+          "title": "Keep it on the desk",
+          "story": [
+            "Everything hinges on one part: the anvil, the channel and the arm all mount on it. A 33 N press that is slightly off vertical also pushes the stapler sideways across the desk."
+          ],
+          "primitive": "grip",
+          "problem": {
+            "type": "pick",
+            "question": "What stops a sideways push of about 10 N from sliding the stapler?",
+            "options": [
+              {
+                "primitive": "grip",
+                "works": true,
+                "outcome": "Rubber feet pressed down by the press itself grip the desk. Pushing harder presses them harder, so the limit rises with the load."
+              },
+              {
+                "primitive": "weight",
+                "works": false,
+                "outcome": "Heavy steel helps, but on a smooth desk a 0.3 kg base gives only about 1 N of friction, far below 10 N."
+              },
+              {
+                "primitive": "seal",
+                "works": false,
+                "outcome": "A seal closes gaps against fluid. There is no fluid here, and a flat rubber disc would only act as a weak suction cup."
+              }
+            ]
+          },
+          "payoff": [
+            "The heavy white base carries every pivot; its rubber foot grips harder the harder you press. On top, the blue pad snaps onto the arm's far end, where the lever gives the most advantage."
+          ],
+          "earns": [
+            "base",
+            "rubber-pad",
+            "blue-cap"
+          ]
+        }
+      ]
+    }
+  ],
+  "closing": [
+    "Look at a stapler now: a long lever over a grooved plate, a spring channel of staples between them, all on a gripping base. One press pierces, folds and reloads."
+  ]
+}

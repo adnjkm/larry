@@ -1,0 +1,188 @@
+{
+  "title": "Coffee mug",
+  "hook": [
+    "A mug holds 85 °C coffee for twenty minutes. You can lift 0.7 kg of it with two fingers and never touch the hot wall.",
+    "It looks like a cup with an ear. Why is the wall so thick, and why is the ear that size and in that place?"
+  ],
+  "chapters": [
+    {
+      "kind": "module",
+      "id": "hold",
+      "need": "It must hold a hot drink without the outside turning scalding at once.",
+      "why": "This is the object's job: keep about 350 ml of near-boiling liquid in one place.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "s1",
+          "title": "A thin cup of coffee",
+          "story": [
+            "The crudest container is a thin shell, like a 1 mm glass tumbler. We pour in 350 ml of coffee at 85 °C and put a hand around it."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Pour and hold",
+            "outcome": "Heat crosses 1 mm of glass in well under a second. The outside reaches about 75 °C, and skin starts to hurt above roughly 45 to 50 °C. The hand lets go within 2 seconds."
+          },
+          "payoff": [
+            "Heat flows through a wall in proportion to the temperature difference and inversely to the thickness. Ceramic conducts heat poorly, and a 5 mm wall slows the flow about five times.",
+            "That is why the cup body is thick and heavy, not thin."
+          ],
+          "earns": [
+            "body"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "lift",
+      "need": "It must be lifted without the hand touching the hot wall.",
+      "why": "Even a thick ceramic body settles at about 60 °C on the outside after a minute. It slows the heat; it cannot stop it.",
+      "surprise": true,
+      "steps": [
+        {
+          "id": "s2",
+          "title": "Pinch it by the rim",
+          "story": [
+            "The rim is the one place we can grab without wrapping a hand round the wall. Two fingertips squeeze it from either side, and friction must carry the mug's weight."
+          ],
+          "primitive": "grip",
+          "problem": {
+            "type": "run",
+            "action": "Pinch and lift",
+            "outcome": "Each fingertip presses 40 N, giving a friction limit of 32 N against a 20 N load, so it holds. But the pads are pressed hard onto 60 °C ceramic, and the pinch fails from pain in about 5 seconds."
+          },
+          "payoff": [
+            "Friction only holds if we squeeze, and squeezing means pressing skin onto the hot surface. Any grip that depends on friction holds us against the heat."
+          ],
+          "earns": []
+        },
+        {
+          "id": "s3",
+          "title": "Hold without squeezing",
+          "story": [
+            "We need to carry the weight without pressing skin onto the wall. The mug should hang on the fingers, not be clamped by them, and from somewhere away from the wall."
+          ],
+          "primitive": "lever",
+          "problem": {
+            "type": "pick",
+            "question": "What lets fingers carry the mug away from the hot wall?",
+            "options": [
+              {
+                "primitive": "lever",
+                "works": true,
+                "outcome": "A rigid loop sticking out from the side. Fingers hook through it and press on its ends, holding the weight without squeezing the wall, and the loop resists the mug's urge to tip."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "Rough texture on the wall raises friction, but the fingers still have to press onto 60 °C ceramic to use it."
+              },
+              {
+                "primitive": "cord",
+                "works": false,
+                "outcome": "A string loop keeps fingers off the wall, but a cord cannot push. The mug hangs from it, swings and tips, and coffee spills over the rim."
+              }
+            ]
+          },
+          "payoff": [
+            "The handle is a lever. The mug's weight acts at its centre, about 50 mm out from the fingers, and tries to rotate the mug downward. The top and bottom of the loop press against fingers to stop it."
+          ],
+          "earns": [
+            "handle"
+          ]
+        },
+        {
+          "id": "s4",
+          "title": "How tall a handle",
+          "story": [
+            "The weight acts out at the mug's centre while the fingers hold at the side, so the mug tries to tip. The taller the loop, compared with that sideways offset, the gentler the fingers' work."
+          ],
+          "primitive": "lever",
+          "problem": {
+            "type": "tune",
+            "goal": "Set the ratio of handle height to the 50 mm offset of the mug's centre, so the fingers' push stays under about 0.8 of the 7 N weight and the handle still fits on a 95 mm mug.",
+            "slider": "ratio",
+            "min": 1.2,
+            "max": 2,
+            "tooLow": "Below 1.2 the loop is under 60 mm tall. One finger fits, and it must push more than 6 N to hold back the tip, enough to tire a hand on a long walk.",
+            "tooHigh": "Above 2 the loop is over 100 mm, taller than the 95 mm body it hangs on. It no longer fits the side of the mug.",
+            "justRight": "A loop 60 to 100 mm tall takes two or three fingers, and the push needed stays a few newtons, well within comfort."
+          },
+          "payoff": [
+            "Most handles are about two-thirds the mug's height for this reason. Fingers through the loop and a thumb on top form the lever, so no part of the hand touches the wall."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "join",
+      "id": "carry",
+      "title": "Carry the full mug",
+      "steps": [
+        {
+          "id": "s5",
+          "title": "Does the handle get hot",
+          "story": [
+            "The handle is ceramic too, and it is fused to the hot body. Heat could simply flow along it into our fingers. We fill the mug and hold it by the handle for five minutes."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Hold for five minutes",
+            "outcome": "The wall stays near 60 °C, but the handle's outer edge reads only about 35 °C. Heat must squeeze through two small joints, roughly 1.5 cm² each, and the loop loses it to air along the way."
+          },
+          "payoff": [
+            "The handle is molded on at two narrow joints and stands about 25 mm from the wall. The narrow path and the air on all sides keep the part we touch cool enough to hold."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "casing",
+      "id": "shell",
+      "title": "The glazed body",
+      "steps": [
+        {
+          "id": "s6",
+          "title": "Stop the coffee soaking in",
+          "story": [
+            "Fired clay is full of tiny pores. Bare, it absorbs coffee, stains, and slowly weeps damp through the wall onto the table. The surface itself has to close."
+          ],
+          "primitive": "seal",
+          "problem": {
+            "type": "pick",
+            "question": "What stops liquid creeping into the ceramic?",
+            "options": [
+              {
+                "primitive": "seal",
+                "works": true,
+                "outcome": "A layer of glass, the glaze, melted onto the surface. It flows into the pores and closes them, so liquid has no path in."
+              },
+              {
+                "primitive": "valve",
+                "works": false,
+                "outcome": "A valve controls flow through one opening. Here there are millions of pores, and none of them should ever open."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "Pressing the coffee against the wall harder does nothing to the pores. Friction holds solids, not liquid seeping through gaps."
+              }
+            ]
+          },
+          "payoff": [
+            "The glaze seals the body inside and out, and also smooths the lip against the mouth. The foot ring is often left bare so the mug does not fuse to the kiln shelf."
+          ],
+          "earns": []
+        }
+      ]
+    }
+  ],
+  "closing": [
+    "A thick wall to slow the heat, a glaze to close the pores, and a tall loop that works as a lever. It hangs on two narrow joints, so the hand never meets the coffee's heat."
+  ]
+}

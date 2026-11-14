@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { initialValues } from "../../src/primitives/library.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
-import { assembledFrom, listOf, type Module, type PartMove, presentAfter, type Scene, type Target, vec, type Vec, type Workshop } from "./model.ts";
+import { assembledFrom, type Built, type Builds, listOf, type PartMove, presentAfter, type Scene, type Target, vec, type Vec } from "./model.ts";
+import { DragBuild } from "./DragBuild.tsx";
 import { compose, drawObject, enclosed, extents, placeParts, restCentre } from "./pose.ts";
-import { ExplodeSlider, Header, Viewer } from "./ui.tsx";
+import { Actions, ExplodeSlider, Plain, Say, Viewer, Why } from "./ui.tsx";
 
 const FLIGHT_MS = 650;
 /** The piece is spent on the way in; the part appears for the last quarter of the flight and settles. */
@@ -21,7 +22,7 @@ const MAX_ENLARGE = 2;
 const PIECE_GAP = 10;
 
 /** The focus pieces of the primitives this module assembles, each at its Learn values, side by side along x. */
-function focusPieces(module: Module): Part[] {
+function focusPieces(module: Built): Part[] {
   let x = 0;
   return assembledFrom(module).flatMap((p) => {
     // Drawn matte whatever the primitive's finish, so a rubber pad or a metal coil floats in the same bright pink as the part it becomes.
@@ -36,8 +37,16 @@ function focusPieces(module: Module): Part[] {
 
 const sub = (a: Vec | undefined, b: Vec | undefined) => vec((a?.x ?? 0) - (b?.x ?? 0), (a?.y ?? 0) - (b?.y ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
 
-export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit: Kit; index: number; onNext: () => void }) {
+type BuildProps = { lesson: Builds; kit: Kit; index: number; next?: string; onNext: () => void };
+
+/** The Build step: drag the piece onto its ghost when the lesson asks for it, otherwise tap the piece and then its ring. */
+export function Assemble({ next = "Next: test it", ...props }: BuildProps) {
+  return props.lesson.build === "drag" ? <DragBuild {...props} next={next} /> : <TapBuild {...props} next={next} />;
+}
+
+function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: string }) {
   const module = lesson.modules[index]!;
+  const plain = useContext(Plain);
   const alive = useAlive();
   const setup = useMemo(() => {
     const after = presentAfter(lesson, kit, index);
@@ -125,37 +134,41 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
 
   const subject = useMemo(() => (landed ? setup.whole(explode) : [...setup.around, ...setup.whole(explode)]), [setup, explode, landed]);
   const names = listOf(module.produces.map((id) => kit.parts.find((q) => q.id === id)?.name ?? id));
-  const object = lesson.objectName.toLowerCase();
+  const piece = module.assemble.piece;
+  const target = module.target.label;
+  const say = placed ? `Built: ${names}.` : warn ? `Tap the ${piece.toLowerCase()} first.` : picked ? `Now tap ${target.toLowerCase()}.` : `Tap the ${piece.toLowerCase()}.`;
 
   return (
     <main className="page" data-stage="assemble">
-      <Header kicker={`Module ${index + 1} · Build the part`} title={module.assemble.title} />
-      <p className="hint">Pick up the piece floating beside the {object} and drop it on the {module.target.label.toLowerCase()}.</p>
-      <Viewer name={lesson.objectName} parts={parts} subject={subject} view={lesson.view} height={400} />
+      <Say
+        kicker={`${module.title} · Build`}
+        found={placed}
+        why={
+          <Why title="Build it">
+            <p className="sheet-lead">{module.assemble.title}</p>
+            {placed ? <p>{module.assemble.built} Pink marks the part this lesson is about.</p> : <p>Tap the floating piece, then the ring on the {lesson.objectName.toLowerCase()} where it goes.</p>}
+          </Why>
+        }
+      >
+        {say}
+      </Say>
+      <Viewer parts={parts} subject={subject} view={lesson.view} />
       <ExplodeSlider value={explode} onChange={setExplode} disabled={flying} />
-      <div className="row steps">
-        <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>
-          <span className="mono">1 · Pick up</span>
-          <strong>{module.assemble.piece}</strong>
-        </button>
-        <button type="button" className="step" data-step="target" data-on={placed ? "" : undefined} disabled={progress !== null} onClick={drop}>
-          <span className="mono">2 · Drop on</span>
-          <strong>{module.target.label}</strong>
-        </button>
-      </div>
-      {warn ? <p className="hint warn">Pick up the {module.assemble.piece.toLowerCase()} first.</p> : null}
-      {placed ? (
-        <>
-          <div className="earned">
-            <span className="mono" style={{ color: COLOR.focus }}>Part built</span>
-            <strong>{names}</strong>
-            <span>{module.assemble.built} Pink marks the part this module is about.</span>
-          </div>
-          <button type="button" className="btn" data-next onClick={onNext}>Next: test and fix</button>
-        </>
-      ) : (
-        <button type="button" className="btn secondary" data-fit disabled={progress !== null} onClick={fly}>Fit it</button>
+      {placed ? null : (
+        <div className="row steps">
+          <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>
+            <span className="mono">{plain ? "Pick up" : "1 · Pick up"}</span>
+            <strong>{piece}</strong>
+          </button>
+          <button type="button" className="step" data-step="target" disabled={progress !== null} onClick={drop}>
+            <span className="mono">{plain ? "Drop on" : "2 · Drop on"}</span>
+            <strong>{target}</strong>
+          </button>
+        </div>
       )}
+      <Actions>
+        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>{next}</button>
+      </Actions>
     </main>
   );
 }

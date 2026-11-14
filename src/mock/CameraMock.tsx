@@ -760,7 +760,7 @@ function Flow({
           {lit && (
             <>
               <div {...stylex.props(s.viewer)}>
-                <KitViewer kit={{ name: header?.name ?? "", summary: header?.summary ?? "", parts }} spin height={layout.cardResult} look={LOOK} />
+                <KitViewer parts={parts} spin height={layout.cardResult} look={LOOK} />
               </div>
               <div {...stylex.props(s.pip)} title="Your photo">
                 <img src={object.photo} alt="" {...stylex.props(s.photo, s.photoCover)} />

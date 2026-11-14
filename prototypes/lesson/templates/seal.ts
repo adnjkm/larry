@@ -209,6 +209,8 @@ export const sealTemplate: Template = {
         [closer.parent.id]: `The ${base} holds still. The drops start at the joint between ${between}.`,
       },
       missDefault: `That is not where it leaks. Run ${flipTest.label} and watch where the drops start.`,
+      uses: { seal: `The ${child} in the joint between ${between}. Squeezed, it fills the gaps water would leak through.` },
+      task: "Squeeze until it is dry but still opens.",
       why: `A seal is squeezed into the tiny gaps between two hard faces and closes them. Static seals are typically squeezed about 15 to 30 percent. Less leaks; more crushes it, and it grips the ${closer.childName} too hard to open by hand.`,
       gameNote: `Game numbers: up to ${MAX_DROPS} drops, a hand giving about ${law.hand} ${law.unit}, and opening taken to need ${law.base} + ${law.per} × squeeze in ${law.unit}. None of them is measured from the ${pair.objectName}. The 15 to 30 percent band is the typical range for static seals, not a measured limit for this ${pair.objectName}.`,
       readoutWith: () => ({}),

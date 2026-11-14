@@ -1,8 +1,9 @@
 // The lesson as data. A Lesson is either a hand-written Workshop (modules that each teach a
-// primitive, earn kit parts, and break one tunable value for the sandbox) or an Inspect lesson
-// derived from any kit. Lessons never hold a kit: they are bound to one at run time, and a
+// primitive, earn kit parts, and break one tunable value for the sandbox), a Story (the same
+// building, told in words with no numbers: each part's failure first, then a direct control), or an
+// Inspect lesson derived from any kit. Lessons never hold a kit: they are bound to one at run time, and a
 // Workshop only binds to a kit that has every part it names.
-import type { Kit, Part, Shape } from "../../shared/kit.ts";
+import type { Joint, Kit, Part, Shape } from "../../shared/kit.ts";
 import { PRIMITIVES, type Primitive, type Readout, type Slider } from "../../src/primitives/library.ts";
 
 export type Vec = { x: number; y: number; z: number };
@@ -21,6 +22,13 @@ export type Values = Readonly<Record<string, number>>;
 export type Turn = { axis: Vec; pivot: Vec; deg: number };
 /** How one part sits away from its kit pose: turned in list order, then shifted by `offset`. */
 export type PartMove = { offset?: Vec; turns?: readonly Turn[] };
+/** One assembly leaving the object: part `id` and every part fixed to it (see familyOf) ride one spring, and `at` is where they sit a `share` of the way out, 0 home and 1 apart. */
+export type Leave = { id: string; at: (share: number) => PartMove };
+/** How an object comes apart: its assemblies in the order they leave, outside first. Parts in none of them stay put. */
+export type ExplodePlan = { order: readonly Leave[] };
+/** How far out each assembly of an ExplodePlan is right now, by its id. */
+export type Shares = Readonly<Record<string, number>>;
+
 /** A purple annotation (water drop, turn mark, target). It moves with part `ride`, or stays in the world frame when `ride` is null. */
 export type Mark = { id: string; shape: Shape; at: Vec; rotation?: Vec; ride: string | null };
 export type Scene = { moves: Readonly<Record<string, PartMove>>; marks: readonly Mark[] };
@@ -84,6 +92,14 @@ export type Module = {
   /** What to say when another part is tapped instead, by part id. */
   misses: Readonly<Record<string, string>>;
   missDefault: string;
+  /**
+   * One plain sentence per taught primitive, keyed by its id: what that primitive does in this
+   * object (the thread is the spiral on the neck), never what it is made of. Learn shows it beside
+   * the object with this module's parts in pink.
+   */
+  uses: Readonly<Record<string, string>>;
+  /** What to do once the fault is found, in at most TASK_WORDS words. */
+  task: string;
   /** Shown when the module is earned. */
   why: string;
   /** What in the rules is a game number rather than a measured fact. */
@@ -115,7 +131,11 @@ export type Workshop = {
   apart?: Readonly<Record<string, Vec>>;
   /** How the object is seen while it is built and tested; DEFAULT_VIEW when unset. */
   view?: View;
+  build?: BuildStyle;
 };
+
+/** How a Build step is played: tap the piece then its ring, or drag the real piece onto its ghost. Tap when unset. */
+export type BuildStyle = "tap" | "drag";
 
 export type Inspect = {
   kind: "inspect";
@@ -127,11 +147,87 @@ export type Inspect = {
   view: View;
 };
 
-export type Lesson = Workshop | Inspect;
+/** What Assemble reads from any module that builds a part, whatever game the module plays. */
+export type Built = Pick<Module, "id" | "title" | "teach" | "main" | "assemble" | "produces" | "target" | "enter">;
+/** What Assemble reads from any lesson that builds its object module by module. */
+export type Builds = Pick<Workshop, "objectName" | "rest" | "apart" | "view" | "build"> & { modules: readonly Built[]; explode?: ExplodePlan };
+
+/** A stretch of a control's travel that feels and reads one way. `until` is where it ends; `gain` is how far the control moves per pixel dragged, so a stiff zone takes more dragging. */
+export type Zone = { id: string; word: string; until: number; gain: number };
+
+/**
+ * Something the player does to the object by dragging (twist the cap on), shown only in words. Its
+ * value runs from 0 through `zones` in order and stops at the last zone's `until`. `pose` is the
+ * object at a value, on top of the lesson's rest; the tests start from the same pose.
+ */
+export type Control = {
+  key: string;
+  verb: string;
+  start: number;
+  zones: (ctx: Ctx) => readonly Zone[];
+  pose: (value: number, ctx: Ctx) => Scene;
+};
+
+/** The zone a control's value sits in. The grip's word and every test read it here, so the word never disagrees with the result. */
+export const zoneAt = (zones: readonly Zone[], value: number): Zone => zones.find((z) => value < z.until - 1e-9) ?? zones[zones.length - 1]!;
+
+/** Word-only controls for one taught primitive in Learn: the sliders to show, by id, with their labels, and why it matters in this object. */
+export type Rig = { controls: Readonly<Record<string, string>>; why: readonly string[] };
+
+/**
+ * A module told as a story with no numbers: the object fails without this part, the primitive is
+ * played with in words, the part is built, and the player makes it work with a direct control.
+ */
+export type StoryModule = Built & {
+  /** One sentence per taught primitive, keyed by its id: what it does in this object. */
+  uses: Readonly<Record<string, string>>;
+  /**
+   * Shown first: the object without this module's parts failing the job they do. `adds` are parts
+   * shown that the module has not built yet (a cap that only rests on the neck); `values` set the
+   * controls for that run.
+   */
+  without: { say: string; line: string; test: Test; adds: readonly string[]; values: Values };
+  learn: { say: string; rigs: Readonly<Record<string, Rig>> };
+  play: { say: string; control: Control; tests: readonly Test[] };
+  /** Pointers revealed one per failed run: what to look at or do. */
+  hints: readonly string[];
+  /** Why this part exists and what breaks without it. */
+  why: readonly string[];
+  /** The part's job in one line, said when it is earned. */
+  job: string;
+  /** Two or three words that pop up when the fix works, e.g. "Locked on!". */
+  cheer: string;
+};
+
+export type Story = {
+  kind: "story";
+  id: string;
+  objectName: string;
+  match: RegExp;
+  modules: readonly StoryModule[];
+  /** `payoff` names each part's job once the whole object works. */
+  final: { title: string; say: string; success: string; cheer: string; control: Control; tests: readonly Test[]; why: readonly string[]; payoff: readonly { part: string; job: string }[] };
+  rest: (ctx: Ctx) => Scene;
+  apart?: Readonly<Record<string, Vec>>;
+  /** Assemblies that come apart on their own springs, in place of `apart`. */
+  explode?: ExplodePlan;
+  /**
+   * A hand-made model drawn in place of the scanned kit (see bindStory). Its part ids include every
+   * id the lesson names, as the roots of its assemblies; detail parts hang off them by fixed joints.
+   */
+  kit?: Kit;
+  view?: View;
+  build?: BuildStyle;
+};
+
+export type StoryModuleSpec = Omit<StoryModule, "teach" | "main" | "enter"> & { primitive: string; teach?: readonly string[]; enter?: Vec };
+export type StorySpec = Omit<Story, "kind" | "modules" | "rest"> & { modules: StoryModuleSpec[]; rest?: Story["rest"] };
+
+export type Lesson = Workshop | Inspect | Story;
 
 export type ModuleSpec = Omit<Module, "teach" | "main" | "fault" | "enter"> & {
   primitive: string;
-  /** Primitive ids taught, in order, when the module teaches more than the main primitive's own parts (it must include `primitive`). */
+  /** Primitive ids taught, in order, when the object uses more than the main primitive here (it must include `primitive`). Never the primitive's own components: Learn teaches what this object uses. */
   teach?: readonly string[];
   /**
    * `key` defaults to the slider id; set it when two modules tune sliders with the same id (a press-fit's and a seal's squeeze).
@@ -156,6 +252,10 @@ export function primitiveById(id: string): Primitive {
   return p;
 }
 
+/** On-screen instructions stay this short; the explanation lives behind Why. */
+export const TASK_WORDS = 8;
+const words = (s: string) => s.trim().split(/\s+/).length;
+
 /** A fix that cannot fail on one side is a trivial slider, so every window keeps this many steps clear of each end. */
 const ROOM_STEPS = 2;
 
@@ -171,8 +271,12 @@ export function defineLesson(spec: WorkshopSpec): Workshop {
   };
   const modules = spec.modules.map((m): Module => {
     const main = primitiveById(m.primitive);
-    const teach = [...new Set(m.teach ?? [...main.madeOf, main.id])].map(primitiveById);
+    const teach = [...new Set(m.teach ?? [main.id])].map(primitiveById);
     if (!teach.includes(main)) problems.push(`${m.id}: the main primitive ${main.id} is not taught in this module`);
+    const uses = Object.keys(m.uses);
+    for (const p of teach) if (!m.uses[p.id]) problems.push(`${m.id}: no line saying what the ${p.id} does in this object`);
+    for (const id of uses) if (!teach.some((p) => p.id === id)) problems.push(`${m.id}: a use line for ${id}, which this module does not teach`);
+    if (words(m.task) > TASK_WORDS) problems.push(`${m.id}: task "${m.task}" is over ${TASK_WORDS} words`);
     const primitive = primitiveById(m.fault.primitive);
     const own = primitive.sliders.find((s) => s.id === m.fault.slider);
     if (!teach.includes(primitive)) problems.push(`${m.id}: fault primitive ${primitive.id} is not taught in this module`);
@@ -196,7 +300,57 @@ export function defineLesson(spec: WorkshopSpec): Workshop {
   return { ...spec, kind: "workshop", modules, rest: spec.rest ?? (() => EMPTY_SCENE) };
 }
 
-const learnLists = new WeakMap<Module, Primitive[]>();
+const learnLists = new WeakMap<Module | StoryModule, Primitive[]>();
+
+/** A story lesson says everything in words, so any digit in its copy is a mistake caught when it loads. */
+const DIGIT = /\d/;
+
+/** Resolves a story lesson's primitives and checks its copy: short instructions, no numbers, a rig and a use line for every taught primitive. */
+export function defineStory(spec: StorySpec): Story {
+  const problems: string[] = [];
+  const copy: [string, string][] = [["object name", spec.objectName], ["final title", spec.final.title], ["final say", spec.final.say], ["final success", spec.final.success], ["final cheer", spec.final.cheer], ...spec.final.why.map((s): [string, string] => ["final why", s]), ...spec.final.payoff.flatMap((p): [string, string][] => [["final payoff", p.part], ["final payoff", p.job]])];
+  const short = (where: string, s: string) => {
+    if (words(s) > TASK_WORDS) problems.push(`${where} "${s}" is over ${TASK_WORDS} words`);
+  };
+  short("final say", spec.final.say);
+  const modules = spec.modules.map((m): StoryModule => {
+    const main = primitiveById(m.primitive);
+    const teach = [...new Set(m.teach ?? [main.id])].map(primitiveById);
+    if (!teach.includes(main)) problems.push(`${m.id}: the main primitive ${main.id} is not taught in this module`);
+    for (const p of teach) {
+      if (!m.uses[p.id]) problems.push(`${m.id}: no line saying what the ${p.id} does in this object`);
+      const rig = m.learn.rigs[p.id];
+      if (!rig) problems.push(`${m.id}: no word-only rig for the ${p.id}`);
+      for (const id of Object.keys(rig?.controls ?? {})) if (!p.sliders.some((s) => s.id === id)) problems.push(`${m.id}: the ${p.id} has no slider ${id}`);
+      if (rig && Object.keys(rig.controls).length === 0) problems.push(`${m.id}: the ${p.id} rig shows no control`);
+    }
+    if (m.play.tests.length === 0) problems.push(`${m.id}: no tests`);
+    for (const [where, s] of [["without say", m.without.say], ["learn say", m.learn.say], ["play say", m.play.say], ["job", m.job], ["cheer", m.cheer]] as const) short(`${m.id}: ${where}`, s);
+    copy.push(
+      [`${m.id} title`, m.title], [`${m.id} without`, m.without.say], [`${m.id} without`, m.without.line], [`${m.id} learn`, m.learn.say], [`${m.id} play`, m.play.say],
+      [`${m.id} verb`, m.play.control.verb], [`${m.id} job`, m.job], ...Object.values(m.assemble).map((s): [string, string] => [`${m.id} assemble`, s]),
+      ...Object.values(m.uses).map((s): [string, string] => [`${m.id} uses`, s]), ...[...m.hints, ...m.why].map((s): [string, string] => [`${m.id} sheet`, s]),
+      ...Object.values(m.learn.rigs).flatMap((r) => [...Object.values(r.controls), ...r.why]).map((s): [string, string] => [`${m.id} rig`, s]),
+    );
+    return { ...m, teach, main, enter: m.enter ?? vec(0, 50, 0) };
+  });
+  for (const [where, s] of copy) if (DIGIT.test(s)) problems.push(`${where} has a number: "${s}"`);
+  if (problems.length > 0) throw new Error(`lesson ${spec.id}:\n${problems.join("\n")}`);
+  return { ...spec, kind: "story", modules, rest: spec.rest ?? (() => EMPTY_SCENE) };
+}
+
+/** The primitives a story module's Learn shows, each with only the sliders its rig names, relabelled in words. */
+export function rigList(m: StoryModule): Primitive[] {
+  const known = learnLists.get(m);
+  if (known) return known;
+  const list = m.teach.map((p) => {
+    const controls = m.learn.rigs[p.id]?.controls ?? {};
+    return { ...p, sliders: p.sliders.flatMap((s) => (controls[s.id] ? [{ ...s, label: controls[s.id]! }] : [])) };
+  });
+  learnLists.set(m, list);
+  return list;
+}
+
 /** The primitives a module's Learn stage shows: its fault primitive with the slider fitted to this object. The same array every call, so Learn's figures are not rebuilt on every render. */
 export function learnList(m: Module): Primitive[] {
   const known = learnLists.get(m);
@@ -207,14 +361,52 @@ export function learnList(m: Module): Primitive[] {
 }
 
 /** Kit part ids the lesson names that the kit lacks. A lesson binds to a kit only when this is empty. */
-export function missingParts(lesson: Workshop, kit: Kit): string[] {
-  const named = lesson.modules.flatMap((m) => [...m.produces, m.suspect, ...Object.keys(m.misses)]);
+export function missingParts(lesson: Workshop | Story, kit: Kit): string[] {
+  const named = lesson.kind === "workshop"
+    ? lesson.modules.flatMap((m) => [...m.produces, m.suspect, ...Object.keys(m.misses)])
+    : lesson.modules.flatMap((m) => [...m.produces, ...m.without.adds]);
   const ids = new Set(kit.parts.map((p) => p.id));
   return [...new Set(named)].filter((id) => !ids.has(id));
 }
 
+/** Joints that make two parts one piece: they never come apart, so the pieces move, show and light up together. */
+const FIXED: readonly Joint[] = ["molded", "weld", "glue"];
+const fixed = (p: Part) => p.joint !== null && FIXED.includes(p.joint);
+
+const families = new WeakMap<Kit, Map<string, string[]>>();
+/** Part `id` and every part fixed to it, directly or through another. Asked every frame, so it is worked out once per kit. */
+export function familyOf(kit: Kit, id: string): string[] {
+  const known = families.get(kit) ?? new Map<string, string[]>();
+  families.set(kit, known);
+  const seen = known.get(id);
+  if (seen) return seen;
+  const out = [id];
+  for (let i = 0; i < out.length; i++) for (const p of kit.parts) if (p.parentId === out[i] && fixed(p)) out.push(p.id);
+  known.set(id, out);
+  return out;
+}
+
+/** The part that `id` is fixed to, followed up to one that is not fixed to anything. */
+export function rootOf(kit: Kit, id: string): string {
+  let part = kit.parts.find((p) => p.id === id);
+  while (part && fixed(part)) part = kit.parts.find((p) => p.id === part!.parentId);
+  return part?.id ?? id;
+}
+
+/**
+ * The story and the kit it is drawn with. A story with its own model draws that model, and each module
+ * earns the parts it names together with every part fixed to them.
+ */
+export function bindStory(story: Story, scanned: Kit): { story: Story; kit: Kit } {
+  const kit = story.kit;
+  if (!kit) return { story, kit: scanned };
+  const grow = (ids: readonly string[]) => [...new Set(ids.flatMap((id) => familyOf(kit, id)))];
+  const modules = story.modules.map((m) => ({ ...m, produces: grow(m.produces), without: { ...m.without, adds: grow(m.without.adds) } }));
+  return { kit, story: { ...story, modules } };
+}
+
 /** Part ids present once modules up to and including `index` are earned. Parts no module produces are there from the start. */
-export function presentAfter(lesson: Workshop, kit: Kit, index: number): string[] {
+export function presentAfter(lesson: { modules: readonly { produces: readonly string[] }[] }, kit: Kit, index: number): string[] {
   const later = new Set(lesson.modules.slice(index + 1).flatMap((m) => m.produces));
   return kit.parts.filter((p) => !later.has(p.id)).map((p) => p.id);
 }
@@ -239,7 +431,7 @@ export function passBand(module: Module, values: Values, ctx: TestCtx): Window |
  * The primitives whose focus pieces float in at assemble: the main one, plus any taught primitive that
  * is not one of its components (the ball's seal beside the wheel, but not the catch's own wedge).
  */
-export const assembledFrom = (m: Module): Primitive[] => [m.main, ...m.teach.filter((p) => p !== m.main && !m.main.madeOf.includes(p.id))];
+export const assembledFrom = (m: Built): Primitive[] => [m.main, ...m.teach.filter((p) => p !== m.main && !m.main.madeOf.includes(p.id))];
 
 /** The values every module starts the sandbox with: each at its fault. */
 export const faultValues = (lesson: Workshop): Values => Object.fromEntries(lesson.modules.map((m) => [m.fault.key, m.fault.start]));

@@ -325,6 +325,8 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
     suspect: root.id,
     misses,
     missDefault: `That part is a small share of the ${object}'s weight. Watch what tips during ${bump}.`,
+    uses: { weight: `The ${rootName}'s weight, low on its base. It keeps the ${object} up when knocked.` },
+    task: "Find a weight that stands but still lifts.",
     why: `An object stays up as long as its centre of mass is above its base. Knocked, its centre of mass has to rise over the base edge before it falls, so a heavier object takes more energy to knock over. The same weight is what your hand has to lift${handle ? `, and by a ${handleName} it also twists your wrist, weight times the ${handleName}'s distance` : ""}.`,
     gameNote: `Game numbers: the knock gives ${KNOCK_J} J (a 50 g weight dropped 10 cm), ${handle ? `a wrist holds ${WRIST_NM} N·m steady` : `one hand lifts ${ONE_HAND_KG} kg comfortably`}. From the kit: the ${object} stands ${Math.round(s.height)} mm tall on a base ${Math.round(2 * s.halfBase)} mm across${handle ? `, and your fingers hold the ${handleName} ${Math.round(handle.reach)} mm from its middle` : ""}. Assumed: its weight acts at half its height over the middle of its base, as if it were evenly heavy, and the knock's energy all goes into tipping it. Energy = weight × rise is real.`,
     numbers: (v) => {

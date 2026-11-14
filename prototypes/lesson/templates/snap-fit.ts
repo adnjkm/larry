@@ -72,6 +72,8 @@ export const snapFitTemplate: Template = {
       suspect: pair.child.id,
       misses: { [pair.parent.id]: `The ${parent} holds still. Watch the part that pops off during ${tugTest}.` },
       missDefault: `That part does not move during ${tugTest}. Watch which one pops off.`,
+      uses: { catch: `The clip between the ${child} and the ${parent}. It snaps shut and holds until you pull hard.` },
+      task: "Set a catch that holds but still unclips.",
       why: `A snap-fit is a catch. Its sloped face lets the ${child} click on with a light push, and its steep face holds against a pull until the spring behind the wedge gives. A stronger spring holds harder, and is harder to unclip.`,
       gameNote: `Game numbers: a ${TUG} N tug and a ${FINGER} N finger, with the peak ${PEAK_EXTRA} N over the release force as in Learn. None of them is measured from the ${pair.objectName}. A real snap-fit's spring is usually the bent plastic itself.`,
       numbers: (v) => {

@@ -31,9 +31,19 @@ const Torus = z
     tube: z.number().describe("Radius of the tube itself."),
     arcDegrees: z
       .number()
-      .describe("360 for a closed ring. Less for an open arc, which starts on +x and sweeps toward +z when unrotated."),
+      .describe("360 for a closed ring. Less for an open arc, centred on +x when unrotated, so 200 is a C that opens toward -x."),
   })
   .describe("A ring lying flat in the x-z plane before rotation: seals, O-rings, loops, handles (rotate a handle to stand it up).");
+
+const Helix = z
+  .object({
+    kind: z.literal("helix"),
+    radius: z.number().describe("From the coil's axis to the middle of the wire."),
+    tube: z.number().describe("Radius of the wire itself."),
+    length: z.number().describe("Overall height along y, wire included. Must exceed 2 × tube."),
+    turns: z.number().describe("Number of full turns. The pitch follows from length and turns."),
+  })
+  .describe("A right-handed coil standing upright along y: coil springs, thread ridges, spiral cords.");
 
 const Extrusion = z
   .object({
@@ -45,21 +55,19 @@ const Extrusion = z
   })
   .describe("A flat cut-out with thickness: stapler arms, clips, blades, brackets, anything with an irregular side view.");
 
-export const Shape = z.discriminatedUnion("kind", [Lathe, Box, Torus, Extrusion]);
+export const Shape = z.discriminatedUnion("kind", [Lathe, Box, Torus, Helix, Extrusion]);
 export type Shape = z.infer<typeof Shape>;
 export type ShapeKind = Shape["kind"];
 
-export const JOINTS = ["thread", "press-fit", "snap-fit", "hinge", "spring", "slide", "screw", "rivet", "glue", "weld", "molded"] as const;
-export const Joint = z.enum(JOINTS);
+export const Joint = z.enum(["thread", "press-fit", "snap-fit", "hinge", "spring", "slide", "screw", "rivet", "glue", "weld", "molded"]);
 export type Joint = z.infer<typeof Joint>;
 
-export const FINISHES = ["matte", "glossy", "metal", "rubber", "clear"] as const;
-export const Finish = z.enum(FINISHES);
+export const Finish = z.enum(["matte", "glossy", "metal", "rubber", "clear"]);
 export type Finish = z.infer<typeof Finish>;
 
 export const Part = z.object({
   id: z.string().describe("Short kebab-case id, unique in the kit."),
-  name: z.string().describe("What a kid would call it, 1 to 3 words."),
+  name: z.string().describe("Its everyday name, 1 to 3 words."),
   role: z.string().describe("One plain sentence on what the part does for the object."),
   parentId: z
     .string()
@@ -67,8 +75,8 @@ export const Part = z.object({
     .describe("The part this one attaches to. null only for the single main part everything else hangs off."),
   joint: Joint.nullable().describe("How this part is held to its parent. null only when parentId is null."),
   shape: Shape,
-  position: Vec3.describe("Centre of the part's bounding box in the object frame, in mm."),
-  rotation: Vec3.describe("Degrees about x, then y, then z, around the part's centre. All 0 keeps the shape as described."),
+  position: Vec3.describe("Centre of the part's bounding box in the object frame, in mm. A torus is the exception: its position is the ring's centre."),
+  rotation: Vec3.describe("Degrees about x, then y, then z, around the part's position. All 0 keeps the shape as described."),
   color: z.string().describe("The part's main colour in the photos, as #rrggbb."),
   finish: Finish,
 });
@@ -76,7 +84,7 @@ export type Part = z.infer<typeof Part>;
 
 export const Kit = z.object({
   name: z.string().describe("What the object is, 1 to 4 words."),
-  summary: z.string().describe("One sentence a 10-year-old would understand about how it works."),
+  summary: z.string().describe("One plain sentence on how it works."),
   parts: z.array(Part),
 });
 export type Kit = z.infer<typeof Kit>;
@@ -128,6 +136,13 @@ function shapeProblems(id: string, shape: Shape): string[] {
       return [...positive("width", shape.width), ...positive("height", shape.height), ...positive("depth", shape.depth)];
     case "torus":
       return [...positive("radius", shape.radius), ...positive("tube", shape.tube), ...positive("arcDegrees", shape.arcDegrees)];
+    case "helix":
+      return [
+        ...positive("radius", shape.radius),
+        ...positive("tube", shape.tube),
+        ...positive("turns", shape.turns),
+        ...(shape.length > 2 * shape.tube ? [] : [`${id} helix length must exceed 2 × tube`]),
+      ];
     case "extrusion":
       return shape.outline.length >= 3 ? positive("depth", shape.depth) : [`${id} outline needs 3+ points`];
   }

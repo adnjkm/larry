@@ -67,6 +67,9 @@ export function applyLook(uniforms: LookUniforms, look: DitherLook): void {
   for (const [name, value] of Object.entries(lookValues(look))) (uniforms as Record<string, { value: unknown }>)[name]!.value = value;
 }
 
+// The shaders build no local arrays: Mali GPUs (Pixel phones) refuse to compile array constructors ("no default precision
+// defined for variable 'vec3[5]'"), and indexing a local array by a computed index is slow on mobile GPUs anyway.
+
 // The coordinates are wrapped before squaring so the sum stays exact on GPUs with low float precision.
 const BAYER = /* glsl */ `
 uniform float uMatrix;
@@ -130,12 +133,13 @@ void main() {
   shade += uSpecular * uLookSpecular * pow(max(dot(n, halfway), 0.0), uShininess);
   shade = clamp(shade, 0.0, 1.0);
 
+  // Mixed toward ink below the middle tone and toward paper above it. Both mixes run and the unused one is zero,
+  // because branches compile slower and run unevenly on mobile GPUs.
   float last = uTones - 1.0;
   float t = clamp(floor(shade * last + 0.5 + (threshold - 0.5) * uDither), 0.0, last) / last;
-  vec3 tone = t < 0.5
-    ? mix(uColor, uInk, uToneDark * pow(1.0 - 2.0 * t, uToneCurve))
-    : mix(uColor, uPaper, uToneLight * pow(2.0 * t - 1.0, uToneCurve));
-  gl_FragColor = vec4(tone, 1.0);
+  float toInk = uToneDark * pow(max(1.0 - 2.0 * t, 0.0), uToneCurve);
+  float toPaper = uToneLight * pow(max(2.0 * t - 1.0, 0.0), uToneCurve);
+  gl_FragColor = vec4(mix(mix(uColor, uInk, toInk), uPaper, toPaper), 1.0);
 }
 `;
 

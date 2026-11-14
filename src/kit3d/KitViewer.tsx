@@ -1,22 +1,26 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
-import type { Kit, Part } from "../../shared/kit.ts";
-import { type BuiltPart, buildPart, measure, measureParts } from "./buildKit.ts";
+import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
+import type { Part } from "../../shared/kit.ts";
+import { reducedMotion, velocityTracker } from "../motion.ts";
+import { type BuiltPart, type KitBounds, measure, rotationOf } from "./buildKit.ts";
 import { DEFAULT_LOOK, type DitherLook } from "./ditherLook.ts";
 import { applyLook, createDitherMaterial, createLookUniforms, createShadowMaterial } from "./ditherMaterial.ts";
+import { buildGeometry } from "./geometry.ts";
 
 const MARGIN = 1.12;
 const SPIN_RADIANS_PER_SECOND = 0.5;
 const DRAG_RADIANS_PER_PIXEL = 0.012;
+/** Seconds for a flick's extra speed to fade to a third, close to how scrolling decelerates. */
+const FLING_SECONDS = 0.5;
 /** Time constant of the camera easing, so a new fit is about 95% settled after 0.3 s. */
 const FIT_EASE_SECONDS = 0.1;
 
 type Fit = { zoom: number; targetY: number; distance: number };
 
 type KitViewerProps = {
-  kit: Kit;
+  parts: Part[];
   spin?: boolean;
   /** Degrees above the ground plane. */
   elevation?: number;
@@ -24,8 +28,8 @@ type KitViewerProps = {
   azimuth?: number;
   /** CSS height in px. */
   height?: number;
-  /** Parts to fit the camera to instead of the kit's own, so the view holds still while sliders move the kit. */
-  frame?: Part[];
+  /** Bounds to fit the camera to instead of the parts' own, so the view holds still while the parts move or arrive. */
+  frame?: KitBounds;
   /** CSS pixels per dither pixel, overriding the look's. 1 is the finest. */
   pixelScale?: number;
   /** Colours for a gradient shadow, centre first (see createShadowMaterial). Unset keeps the look's shadow. */
@@ -40,26 +44,48 @@ const styles = stylex.create({
     width: `round(down, 100%, ${pixelSize}px)`,
     height: Math.floor(height / pixelSize) * pixelSize,
     backgroundColor: paper,
-    touchAction: "none",
+    // Horizontal drags turn the model; vertical swipes and pinch zoom stay with the page so a tall viewer never traps them.
+    touchAction: "pan-y pinch-zoom",
     overflow: "hidden",
   }),
 });
 
-/** Makes one resource per part object and keeps it across rebuilds, disposing it only once its part is gone. */
-function usePerPart<T>(parts: Part[], make: (part: Part) => T, dispose: (item: T) => void): T[] {
-  const cache = useRef(new Map<Part, T>());
-  const items = useMemo(() => parts.map((part) => cache.current.get(part) ?? make(part)), [parts, make]);
+/**
+ * One resource per distinct key, shared by every part with that key and kept across rebuilds.
+ * A slider tick builds new part objects, but most parts only move, so their shapes and looks are reused.
+ */
+function useShared<T>(parts: Part[], key: (part: Part) => string, make: (part: Part) => T, dispose: (item: T) => void): T[] {
+  const cache = useRef(new Map<string, T>());
+  const items = useMemo(
+    () =>
+      parts.map((part) => {
+        const k = key(part);
+        let item = cache.current.get(k);
+        if (item === undefined) {
+          item = make(part);
+          cache.current.set(k, item);
+        }
+        return item;
+      }),
+    [parts, key, make],
+  );
   useEffect(() => {
-    const live = new Map(parts.map((part, i) => [part, items[i] as T]));
-    for (const [part, item] of cache.current) if (!live.has(part)) dispose(item);
-    cache.current = live;
-  }, [parts, items, dispose]);
+    const live = new Set(parts.map(key));
+    for (const [k, item] of cache.current) {
+      if (live.has(k)) continue;
+      dispose(item);
+      cache.current.delete(k);
+    }
+  }, [parts, key, dispose]);
   useEffect(() => () => cache.current.forEach(dispose), [dispose]);
   return items;
 }
 
+const shapeKey = (part: Part) => JSON.stringify(part.shape);
+const makeGeometry = (part: Part) => buildGeometry(part.shape);
+const disposeGeometry = (geometry: BufferGeometry) => geometry.dispose();
+const lookKey = (part: Part) => `${part.color} ${part.finish}`;
 const disposeMaterial = (material: ShaderMaterial) => material.dispose();
-const disposeGeometry = ({ geometry }: BuiltPart) => geometry.dispose();
 
 function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimuth: number) {
   const el = (elevation * Math.PI) / 180;
@@ -73,7 +99,8 @@ function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimu
   cam.updateProjectionMatrix();
 }
 
-export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops, look = DEFAULT_LOOK }: KitViewerProps) {
+export function KitViewer({ parts, spin: wantsSpin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops, look = DEFAULT_LOOK }: KitViewerProps) {
+  const spin = wantsSpin && !reducedMotion.matches;
   const pixelSize = pixelScale ?? look.pixels.size;
   return (
     <div data-kit-viewer {...stylex.props(styles.box(height, pixelSize, look.colors.paper))}>
@@ -86,20 +113,22 @@ export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, hei
         camera={{ position: [0, 0, 100], near: 0.1, far: 10000 }}
       >
         <color attach="background" args={[look.colors.paper]} />
-        <Scene parts={kit.parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} shadowStops={shadowStops} look={look} />
+        <Scene parts={parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} shadowStops={shadowStops} look={look} />
       </Canvas>
     </div>
   );
 }
 
-function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: Part[] | undefined; shadowStops: readonly string[] | undefined; look: DitherLook }) {
+function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: KitBounds | undefined; shadowStops: readonly string[] | undefined; look: DitherLook }) {
   const { camera, size, gl, invalidate } = useThree();
-  const built = usePerPart(parts, buildPart, disposeGeometry);
-  const framed = useMemo(() => (frame ? measureParts(frame) : undefined), [frame]);
-  const bounds = useMemo(() => framed ?? measure(built), [framed, built]);
+  const geometries = useShared(parts, shapeKey, makeGeometry, disposeGeometry);
+  const built = useMemo((): BuiltPart[] => parts.map((part, i) => ({ part, geometry: geometries[i]!, rotation: rotationOf(part) })), [parts, geometries]);
+  const bounds = useMemo(() => frame ?? measure(built), [frame, built]);
   const pivot = useRef<Group>(null);
   const shadow = useRef<Mesh>(null);
   const yaw = useRef(0);
+  /** Radians per second the model keeps turning after a flick, on top of the idle spin. */
+  const fling = useRef(0);
   const dragging = useRef(false);
   const framesDrawn = useRef(0);
   const fit = useRef<Fit>(undefined);
@@ -112,7 +141,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
   }, [lookUniforms, look, invalidate]);
 
   const makeMaterial = useCallback((part: Part) => createDitherMaterial(part.color, part.finish, lookUniforms), [lookUniforms]);
-  const materials = usePerPart(parts, makeMaterial, disposeMaterial);
+  const materials = useShared(parts, lookKey, makeMaterial, disposeMaterial);
 
   const shadowGeometry = useMemo(() => new PlaneGeometry(2, 2).rotateX(-Math.PI / 2), []);
   const shadowMaterial = useMemo(() => createShadowMaterial(lookUniforms, shadowStops), [lookUniforms, shadowStops]);
@@ -148,11 +177,15 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
 
   useEffect(() => {
     const canvas = gl.domElement;
-    Object.assign(canvas.style, { imageRendering: "pixelated", width: "100%", height: "100%", touchAction: "none", cursor: "grab" });
+    Object.assign(canvas.style, { imageRendering: "pixelated", width: "100%", height: "100%", touchAction: "pan-y pinch-zoom", cursor: "grab" });
     let lastX = 0;
+    const tracker = velocityTracker();
     const down = (e: PointerEvent) => {
       dragging.current = true;
+      fling.current = 0;
       lastX = e.clientX;
+      tracker.reset();
+      tracker.add(yaw.current, e.timeStamp);
       canvas.setPointerCapture(e.pointerId);
       canvas.style.cursor = "grabbing";
     };
@@ -160,11 +193,16 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
       if (!dragging.current) return;
       yaw.current += (e.clientX - lastX) * DRAG_RADIANS_PER_PIXEL;
       lastX = e.clientX;
+      tracker.add(yaw.current, e.timeStamp);
       invalidate();
     };
-    const up = () => {
+    const up = (e: PointerEvent) => {
+      if (!dragging.current) return;
       dragging.current = false;
       canvas.style.cursor = "grab";
+      // The model leaves the finger at the speed it was turning.
+      if (e.type === "pointerup" && !reducedMotion.matches) fling.current = tracker.velocity(e.timeStamp);
+      invalidate();
     };
     canvas.addEventListener("pointerdown", down);
     canvas.addEventListener("pointermove", move);
@@ -182,7 +220,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
     const current = fit.current;
     const goal = fitGoal.current;
     if (current && goal) {
-      const k = 1 - Math.exp(-delta / FIT_EASE_SECONDS);
+      const k = reducedMotion.matches ? 1 : 1 - Math.exp(-delta / FIT_EASE_SECONDS);
       let moving = false;
       for (const key of ["zoom", "targetY", "distance"] as const) {
         const gap = goal[key] - current[key];
@@ -197,7 +235,11 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
         invalidate();
       }
     }
-    if (spin && !dragging.current) yaw.current += delta * SPIN_RADIANS_PER_SECOND;
+    if (!dragging.current) {
+      yaw.current += delta * ((spin ? SPIN_RADIANS_PER_SECOND : 0) + fling.current);
+      fling.current = Math.abs(fling.current) < 0.05 ? 0 : fling.current * Math.exp(-delta / FLING_SECONDS);
+      if (fling.current !== 0) invalidate();
+    }
     if (pivot.current) pivot.current.rotation.y = yaw.current;
     if (shadow.current) shadow.current.rotation.y = yaw.current;
     if (++framesDrawn.current === 1) {

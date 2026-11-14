@@ -1,0 +1,266 @@
+{
+  "title": "Striped click pen",
+  "hook": [
+    "A click pen leaves ink only where its tip touches paper. It never draws on the inside of a pocket. One press brings the tip out and the next press hides it.",
+    "How does one button give two opposite results, and why does the tip stay put while you lean on it?"
+  ],
+  "chapters": [
+    {
+      "kind": "module",
+      "id": "line",
+      "need": "It must leave a thin, even line of ink.",
+      "why": "This is the pen's job. Everything else protects it.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "line-naive",
+          "title": "An open tube of ink",
+          "story": [
+            "The crudest pen is a narrow tube of ink with an open end. We drag the open end across paper and hope that a thin line comes out."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Draw a line",
+            "outcome": "Ink runs out of the 2 mm hole by gravity. A 5 cm stroke leaves a blob about 8 mm wide, and the tube keeps dripping after we lift it."
+          },
+          "payoff": [
+            "Ink needs a gate that opens only while the tip is writing. This narrow tube of ink stays in the design. It becomes the ink tube, or refill."
+          ],
+          "earns": [
+            "refill"
+          ]
+        },
+        {
+          "id": "line-ball",
+          "title": "A gate that writing opens",
+          "story": [
+            "The hole has to be shut at rest and open while the tip moves on paper. Pressing against paper and dragging are the only signals the tip gets."
+          ],
+          "primitive": "valve",
+          "problem": {
+            "type": "pick",
+            "question": "What lets ink out only while the tip is pressed and moving?",
+            "options": [
+              {
+                "primitive": "valve",
+                "works": true,
+                "outcome": "A ball sits in the hole like a plug. When paper presses and rolls it, the ball carries a film of ink out on its surface. When the pen lifts, the ball seats again and the hole is shut."
+              },
+              {
+                "primitive": "seal",
+                "works": false,
+                "outcome": "A rubber plug squeezed into the hole stops the dripping. It also stops the writing, because nothing on the paper side can open it."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "Friction can hold a solid part still, but it does nothing to stop a liquid. Ink still runs through the gap."
+              }
+            ]
+          },
+          "payoff": [
+            "The tip is a ball about 0.7 mm across, held in a socket. It is tungsten carbide because it rolls for kilometres of line on rough paper and must not wear out of round."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "hide",
+      "need": "It must hide its tip when not writing.",
+      "why": "The ball always has a wet film of ink on it. With the tip out, the pen draws on the lining of every pocket it goes into.",
+      "surprise": false,
+      "steps": [
+        {
+          "id": "hide-naive",
+          "title": "Push it out by hand",
+          "story": [
+            "Let the refill slide freely inside a tube. We push the tip out with a fingertip to write, and pull it back in when we finish."
+          ],
+          "primitive": null,
+          "problem": {
+            "type": "run",
+            "action": "Tip the pen over",
+            "outcome": "The 4 g refill slides freely. Point the pen down and the tip drops out the full 8 mm. Point it up and the tip drops back in partway through a word."
+          },
+          "payoff": [
+            "Something has to push the refill to one end every time, whichever way up the pen is held."
+          ],
+          "earns": []
+        },
+        {
+          "id": "hide-spring",
+          "title": "Something that always pushes back",
+          "story": [
+            "The refill has to sit at the hidden end by default. It should come out only while something holds it out, and go back on its own when released."
+          ],
+          "primitive": "spring",
+          "problem": {
+            "type": "pick",
+            "question": "What could keep pushing the refill back inside, whichever way up the pen is held?",
+            "options": [
+              {
+                "primitive": "spring",
+                "works": true,
+                "outcome": "A small coil spring around the refill, pressing against a narrowing near the tip, pushes the refill back whenever nothing holds it out. It does this at any angle."
+              },
+              {
+                "primitive": "weight",
+                "works": false,
+                "outcome": "A weight pulls only downward. The tip would hide only while the pen points up, which is exactly the problem we already had."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "Friction would hold the refill wherever we left it, out or in. Nothing would ever bring it back."
+              }
+            ]
+          },
+          "payoff": [
+            "The return spring stores the work of your press and gives it back when you release. It sits near the tip, so it pushes on the refill right behind the writing end."
+          ],
+          "earns": []
+        },
+        {
+          "id": "hide-stiff",
+          "title": "How stiff the spring is",
+          "story": [
+            "A thumb presses firmly, at about 30 N. That press has to drive the tip out of the nose. It must not crush the spring against the inside of the pen."
+          ],
+          "primitive": "spring",
+          "problem": {
+            "type": "tune",
+            "goal": "With a 30 N press, the squeeze must be between 8 mm, which is enough to push the tip out, and 12 mm, which is all the room inside the pen.",
+            "slider": "stiffness",
+            "min": 2.5,
+            "max": 3.75,
+            "tooLow": "The spring is too soft. A 30 N press squeezes it more than 12 mm, so the coils bottom out against the barrel.",
+            "tooHigh": "The spring is too stiff. A 30 N press squeezes it less than 8 mm, so the ball stays hidden inside the nose.",
+            "justRight": "The press moves the refill between 8 and 12 mm, so the tip clears the nose with room to spare. The spring still pushes back hard enough to return the refill."
+          },
+          "payoff": [
+            "Each press stores about 0.15 J in the spring, and all of it comes back to snap the refill home. That is why the return feels quick and certain."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "module",
+      "id": "stay",
+      "need": "It must hold the tip out after you let go, until the next press.",
+      "why": "With only the spring, the tip comes out only while the thumb stays on the button. You can't write and press at the same time.",
+      "surprise": true,
+      "steps": [
+        {
+          "id": "stay-cam",
+          "title": "One press out, one press in",
+          "story": [
+            "The same press has to do opposite things on alternate clicks. The first press must leave the refill parked out, and the second must release it. Something has to remember which click this is."
+          ],
+          "primitive": "cam",
+          "problem": {
+            "type": "pick",
+            "question": "What could make identical presses alternate between holding the tip out and letting it go?",
+            "options": [
+              {
+                "primitive": "cam",
+                "works": true,
+                "outcome": "Each press turns a notched collar part of a turn. Its edge alternates high and low steps. A high step parks the refill out, and the next press moves the collar onto a low step, so the spring returns the refill."
+              },
+              {
+                "primitive": "ratchet",
+                "works": false,
+                "outcome": "A ratchet lets motion go one way only. It would hold the tip out, but no press could ever let it back in."
+              },
+              {
+                "primitive": "catch",
+                "works": false,
+                "outcome": "A spring latch holds the tip out, but releasing it needs a pull the other way. Pressing the button again only pushes harder into the latch."
+              }
+            ]
+          },
+          "payoff": [
+            "The button pushes on a turning cam. Its slanted teeth turn each straight press into a small rotation, which is the click you hear. The cam's pattern of high and low steps does the counting."
+          ],
+          "earns": [
+            "plunger"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "join",
+      "id": "write",
+      "title": "Write with the tip out",
+      "steps": [
+        {
+          "id": "write-run",
+          "title": "Lean on the tip",
+          "story": [
+            "Now all three work together. The ball meters the ink, the spring returns the refill, and the cam parks it out. Writing pushes the tip back toward the cam with about 1 to 2 N."
+          ],
+          "primitive": "cam",
+          "problem": {
+            "type": "run",
+            "action": "Write a sentence",
+            "outcome": "The writing force presses the refill onto the cam's high step, which is 12 mm above the low one. The step is flat, so the tip doesn't move back even under a hard 5 N stroke. Pressing again lets it drop."
+          },
+          "payoff": [
+            "Writing pushes along the refill's length, straight onto a flat landing. A flat landing turns no push into rotation, so only the button's slanted teeth can move the cam."
+          ],
+          "earns": []
+        }
+      ]
+    },
+    {
+      "kind": "casing",
+      "id": "body",
+      "title": "The body around it",
+      "steps": [
+        {
+          "id": "body-shell",
+          "title": "A tube that opens",
+          "story": [
+            "Everything sits in a line inside one tube. The refill runs out of ink after a few kilometres, so the tip end must come off for a new refill and then stay firmly on through years of clicking."
+          ],
+          "primitive": "thread",
+          "problem": {
+            "type": "pick",
+            "question": "How should the metal tip attach to the tube?",
+            "options": [
+              {
+                "primitive": "thread",
+                "works": true,
+                "outcome": "A few turns screw it on, and it stays fixed when you let go, because friction in the shallow wedge holds it still. Unscrew it to change the refill."
+              },
+              {
+                "primitive": "grip",
+                "works": false,
+                "outcome": "A press fit holds at first, but every click pushes the spring against the tip. After enough presses it works loose and comes off in a pocket."
+              },
+              {
+                "primitive": "catch",
+                "works": false,
+                "outcome": "A snap latch holds, but the spring's constant push keeps the snap under load, and a firm tug pops it, along with the spring and the refill."
+              }
+            ]
+          },
+          "payoff": [
+            "The striped barrel is the tube that keeps refill, spring and cam in line. The metal nose cone screws onto it and narrows to a hole just wider than the ball. The springy clip is pressed onto the button end, so the pen sits in a pocket tip down and hidden."
+          ],
+          "earns": [
+            "barrel",
+            "nose-cone",
+            "clip"
+          ]
+        }
+      ]
+    }
+  ],
+  "closing": [
+    "Look at a click pen now. The ball lets ink out only while it rolls, and the spring pulls the tip back in. The cam counts the clicks. The threaded nose cone comes off so you can put in a new refill."
+  ]
+}

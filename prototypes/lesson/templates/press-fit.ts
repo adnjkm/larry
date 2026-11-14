@@ -74,6 +74,8 @@ export const pressFitTemplate: Template = {
       suspect: pair.child.id,
       misses: { [pair.parent.id]: `The ${parent} holds still. Watch the part that slides during ${pullTest}.` },
       missDefault: `That part does not move during ${pullTest}. Watch which one slides.`,
+      uses: { grip: `The tight fit between the ${child} and the ${parent}. Friction there holds the ${child} on.` },
+      task: "Squeeze until it holds but still pushes on.",
       why: `A press-fit is a grip. The tighter the fit, the harder the surfaces press, and friction holds up to μ times that squeeze. The same friction is what you fight to push it on, so a fit tight enough to stay on must still be loose enough for a hand.`,
       gameNote: `Game numbers: a ${PULL} N pull and a ${HAND} N hand push, with μ = ${MU} as in Learn. None of them is measured from the ${pair.objectName}. A real press-fit's squeeze comes from the part being slightly bigger than its seat, not from a dial.`,
       readoutWith: () => ({ load: PULL }),

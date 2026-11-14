@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import { Assemble } from "./Assemble.tsx";
-import { Learn } from "./Learn.tsx";
+import { Learn, objectFor } from "./Learn.tsx";
 import { faultValues, learnList, type Values, type Workshop } from "./model.ts";
 import { Sandbox } from "./Sandbox.tsx";
 import { Shell, type Step } from "./ui.tsx";
@@ -16,11 +16,6 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
   const [stages, setStages] = useState<Readonly<Record<string, Stage>>>(() => Object.fromEntries(modules.map((m) => [m.id, "learn" as Stage])));
   const [tuning, setTuning] = useState<Values>(() => faultValues(lesson));
   const [finalDone, setFinalDone] = useState(false);
-
-  const stageNow = route === "final" ? "final" : stages[modules[route]!.id];
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [route, stageNow]);
 
   const earned = (id: string) => stages[id] === "earned";
   const unlocked = (r: Route) => (r === "final" ? modules.every((m) => earned(m.id)) : modules.slice(0, r).every((m) => earned(m.id)));
@@ -42,10 +37,10 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
         <Learn
           key={`${module.id}-learn`}
           list={learnList(module)}
-          kicker={`Module ${route + 1} · Learn`}
-          title={module.need}
-          hint={module.teach.length > 1 ? "First the parts it is made of, then the whole. Play with each one." : "Play with it. Every slider is live."}
-          next="Next: build the part"
+          kicker={`${module.title} · Learn`}
+          next="Next: build it"
+          inObject={(p) => objectFor(lesson, kit, module, p)}
+          view={lesson.view}
           own={{
             primitive: module.fault.primitive.id,
             slider: module.fault.slider.id,
@@ -61,7 +56,7 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
   }
 
   return (
-    <Shell objectName={lesson.objectName} kind="Lesson" photo={photo} steps={steps} onHome={onHome}>
+    <Shell objectName={lesson.objectName} photo={photo} steps={steps} onHome={onHome}>
       {body}
     </Shell>
   );

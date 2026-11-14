@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Kit, kitProblems } from "../../shared/kit.ts";
-import { PRIMITIVES, framingParts, initialValues, type Values } from "./library.ts";
+import { type KitBounds, measureParts } from "../kit3d/buildKit.ts";
+import { framePrimitive, poses } from "./framing.ts";
+import { PRIMITIVES, initialValues, type Values } from "./library.ts";
 import { COLOR, SYNTHWAVE } from "./parts.ts";
 
 /** Each slider at its minimum, start and maximum, with the others at their start. */
@@ -44,8 +46,15 @@ describe("primitives library", () => {
       }
     });
 
-    it(`${p.id} framing covers every slider extreme`, () => {
-      assert.equal(framingParts(p).length, p.build(initialValues(p)).length * 2 ** p.sliders.length);
+    it(`${p.id} stays inside its framing at every slider setting`, () => {
+      const frame = framePrimitive(p);
+      for (const v of poses(p, 13)) {
+        const b = measureParts(p.build(v));
+        const at = `${p.id} at ${JSON.stringify(v)}`;
+        assert.ok(b.minY >= frame.minY && b.maxY <= frame.maxY, `${at} leaves the framing vertically`);
+        assert.ok(Math.abs(b.centerX - frame.centerX) + b.halfX <= frame.halfX && Math.abs(b.centerZ - frame.centerZ) + b.halfZ <= frame.halfZ, `${at} leaves the framing's footprint`);
+        assert.ok(b.radius + Math.hypot(b.centerX - frame.centerX, b.centerZ - frame.centerZ) <= frame.radius, `${at} reaches past the framing's radius`);
+      }
     });
   }
 });

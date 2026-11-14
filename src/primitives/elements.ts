@@ -1,13 +1,9 @@
 // The 8 elements: one piece, one job, one number, and it can't be made from the others.
-// Every figure is a small physical rig built from lathe, box, torus and extrusion parts. The pink
-// part is the element itself; the rest of the rig only exists so the element has something to do.
-// Units are millimetres, y up, resting on y = 0. Forces are drawn as arrows at a fixed scale per figure.
+// Every figure is a small physical rig. The pink part is the element itself; the rest of the rig
+// only exists so the element has something to do. Forces are drawn as arrows at a fixed scale per figure.
 import type { Joint, Part } from "../../shared/kit.ts";
-import { DEG, RAD, bar, box, cylinder, fmt, lathe, look, part, pivoted, polygon, ring, rotateAbout, v3, type Look, type Pt, type Vec } from "./parts.ts";
+import { DEG, RAD, bar, box, coil, cylinder, fmt, lathe, look, part, pivoted, polygon, ring, rotateAbout, v3, type Look, type Pt, type Vec } from "./parts.ts";
 import type { Primitive } from "./types.ts";
-
-// ---------------------------------------------------------------------------------------------
-// Local helpers
 
 /** Outline of a force arrow pointing along +x with its tail at the origin. Proportions shrink for very short arrows. */
 function arrowOutline(length: number): Pt[] {
@@ -45,9 +41,6 @@ function chain(prefix: string, name: string, role: string, points: Vec[], thick:
 }
 
 const BASE_T = 6;
-
-// ---------------------------------------------------------------------------------------------
-// Lever
 
 const LEVER_SPAN = 150; // effort point to load point, mm
 const LEVER_LOAD = 100; // N
@@ -89,7 +82,7 @@ const lever: Primitive = {
       part("base", "Base", "Holds the pivot.", box(190, BASE_T, 44, 1.5), v3(0, BASE_T / 2), look.structure),
       part("pivot", "Pivot", "A knife edge the bar rocks on.", { kind: "extrusion", outline: [{ x: -16, y: 0 }, { x: 16, y: 0 }, { x: 0, y: FULCRUM_H }], depth: 34 }, v3(px, BASE_T + FULCRUM_H / 2), look.structure, { parentId: "base", joint: "slide" }),
       part("bar", "Bar", "Carries your push on one side of the pivot and the load on the other.", box(aEff + aLoad + 24, BAR_T, 30, 1.5), rotateAbout([(aLoad - aEff) / 2, BAR_T / 2], phi, pivot), look.focus, { parentId: "pivot", joint: "hinge" }, v3(0, 0, phi)),
-      part("load", "Load", "The weight being held up.", box(BLOCK, BLOCK - 2, BLOCK, 1.5), load, look.third, { parentId: "bar", joint: "glue" }, v3(0, 0, phi)),
+      part("load", "Load", "The weight being held up.", box(BLOCK, BLOCK - 2, BLOCK, 1.5), load, look.stone, { parentId: "bar", joint: "glue" }, v3(0, 0, phi)),
       arrow("load-arrow", "Load arrow", "The load's weight, pulling down.", "load", v3(load.x, load.y + BLOCK / 2 + 4 + loadArrow), -90, loadArrow),
       arrow("effort-arrow", "Effort arrow", "Your push, drawn to the same scale.", "bar", v3(effortTop.x, effortTop.y + 4 + effortArrow), -90, effortArrow),
     ];
@@ -104,9 +97,6 @@ const lever: Primitive = {
     ];
   },
 };
-
-// ---------------------------------------------------------------------------------------------
-// Wheel (wheel and axle)
 
 const WHEEL_AXLE_R = 8;
 const WHEEL_Y = 88;
@@ -149,14 +139,14 @@ const wheel: Primitive = {
       part("base", "Base", "Holds the posts and the load's resting place.", box(70, BASE_T, 56, 1.5), v3(0, BASE_T / 2, -10), look.structure),
       post("post-back", -30),
       post("post-front", 10),
-      part("axle", "Axle", "The small wheel the cord winds onto.", cylinder(r, 71).shape, v3(0, WHEEL_Y, -1.5), look.second, { parentId: "post-front", joint: "hinge" }, v3(90, 0, 0)),
+      part("axle", "Axle", "The small wheel the cord winds onto.", cylinder(r, 71).shape, v3(0, WHEEL_Y, -1.5), look.steel, { parentId: "post-front", joint: "hinge" }, v3(90, 0, 0)),
       part("hub", "Hub", "Locks the wheel to the axle.", cylinder(7, 12).shape, v3(0, WHEEL_Y, WHEEL_Z), look.focus, { parentId: "axle", joint: "press-fit" }, v3(90, 0, 0)),
       part("rim", "Rim", "The big wheel's edge, where you push.", ring(radius, 3), centre, look.focus, { parentId: "hub", joint: "weld" }, v3(90, 0, 0)),
       ...spokes,
-      part("handle", "Handle", "Where your hand turns the wheel.", handle.shape, v3(radius * Math.cos(a0), WHEEL_Y + radius * Math.sin(a0), WHEEL_Z + 8 + handle.midY), look.third, { parentId: "rim", joint: "press-fit" }, v3(90, 0, 0)),
+      part("handle", "Handle", "Where your hand turns the wheel.", handle.shape, v3(radius * Math.cos(a0), WHEEL_Y + radius * Math.sin(a0), WHEEL_Z + 8 + handle.midY), look.stone, { parentId: "rim", joint: "press-fit" }, v3(90, 0, 0)),
       part("coil", "Wound cord", "Cord wrapped on the axle.", ring(r + CORD_THICK / 2, CORD_THICK / 2), v3(0, WHEEL_Y, WHEEL_DRUM_Z), look.structure, { parentId: "axle", joint: "glue" }, v3(90, 0, 0)),
       part("cord", "Cord", "Hangs from the axle and lifts the load.", box(CORD_THICK, WHEEL_Y - blockTop, CORD_THICK, 1), v3(cordX, (WHEEL_Y + blockTop) / 2, WHEEL_DRUM_Z), look.structure, { parentId: "coil", joint: "glue" }),
-      part("load", "Load", "The weight being lifted.", box(WHEEL_BLOCK, WHEEL_BLOCK, WHEEL_BLOCK, 1.5), v3(cordX, blockTop - WHEEL_BLOCK / 2, WHEEL_DRUM_Z), look.purple, { parentId: "cord", joint: "glue" }),
+      part("load", "Load", "The weight being lifted.", box(WHEEL_BLOCK, WHEEL_BLOCK, WHEEL_BLOCK, 1.5), v3(cordX, blockTop - WHEEL_BLOCK / 2, WHEEL_DRUM_Z), look.slate, { parentId: "cord", joint: "glue" }),
     ];
   },
   readouts: ({ radius = 36, turn = 0.3 }) => {
@@ -170,9 +160,6 @@ const wheel: Primitive = {
     ];
   },
 };
-
-// ---------------------------------------------------------------------------------------------
-// Wedge
 
 const WEDGE_FORCE = 100; // N
 const WEDGE_H = 52;
@@ -204,7 +191,7 @@ const wedge: Primitive = {
     const down = WEDGE_FORCE * WEDGE_ARROW;
     const out = side * WEDGE_ARROW;
     const block = (id: string, sign: number) =>
-      part(id, "Block", "A slab that gets pushed aside.", box(WEDGE_BLOCK_W, WEDGE_BLOCK_H, 40, 1), v3(sign * blockX, BASE_T + WEDGE_BLOCK_H / 2), look.purple, { parentId: "base", joint: "slide" });
+      part(id, "Block", "A slab that gets pushed aside.", box(WEDGE_BLOCK_W, WEDGE_BLOCK_H, 40, 1), v3(sign * blockX, BASE_T + WEDGE_BLOCK_H / 2), look.slate, { parentId: "base", joint: "slide" });
     return [
       part("base", "Base", "The table the blocks slide on.", box(200, BASE_T, 50, 1.5), v3(0, BASE_T / 2), look.structure),
       block("block-left", -1),
@@ -223,9 +210,6 @@ const wedge: Primitive = {
     ];
   },
 };
-
-// ---------------------------------------------------------------------------------------------
-// Cord
 
 const CORD_PEG_Y = 100;
 const PEG_R = 6;
@@ -288,10 +272,10 @@ const cord: Primitive = {
     return [
       part("floor", "Floor", "Where the weight rests.", box(70, BASE_T, 60, 1.5), v3(4, BASE_T / 2, -14), look.structure),
       part("post", "Post", "Holds the peg.", box(24, CORD_PEG_Y + 12 - BASE_T, 8, 1.5), v3(0, BASE_T + (CORD_PEG_Y + 12 - BASE_T) / 2, -32), look.structure, { parentId: "floor", joint: "screw" }),
-      part("peg", "Peg", "The corner the cord bends round.", cylinder(PEG_R, 30).shape, v3(0, CORD_PEG_Y, -13), look.purple, { parentId: "post", joint: "press-fit" }, v3(90, 0, 0)),
+      part("peg", "Peg", "The corner the cord bends round.", cylinder(PEG_R, 30).shape, v3(0, CORD_PEG_Y, -13), look.slate, { parentId: "post", joint: "press-fit" }, v3(90, 0, 0)),
       ...chain("cord", "Cord", "Carries the pull from the hand, round the peg, to the weight.", path, CORD_D, look.focus, "peg", "slide"),
-      part("handle", "Handle", "Where the hand pulls.", ring(6, 1.6), v3(xh - 6, CORD_TOP, CORD_Z), look.second, { parentId: "cord-1", joint: "glue" }, v3(90, 0, 0)),
-      part("weight", "Weight", "The load the cord lifts.", box(e, e, Math.min(e, 20), 1.5), v3(CORD_RC, BASE_T + e / 2 + Math.max(0, pull), CORD_Z), look.third, { parentId: "cord-18", joint: "glue" }),
+      part("handle", "Handle", "Where the hand pulls.", ring(6, 1.6), v3(xh - 6, CORD_TOP, CORD_Z), look.steel, { parentId: "cord-1", joint: "glue" }, v3(90, 0, 0)),
+      part("weight", "Weight", "The load the cord lifts.", box(e, e, Math.min(e, 20), 1.5), v3(CORD_RC, BASE_T + e / 2 + Math.max(0, pull), CORD_Z), look.stone, { parentId: "cord-18", joint: "glue" }),
       arrow("pull-arrow", "Pull arrow", "The pull on the hand's end.", "handle", v3(xh - 15, CORD_TOP, CORD_Z), 180, arrowLen),
       arrow("lift-arrow", "Lift arrow", "The cord's pull on the weight: the same size.", "weight", v3(CORD_RC + 7, weightTop, CORD_Z), 90, arrowLen),
     ];
@@ -310,13 +294,9 @@ const cord: Primitive = {
         ],
 };
 
-// ---------------------------------------------------------------------------------------------
-// Spring
-
 const SPRING_FREE = 80;
 const SPRING_R = 16;
 const SPRING_TURNS = 7;
-const SPRING_SEGS = 14;
 const SPRING_ARROW = 0.6; // mm per N
 
 /** Wire diameter: for a fixed coil, stiffness goes with the fourth power of the wire diameter. */
@@ -339,19 +319,13 @@ const spring: Primitive = {
   build: ({ stiffness = 2, force = 30 }) => {
     const d = springWire(stiffness);
     const len = SPRING_FREE - force / stiffness;
-    const n = SPRING_TURNS * SPRING_SEGS;
-    const points = Array.from({ length: n + 1 }, (_, i) => {
-      const t = i / n;
-      const a = 2 * Math.PI * SPRING_TURNS * t;
-      return v3(SPRING_R * Math.cos(a), BASE_T + d / 2 + (len - d) * t, SPRING_R * Math.sin(a));
-    });
     const disc = cylinder(26, BASE_T);
     const plateTop = BASE_T + len + BASE_T;
     const pushArrow = force * SPRING_ARROW;
     return [
       part("base", "Base", "The spring rests on it.", disc.shape, v3(0, disc.midY), look.structure),
-      ...chain("coil", "Coil", "One short stretch of the spring's wire.", points, d, look.focusMetal, "base", "spring"),
-      part("plate", "Plate", "What the push acts on.", disc.shape, v3(0, BASE_T + len + disc.midY), look.purple, { parentId: "coil-1", joint: "weld" }),
+      part("coil", "Coil", "The spring's wire, wound into a helix.", coil(SPRING_R, d / 2, len, SPRING_TURNS), v3(0, BASE_T + len / 2), look.focusMetal, { parentId: "base", joint: "spring" }),
+      part("plate", "Plate", "What the push acts on.", disc.shape, v3(0, BASE_T + len + disc.midY), look.slate, { parentId: "coil", joint: "weld" }),
       arrow("push-arrow", "Push arrow", "The push on the plate.", "plate", v3(0, plateTop + 4 + pushArrow, 0), -90, pushArrow),
     ];
   },
@@ -364,9 +338,6 @@ const spring: Primitive = {
     ];
   },
 };
-
-// ---------------------------------------------------------------------------------------------
-// Weight
 
 const G = 9.8;
 const PENDULUM_STRING = 95;
@@ -406,7 +377,7 @@ const weight: Primitive = {
       part("base", "Base", "Keeps the stand upright.", box(130, BASE_T, 90, 1.5), v3(0, BASE_T / 2, -24), look.structure),
       part("post", "Post", "Holds the arm up.", box(10, PENDULUM_Y + 8 - BASE_T, 10, 1), v3(0, BASE_T + (PENDULUM_Y + 8 - BASE_T) / 2, -48), look.structure, { parentId: "base", joint: "screw" }),
       part("arm", "Arm", "Reaches out so the bob can swing clear of the post.", box(10, 8, 62, 1), v3(0, PENDULUM_Y + 4, -22), look.structure, { parentId: "post", joint: "weld" }),
-      part("pin", "Pivot pin", "What the string swings from.", cylinder(PIN_R, 12).shape, v3(0, pin.y, 0), look.purple, { parentId: "arm", joint: "rivet" }, v3(90, 0, 0)),
+      part("pin", "Pivot pin", "What the string swings from.", cylinder(PIN_R, 12).shape, v3(0, pin.y, 0), look.slate, { parentId: "arm", joint: "rivet" }, v3(90, 0, 0)),
       part("string", "String", "Lets the bob swing and carries its pull to the pivot.", s.shape, s.position, look.structure, { parentId: "pin", joint: "hinge" }, s.rotation),
       part("bob", "Bob", "The mass: pulled down by gravity, slow to change speed.", sphere.shape, v3(centre.x, centre.y + sphere.midY), look.focus, { parentId: "string", joint: "glue" }),
       arrow("weight-arrow", "Weight arrow", "Gravity's pull, straight down.", "bob", v3(centre.x, centre.y - rb - 3, 0), -90, arrowLen),
@@ -422,9 +393,6 @@ const weight: Primitive = {
     ];
   },
 };
-
-// ---------------------------------------------------------------------------------------------
-// Grip
 
 const MU = 0.4; // assumed friction coefficient
 const GRIP_ARROW = 0.6; // mm per N
@@ -466,8 +434,8 @@ const grip: Primitive = {
       leg("jaw-right", 1),
       pad("pad-left", -1, "jaw-left"),
       pad("pad-right", 1, "jaw-right"),
-      part("rod", "Rod", "The part being held.", rod.shape, v3(0, bottom + rod.midY), look.third, { parentId: "pad-left", joint: "press-fit" }),
-      part("load", "Load", "Hangs from the rod and pulls it down.", box(e, e, Math.min(e, 24), 1.5), v3(0, bottom - e / 2), look.purple, { parentId: "rod", joint: "glue" }),
+      part("rod", "Rod", "The part being held.", rod.shape, v3(0, bottom + rod.midY), look.stone, { parentId: "pad-left", joint: "press-fit" }),
+      part("load", "Load", "Hangs from the rod and pulls it down.", box(e, e, Math.min(e, 24), 1.5), v3(0, bottom - e / 2), look.slate, { parentId: "rod", joint: "glue" }),
       arrow("squeeze-left", "Squeeze arrow", "The squeeze on the left pad.", "jaw-left", v3(-22.5 - sq, GRIP_PAD_Y), 0, sq),
       arrow("squeeze-right", "Squeeze arrow", "The squeeze on the right pad.", "jaw-right", v3(22.5 + sq, GRIP_PAD_Y), 180, sq),
     ];
@@ -481,9 +449,6 @@ const grip: Primitive = {
     ];
   },
 };
-
-// ---------------------------------------------------------------------------------------------
-// Seal
 
 const SEAL_T0 = 12; // gasket thickness before squeezing
 const SEAL_PIPE = 30;
@@ -525,11 +490,11 @@ const seal: Primitive = {
     const parts: Part[] = [
       part("flange-lower", "Lower flange", "Pipe end with a flat face.", lower.shape, v3(0, lower.midY), look.structure),
       part("gasket", "Gasket", "Soft rubber ring that fills the gaps between the faces.", gasket.shape, v3(0, faceY + gasket.midY), look.focus, { parentId: "flange-lower", joint: "press-fit" }),
-      part("flange-upper", "Upper flange", "The other pipe end, pulled down to squeeze the gasket.", upper.shape, v3(0, faceY + t + upper.midY), look.purple, { parentId: "flange-lower", joint: "screw" }),
+      part("flange-upper", "Upper flange", "The other pipe end, pulled down to squeeze the gasket.", upper.shape, v3(0, faceY + t + upper.midY), look.slate, { parentId: "flange-lower", joint: "screw" }),
     ];
     studs.forEach((p, i) => {
       parts.push(part(`stud-${i + 1}`, "Stud", "A bolt that pulls the flanges together.", stud.shape, v3(p.x, faceY + stud.midY, p.z), look.structure, { parentId: "flange-lower", joint: "thread" }));
-      parts.push(part(`nut-${i + 1}`, "Nut", "Tightening it lowers the upper flange.", { kind: "extrusion", outline: polygon(6, 5.2).map(([x, y]) => ({ x, y })), depth: 5 }, v3(p.x, topFace + 2.5, p.z), look.second, { parentId: "flange-upper", joint: "thread" }, v3(90, 0, 0)));
+      parts.push(part(`nut-${i + 1}`, "Nut", "Tightening it lowers the upper flange.", { kind: "extrusion", outline: polygon(6, 5.2).map(([x, y]) => ({ x, y })), depth: 5 }, v3(p.x, topFace + 2.5, p.z), look.steel, { parentId: "flange-upper", joint: "thread" }, v3(90, 0, 0)));
     });
     return parts;
   },

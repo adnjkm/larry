@@ -1,14 +1,14 @@
 // Hand-written lessons, keyed by the sample photo they were written for. To add one, write
-// lessons/<id>.ts exporting `defineLesson({...})` as default and add it to LESSONS below.
+// lessons/<id>.ts exporting `defineLesson({...})` (or `defineStory({...})` for one told with no numbers) as default and add it to LESSONS below.
 import type { Kit } from "../../../shared/kit.ts";
-import { type Lesson, missingParts, type Workshop } from "../model.ts";
+import { type Lesson, missingParts, type Story, type Workshop } from "../model.ts";
 import bottle from "./bottle.ts";
 import pen from "./pen.ts";
 import { generatedLesson } from "../templates/index.ts";
 import { inspectLesson } from "./inspect.ts";
 import stapler from "./stapler.ts";
 
-export const LESSONS: Readonly<Record<string, Workshop>> = { bottle, pen, stapler };
+export const LESSONS: Readonly<Record<string, Workshop | Story>> = { bottle, pen, stapler };
 
 /**
  * The lesson for a kit: the one written for this sample, else one whose name pattern matches the
