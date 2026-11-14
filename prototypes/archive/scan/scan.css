@@ -1,0 +1,24 @@
+.samples { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sample { display: flex; flex-direction: column; gap: 8px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; transition: transform 160ms var(--ease-out); }
+.sample:active { transform: scale(0.97); }
+.sample img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: var(--soft); }
+.sample span { font-size: 15px; font-weight: 600; }
+.scan { position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 0 0 1px var(--rule) inset; }
+.scan img, .scan canvas { display: block; width: 100%; height: auto; }
+.scan canvas { position: absolute; inset: 0; image-rendering: pixelated; clip-path: inset(0 0 100% 0); }
+.scan[data-go] canvas { clip-path: inset(0 0 0 0); transition: clip-path 1400ms linear; }
+.scan .beam { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--pink); box-shadow: 0 0 12px var(--pink); opacity: 0; }
+.scan[data-go] .beam { opacity: 1; top: 100%; transition: top 1400ms linear, opacity 200ms 1300ms ease-out; }
+.parts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.parts li { display: flex; justify-content: space-between; gap: 10px; font-family: "Geist Mono", monospace; font-size: 13px; animation: pop 260ms var(--ease-out); }
+.parts li span:last-child { color: var(--graphite); }
+.reqs { display: flex; flex-direction: column; gap: 8px; }
+.req { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 12px; min-height: 60px; padding: 0 14px; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--rule) inset; text-align: left; cursor: pointer; transition: transform 160ms var(--ease-out), box-shadow 150ms ease-out; }
+.req:active { transform: scale(0.98); }
+.req .num { font-family: "Geist Mono", monospace; font-size: 12px; color: var(--graphite); }
+.req .text { font-size: 15px; font-weight: 600; line-height: 20px; }
+.req[data-done] { box-shadow: 0 0 0 1.5px var(--pink) inset; }
+.req[data-done] .num { color: var(--pink); }
+.back { align-self: flex-start; height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--soft); font-size: 14px; font-weight: 500; cursor: pointer; }
+.note { margin: 0; font-size: 13px; line-height: 19px; color: var(--graphite); }
+.explore { padding: 14px 16px; border-radius: 14px; background: var(--soft); font-size: 14px; line-height: 20px; }

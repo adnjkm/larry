@@ -1,0 +1,151 @@
+/* ---------------------------------------------------------------- prototype page */
+:root {
+  --ink: #141414;
+  --graphite: #6b6b6b;
+  --rule: #e4e4e4;
+  --soft: #f4f4f4;
+  --pink: #ff0087;
+  --purple: #8700af;
+  --ok: #141414;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #fff; color: var(--ink); font-family: Geist, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+.page { max-width: 420px; margin: 0 auto; min-height: 100dvh; padding: 20px 20px 110px; display: flex; flex-direction: column; gap: 16px; }
+.mono { font-family: "Geist Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--graphite); }
+.need { margin: 0; font-size: 24px; font-weight: 600; line-height: 30px; letter-spacing: -0.02em; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font-family: "Geist Mono", monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; background: var(--soft); color: var(--ink); }
+.chip b { color: var(--graphite); font-weight: 400; margin-right: 4px; }
+.stage { position: relative; width: 100%; aspect-ratio: 380 / 260; border-radius: 16px; background: #fafafa; box-shadow: 0 0 0 1px var(--rule) inset; overflow: hidden; touch-action: none; }
+.stage svg { width: 100%; height: 100%; display: block; }
+.hint { margin: 0; font-size: 15px; line-height: 21px; color: var(--graphite); }
+.row { display: flex; gap: 8px; }
+.row .btn { flex: 1; width: auto; }
+.btn { width: 100%; flex: none; height: 48px; border: 0; border-radius: 999px; background: var(--ink); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; transition: transform 160ms var(--ease-out), opacity 150ms ease-out; }
+.btn.secondary { background: #fff; color: var(--ink); box-shadow: 0 0 0 1px var(--ink) inset; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+.slider { display: grid; grid-template-columns: 92px 1fr 64px; align-items: center; gap: 12px; min-height: 44px; }
+.slider input { width: 100%; accent-color: var(--pink); height: 32px; margin: 0; }
+.slider .val { font-family: "Geist Mono", monospace; font-size: 13px; text-align: right; }
+.log { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 14px; background: var(--soft); min-height: 46px; }
+.log-row { display: flex; justify-content: space-between; gap: 12px; font-family: "Geist Mono", monospace; font-size: 13px; }
+.log-row .bad { color: var(--pink); }
+.log-empty { font-family: "Geist Mono", monospace; font-size: 13px; color: var(--graphite); }
+.earned { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 14px; box-shadow: 0 0 0 1.5px var(--pink) inset; animation: pop 300ms var(--ease-out); }
+.earned strong { font-size: 16px; }
+.earned span { font-size: 14px; line-height: 20px; color: var(--graphite); }
+@keyframes pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+.options { display: flex; flex-direction: column; gap: 8px; }
+.option { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 0 14px; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--rule) inset; cursor: pointer; text-align: left; transition: transform 160ms var(--ease-out), box-shadow 150ms ease-out; }
+.option:active { transform: scale(0.98); }
+.option[data-picked] { box-shadow: 0 0 0 1.5px var(--pink) inset; }
+.option .parts { font-family: "Geist Mono", monospace; font-size: 11px; color: var(--graphite); text-transform: uppercase; letter-spacing: 0.06em; }
+.dots { display: flex; gap: 6px; align-items: center; }
+.dot { width: 14px; height: 14px; border-radius: 999px; background: var(--rule); }
+.dot[data-s="out"] { background: var(--ink); }
+.dot[data-s="in"] { background: #fff; box-shadow: 0 0 0 1.5px var(--ink) inset; }
+.dot[data-wrong] { box-shadow: 0 0 0 2px var(--pink); }
+@media (prefers-reduced-motion: reduce) { .earned { animation: none; } }
+
+/* ---------------------------------------------------------------- picker: verbatim from PICKER.md */
+.proto-picker {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.82);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 8px 24px rgba(0, 0, 0, 0.24),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.proto-picker-highlight {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* The slide is enabled only after first paint (data-ready), so load doesn't animate. */
+.proto-picker[data-ready] .proto-picker-highlight {
+  transition:
+    transform 250ms cubic-bezier(0.23, 1, 0.32, 1),
+    width 250ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proto-picker[data-ready] .proto-picker-highlight { transition: none; }
+}
+
+.proto-picker-item {
+  position: relative; /* sits above the highlight */
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    color 150ms ease-out,
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .proto-picker-item:hover {
+    color: rgba(255, 255, 255, 0.85);
+  }
+}
+
+.proto-picker-item:active {
+  transform: scale(0.97);
+}
+
+.proto-picker-item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+}
+
+.proto-picker-item[data-active] {
+  color: #fff;
+}
+
+.proto-picker-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.proto-picker-replay {
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+.proto-picker[data-position="top"] {
+  bottom: auto;
+  top: 24px;
+}

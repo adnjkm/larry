@@ -1,0 +1,163 @@
+{
+  "name": "Plastic clothespin",
+  "summary": "A small metal spring pushes the back ends of two plastic arms apart, which squeezes the front tips together to grip clothes, and pinching the back opens the jaws.",
+  "parts": [
+    {
+      "id": "lower-arm",
+      "name": "bottom arm",
+      "role": "The bottom half of the peg that grips from below.",
+      "parentId": null,
+      "joint": null,
+      "shape": {
+        "kind": "extrusion",
+        "outline": [
+          {
+            "x": -37,
+            "y": -4
+          },
+          {
+            "x": 37,
+            "y": -4
+          },
+          {
+            "x": 37,
+            "y": 4
+          },
+          {
+            "x": 5,
+            "y": 4
+          },
+          {
+            "x": 0,
+            "y": 2
+          },
+          {
+            "x": -5,
+            "y": 4
+          },
+          {
+            "x": -37,
+            "y": 5
+          }
+        ],
+        "depth": 10
+      },
+      "position": {
+        "x": 0,
+        "y": 4.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#d42a3a",
+      "finish": "matte"
+    },
+    {
+      "id": "upper-arm",
+      "name": "top arm",
+      "role": "The top half that presses down on the clothes.",
+      "parentId": "lower-arm",
+      "joint": "spring",
+      "shape": {
+        "kind": "extrusion",
+        "outline": [
+          {
+            "x": -37,
+            "y": -3
+          },
+          {
+            "x": -5,
+            "y": -4
+          },
+          {
+            "x": 0,
+            "y": -2
+          },
+          {
+            "x": 5,
+            "y": -4
+          },
+          {
+            "x": 37,
+            "y": -4
+          },
+          {
+            "x": 37,
+            "y": 4
+          },
+          {
+            "x": -37,
+            "y": 5
+          }
+        ],
+        "depth": 10
+      },
+      "position": {
+        "x": 0,
+        "y": 12.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#e0303f",
+      "finish": "matte"
+    },
+    {
+      "id": "spring-coil",
+      "name": "spring coil",
+      "role": "The wound wire loop that stores the squeezing force.",
+      "parentId": "lower-arm",
+      "joint": "press-fit",
+      "shape": {
+        "kind": "torus",
+        "radius": 3,
+        "tube": 0.7,
+        "arcDegrees": 360
+      },
+      "position": {
+        "x": 0,
+        "y": 8.5,
+        "z": 6
+      },
+      "rotation": {
+        "x": 90,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#a8adb3",
+      "finish": "metal"
+    },
+    {
+      "id": "spring-leg",
+      "name": "spring leg",
+      "role": "The straight wire that pushes on the top arm.",
+      "parentId": "spring-coil",
+      "joint": "molded",
+      "shape": {
+        "kind": "box",
+        "width": 20,
+        "height": 1.4,
+        "depth": 1.4,
+        "cornerRadius": 0.5
+      },
+      "position": {
+        "x": -10,
+        "y": 16.5,
+        "z": 5.5
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": -10
+      },
+      "color": "#a8adb3",
+      "finish": "metal"
+    }
+  ]
+}
