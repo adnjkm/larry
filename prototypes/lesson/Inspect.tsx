@@ -27,7 +27,7 @@ export function InspectFlow({ lesson, kit, photo, onHome, onRestart }: { lesson:
     const next = routes[routes.indexOf(r) + 1];
     if (next) setRoute(next);
   };
-  const TITLE: Record<Route, string> = { learn: "Learn its mechanisms", apart: "Take it apart", jobs: "Name the jobs", final: "Piece it together" };
+  const TITLE: Record<Route, string> = { learn: "Mechanisms", apart: "Take it apart", jobs: "Name the jobs", final: "Piece it together" };
   const steps: Step[] = routes.map((r, i) => ({
     key: r, title: TITLE[r],
     state: done.has(r) ? "done" : route === r ? "now" : "todo",

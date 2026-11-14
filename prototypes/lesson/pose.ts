@@ -132,6 +132,14 @@ function moveMatrix(move: PartMove | undefined, lift: Vec): Matrix4 {
 // Rubber's low-contrast finish turns the pink to mud, so highlighted rubber is drawn matte.
 const pinkOf = (p: Part): Part => ({ ...p, color: COLOR.focus, finish: p.finish === "rubber" ? "matte" : p.finish });
 
+/** A scanned part's photo colour as the grey of the same lightness, so only the taught piece carries colour. */
+function greyOf(hex: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const y = Math.round(0.2126 * r! + 0.7152 * g! + 0.0722 * b!);
+  const h = y.toString(16).padStart(2, "0");
+  return `#${h}${h}${h}`;
+}
+
 export type Draw = {
   kit: Kit;
   present: readonly string[];
@@ -160,7 +168,7 @@ export function drawObject({ kit, present, scene, explode, pink, centre, rigid =
   };
   const parts = shown.map((p) => {
     const out = withMatrix(p, whole.clone().multiply(moveMatrix(scene.moves[p.id], liftOf(p.id))).multiply(matrixOf(p)));
-    return pink.has(p.id) ? pinkOf(out) : out;
+    return pink.has(p.id) ? pinkOf(out) : { ...out, color: greyOf(out.color) };
   });
   const marks = scene.marks.flatMap((k): Part[] => {
     if (k.ride !== null && !present.includes(k.ride)) return [];
