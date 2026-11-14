@@ -56,7 +56,7 @@ export function generatedLesson(kit: Kit, id = "generated"): Workshop | null {
     match: /(?!)/,
     modules,
     final: {
-      need: `It must pass every test at once: ${tests.map((t) => t.label).join(", ")}.`,
+      need: `It must pass all ${tests.length} tests at once.`,
       success: `You built the ${kit.name.toLowerCase()}.`,
       detail: `Every joint passes its tests together.`,
       tests,

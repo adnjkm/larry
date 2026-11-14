@@ -15,6 +15,8 @@ const GAP = 24;
 const REVEAL_MS = 700;
 
 const ringRotation = (axis: Target["ring"]["axis"]): Vec => (axis === "x" ? vec(0, 0, 90) : axis === "z" ? vec(90, 0, 0) : vec());
+/** A small piece is drawn up to this much bigger so it reads beside a large object, without looming over a small one. */
+const MAX_ENLARGE = 2;
 /** Space between the taught primitives' pieces when more than one floats in. */
 const PIECE_GAP = 10;
 
@@ -48,7 +50,7 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
     const rawBox = extents(raw);
     const [wide, tall] = [box.max.x - box.min.x, box.max.y - box.min.y];
     const size = Math.min(100, Math.max(40, 0.55 * Math.max(wide, tall)));
-    const scale = Math.min(1, size / Math.max(rawBox.max.x - rawBox.min.x, rawBox.max.y - rawBox.min.y, rawBox.max.z - rawBox.min.z));
+    const scale = Math.min(MAX_ENLARGE, size / Math.max(rawBox.max.x - rawBox.min.x, rawBox.max.y - rawBox.min.y, rawBox.max.z - rawBox.min.z));
     // The piece floats beside a tall object and above a long one, so it adds as little as it can to the view.
     const at = tall >= wide
       ? vec(box.max.x + GAP + size / 2, Math.max(size / 2 + 8, (box.min.y + box.max.y) / 2), 0)

@@ -65,7 +65,7 @@ export const springTemplate: Template = {
       tests: [
         {
           id: "spring-release",
-          label: "Release",
+          label: `Release · ${pair.noun}`,
           run: (values, ctx) => {
             const k = stiffnessOf(values);
             const detail = `The spring pushes ${pushOf(k)} N and friction holds with ${FRICTION} N.`;
@@ -74,7 +74,7 @@ export const springTemplate: Template = {
         },
         {
           id: "spring-press",
-          label: "Press",
+          label: `Press · ${pair.noun}`,
           run: (values, ctx) => {
             const k = stiffnessOf(values);
             const depth = pressedMm(k);

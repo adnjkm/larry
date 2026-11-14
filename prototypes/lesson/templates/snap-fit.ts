@@ -36,7 +36,7 @@ export const snapFitTemplate: Template = {
       tests: [
         {
           id: "catch-tug",
-          label: "Tug",
+          label: `Tug · ${pair.noun}`,
           run: (values, ctx) => {
             const f = forceOf(values);
             const ok = f > TUG;
@@ -48,7 +48,7 @@ export const snapFitTemplate: Template = {
         },
         {
           id: "catch-unclip",
-          label: "Unclip",
+          label: `Unclip · ${pair.noun}`,
           run: (values, ctx) => {
             const f = forceOf(values);
             const peak = f + PEAK_EXTRA;

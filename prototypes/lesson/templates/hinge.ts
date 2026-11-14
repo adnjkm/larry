@@ -65,7 +65,7 @@ export const hingeTemplate: Template = {
     return {
       id: "hinge",
       title: `Hinge the ${child}`,
-      need: `The ${child} must swing on its hinge and push hard enough at its short end, while still moving it far enough.`,
+      need: `The ${child} must turn on its hinge with enough force at its short end, and enough travel.`,
       primitive: "lever",
       produces: pair.produces,
       assemble: {
@@ -80,7 +80,7 @@ export const hingeTemplate: Template = {
       tests: [
         {
           id: "hinge-push",
-          label: "Push",
+          label: `Push · ${pair.noun}`,
           run: (values, ctx) => {
             const r = ratioOf(values);
             const force = tenth(HAND_N * r);
@@ -105,7 +105,7 @@ export const hingeTemplate: Template = {
         },
         {
           id: "hinge-swing",
-          label: "Swing",
+          label: `Swing · ${pair.noun}`,
           run: (values, ctx) => {
             const r = ratioOf(values);
             const travel = tenth(HAND_MM / r);

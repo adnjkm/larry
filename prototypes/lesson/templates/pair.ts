@@ -11,6 +11,8 @@ export type Pair = {
   /** Lower-case names for the middle of a sentence. */
   childName: string;
   parentName: string;
+  /** The last word of the child's name, to tell tests apart once every module's tests run together. */
+  noun: string;
   objectName: string;
   /** Kit part ids this module earns: the child and the parts below it that no other module earns. */
   produces: readonly string[];
@@ -63,6 +65,7 @@ export function pairOf(kit: Kit, child: Part, produces: readonly string[]): Pair
   return {
     kit, child, parent,
     childName: child.name.toLowerCase(),
+    noun: child.name.toLowerCase().split(/\s+/).pop()!,
     parentName: parent.name.toLowerCase(),
     objectName: kit.name.toLowerCase(),
     produces,
@@ -116,6 +119,19 @@ export function arrowMark(id: string, at: Vec, dir: Vec, ride: string | null): M
 
 /** The point on the child's surface facing away from the parent, where a pull is drawn. */
 export const farFace = (pair: Pair): Vec => add(pair.centre, scale(pair.out, pair.half[pair.axis] + 2));
+
+/** A purple stripe on the child's side, riding it, so a turn about its own axis shows. */
+export function turnMark(pair: Pair): Mark {
+  const across: Axis = pair.axis === "y" ? "z" : "y";
+  const length = Math.min(20, 1.2 * pair.half[pair.axis]);
+  const size = { x: 3, y: 3, z: 3, [pair.axis]: length };
+  return {
+    id: "turn-mark",
+    shape: { kind: "box", width: size.x, height: size.y, depth: size.z, cornerRadius: 1 },
+    at: add(pair.centre, scale(AXIS[across], pair.half[across] + 1)),
+    ride: pair.child.id,
+  };
+}
 
 /** A dying side-to-side tremor for a push that does not go. */
 export const shudder = (t: number) => Math.sin(2 * Math.PI * 3 * t) * (1 - t);

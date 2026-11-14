@@ -2,7 +2,7 @@
 // how many turns it takes to undo.
 import { clamp01, easeOut, smooth } from "../ease.ts";
 import { AXIS, type PartMove, type Rigid, type Test, type Values, type Window } from "../model.ts";
-import { carry, clearance, overlay, type Pair, scale, targetOf, type Template } from "./pair.ts";
+import { carry, clearance, overlay, type Pair, scale, targetOf, type Template, turnMark } from "./pair.ts";
 
 /** Above 4 mm a shake walks the child off; below 3 mm undoing takes more than MAX_TURNS. Game numbers. */
 const WINDOW: Window = [3, 4];
@@ -29,7 +29,7 @@ const RESET = 650;
 function shake(pair: Pair): Test {
   return {
     id: "thread-shake",
-    label: "Shake",
+    label: `Shake · ${pair.noun}`,
     run: (values, ctx) => {
       const pitch = pitchOf(values);
       const each = liftPerShake(pitch);
@@ -55,10 +55,10 @@ function shake(pair: Pair): Test {
           const s = Math.min(ms, SHAKE_SWING) / SHAKE_EACH;
           const rigid: Rigid = { dx: 10 * Math.sin(2 * Math.PI * s), dy: 0, angle: 4 * Math.sin(2 * Math.PI * s) };
           const live = ms >= freeAt ? `${pair.child.name} off` : `Shake ${Math.min(SHAKES, Math.floor(s) + 1)} of ${SHAKES} · up ${along(ms).toFixed(0)} mm`;
-          if (ms < SHAKE_SWING + HOLD || !moved) return overlay(ms < SHAKE_SWING ? live : moved ? live : "Still on", carry(pair, ctx.present, at(ms)), [], rigid);
+          if (ms < SHAKE_SWING + HOLD || !moved) return overlay(ms < SHAKE_SWING ? live : moved ? live : "Still on", carry(pair, ctx.present, at(ms)), [turnMark(pair)], rigid);
           const p = smooth(clamp01((ms - SHAKE_SWING - HOLD) / RESET));
           const end = along(SHAKE_SWING + HOLD);
-          return overlay("Back on", carry(pair, ctx.present, screwed(pair, end * (1 - p), (end / pitch) * (1 - p))), [], rigid);
+          return overlay("Back on", carry(pair, ctx.present, screwed(pair, end * (1 - p), (end / pitch) * (1 - p))), [turnMark(pair)], rigid);
         },
       };
     },
@@ -72,7 +72,7 @@ const BACK = 700;
 function unscrew(pair: Pair): Test {
   return {
     id: "thread-unscrew",
-    label: "Unscrew",
+    label: `Unscrew · ${pair.noun}`,
     run: (values, ctx) => {
       const pitch = pitchOf(values);
       const turns = ENGAGE / pitch;
@@ -82,6 +82,7 @@ function unscrew(pair: Pair): Test {
       const rise = given * pitch;
       const free = stuck ? 0 : Math.max(10, clearance(pair) - ENGAGE);
       const move = (d: number, n: number) => carry(pair, ctx.present, screwed(pair, d, n));
+      const marks = [turnMark(pair)];
       return {
         verdict: stuck
           ? { pass: false, line: `Still on after ${MAX_TURNS} turns. At ${pitch} mm a turn, freeing ${ENGAGE} mm of thread takes ${turns.toFixed(1)} turns.` }
@@ -90,12 +91,12 @@ function unscrew(pair: Pair): Test {
         at: (ms) => {
           if (ms < twist) {
             const p = smooth(ms / twist);
-            return overlay(`Turn ${(given * p).toFixed(1)} of ${turns.toFixed(1)}`, move(rise * p, given * p));
+            return overlay(`Turn ${(given * p).toFixed(1)} of ${turns.toFixed(1)}`, move(rise * p, given * p), marks);
           }
           const q = easeOut(clamp01((ms - twist) / LIFTOFF));
-          if (ms < twist + LIFTOFF + HOLD) return overlay(stuck ? `Still on after ${MAX_TURNS} turns` : `Off in ${turns.toFixed(1)} turns`, move(rise + free * q, given));
+          if (ms < twist + LIFTOFF + HOLD) return overlay(stuck ? `Still on after ${MAX_TURNS} turns` : `Off in ${turns.toFixed(1)} turns`, move(rise + free * q, given), marks);
           const p = smooth(clamp01((ms - twist - LIFTOFF - HOLD) / BACK));
-          return overlay("Screwing it back on", move((rise + free) * (1 - p), given * (1 - p)));
+          return overlay("Screwing it back on", move((rise + free) * (1 - p), given * (1 - p)), marks);
         },
       };
     },

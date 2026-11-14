@@ -39,7 +39,7 @@ export const pressFitTemplate: Template = {
       tests: [
         {
           id: "grip-pull",
-          label: "Pull",
+          label: `Pull · ${pair.noun}`,
           run: (values, ctx) => {
             const s = squeezeOf(values);
             const ok = holds(s);
@@ -51,7 +51,7 @@ export const pressFitTemplate: Template = {
         },
         {
           id: "grip-fit",
-          label: "Push on",
+          label: `Push on · ${pair.noun}`,
           run: (values, ctx) => {
             const s = squeezeOf(values);
             const ok = fits(s);
