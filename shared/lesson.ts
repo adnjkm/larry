@@ -83,9 +83,9 @@ export type Chapter = z.infer<typeof Chapter>;
 
 export const Lesson = z.object({
   title: z.string().describe("The invention's name."),
-  hook: Paragraphs.describe("Opening over the finished object: what it does, and the question the lesson will answer. Under 80 words."),
+  hook: Paragraphs.describe("Opening over the finished object: what it does, and the question the lesson will answer. Under 50 words."),
   chapters: z.array(Chapter).describe("Modules in order of need, joins where modules meet, the casing last."),
-  closing: Paragraphs.describe("Shown over the finished build: what the reader now sees when they look at one. Under 60 words."),
+  closing: Paragraphs.describe("Shown over the finished build: what the reader now sees when they look at one. Under 40 words."),
 });
 export type Lesson = z.infer<typeof Lesson>;
 

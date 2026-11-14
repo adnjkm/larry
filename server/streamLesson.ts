@@ -40,7 +40,7 @@ Primitives:
 Earning parts:
 - Every part id in the kit appears in exactly one step's earns list, at the step where that part's job has just been shown. A naive build earns the crude parts it uses. Casing parts are earned in the casing chapter.
 
-Lengths: hook under 80 words. Each story is 1 to 3 short paragraphs and each payoff 1 or 2, a paragraph being 1 to 3 sentences. Closing under 60 words.
+Lengths: hook under 50 words. Each story is 1 or 2 short paragraphs and under 50 words, so the problem below it stays in view on a phone. Each payoff is 1 or 2 paragraphs and under 40 words. A paragraph is 1 to 3 sentences. Closing under 40 words.
 
 An outline of a good lesson for a click ballpoint pen, to show the shape (do not copy it for other objects):
 - Hook: a pen writes only where its tip touches paper, never leaks in a pocket, and hides its tip with one press. Every part answers one of those demands.
