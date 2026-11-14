@@ -3,7 +3,7 @@
 // derived from any kit. Lessons never hold a kit: they are bound to one at run time, and a
 // Workshop only binds to a kit that has every part it names.
 import type { Kit, Part, Shape } from "../../shared/kit.ts";
-import { PRIMITIVES, type Primitive, type Slider } from "../../src/primitives/library.ts";
+import { PRIMITIVES, type Primitive, type Readout, type Slider } from "../../src/primitives/library.ts";
 
 export type Vec = { x: number; y: number; z: number };
 export const vec = (x = 0, y = 0, z = 0): Vec => ({ x, y, z });
@@ -37,6 +37,20 @@ export type Test = { id: string; label: string; run: (values: Values, ctx: TestC
 
 export type Target = { label: string; at: Vec; ring: { radius: number; axis: Axis } };
 
+/**
+ * Guidance revealed one per failed test run: what to watch, the principle in terms of the primitive
+ * just learned, then which way to move the slider and what goes wrong on each side of the band.
+ */
+export type Hints = {
+  observe: string;
+  principle: string;
+  direction: string;
+  /** What fails below the fix window. */
+  low: string;
+  /** What fails above the fix window. */
+  high: string;
+};
+
 export type Module = {
   id: string;
   title: string;
@@ -52,11 +66,10 @@ export type Module = {
   /** Where the produced parts fly in from, relative to where they sit. */
   enter: Vec;
   fault: { primitive: Primitive; slider: Slider; start: number };
-  /** Slider values that pass every test. */
+  /** Slider values that pass every test, with the other modules at the middle of their windows. Values on both sides of it fail. */
   fix: { window: Window };
   tests: readonly Test[];
-  /** Guidance revealed one per failed test run. */
-  hints: readonly string[];
+  hints: Hints;
   /** The kit part the user must tap to diagnose before the fix control unlocks. */
   suspect: string;
   /** What to say when another part is tapped instead, by part id. */
@@ -66,8 +79,10 @@ export type Module = {
   why: string;
   /** What in the rules is a game number rather than a measured fact. */
   gameNote: string;
-  /** Extra values for the fault primitive's readouts, derived from the tuned value. */
+  /** Values for the fault primitive's other sliders, so its library readouts describe this object. */
   readoutWith?: (value: number) => Values;
+  /** The object's own numbers at the current tuning, shown beside the fix control. */
+  numbers: (values: Values) => readonly Readout[];
 };
 
 export type Workshop = {
@@ -111,6 +126,9 @@ export function primitiveById(id: string): Primitive {
   return p;
 }
 
+/** A fix that cannot fail on one side is a trivial slider, so every window keeps this many steps clear of each end. */
+const ROOM_STEPS = 2;
+
 /** Resolves primitive ids and checks the rules a lesson must keep, so a broken lesson fails when it loads rather than mid-game. */
 export function defineLesson(spec: WorkshopSpec): Workshop {
   const problems: string[] = [];
@@ -132,10 +150,11 @@ export function defineLesson(spec: WorkshopSpec): Workshop {
     if (sliderIds.has(slider.id)) problems.push(`${m.id}: slider id ${slider.id} is tuned by two modules`);
     sliderIds.add(slider.id);
     const [lo, hi] = m.fix.window;
-    if (!(slider.min <= lo && lo < hi && hi <= slider.max)) problems.push(`${m.id}: fix window ${lo}..${hi} is not inside ${slider.min}..${slider.max}`);
+    const room = ROOM_STEPS * slider.step - 1e-9;
+    if (!(lo < hi && lo - slider.min >= room && slider.max - hi >= room))
+      problems.push(`${m.id}: fix window ${lo}..${hi} needs at least ${ROOM_STEPS} slider steps of room on both sides inside ${slider.min}..${slider.max}`);
     if (m.fault.start >= lo && m.fault.start <= hi) problems.push(`${m.id}: the fault starts inside the fix window`);
     if (m.tests.length === 0) problems.push(`${m.id}: no tests`);
-    if (m.hints.length === 0) problems.push(`${m.id}: no hints`);
     m.tests.forEach(track);
     return { ...m, teach, main, fault: { primitive, slider, start: m.fault.start }, enter: m.enter ?? vec(0, 50, 0) };
   });
@@ -157,7 +176,21 @@ export function presentAfter(lesson: Workshop, kit: Kit, index: number): string[
   return kit.parts.filter((p) => !later.has(p.id)).map((p) => p.id);
 }
 
-export const midWindow = (s: Slider, [lo, hi]: Window) => Math.round((lo + hi) / 2 / s.step) * s.step;
+export const midWindow = (s: Slider, [lo, hi]: Window) => Number((Math.round((lo + hi) / 2 / s.step) * s.step).toFixed(6));
+
+/** Every value the slider can take, snapped to its step. */
+export const sliderSteps = (s: Slider): number[] =>
+  Array.from({ length: Math.round((s.max - s.min) / s.step) + 1 }, (_, i) => Number((s.min + i * s.step).toFixed(6)));
+
+/** Whether every one of the module's tests passes with its slider at `value` and the rest of the tuning as given. */
+export const passesAt = (module: Module, values: Values, value: number, ctx: TestCtx) =>
+  module.tests.every((t) => t.run({ ...values, [module.fault.slider.id]: value }, ctx).verdict.pass);
+
+/** The lowest and highest slider values that pass every test at this tuning, or null when none does. */
+export function passBand(module: Module, values: Values, ctx: TestCtx): Window | null {
+  const passing = sliderSteps(module.fault.slider).filter((v) => passesAt(module, values, v, ctx));
+  return passing.length > 0 ? [passing[0]!, passing[passing.length - 1]!] : null;
+}
 
 /** The values every module starts the sandbox with: each at its fault. */
 export const faultValues = (lesson: Workshop): Values => Object.fromEntries(lesson.modules.map((m) => [m.fault.slider.id, m.fault.start]));

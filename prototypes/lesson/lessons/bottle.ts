@@ -10,8 +10,8 @@ const RING = "seal-ring";
 const BODY = "body";
 const DEG = Math.PI / 180;
 
-/** Pitch at or below this keeps the cap on. Game number: real bottle threads are far shallower. */
-const PITCH_WINDOW: Window = [2, 4];
+/** Above 4 mm a shake walks the cap off; below 3 mm it takes more than MAX_TURNS to open. Game numbers. */
+const PITCH_WINDOW: Window = [3, 4];
 /** Squeeze that fills the gaps without crushing the rubber. The 15 to 30 percent band is the typical range for static seals. */
 const SQUEEZE_WINDOW: Window = [0.15, 0.3];
 const SHAKES = 5;
@@ -20,6 +20,8 @@ const ENGAGE = 12;
 const LIFT_PER_PITCH_OVER = 4;
 const MAX_DROPS = 12;
 const HAND_TORQUE = 2.5;
+/** A cap that is still on after this many turns counts as too slow to open. Game number. */
+const MAX_TURNS = 4;
 /** Millimetres per second squared. Looks right on a bottle that is 214 mm tall; not real gravity. */
 const G = 900;
 const NECK_RADIUS = 27;
@@ -197,6 +199,24 @@ const open: Test = {
         },
       };
     }
+    if (turns > MAX_TURNS + 1e-9) {
+      const gave = MAX_TURNS * 360;
+      const rise = MAX_TURNS * pitch;
+      const twistMs = 500 + MAX_TURNS * 260;
+      return {
+        verdict: { pass: false, line: `Still on after ${MAX_TURNS} turns. At ${pitch} mm a turn, freeing ${ENGAGE} mm of thread takes ${turns.toFixed(1)} turns.` },
+        durationMs: twistMs + OPEN_HOLD + OPEN_BACK,
+        at: (ms) => {
+          if (ms < twistMs) {
+            const p = smooth(ms / twistMs);
+            return overlay(STILL, `Turn ${(MAX_TURNS * p).toFixed(1)} of ${turns.toFixed(1)}`, cap({ dy: rise * p, turn: gave * p }));
+          }
+          if (ms < twistMs + OPEN_HOLD) return overlay(STILL, `Still on after ${MAX_TURNS} turns`, cap({ dy: rise, turn: gave }));
+          const p = smooth(clamp01((ms - twistMs - OPEN_HOLD) / OPEN_BACK));
+          return overlay(STILL, "Giving up", cap({ dy: rise * (1 - p), turn: gave * (1 - p) }));
+        },
+      };
+    }
     const twist = 500 + turns * 260;
     const total = turns * 360;
     return {
@@ -247,17 +267,27 @@ export default defineLesson({
       fault: { primitive: "thread", slider: "pitch", start: 6 },
       fix: { window: PITCH_WINDOW },
       tests: [shake, open],
-      hints: [
-        "Run Shake again and watch the cap. It climbs a little every time. Something that should hold it down is too weak.",
-        "A thread is a ramp wound around the neck. On a steep ramp, a jolt is enough to push the cap up it.",
-        "Make the ramp shallower. Pitch is how far the cap climbs per turn. The band on the slider now marks the range worth trying.",
-      ],
+      hints: {
+        observe: "Run Shake and watch the cap. It climbs the neck a little with every shake.",
+        principle: "A thread is a wedge wound around the neck, and pitch is how far the cap rises in one turn. On a steep thread a jolt can turn the cap and push it up the ramp.",
+        direction: "Make the pitch smaller, but not too small. Every turn then lifts the cap less, so opening takes more turns.",
+        low: "Opening takes more than 4 turns and the cap is still on.",
+        high: "A shake walks the cap up the thread and off.",
+      },
       suspect: CAP,
       misses: { [BODY]: "The body is what everything else rides on. Look for the part that moves relative to it." },
       missDefault: "That part stays where it is during Shake. Watch which one moves.",
       why: "A thread is a wedge wrapped round a rod. A shallow one makes the cap climb slowly, and real threads mostly stay put by friction, which grows as the thread gets shallower. Finer pitch costs more turns to close.",
-      gameNote: "Game numbers: the cap walks off above 4 mm of pitch, 12 mm of thread is engaged, and each shake lifts it by 4 mm for every mm over 4. Real bottle threads are shallower than this, so the failure is exaggerated to make it visible.",
+      gameNote: "Game numbers: 12 mm of thread is engaged, each shake lifts the cap 4 mm for every mm of pitch over 4, and a cap still on after 4 turns counts as too slow. Real bottle threads are finer and open in one or two turns, so both failures are exaggerated to make them visible.",
       readoutWith: (pitch) => ({ turns: ENGAGE / pitch }),
+      numbers: (v) => {
+        const pitch = pitchOf(v);
+        const lift = Math.max(0, pitch - PITCH_WINDOW[1]) * LIFT_PER_PITCH_OVER;
+        return [
+          { label: "To open", value: `${ENGAGE} mm ÷ ${pitch} mm = ${(ENGAGE / pitch).toFixed(1)} turns (limit ${MAX_TURNS})` },
+          { label: "Each shake", value: lift > 0 ? `cap climbs ${lift} mm (off after ${ENGAGE} mm)` : "cap stays put" },
+        ];
+      },
     },
     {
       id: "dry",
@@ -270,11 +300,13 @@ export default defineLesson({
       fault: { primitive: "seal", slider: "squeeze", start: 0.03 },
       fix: { window: SQUEEZE_WINDOW },
       tests: [flip, open],
-      hints: [
-        "Run Flip and watch where the drops start. They come out at the joint between the cap and the neck.",
-        "Two hard surfaces never fit perfectly. Rubber stops a leak by being squeezed into the gaps between them. Squeeze it too little and the gaps stay open.",
-        "Squeeze more, but not too far. Crushed rubber grips the cap so hard that a hand cannot turn it. Check Flip and Open together. The band on the slider marks the range worth trying.",
-      ],
+      hints: {
+        observe: "Run Flip and watch where the drops start. They come out at the joint between the cap and the neck.",
+        principle: "A seal works by being squeezed. Two hard surfaces never fit perfectly, and squeezed rubber is pressed into the gaps between them. Squeeze it too little and the gaps stay open.",
+        direction: "Squeeze more, but not too far. Check Flip and Open together.",
+        low: "The gaps stay open and Flip leaks.",
+        high: "Crushed rubber grips the cap so hard that Open needs more torque than a hand gives.",
+      },
       suspect: RING,
       misses: {
         [BODY]: "That holds the water, but it isn't where it leaks. Run Flip and watch where the drops start.",
@@ -283,6 +315,10 @@ export default defineLesson({
       },
       missDefault: "That isn't where the water gets out. Run Flip and watch where the drops start.",
       why: "A rubber ring squeezed about 15 to 30 percent is pressed into the tiny gaps in the joint and closes them. Less leaks. More is crushed, and the cap becomes too hard to twist. Static seals are typically squeezed in that range.",
+      numbers: (v) => {
+        const squeeze = squeezeOf(v);
+        return [{ label: "Torque to open", value: `0.4 + 7 × ${squeeze.toFixed(2)} = ${(0.4 + 7 * squeeze).toFixed(1)} N·m (a hand gives ${HAND_TORQUE})` }];
+      },
       gameNote: "Game numbers: a hand gives about 2.5 N·m, and the torque to open is taken as 0.4 + 7 × squeeze in N·m. The 15 to 30 percent band is the typical range for static seals, not a measured limit for this bottle.",
     },
   ],

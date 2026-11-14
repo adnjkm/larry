@@ -15,20 +15,25 @@ const PIN = "pivot-pin";
 const HEAD = [CHANNEL, ARM, PAD, PIN];
 const DEG = Math.PI / 180;
 
-/** Arm ratios worth trying: hand distance from the hinge divided by the staple's distance from it. */
-const RATIO_WINDOW: Window = [2, 4];
-/** Spring stiffnesses worth trying, in N/mm. */
-const STIFFNESS_WINDOW: Window = [1.8, 2.5];
+/** Arm ratios that pass: hand distance from the hinge divided by the staple's distance from it. Below, 40 N cannot reach 100 N; above, the staple travels under 6 mm. */
+const RATIO_WINDOW: Window = [2.5, 4];
+/** Spring stiffnesses in N/mm that pass at the middle arm ratio. Below, the spring loses to hinge friction; above, the squeeze passes 55 N. */
+const STIFFNESS_WINDOW: Window = [1.3, 2.4];
 
 // Game numbers. The lever law and Hooke's law are real; every value below is picked so the lesson plays well.
 const SHEETS = 20;
-const SQUEEZE_N = 50;
-const SHEET_N = 4;
+/** Newtons to push one staple through one sheet. 20 sheets take 100 N, the load the lever in Learn lifts. */
+const SHEET_N = 5;
+const PIERCE_N = SHEETS * SHEET_N;
+/** An ordinary squeeze must be enough for the paper. */
+const HAND_N = 40;
+/** A squeeze stays comfortable up to this, the spring included. */
+const COMFORT_N = 55;
 const HAND_TRAVEL = 24;
 const CLOSE_TRAVEL = 6;
-const SPRING_MM = 4;
-const FRICTION_N = 6;
-const COMFORT_N = 60;
+/** How far the spring is squeezed when the arm is down. */
+const SPRING_MM = 10;
+const FRICTION_N = 12;
 
 /** How far the head rests open, in degrees. */
 const OPEN_DEG = 13.5;
@@ -105,9 +110,12 @@ const STAPLE_SHAPE: Shape = {
 
 type Squeezed = {
   kind: "weak" | "short" | "hard" | "pass";
+  ratio: number;
+  /** Force reaching the staple when the hand stops at its limit. */
   atStaple: number;
   pierced: number;
   travel: number;
+  /** Squeeze the sheets alone take at the pad. */
   need: number;
   spring: number;
   total: number;
@@ -115,23 +123,31 @@ type Squeezed = {
   depth: number;
 };
 
+const springOf = (values: Values, hasSpring: boolean) => (hasSpring ? tenth(SPRING_MM * stiffnessOf(values)) : 0);
+
+/**
+ * The hand pushes the pad; the spring pushes back; the lever multiplies what is left by the arm ratio.
+ * The paper must take no more than an ordinary squeeze, and paper plus spring no more than a comfortable one.
+ */
 function squeezeResult(values: Values, hasSpring: boolean): Squeezed {
   const ratio = ratioOf(values);
-  const atStaple = tenth(SQUEEZE_N * ratio);
-  const pierced = Math.min(SHEETS, Math.floor(atStaple / SHEET_N));
+  const spring = springOf(values, hasSpring);
   const travel = tenth(HAND_TRAVEL / ratio);
-  const need = tenth((SHEETS * SHEET_N) / ratio);
-  const spring = hasSpring ? tenth(SPRING_MM * stiffnessOf(values)) : 0;
+  const need = tenth(PIERCE_N / ratio);
   const total = tenth(need + spring);
-  const kind = pierced < SHEETS ? "weak" : travel < CLOSE_TRAVEL ? "short" : total > COMFORT_N ? "hard" : "pass";
-  return { kind, atStaple, pierced, travel, need, spring, total, depth: Math.min(pierced / SHEETS, Math.min(1, travel / CLOSE_TRAVEL)) };
+  const ordinary = tenth(HAND_N * ratio);
+  const comfortable = tenth((COMFORT_N - spring) * ratio);
+  const kind = ordinary < PIERCE_N ? "weak" : travel < CLOSE_TRAVEL ? "short" : comfortable < PIERCE_N ? "hard" : "pass";
+  const atStaple = kind === "weak" ? ordinary : kind === "hard" ? comfortable : PIERCE_N;
+  const pierced = Math.min(SHEETS, Math.floor(atStaple / SHEET_N));
+  return { kind, ratio, atStaple, pierced, travel, need, spring, total, depth: Math.min(pierced / SHEETS, Math.min(1, travel / CLOSE_TRAVEL)) };
 }
 
 const squeezeLine = (r: Squeezed) => {
   switch (r.kind) {
-    case "weak": return `Your ${SQUEEZE_N} N became ${r.atStaple} N at the staple. It pierced ${r.pierced} of ${SHEETS} sheets.`;
-    case "short": return `The staple moved ${r.travel} mm. Closing its legs takes ${CLOSE_TRAVEL} mm, so it stopped short.`;
-    case "hard": return `Through ${SHEETS} sheets, but it took ${r.total} N of squeeze: ${r.need} N for the sheets and ${r.spring} N against the spring. Past ${COMFORT_N} N it hurts.`;
+    case "weak": return `An ordinary ${HAND_N} N squeeze became ${HAND_N} × ${r.ratio} = ${r.atStaple} N at the staple. ${SHEETS} sheets need ${PIERCE_N} N, so it pierced ${r.pierced}.`;
+    case "short": return `The staple moved ${HAND_TRAVEL} ÷ ${r.ratio} = ${r.travel} mm. Closing its legs takes ${CLOSE_TRAVEL} mm, so it stopped short.`;
+    case "hard": return `It needs ${r.total} N of squeeze: ${r.need} N for the sheets and ${r.spring} N against the spring. A comfortable squeeze stops at ${COMFORT_N} N, so it pierced ${r.pierced} of ${SHEETS} sheets.`;
     case "pass": return r.spring > 0
       ? `Through all ${SHEETS} sheets, legs closed. It took ${r.total} N of squeeze: ${r.need} N for the sheets and ${r.spring} N against the spring.`
       : `Through all ${SHEETS} sheets, legs closed. It took ${r.need} N of squeeze.`;
@@ -151,7 +167,7 @@ const squeeze: Test = {
     const hasSpring = ctx.present.includes(CHANNEL);
     const result = squeezeResult(values, hasSpring);
     const rig = rigOf(ctx);
-    const springLifts = hasSpring && SPRING_MM * stiffnessOf(values) > FRICTION_N;
+    const springLifts = springOf(values, hasSpring) > FRICTION_N;
     const carried = turnPoint(rig.nose, rig.pin, rig.closeDeg);
     const dropFull = carried.y - rig.anvilTop;
     const liftAt = PRESS + DRIVE + HOLD;
@@ -191,8 +207,7 @@ const release: Test = {
   id: "release",
   label: "Release",
   run: (values, ctx) => {
-    const hasSpring = ctx.present.includes(CHANNEL);
-    const spring = hasSpring ? tenth(SPRING_MM * stiffnessOf(values)) : 0;
+    const spring = springOf(values, ctx.present.includes(CHANNEL));
     const lifts = spring > FRICTION_N;
     const rig = rigOf(ctx);
     const popMs = Math.min(900, Math.max(350, 1000 - 40 * spring));
@@ -243,7 +258,7 @@ export default defineLesson({
     {
       id: "drive",
       title: "Drive the staple",
-      need: "It must push a staple through 20 sheets with an ordinary squeeze.",
+      need: "It must push a staple through 20 sheets with an ordinary 40 N squeeze.",
       primitive: "lever",
       produces: [ARM, PAD, PIN],
       target: { label: "Top arm", at: vec(-30, 58, 0), ring: { radius: 40, axis: "z" } },
@@ -251,11 +266,13 @@ export default defineLesson({
       fault: { primitive: "lever", slider: "ratio", start: 1 },
       fix: { window: RATIO_WINDOW },
       tests: [squeeze],
-      hints: [
-        "Run Squeeze and watch the staple. It starts into the stack and stops partway. Whatever pushes it is not multiplying your squeeze enough.",
-        "The arm is a lever hinged at the back. The force at the staple is your force times your distance from the hinge, divided by the staple's distance from it. That distance ratio is the arm ratio.",
-        "Raise the arm ratio. But the staple moves the same ratio less far than your hand does, so too high a ratio leaves it short of closing its legs. The band on the slider now marks the range worth trying.",
-      ],
+      hints: {
+        observe: "Run Squeeze and watch the staple. It starts into the stack and stops partway.",
+        principle: "The arm is a lever hinged at the back. The force at the staple is your squeeze times the arm ratio, your distance from the hinge divided by the staple's. The staple's travel is your travel divided by the same ratio.",
+        direction: "Raise the arm ratio until 40 N becomes at least 100 N at the staple, and stop before the staple's travel drops under 6 mm.",
+        low: "Too little force reaches the staple, and it stops partway through the stack.",
+        high: "The staple moves too little to close its legs, and it stops short.",
+      },
       suspect: ARM,
       misses: {
         [BASE]: "The base holds the paper still. It does not push the staple.",
@@ -266,7 +283,15 @@ export default defineLesson({
       },
       missDefault: "That part is not what limits the force at the staple. Run Squeeze and watch what turns.",
       why: "The arm is a lever hinged at the back. The force at the staple is your force times your distance from the hinge, divided by the staple's distance from it. A larger ratio multiplies your squeeze, and the staple moves the same ratio less far than your hand. No work is gained, only a better trade of force for distance.",
-      gameNote: "Game numbers: an ordinary squeeze is 50 N, each sheet takes 4 N to pierce (80 N for 20), the pad moves 24 mm, and the staple needs 6 mm of travel to close its legs. The lever law is real. The paper stack is drawn thicker than 20 real sheets.",
+      readoutWith: () => ({ push: HAND_TRAVEL }),
+      numbers: (v) => {
+        const r = ratioOf(v);
+        return [
+          { label: "At the staple", value: `${HAND_N} N × ${r} = ${tenth(HAND_N * r)} N (${SHEETS} sheets need ${PIERCE_N} N)` },
+          { label: "Staple travel", value: `${HAND_TRAVEL} mm ÷ ${r} = ${tenth(HAND_TRAVEL / r)} mm (legs need ${CLOSE_TRAVEL} mm)` },
+        ];
+      },
+      gameNote: "Game numbers: an ordinary squeeze is 40 N, each sheet takes 5 N to pierce (100 N for 20), the pad moves 24 mm, and the staple needs 6 mm of travel to close its legs. The lever law is real. The lever in Learn is a seesaw, so its load moves the other way; in the stapler the staple moves down with your hand. The paper stack is drawn thicker than 20 real sheets.",
     },
     {
       id: "spring",
@@ -279,11 +304,13 @@ export default defineLesson({
       fault: { primitive: "spring", slider: "stiffness", start: 1 },
       fix: { window: STIFFNESS_WINDOW },
       tests: [release, squeeze],
-      hints: [
-        "Run Release and watch the arm. After you let go it stays down. Something that should push it back open is too weak.",
-        "A spring gives back the push you put into it, F = k × x. It has to beat the friction in the hinge. Stiffness is how many newtons it pushes for each millimetre it is squeezed.",
-        "Stiffen it, but not too far. You squeeze against the spring on every staple, so a stiff one makes every squeeze harder. Check Release and Squeeze together. The band on the slider marks the range worth trying.",
-      ],
+      hints: {
+        observe: "Run Release and watch the arm. After you let go it stays down.",
+        principle: "A spring pushes back with F = k × x: stiffness times how far it is squeezed. Here it is squeezed 10 mm, and its push has to beat the 12 N of friction in the hinge.",
+        direction: "Stiffen it, but not too far. You squeeze against the spring on every staple. Check Release and Squeeze together.",
+        low: "The spring loses to hinge friction and the arm stays down.",
+        high: "Sheets plus spring take more than a comfortable 55 N squeeze, and the staple stops partway.",
+      },
       suspect: CHANNEL,
       misses: {
         [BASE]: "The base stays put. Look for the part that carries the push that opens the arm.",
@@ -295,7 +322,16 @@ export default defineLesson({
       },
       missDefault: "That is not what pushes the arm open. Run Release and watch where the push should come from.",
       why: "A spring stores the work of your squeeze and gives it back when you let go. It has to push harder than the hinge's friction, or the arm stays down. It also pushes against you on every staple, so a stiffer spring makes every squeeze harder. Stiffness is a trade between those two.",
-      gameNote: "Game numbers: the spring is squeezed 4 mm, so it pushes 4 N for each N/mm of stiffness. Hinge friction holds the arm down with 6 N, and a squeeze stays comfortable up to 60 N. A real stapler hides the spring inside the head. The purple arrow shows where it pushes.",
+      readoutWith: (k) => ({ force: tenth(SPRING_MM * k) }),
+      numbers: (v) => {
+        const spring = springOf(v, true);
+        const need = tenth(PIERCE_N / ratioOf(v));
+        return [
+          { label: "Spring push", value: `${stiffnessOf(v)} N/mm × ${SPRING_MM} mm = ${spring} N (hinge friction ${FRICTION_N} N)` },
+          { label: "Squeeze needed", value: `${need} N for the sheets + ${spring} N = ${tenth(need + spring)} N (comfortable to ${COMFORT_N} N)` },
+        ];
+      },
+      gameNote: "Game numbers: the spring is squeezed 10 mm when the arm is down, so it pushes 10 N for each N/mm of stiffness. Hinge friction holds the arm down with 12 N, and a squeeze stays comfortable up to 55 N, the spring included. A real stapler hides the spring inside the head. The purple arrow shows where it pushes.",
     },
   ],
   final: {

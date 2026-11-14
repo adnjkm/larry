@@ -1,10 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { formatSlider, initialValues } from "../../src/primitives/library.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { lerp, smooth } from "./ease.ts";
-import { faultValues, fixedValues, type Module, type Overlay, presentAfter, type Test, type Values, type Verdict, type Workshop } from "./model.ts";
+import { faultValues, fixedValues, type Module, type Overlay, passBand, presentAfter, type Test, type Values, type Verdict, type Workshop } from "./model.ts";
 import { compose, drawObject, frameAround, restCentre } from "./pose.ts";
 import { ExplodeSlider, Header, SliderRow, Viewer } from "./ui.tsx";
 
@@ -108,8 +108,9 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
     setNote(module.misses[id] ?? module.missDefault);
   };
 
-  const hintsShown = module ? Math.min(fails, module.hints.length) : 0;
-  const revealed = module ? hintsShown === module.hints.length : false;
+  const hintsShown = module ? Math.min(fails, HINT_COUNT) : 0;
+  const revealed = hintsShown === HINT_COUNT;
+  const band = useMemo(() => (module && revealed ? passBand(module, tuning, world.ctx) : null), [module, revealed, tuning, world.ctx]);
 
   const tune = (value: number) => {
     if (!module) return;
@@ -169,12 +170,16 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
         <section className="card" data-guide>
           <span className="mono">Find the fault</span>
           {hintsShown === 0 ? <p>Run a test and watch what goes wrong.</p> : null}
-          {module.hints.slice(0, hintsShown).map((h, i) => (
-            <p key={h} className="hintline" data-hint={i + 1} data-latest={i === hintsShown - 1 ? "" : undefined}>
-              <b>{i + 1}</b>
-              {h}
-            </p>
-          ))}
+          {hintsShown >= 1 ? <Hint n={1} latest={hintsShown === 1}>{module.hints.observe}</Hint> : null}
+          {hintsShown >= 2 ? <Hint n={2} latest={hintsShown === 2}>{module.hints.principle}</Hint> : null}
+          {hintsShown >= 3 ? (
+            <Hint n={3} latest>
+              {module.hints.direction}
+              <span className="side"><b>Too low</b>{module.hints.low}</span>
+              <span className="side"><b>Too high</b>{module.hints.high}</span>
+              The band on the slider marks the values that pass at your current settings.
+            </Hint>
+          ) : null}
           {lines.flatMap(({ verdict }) => (!verdict.pass && verdict.nudge ? [verdict.nudge] : [])).map((n) => <p key={n} className="hintline"><b>!</b>{n}</p>)}
           <span className="mono">Which part is at fault? Tap it.</span>
           <div className="pchips">
@@ -189,16 +194,27 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
       {module ? (
         <section className="card fix" data-fix data-locked={found ? undefined : ""}>
           <span className="mono">Fix · {module.fault.primitive.name}</span>
-          <SliderRow slider={module.fault.slider} value={tuning[module.fault.slider.id] ?? module.fault.start} onChange={tune} disabled={!found || earned} band={revealed ? module.fix.window : undefined} />
-          {found ? null : <p className="hint">Locked until you find the part at fault.</p>}
-          {found && revealed
-            ? module.fault.primitive.readouts(readoutValues(module, tuning)).map((r) => (
+          <SliderRow slider={module.fault.slider} value={tuning[module.fault.slider.id] ?? module.fault.start} onChange={tune} disabled={!found || earned} band={band ?? undefined} />
+          {found ? (
+            <div className="readouts" data-readouts>
+              <span className="mono">{module.fault.primitive.name}, as in Learn</span>
+              {module.fault.primitive.readouts(readoutValues(module, tuning)).map((r) => (
                 <div key={r.label} className="log-row">
                   <span>{r.label}</span>
                   <span>{r.value}</span>
                 </div>
-              ))
-            : null}
+              ))}
+              <span className="mono">In the {object}</span>
+              {module.numbers(tuning).map((r) => (
+                <div key={r.label} className="log-row" data-number>
+                  <span>{r.label}</span>
+                  <span>{r.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="hint">Locked until you find the part at fault.</p>
+          )}
           <p className="note">{module.gameNote}</p>
         </section>
       ) : null}
@@ -232,6 +248,17 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
         </>
       ) : null}
     </main>
+  );
+}
+
+const HINT_COUNT = 3;
+
+function Hint({ n, latest, children }: { n: number; latest: boolean; children: ReactNode }) {
+  return (
+    <p className="hintline" data-hint={n} data-latest={latest ? "" : undefined}>
+      <b>{n}</b>
+      <span>{children}</span>
+    </p>
   );
 }
 

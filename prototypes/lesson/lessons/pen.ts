@@ -275,11 +275,13 @@ export default defineLesson({
       fault: { primitive: "seal", slider: "squeeze", start: 0.04 },
       fix: { window: SEAT_WINDOW },
       tests: [write, tipDown],
-      hints: [
-        "Run Write and Tip down and watch the ink. It blots along the line, and it drips from the point when nobody is writing. Ink is getting past the ball.",
-        "The ball does two jobs. It rolls, so it wheels ink onto the paper. It also sits in a socket that has to close around it, so ink cannot slip past when the pen is still. A seal does that job.",
-        "Seat the ball more tightly in its socket. Squeeze on the slider is how tightly it sits. Too tight and it cannot roll, and the line skips. The band on the slider marks the range worth trying.",
-      ],
+      hints: {
+        observe: "Run Write and Tip down and watch the point. The line blots, and ink drips while nobody is writing. Ink is getting past the ball.",
+        principle: "The ball is a wheel: it rolls and carries ink onto the paper. Its socket is a seal: squeezed snugly around the ball, it closes the gap so ink moves only when the ball turns.",
+        direction: "Seat the ball more tightly. Squeeze is how tightly the socket holds it. Check Write and Tip down together.",
+        low: "Ink slips past the ball, so the line blots and the point drips.",
+        high: "The ball drags instead of rolling, so the line skips.",
+      },
       suspect: REFILL,
       misses: {
         barrel: "The barrel is only the tube you hold. Ink gets out at the point, not through the barrel.",
@@ -288,6 +290,10 @@ export default defineLesson({
       },
       missDefault: "That part is not where the ink gets out. Watch the point during Write and Tip down.",
       why: "The ball in a ballpoint is a tiny wheel: it rolls against the paper and carries a thin film of ink out of the tube. Its socket works as a seal. Seated snugly, the socket blocks the gap, so ink moves only when the ball turns. Too loose and ink slips past. Too tight and the ball cannot roll, and the line skips.",
+      numbers: (v) => {
+        const seat = pct(squeezeOf(v));
+        return [{ label: "Ball seat", value: `${seat}% (ink slips past below ${pct(SEAT_WINDOW[0])}%, the ball drags above ${pct(SEAT_WINDOW[1])}%)` }];
+      },
       gameNote: "Game numbers: here Squeeze stands for how tightly the ball sits in its socket. Below 15 percent ink slips past and leaks. Above 30 percent the ball drags and the line skips. A real ball sits in its socket with a clearance of a few thousandths of a millimetre and nothing is squeezed like rubber, so read the percentages as a game scale.",
     },
     {
@@ -302,11 +308,13 @@ export default defineLesson({
       fault: { primitive: "catch", slider: "force", start: 2 },
       fix: { window: CATCH_WINDOW },
       tests: [click, writeHard],
-      hints: [
-        "Run Write hard and watch the point. It clicks out, then the push of writing shoves it back in.",
-        "Something has to hold the tip out against the spring that wants it back. A catch holds until it is pushed hard enough, and its release force is the number that matters. Writing pushes with about 3 N, so a weaker catch lets go.",
-        "Raise the release force above the writing push, but keep it under what a thumb can press, about 10 N, or Click fails. The band on the slider marks the range worth trying.",
-      ],
+      hints: {
+        observe: "Run Write hard and watch the point. It clicks out, then the push of writing shoves it back in.",
+        principle: "A catch is a wedge held out by a spring. It holds until something pushes harder than its release force. Writing pushes back on the tip with about 3 N, so a catch that lets go below that cannot hold the tip out.",
+        direction: "Raise the release force above the writing push, but keep it under what a thumb presses. Check Click and Write hard together.",
+        low: "Writing pushes the tip back in.",
+        high: "The button needs more than the 10 N a thumb comfortably gives, so Click fails.",
+      },
       suspect: PLUNGER,
       misses: {
         barrel: "The barrel holds still while the tip moves. Look at the part you press.",
@@ -316,6 +324,13 @@ export default defineLesson({
       },
       missDefault: "That part is not what holds the tip out. Watch what moves when the tip is pushed in.",
       why: "A catch is a wedge pushed out by a spring. The sloped face lets a push in and the steep face holds against a pull, so letting go takes a firm push. In the pen it holds the ink tube out against the return spring. Strong enough to hold under writing pressure, weak enough for a thumb. The kit has no separate part for it, so the click button stands for the catch. A real click pen alternates hold and release with a rotating cam, which is the next idea. The catch here is only the holding half.",
+      numbers: (v) => {
+        const force = forceOf(v);
+        return [
+          { label: "Writing push", value: `${WRITE_PUSH} N against a ${force} N catch: ${force > WRITE_PUSH ? "it holds" : "it lets go"}` },
+          { label: "Click", value: `${force} N against a thumb's ${FINGER_LIMIT} N: ${force > FINGER_LIMIT ? "too hard" : "it goes"}` },
+        ];
+      },
       gameNote: "Game numbers: writing pushes back on the tip with about 3 N, and a thumb comfortably presses up to about 10 N. Real writing force is usually well under 3 N, and a real pen holds its tip with a cam, so the numbers are chosen to make the failure easy to see.",
     },
   ],

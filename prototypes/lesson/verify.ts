@@ -12,7 +12,8 @@ import viteConfig from "../../vite.config.ts";
 import { type Kit, parseKit } from "../../shared/kit.ts";
 import { LESSONS } from "./lessons/index.ts";
 import { inspectLesson } from "./lessons/inspect.ts";
-import { midWindow, type Workshop } from "./model.ts";
+import { fixedValues, midWindow, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
+import { restCentre } from "./pose.ts";
 
 const root = resolve(import.meta.dirname, "../..");
 const outDir = join(root, "out", "lesson");
@@ -108,9 +109,67 @@ class Run {
   }
 }
 
+const near = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+const inWindow = (v: number, [lo, hi]: Window) => v >= lo - 1e-6 && v <= hi + 1e-6;
+/** A value halfway between the slider's end and the window's edge, snapped to the slider's step. */
+const outside = (m: Module, side: "low" | "high") => {
+  const { slider: s } = m.fault;
+  const [lo, hi] = m.fix.window;
+  const steps = sliderSteps(s).filter((v) => (side === "low" ? v < lo - 1e-6 : v > hi + 1e-6));
+  return steps[Math.floor(steps.length / 2)]!;
+};
+
+/**
+ * The fix rules, checked from the test verdicts without a browser. For every module and every tuning a
+ * player can reach (each earlier module anywhere in its passing band): the band of passing values is
+ * one unbroken run with failing values on both sides, the failures on the two sides read differently,
+ * and at the middle tuning the band is exactly the declared window. Every reachable full tuning passes
+ * the final tests.
+ */
+function checkRules(r: Run, lesson: Workshop, kit: Kit) {
+  const ctxAt = (index: number): TestCtx => {
+    const present = presentAfter(lesson, kit, index);
+    return { kit, present, centre: restCentre(kit, present, lesson.rest({ kit, present })) };
+  };
+  let reachable: Values[] = [fixedValues(lesson)];
+  for (const [i, m] of lesson.modules.entries()) {
+    const ctx = ctxAt(i);
+    const { slider } = m.fault;
+    const steps = sliderSteps(slider);
+    const problems: string[] = [];
+    const next: Values[] = [];
+    for (const values of reachable) {
+      const passing = steps.filter((v) => passesAt(m, values, v, ctx));
+      const band = passBand(m, values, ctx);
+      const at = JSON.stringify(Object.fromEntries(lesson.modules.slice(0, i).map((q) => [q.fault.slider.id, values[q.fault.slider.id]])));
+      if (!band) {
+        problems.push(`nothing passes at ${at}`);
+        continue;
+      }
+      if (passing.length !== steps.filter((v) => inWindow(v, band)).length) problems.push(`the passing values have a gap at ${at}`);
+      if (near(band[0], slider.min) || near(band[1], slider.max)) problems.push(`band ${band.join("..")} reaches the end of the slider at ${at}`);
+      const lines = (v: number) => m.tests.map((t) => t.run({ ...values, [slider.id]: v }, ctx).verdict).filter((x) => !x.pass).map((x) => x.line.replace(/[\d.]+/g, "#"));
+      const low = lines(slider.min);
+      const high = lines(slider.max);
+      if (low.some((l) => high.includes(l))) problems.push(`the same failure on both sides at ${at}: ${low.join(" / ")}`);
+      next.push(...passing.map((v) => ({ ...values, [slider.id]: v })));
+    }
+    const mid = fixedValues(lesson);
+    const declared = passBand(m, mid, ctx);
+    if (!declared || !near(declared[0], m.fix.window[0]) || !near(declared[1], m.fix.window[1]))
+      problems.push(`declared window ${m.fix.window.join("..")} but ${declared?.join("..") ?? "nothing"} passes at the middle tuning`);
+    r.check(`m${i + 1} rules: ${slider.id} fails below and above its window, at ${reachable.length} reachable tunings`, problems.length === 0, problems.slice(0, 3).join("; "));
+    reachable = next;
+  }
+  const ctx = ctxAt(lesson.modules.length - 1);
+  const failing = reachable.filter((values) => !lesson.final.tests.every((t) => t.run(values, ctx).verdict.pass));
+  r.check(`rules: every reachable tuning (${reachable.length}) passes the final tests`, failing.length === 0, JSON.stringify(failing[0] ?? {}));
+}
+
 async function playWorkshop(r: Run, lesson: Workshop, url: string) {
   const kit = KITS[lesson.id];
   if (!kit) throw new Error(`no fixture kit for lesson ${lesson.id}`);
+  checkRules(r, lesson, kit);
   await r.open(lesson.id, false, url);
   for (const [i, m] of lesson.modules.entries()) {
     const tag = `m${i + 1}`;
@@ -146,6 +205,19 @@ async function playWorkshop(r: Run, lesson: Workshop, url: string) {
     await r.page.click(`[data-guide] [data-part="${m.suspect}"]`);
     r.check(`${tag} suspect (${m.suspect}) unlocks the fix`, (await r.page.locator("[data-note][data-found]").count()) === 1 && (await r.page.locator(`[data-fix] input[data-slider="${m.fault.slider.id}"]:not([disabled])`).count()) === 1);
     await r.shot(`${tag}-diagnosed`);
+
+    const failed: Record<string, string> = {};
+    for (const side of ["low", "high"] as const) {
+      const v = outside(m, side);
+      await r.setRange(`[data-fix] input[data-slider="${m.fault.slider.id}"]`, v);
+      const got = await r.runTests(testIds, `${tag}-${side}`);
+      const bad = testIds.filter((id) => got[id] === "fail");
+      failed[side] = (await r.page.locator(`[data-log] [data-result] .bad`).allTextContents()).join(" / ");
+      r.check(`${tag} ${m.fault.slider.id} = ${v} (${side === "low" ? "below" : "above"} the window) fails ${bad.join("+") || "nothing"}`, bad.length > 0, JSON.stringify(got));
+    }
+    r.check(`${tag} the two sides fail differently`, failed.low !== failed.high, `${failed.low} | ${failed.high}`);
+    r.check(`${tag} third hint names both sides`, (await r.page.locator('[data-hint="3"] .side').count()) === 2);
+    r.check(`${tag} readouts beside the fix`, (await r.page.locator("[data-fix] [data-readouts] [data-number]").count()) > 0);
 
     const mid = midWindow(m.fault.slider, m.fix.window);
     await r.setRange(`[data-fix] input[data-slider="${m.fault.slider.id}"]`, mid);

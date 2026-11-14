@@ -58,6 +58,10 @@
 .hintline { display: flex; gap: 10px; }
 .hintline b { flex: none; width: 20px; height: 20px; border-radius: 999px; background: var(--ink); color: #fff; font-family: "Geist Mono", monospace; font-size: 11px; font-weight: 500; display: grid; place-items: center; margin-top: 1px; }
 .hintline[data-latest] { animation: pop 300ms var(--ease-out); }
+.hintline .side { display: block; margin: 6px 0; }
+.hintline .side b { all: unset; display: inline-block; min-width: 72px; font-family: "Geist Mono", monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.readouts { display: grid; gap: 6px; }
+.readouts .mono { margin-top: 4px; }
 .pchips { display: flex; flex-wrap: wrap; gap: 6px; }
 .pchip { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px var(--rule) inset; font-size: 14px; font-weight: 500; cursor: pointer; transition: transform 160ms var(--ease-out); }
 .pchip:active { transform: scale(0.97); }
