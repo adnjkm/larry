@@ -284,6 +284,10 @@ async function playWorkshop(r: Run, lesson: Workshop, url: string) {
     const before = await r.runTests(testIds, `${tag}-fault`);
     const failing = testIds.filter((id) => before[id] === "fail");
     r.check(`${tag} tests fail at the fault`, failing.length > 0 && (await r.page.locator('[data-stage="sandbox"]').count()) === 1, JSON.stringify(before));
+    const auto = await r.page.locator("[data-hint]").count();
+    r.check(`${tag} each failed run reveals a hint`, auto === Math.min(failing.length, 3), `${auto} hints after ${failing.length} failures`);
+    for (let i = auto; i < 3; i++) await r.page.click("[data-next-hint]");
+    r.check(`${tag} Next hint reads ahead to hint 3 after ${failing.length} failures`, (await r.page.locator('[data-hint="3"] .side').count()) === 2 && (await r.page.locator("[data-next-hint]").count()) === 0);
 
     const chips = await r.page.locator("[data-guide] [data-part]").evaluateAll((els) => els.map((e) => e.getAttribute("data-part") ?? ""));
     const wrong = chips.find((id) => id !== m.suspect);
@@ -296,6 +300,12 @@ async function playWorkshop(r: Run, lesson: Workshop, url: string) {
     await r.page.click(`[data-guide] [data-part="${m.suspect}"]`);
     r.check(`${tag} suspect (${m.suspect}) unlocks the fix`, (await r.page.locator("[data-note][data-found]").count()) === 1 && (await r.page.locator(`[data-fix] input[data-slider="${m.fault.slider.id}"]:not([disabled])`).count()) === 1);
     await r.shot(`${tag}-diagnosed`);
+    const note = r.page.locator("[data-fix] [data-game-note]");
+    const closed = (await note.getAttribute("open")) === null && !(await note.locator(".note").isVisible());
+    await note.locator("summary").click();
+    const shown = (await note.getAttribute("open")) !== null && (await note.locator(".note").isVisible()) && (await note.locator(".note").textContent()) === m.gameNote;
+    r.check(`${tag} game numbers start closed and open to the module's note`, closed && shown);
+    await note.locator("summary").click();
 
     const failed: Record<string, string> = {};
     for (const side of ["low", "high"] as const) {

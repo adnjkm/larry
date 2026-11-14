@@ -60,8 +60,18 @@
 .hintline[data-latest] { animation: pop 300ms var(--ease-out); }
 .hintline .side { display: block; margin: 6px 0; }
 .hintline .side b { all: unset; display: inline-block; min-width: 72px; font-family: "Geist Mono", monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-.readouts { display: grid; gap: 6px; }
-.readouts .mono { margin-top: 4px; }
+.readouts { display: grid; grid-template-columns: 104px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; margin: 0; font-family: "Geist Mono", monospace; font-size: 13px; line-height: 18px; }
+.readouts > .mono { grid-column: 1 / -1; margin-top: 4px; }
+.readout { display: contents; }
+.readout > :first-child { color: var(--graphite); }
+.readout > :last-child { overflow-wrap: anywhere; }
+.game summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+.game summary::-webkit-details-marker { display: none; }
+.game summary::before { content: "+"; font-size: 13px; width: 10px; }
+.game[open] summary::before { content: "–"; }
+.game .note { margin-top: 4px; }
+.link { align-self: flex-start; min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px var(--rule) inset; font-size: 14px; font-weight: 500; cursor: pointer; transition: transform 160ms var(--ease-out); }
+.link:active { transform: scale(0.97); }
 .pchips { display: flex; flex-wrap: wrap; gap: 6px; }
 .pchip { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px var(--rule) inset; font-size: 14px; font-weight: 500; cursor: pointer; transition: transform 160ms var(--ease-out); }
 .pchip:active { transform: scale(0.97); }

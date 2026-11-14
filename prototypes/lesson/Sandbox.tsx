@@ -64,6 +64,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
   const [tapped, setTapped] = useState<string | null>(null);
   const [found, setFound] = useState(earned && !isFinal);
   const [note, setNote] = useState<string | null>(null);
+  const [readAhead, setReadAhead] = useState(0);
   const token = useRef(0);
 
   const setExplode = (v: number) => {
@@ -119,7 +120,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
     setNote(module.misses[id] ?? module.missDefault);
   };
 
-  const hintsShown = module ? Math.min(fails, HINT_COUNT) : 0;
+  const hintsShown = module ? Math.min(Math.max(fails, readAhead), HINT_COUNT) : 0;
   const revealed = hintsShown === HINT_COUNT;
   const band = useMemo(() => (module && revealed ? passBand(module, tuning, world.ctx) : null), [module, revealed, tuning, world.ctx]);
 
@@ -192,6 +193,9 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
               The band on the slider marks the values that pass at your current settings.
             </Hint>
           ) : null}
+          {hintsShown < HINT_COUNT ? (
+            <button type="button" className="link" data-next-hint onClick={() => setReadAhead(hintsShown + 1)}>Next hint</button>
+          ) : null}
           {lines.flatMap(({ verdict }) => (!verdict.pass && verdict.nudge ? [verdict.nudge] : [])).map((n) => <p key={n} className="hintline"><b>!</b>{n}</p>)}
           <span className="mono">Which part is at fault? Tap it.</span>
           <div className="pchips">
@@ -211,14 +215,14 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
             <div className="readouts" data-readouts>
               <span className="mono">{module.fault.primitive.name}, as in Learn</span>
               {module.fault.primitive.readouts(readoutValues(module, tuning)).map((r) => (
-                <div key={r.label} className="log-row">
+                <div key={r.label} className="readout">
                   <span>{r.label}</span>
                   <span>{r.value}</span>
                 </div>
               ))}
               <span className="mono">In the {object}</span>
               {module.numbers(tuning).map((r) => (
-                <div key={r.label} className="log-row" data-number>
+                <div key={r.label} className="readout" data-number>
                   <span>{r.label}</span>
                   <span>{r.value}</span>
                 </div>
@@ -227,7 +231,10 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
           ) : (
             <p className="hint">Locked until you find the part at fault.</p>
           )}
-          <p className="note">{module.gameNote}</p>
+          <details className="game" data-game-note>
+            <summary className="mono">Game numbers</summary>
+            <p className="note">{module.gameNote}</p>
+          </details>
         </section>
       ) : null}
 
