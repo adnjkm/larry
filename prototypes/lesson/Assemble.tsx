@@ -1,7 +1,7 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
-import { initialValues } from "../../src/primitives/library.ts";
-import { COLOR } from "../../src/primitives/parts.ts";
+import { initialValues } from "./primitives/library.ts";
+import { COLOR } from "./primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
 import { assembledFrom, type Built, type Builds, listOf, type PartMove, presentAfter, type Scene, type Target, vec, type Vec } from "./model.ts";

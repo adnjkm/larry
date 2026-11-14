@@ -4,7 +4,7 @@
 // Inspect lesson derived from any kit. Lessons never hold a kit: they are bound to one at run time, and a
 // Workshop only binds to a kit that has every part it names.
 import type { Joint, Kit, Part, Shape } from "../../shared/kit.ts";
-import { PRIMITIVES, type Primitive, type Readout, type Slider } from "../../src/primitives/library.ts";
+import { PRIMITIVES, type Primitive, type Readout, type Slider } from "./primitives/library.ts";
 
 export type Vec = { x: number; y: number; z: number };
 export const vec = (x = 0, y = 0, z = 0): Vec => ({ x, y, z });

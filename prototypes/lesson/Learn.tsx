@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
-import { initialValues, type Primitive, type Readout, type Values } from "../../src/primitives/library.ts";
+import { initialValues, type Primitive, type Readout, type Values } from "./primitives/library.ts";
 import type { Built, Builds, View } from "./model.ts";
 import { drawObject, enclosed, restCentre } from "./pose.ts";
 import { Actions, Inset, Say, SliderRow, Strip, Viewer, Why } from "./ui.tsx";

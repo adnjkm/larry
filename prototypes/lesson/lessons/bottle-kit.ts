@@ -5,7 +5,7 @@
 // seal-ring, ring-tab) are the roots of its assemblies, and every detail part is fixed to one of them,
 // so it moves, shows and lights up with it. All sizes in mm, y up from the table, round parts on the y axis.
 import { type Kit, parseKit, type Shape } from "../../../shared/kit.ts";
-import { coil, lathe, part, type Pt, ring, v3 } from "../../../src/primitives/parts.ts";
+import { coil, lathe, part, type Pt, ring, v3 } from "../primitives/parts.ts";
 
 const COAT = { color: "#4a4d53", finish: "matte" } as const;
 const STEEL = { color: "#a9adb3", finish: "metal" } as const;

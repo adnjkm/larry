@@ -20,7 +20,7 @@ import { EVIDENCE, generatedLesson, JOINT_TEMPLATES, standOf } from "./templates
 import { aim, idsOf, resting, sharesOf, SPRING, springsAt, type Springs, step } from "./explode.ts";
 import { bindStory, familyOf, faultValues, fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, type Run as TestRun, type Shares, sliderSteps, type Story, type TestCtx, type Values, type Window, type Workshop, zoneAt } from "./model.ts";
 import { corners, drawObject, extents, restCentre } from "./pose.ts";
-import { COLOR, SYNTHWAVE } from "../../src/primitives/parts.ts";
+import { COLOR, SYNTHWAVE } from "./primitives/parts.ts";
 
 const root = resolve(import.meta.dirname, "../..");
 const outDir = join(root, "out", "lesson");
