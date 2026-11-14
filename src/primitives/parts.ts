@@ -1,6 +1,5 @@
 // Shared building blocks for primitives: the Synthwave palette and helpers that turn simple
-// geometry into kit parts (lathe, box, torus, extrusion), positioned the way KitViewer expects.
-// Units are millimetres, y up, resting on y = 0.
+// geometry into kit parts. Units are millimetres, y up, resting on y = 0.
 import type { Finish, Joint, Part, Shape } from "../../shared/kit.ts";
 
 /** The Synthwave preset from iamnoman.com/funky-shadow, darkest to brightest. */
@@ -10,14 +9,13 @@ export const SYNTHWAVE = ["#000023", "#23005f", "#8700af", "#ff0087", "#ff5f37",
  * Part colours. Components are neutral greys; only the piece a primitive is about gets the pink
  * accent (`focus`), the way a diagram highlights one thing. Synthwave itself is for the shadow
  * (see createShadowMaterial). `accent` is a quieter purple for annotations such as force arrows.
- * The keys `second`, `third` and `purple` are kept as grey shades so existing figures stay neutral.
  */
 export const COLOR = {
   focus: "#ff0087",
   accent: "#8700af",
-  second: "#a9adb3",
-  third: "#d3d1cc",
-  purple: "#7d8188",
+  steel: "#a9adb3",
+  stone: "#d3d1cc",
+  slate: "#7d8188",
   structure: "#2e2e30",
   light: "#ecebe7",
 } as const;
@@ -28,10 +26,9 @@ export const look = {
   focusMetal: { color: COLOR.focus, finish: "metal" },
   focusRubber: { color: COLOR.focus, finish: "rubber" },
   accent: { color: COLOR.accent, finish: "matte" },
-  second: { color: COLOR.second, finish: "metal" },
-  third: { color: COLOR.third, finish: "matte" },
-  purple: { color: COLOR.purple, finish: "matte" },
-  purpleMetal: { color: COLOR.purple, finish: "metal" },
+  steel: { color: COLOR.steel, finish: "metal" },
+  stone: { color: COLOR.stone, finish: "matte" },
+  slate: { color: COLOR.slate, finish: "matte" },
   structure: { color: COLOR.structure, finish: "matte" },
   light: { color: COLOR.light, finish: "matte" },
 } satisfies Record<string, Look>;
@@ -41,7 +38,7 @@ export const RAD = Math.PI / 180;
 
 export type Vec = { x: number; y: number; z: number };
 export const v3 = (x: number, y: number, z = 0): Vec => ({ x, y, z });
-export const ZERO = v3(0, 0, 0);
+const ZERO = v3(0, 0, 0);
 export type Pt = [number, number];
 
 export function part(
@@ -58,8 +55,8 @@ export function part(
 }
 
 /**
- * A lathe shape from [r, y] points (bottom to top, revolved about y), plus `midY`: the viewer
- * recentres a lathe on its bounding box, so place it at v3(0, midY) to keep the profile's own heights.
+ * A lathe shape from [r, y] points (bottom to top, revolved about y), plus `midY`, the middle of the
+ * profile's height: place the part at v3(0, midY) to keep the profile's own heights.
  * Close a hollow profile by returning to its first point.
  */
 export function lathe(points: Pt[]): { shape: Shape; midY: number } {
@@ -75,10 +72,12 @@ export const box = (width: number, height: number, depth: number, cornerRadius =
 /** A torus lying flat in x-z, centred on its position. Rotation x = 90 stands it up facing the camera. */
 export const ring = (radius: number, tube: number, arcDegrees = 360): Shape => ({ kind: "torus", radius, tube, arcDegrees });
 
+/** A coil along y, `length` tall including the wire. */
+export const coil = (radius: number, tube: number, length: number, turns: number): Shape => ({ kind: "helix", radius, tube, length, turns });
+
 /**
- * An extrusion (outline drawn in x-y, pushed back along z by `depth`) that turns about a pivot.
- * The viewer recentres extrusions on their bounding box and rotates about that centre, so the
- * position has to carry the pivot-to-centre offset, rotated. Spread the result into part().
+ * An extrusion that turns about a pivot. A part rotates about its own centre, so the position
+ * carries the pivot-to-centre offset, rotated. Spread the result into part().
  */
 export function pivoted(outline: Pt[], depth: number, pivotLocal: Pt, pivotWorld: Vec, angleDeg: number) {
   const xs = outline.map(([x]) => x);

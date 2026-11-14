@@ -3,15 +3,18 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { parseKit } from "../../shared/kit.ts";
 import { parseLesson } from "../../shared/lesson.ts";
-import { CATALOG } from "../primitives/catalog.ts";
+import { CATALOG, PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
 import { type Action, type Arrived, type LessonState, arrivedWhole, chapterStatus, earnedParts, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
 
 const kit = parseKit(JSON.parse(readFileSync(new URL("../../fixtures/kits/pen.json", import.meta.url), "utf8")));
 
 const step = (id: string, over: object) => ({ id, title: id, story: ["s"], primitive: null, problem: null, payoff: ["p"], earns: [], ...over });
 
-// Spring's stiffness slider runs 1..4 and starts at 2.
-const tune = { type: "tune", goal: "g", slider: "stiffness", min: 2.6, max: 3.4, tooLow: "low", tooHigh: "high", justRight: "ok" };
+const stiffness = PRIMITIVE_BY_ID.get("spring")?.sliders.find((s) => s.id === "stiffness");
+assert.ok(stiffness, "the spring has a stiffness slider");
+const along = (fraction: number) => stiffness.min + fraction * (stiffness.max - stiffness.min);
+const [below, inside, above] = [along(0.25), along(0.65), along(0.95)];
+const tune = { type: "tune", goal: "g", slider: "stiffness", min: along(0.55), max: along(0.8), tooLow: "low", tooHigh: "high", justRight: "ok" };
 const pick = {
   type: "pick",
   question: "q",
@@ -57,7 +60,7 @@ const solveModule: Action[] = [
   { type: "next" },
   { type: "problem", action: { type: "pick", option: 1 } },
   { type: "next" },
-  { type: "slider", id: "stiffness", value: 3 },
+  { type: "slider", id: "stiffness", value: inside },
   { type: "problem", action: { type: "tune" } },
   { type: "next" },
 ];
@@ -88,9 +91,9 @@ describe("lesson player", () => {
     const at = (value: number) => run(toTune(), { type: "slider", id: "stiffness", value }, tryTune);
     const toTune = () =>
       run(startLesson(whole), { type: "problem", action: { type: "run" } }, { type: "next" }, { type: "problem", action: { type: "pick", option: 1 } }, { type: "next" });
-    assert.deepEqual(at(2).steps[2]?.problem, { type: "tune", attempts: 1, verdict: "below", solved: false });
-    assert.deepEqual(at(3.8).steps[2]?.problem, { type: "tune", attempts: 1, verdict: "above", solved: false });
-    const solved = run(at(3.8), { type: "slider", id: "stiffness", value: 3 }, tryTune);
+    assert.deepEqual(at(below).steps[2]?.problem, { type: "tune", attempts: 1, verdict: "below", solved: false });
+    assert.deepEqual(at(above).steps[2]?.problem, { type: "tune", attempts: 1, verdict: "above", solved: false });
+    const solved = run(at(above), { type: "slider", id: "stiffness", value: inside }, tryTune);
     assert.deepEqual(solved.steps[2]?.problem, { type: "tune", attempts: 2, verdict: "inside", solved: true });
   });
 
@@ -109,7 +112,7 @@ describe("lesson player", () => {
       { type: "next" },
       { type: "problem", action: { type: "pick", option: 1 } },
       { type: "next" },
-      { type: "slider", id: "stiffness", value: 3 },
+      { type: "slider", id: "stiffness", value: inside },
       tryTune,
       { type: "next" },
     );
