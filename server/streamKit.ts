@@ -23,13 +23,10 @@ The object frame:
 - Units are millimetres. y points up. The object rests on the ground plane y = 0 in the pose shown in the main photo, so a bottle stands and a pen lies down.
 - The object is centred on x = 0 and z = 0.
 - x points to the right as seen in the main photo, and z points toward the camera.
-- A part's position is the centre of its bounding box, except for a torus, where it is the centre of the ring.
 
 Shape tips:
-- A lathe part stands upright along y. For a round part lying down, describe it standing and rotate it: rotation z = -90 points the top of its profile toward +x, and z = 90 toward -x.
-- A torus lies flat. An open arc is centred on +x, so a 200 degree arc is a C opening toward -x. Rotation x = 90 stands the ring up facing the camera, which is how a mug handle on the right is built: put the ring's centre at the body's right edge.
-- An extrusion is drawn as seen from the front and pushed back along z by its depth. Use it for parts with an irregular side view.
-- Rotations are in degrees about x, then y, then z.
+- For a round part lying down, describe a lathe standing and rotate it: rotation z = -90 points the top of its profile toward +x, and z = 90 toward -x.
+- Rotation x = 90 stands a torus up facing the camera, which is how a mug handle on the right is built: put the ring's centre at the body's right edge.
 
 Joints: every part except the main one names its parent, the part it attaches to, and how it is held there. The main part's parentId and joint are null.
 

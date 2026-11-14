@@ -1,11 +1,14 @@
 import {
   BoxGeometry,
   type BufferGeometry,
+  Curve,
   ExtrudeGeometry,
   LatheGeometry,
   Shape as ThreeShape,
   TorusGeometry,
+  TubeGeometry,
   Vector2,
+  Vector3,
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { Shape, ShapeKind } from "../../shared/kit.ts";
@@ -13,6 +16,26 @@ import type { Shape, ShapeKind } from "../../shared/kit.ts";
 type Builders = { [K in ShapeKind]: (shape: Extract<Shape, { kind: K }>) => BufferGeometry };
 
 const SHARP_CORNER_DEGREES = 40;
+const HELIX_SEGMENTS_PER_TURN = 20;
+
+/** The wire's centre line: starts on +x at y = 0, climbs `rise` along y over `turns` right-handed turns. */
+class HelixCurve extends Curve<Vector3> {
+  radius: number;
+  rise: number;
+  turns: number;
+
+  constructor(radius: number, rise: number, turns: number) {
+    super();
+    this.radius = radius;
+    this.rise = rise;
+    this.turns = turns;
+  }
+
+  override getPoint(t: number, target = new Vector3()): Vector3 {
+    const a = 2 * Math.PI * this.turns * t;
+    return target.set(this.radius * Math.cos(a), this.rise * t, -this.radius * Math.sin(a));
+  }
+}
 
 function recenter(geometry: BufferGeometry): BufferGeometry {
   geometry.computeBoundingBox();
@@ -56,6 +79,12 @@ const builders: Builders = {
     geometry.rotateZ(-arc / 2);
     geometry.rotateX(-Math.PI / 2);
     return geometry;
+  },
+
+  helix: ({ radius, tube, length, turns }) => {
+    const rise = length - 2 * tube;
+    const path = new HelixCurve(radius, rise, turns);
+    return recenter(new TubeGeometry(path, Math.max(8, Math.ceil(turns * HELIX_SEGMENTS_PER_TURN)), tube, 8));
   },
 
   extrusion: ({ outline, depth }) => {
