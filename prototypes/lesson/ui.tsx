@@ -1,5 +1,6 @@
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Part } from "../../shared/kit.ts";
+import { type KitBounds, measureParts } from "../../src/kit3d/buildKit.ts";
 import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "../../src/primitives/library.ts";
 import { SYNTHWAVE } from "../../src/primitives/parts.ts";
@@ -26,19 +27,19 @@ export function Viewer(props: { name: string; parts: Part[]; subject: readonly P
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  const lastFrame = useRef<{ key: string; frame: Part[] } | null>(null);
+  const lastFrame = useRef<{ key: string; frame: KitBounds } | null>(null);
   const frame = useMemo(() => {
     if (width === 0) return null;
     const next = fitFrame(props.subject, view, width, height);
     const key = JSON.stringify(next);
-    if (lastFrame.current?.key !== key) lastFrame.current = { key, frame: next };
+    if (lastFrame.current?.key !== key) lastFrame.current = { key, frame: measureParts(next) };
     return lastFrame.current.frame;
   }, [props.subject, view.elevation, view.azimuth, width, height]);
   const previous = useRef(new Map<string, Part>());
   const parts = reuseParts(previous.current, props.parts);
   return (
     <div className="viewer" ref={box}>
-      {frame ? <KitViewer kit={{ name: props.name, summary: "", parts }} frame={frame} elevation={view.elevation} azimuth={view.azimuth} height={height} pixelScale={1} shadowStops={SYNTHWAVE} /> : <div style={{ height }} />}
+      {frame ? <KitViewer parts={parts} frame={frame} elevation={view.elevation} azimuth={view.azimuth} height={height} pixelScale={1} shadowStops={SYNTHWAVE} /> : <div style={{ height }} />}
       {props.live ? <span className="live" aria-live="polite">{props.live}</span> : null}
       <span className="drag">{props.hint ?? "Drag to turn"}</span>
     </div>

@@ -38,6 +38,8 @@ function halfSize(shape: Shape): Vec {
       return vec(shape.width / 2, shape.height / 2, shape.depth / 2);
     case "torus":
       return vec(shape.radius + shape.tube, shape.tube, shape.radius + shape.tube);
+    case "helix":
+      return vec(shape.radius + shape.tube, shape.length / 2, shape.radius + shape.tube);
     case "extrusion": {
       const xs = shape.outline.map((p) => p.x);
       const ys = shape.outline.map((p) => p.y);
@@ -193,6 +195,8 @@ function scaleShape(shape: Shape, s: number): Shape {
       return { ...shape, width: shape.width * s, height: shape.height * s, depth: shape.depth * s, cornerRadius: shape.cornerRadius * s };
     case "torus":
       return { ...shape, radius: shape.radius * s, tube: shape.tube * s };
+    case "helix":
+      return { ...shape, radius: shape.radius * s, tube: shape.tube * s, length: shape.length * s };
     case "extrusion":
       return { ...shape, outline: shape.outline.map((p) => ({ x: p.x * s, y: p.y * s })), depth: shape.depth * s };
   }
