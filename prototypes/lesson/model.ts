@@ -60,6 +60,11 @@ export type Module = {
   teach: readonly Primitive[];
   /** The primitive that becomes the part in the assemble stage. */
   main: Primitive;
+  /**
+   * Assemble copy. `piece` names what floats in (the focus pieces of the taught primitives), `title`
+   * says what it becomes in this object, and `built` says what it is once placed.
+   */
+  assemble: { piece: string; title: string; built: string };
   /** Kit part ids this module earns. */
   produces: readonly string[];
   target: Target;
@@ -199,6 +204,12 @@ export function passBand(module: Module, values: Values, ctx: TestCtx): Window |
   const passing = sliderSteps(module.fault.slider).filter((v) => passesAt(module, values, v, ctx));
   return passing.length > 0 ? [passing[0]!, passing[passing.length - 1]!] : null;
 }
+
+/**
+ * The primitives whose focus pieces float in at assemble: the main one, plus any taught primitive that
+ * is not one of its components (the ball's seal beside the wheel, but not the catch's own wedge).
+ */
+export const assembledFrom = (m: Module): Primitive[] => [m.main, ...m.teach.filter((p) => p !== m.main && !m.main.madeOf.includes(p.id))];
 
 /** The values every module starts the sandbox with: each at its fault. */
 export const faultValues = (lesson: Workshop): Values => Object.fromEntries(lesson.modules.map((m) => [m.fault.slider.id, m.fault.start]));

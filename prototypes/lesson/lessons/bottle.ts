@@ -262,6 +262,11 @@ export default defineLesson({
       need: "It must close with a twist and stay shut when shaken.",
       primitive: "thread",
       produces: [CAP],
+      assemble: {
+        piece: "Thread nut",
+        title: "Wind the thread onto the neck: it becomes the cap.",
+        built: "The thread's nut is now the steel cap, and its ramp winds round the neck.",
+      },
       target: { label: "Neck", at: vec(0, 190, 0), ring: { radius: 33, axis: "y" } },
       enter: vec(0, 50, 0),
       fault: { primitive: "thread", slider: "pitch", start: 6 },
@@ -295,6 +300,11 @@ export default defineLesson({
       need: "It must stay dry upside down and still open by hand.",
       primitive: "seal",
       produces: [RING, "ring-tab"],
+      assemble: {
+        piece: "Seal",
+        title: "Press the seal into the neck: it becomes the seal ring.",
+        built: "The rubber ring now sits between the cap and the neck, ready to be squeezed into the gap.",
+      },
       target: { label: "Neck joint", at: vec(0, 180, 0), ring: { radius: 33, axis: "y" } },
       enter: vec(60, 0, 0),
       fault: { primitive: "seal", slider: "squeeze", start: 0.03 },

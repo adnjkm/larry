@@ -4,7 +4,7 @@ import { initialValues } from "../../src/primitives/library.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
-import { listOf, type PartMove, presentAfter, type Scene, type Target, vec, type Vec, type Workshop } from "./model.ts";
+import { assembledFrom, listOf, type Module, type PartMove, presentAfter, type Scene, type Target, vec, type Vec, type Workshop } from "./model.ts";
 import { compose, drawObject, enclosed, extents, placeParts, restCentre } from "./pose.ts";
 import { ExplodeSlider, Header, Viewer } from "./ui.tsx";
 
@@ -15,6 +15,22 @@ const GAP = 24;
 const REVEAL_MS = 700;
 
 const ringRotation = (axis: Target["ring"]["axis"]): Vec => (axis === "x" ? vec(0, 0, 90) : axis === "z" ? vec(90, 0, 0) : vec());
+/** Space between the taught primitives' pieces when more than one floats in. */
+const PIECE_GAP = 10;
+
+/** The focus pieces of the primitives this module assembles, each at its Learn values, side by side along x. */
+function focusPieces(module: Module): Part[] {
+  let x = 0;
+  return assembledFrom(module).flatMap((p) => {
+    const parts = p.build(initialValues(p)).filter((q) => q.color === COLOR.focus);
+    if (parts.length === 0) return [];
+    const box = extents(parts);
+    const shift = vec(x - box.min.x, -(box.min.y + box.max.y) / 2, -(box.min.z + box.max.z) / 2);
+    x += box.max.x - box.min.x + PIECE_GAP;
+    return parts.map((q) => ({ ...q, id: `${p.id}-${q.id}`, position: vec(q.position.x + shift.x, q.position.y + shift.y, q.position.z + shift.z) }));
+  });
+}
+
 const sub = (a: Vec | undefined, b: Vec | undefined) => vec((a?.x ?? 0) - (b?.x ?? 0), (a?.y ?? 0) - (b?.y ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
 
 export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit: Kit; index: number; onNext: () => void }) {
@@ -28,11 +44,11 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
     const centre = restCentre(kit, after, restAfter);
     const whole = (explode: number) => drawObject({ kit, present: after, scene: restAfter, explode, pink: new Set(), centre, apart: lesson.apart });
     const box = extents(whole(0));
-    const raw = module.main.build(initialValues(module.main));
+    const raw = focusPieces(module);
     const rawBox = extents(raw);
     const [wide, tall] = [box.max.x - box.min.x, box.max.y - box.min.y];
     const size = Math.min(100, Math.max(40, 0.55 * Math.max(wide, tall)));
-    const scale = Math.min(1, size / Math.max(rawBox.max.x - rawBox.min.x, rawBox.max.y - rawBox.min.y));
+    const scale = Math.min(1, size / Math.max(rawBox.max.x - rawBox.min.x, rawBox.max.y - rawBox.min.y, rawBox.max.z - rawBox.min.z));
     // The piece floats beside a tall object and above a long one, so it adds as little as it can to the view.
     const at = tall >= wide
       ? vec(box.max.x + GAP + size / 2, Math.max(size / 2 + 8, (box.min.y + box.max.y) / 2), 0)
@@ -103,32 +119,31 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
 
   const subject = useMemo(() => (landed ? setup.whole(explode) : [...setup.around, ...setup.whole(explode)]), [setup, explode, landed]);
   const names = listOf(module.produces.map((id) => kit.parts.find((q) => q.id === id)?.name ?? id));
-  const piece = module.main.name.toLowerCase();
   const object = lesson.objectName.toLowerCase();
 
   return (
     <main className="page" data-stage="assemble">
-      <Header kicker={`Module ${index + 1} · Build the part`} title={`Turn the ${piece} into the ${names.toLowerCase()}.`} />
-      <p className="hint">The {piece} floats beside the {object}. Pick it up, then drop it on the {module.target.label.toLowerCase()}.</p>
+      <Header kicker={`Module ${index + 1} · Build the part`} title={module.assemble.title} />
+      <p className="hint">Pick up the piece floating beside the {object} and drop it on the {module.target.label.toLowerCase()}.</p>
       <Viewer name={lesson.objectName} parts={parts} subject={subject} height={400} />
       <ExplodeSlider value={explode} onChange={setExplode} disabled={flying} />
       <div className="row steps">
         <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>
           <span className="mono">1 · Pick up</span>
-          <strong>{module.main.name}</strong>
+          <strong>{module.assemble.piece}</strong>
         </button>
         <button type="button" className="step" data-step="target" data-on={placed ? "" : undefined} disabled={progress !== null} onClick={drop}>
           <span className="mono">2 · Drop on</span>
           <strong>{module.target.label}</strong>
         </button>
       </div>
-      {warn ? <p className="hint warn">Pick up the {piece} first.</p> : null}
+      {warn ? <p className="hint warn">Pick up the {module.assemble.piece.toLowerCase()} first.</p> : null}
       {placed ? (
         <>
           <div className="earned">
             <span className="mono" style={{ color: COLOR.focus }}>Part built</span>
             <strong>{names}</strong>
-            <span>The {piece} is now the {names.toLowerCase()} on the {object}. It is pink because it is the piece this module is about.</span>
+            <span>{module.assemble.built} Pink marks the part this module is about.</span>
           </div>
           <button type="button" className="btn" data-next onClick={onNext}>Next: test and fix</button>
         </>

@@ -261,6 +261,11 @@ export default defineLesson({
       need: "It must push a staple through 20 sheets with an ordinary 40 N squeeze.",
       primitive: "lever",
       produces: [ARM, PAD, PIN],
+      assemble: {
+        piece: "Lever bar",
+        title: "Hinge the lever at the back: it becomes the top arm.",
+        built: "The bar is now the top arm, turning on the hinge pin at the back. Your hand pushes on the pad at the long end, and the staple sits nearer the hinge.",
+      },
       target: { label: "Top arm", at: vec(-30, 58, 0), ring: { radius: 40, axis: "z" } },
       enter: vec(0, 50, 0),
       fault: { primitive: "lever", slider: "ratio", start: 1 },
@@ -299,6 +304,11 @@ export default defineLesson({
       need: "It must spring back open after every staple.",
       primitive: "spring",
       produces: [CHANNEL],
+      assemble: {
+        piece: "Spring",
+        title: "Fit the return spring under the top arm.",
+        built: "The kit has no separate spring, so the staple channel carries it. The purple arrow shows where it pushes the arm back open.",
+      },
       target: { label: "Staple channel", at: vec(11, 46, 0), ring: { radius: 40, axis: "z" } },
       enter: vec(0, 0, 70),
       fault: { primitive: "spring", slider: "stiffness", start: 1 },

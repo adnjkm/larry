@@ -270,6 +270,11 @@ export default defineLesson({
       primitive: "wheel",
       teach: ["wheel", "seal"],
       produces: [REFILL],
+      assemble: {
+        piece: "Wheel and seal",
+        title: "Seat the rolling ball and its seal in the ink tube.",
+        built: "The wheel is now the rolling ball at the tip of the ink tube, and the seal is the snug socket it turns in.",
+      },
       target: { label: "Nose tip", at: vec(-70, 5, 0), ring: { radius: 7, axis: "x" } },
       enter: vec(-70, 0, 0),
       fault: { primitive: "seal", slider: "squeeze", start: 0.04 },
@@ -303,6 +308,11 @@ export default defineLesson({
       primitive: "catch",
       teach: ["spring", "wedge", "catch"],
       produces: [PLUNGER],
+      assemble: {
+        piece: "Catch",
+        title: "Fit the catch at the button end, so the ink tube stays out.",
+        built: "The kit has no separate catch, so the click button stands for it. It holds the ink tube out against the push of writing.",
+      },
       target: { label: "Button end", at: vec(60, 5, 0), ring: { radius: 7, axis: "x" } },
       enter: vec(70, 0, 0),
       fault: { primitive: "catch", slider: "force", start: 2 },
