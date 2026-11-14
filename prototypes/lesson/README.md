@@ -54,6 +54,26 @@ no units, counts, percentages or slider values on any screen or sheet. Each modu
 The final screen runs every test and names each part's job. `defineStory` refuses any copy with a
 digit, and `verify.ts` checks that no digit shows on any screen. Only the bottle uses it so far.
 
+The bottle draws its own hand-made model (`lessons/bottle-kit.ts`, the story's `kit`) in place of the
+scanned one: a coated double wall on a steel base, a threaded steel neck rolled over at the lip, a steel
+cap with a knurled grip, inner thread, top disc and carry loop, and a seal ring with its bead and tab.
+The lesson's ids (body, cap, seal-ring, ring-tab) are the roots of its assemblies; every detail part is
+fixed to one (molded, weld or glue), and `bindStory` makes each module earn its parts with everything
+fixed to them, so they move, show and turn pink together. Beads, seams and rolls are drawn into a
+part's lathe profile instead of being parts of their own, which keeps the mesh count low.
+
+### Explode on springs
+
+A lesson with an `explode` plan (the bottle) comes apart by assemblies, each on its own spring
+(`explode.ts`, stiffness 64, damping 14.2, just under critical), started 50 ms apart in the plan's
+order: the cap leaves first, unscrewing as it lifts, then the seal slides up off the neck; closing
+reverses it. The slider and every automatic explode only set the target (`useExplode.ts`); a reversal
+restaggers only the assemblies whose target changes. A test never runs on an open object: it closes up
+first and waits for every spring to land, and a piece dropped in Build waits above its place until the
+object is shut. Reduced motion goes straight to the target. `verify.ts` replays the springs (opening,
+closing, reversed at each stagger boundary, prefix states) and fails if any assembly's cut passes into
+another's.
+
 Which lesson an object gets: a hand-written lesson if one matches, otherwise one generated from the
 kit's joints and words, otherwise Inspect (take it apart and name each part's job).
 
@@ -75,6 +95,9 @@ kit's joints and words, otherwise Inspect (take it apart and name each part's jo
 | `Inspect.tsx` | The take-apart lesson |
 | `ui.tsx`, `dither.tsx`, `anim.ts`, `ease.ts` | Shared UI, the dithered photo, animation helpers |
 | `base.css`, `lesson.css` | Styles |
+| `explode.ts`, `useExplode.ts` | The explode's springs (pure, replayed by verify) and the screen's hook |
+| `lessons/bottle-kit.ts` | The bottle lesson's hand-made model |
+| `bench.html`, `bench.tsx` | Frame-time bench and frozen explode frames for the bottle (`?kit=scanned` for the old four-part kit) |
 | `verify.ts` | Plays every lesson in a headless browser and saves screenshots to `out/lesson/` |
 
 Templates today: thread, press-fit, snap-fit, spring, hinge (lever), seal, stand (weight), clamp (grip).

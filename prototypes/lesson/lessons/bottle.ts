@@ -3,8 +3,9 @@
 // Rules and choreography live here as pure functions of the twist and the parts present.
 import type { Kit, Part, Shape } from "../../../shared/kit.ts";
 import { clamp01, easeOut, smooth } from "../ease.ts";
-import { AXIS, type Control, type Ctx, defineStory, EMPTY_SCENE, type Mark, type Overlay, type PartMove, type Rigid, type Scene, type Test, type Values, vec, type Vec, type Zone, zoneAt } from "../model.ts";
+import { AXIS, type Control, type Ctx, defineStory, EMPTY_SCENE, type ExplodePlan, familyOf, type Mark, type Overlay, type PartMove, type Rigid, type Scene, type Test, type Values, vec, type Vec, type Zone, zoneAt } from "../model.ts";
 import { extents, rigidPoint } from "../pose.ts";
+import { BOTTLE_KIT } from "./bottle-kit.ts";
 
 const CAP = "cap";
 const RING = "seal-ring";
@@ -42,10 +43,29 @@ const zoneOf = (v: Values, ctx: Ctx) => zoneAt(zonesOf(ctx), twistOf(v)).id;
 
 /** Millimetres per second squared. Looks right on a bottle that is about a hand tall; not real gravity. */
 const G = 900;
-const NECK_RADIUS = 27;
-const DROP_RADIUS = 6;
-const MARK_ANGLE = -60;
-const MARK_RADIUS = 27.8;
+/** Drips gather at the cap's rim, just inside its knurled grip. */
+const NECK_RADIUS = 29;
+const DROP_RADIUS = 5;
+/** The turn mark sits on one ridge of the knurled grip, so the twist shows. */
+const MARK_ANGLE = -53.75;
+const MARK_RADIUS = 31.4;
+const MARK_Y = 188;
+
+/**
+ * Coming apart, the cap unscrews as it lifts (turning the way it came on, which is what a thread
+ * does), then the seal slides up off the neck. Far enough that the neck's thread shows bare between them.
+ */
+const CAP_RISE = 50;
+const SEAL_RISE = 32;
+const UNSCREW_TURNS = 1.5;
+/** The cap keeps turning for this share of its rise, so the spin is slow enough to follow. */
+const UNSCREW_SHARE = 0.85;
+const explode: ExplodePlan = {
+  order: [
+    { id: CAP, at: (s) => ({ offset: vec(0, CAP_RISE * s, 0), turns: [{ axis: AXIS.y, pivot: vec(), deg: -360 * UNSCREW_TURNS * Math.min(1, s / UNSCREW_SHARE) }] }) },
+    { id: RING, at: (s) => ({ offset: vec(0, SEAL_RISE * s, 0) }) },
+  ],
+};
 
 function find(kit: Kit, id: string): Part {
   const p = kit.parts.find((q) => q.id === id);
@@ -53,10 +73,21 @@ function find(kit: Kit, id: string): Part {
   return p;
 }
 
-/** Measurements the timelines need, read from the kit so nothing is typed in twice. */
+const rigs = new WeakMap<Kit, Map<string, ReturnType<typeof measure>>>();
+/** Measurements the timelines need, read from the kit so nothing is typed in twice. The twist asks every frame, so each is measured once. */
 function rigOf({ kit, present }: Ctx) {
+  const known = rigs.get(kit) ?? new Map<string, ReturnType<typeof measure>>();
+  rigs.set(kit, known);
+  const sealed = present.includes(RING) ? "sealed" : "bare";
+  const rig = known.get(sealed) ?? measure({ kit, present });
+  known.set(sealed, rig);
+  return rig;
+}
+
+function measure({ kit, present }: Ctx) {
   const cap = find(kit, CAP);
   const capBox = extents([cap]);
+  const whole = extents(kit.parts.filter((p) => familyOf(kit, CAP).includes(p.id)));
   const neckY = extents([find(kit, BODY)]).max.y;
   const seatDrop = present.includes(RING) ? 0 : capBox.min.y - neckY;
   return {
@@ -64,7 +95,8 @@ function rigOf({ kit, present }: Ctx) {
     /** Height of the gap between a seated cap and the neck, where leaks start. */
     jointY: capBox.min.y - seatDrop,
     capY: cap.position.y - seatDrop,
-    capHalf: (capBox.max.y - capBox.min.y) / 2,
+    /** How high a cap lying on its side holds its middle: the reach of its grip. */
+    capReach: Math.max(whole.max.x - cap.position.x, cap.position.x - whole.min.x, whole.max.z - cap.position.z, cap.position.z - whole.min.z),
     neckY,
     seatDrop,
   };
@@ -88,34 +120,63 @@ function capAt(t: number, ctx: Ctx): Required<Pick<CapPose, "dy" | "turn" | "til
 }
 
 const overlay = (rigid: Rigid, live: string, moves: Overlay["moves"] = {}, marks: Mark[] = []): Overlay => ({ rigid, live, moves, marks });
-const capOnly = (ctx: Ctx, c: CapPose) => ({ [CAP]: capMove(rigOf(ctx).capPivot, c) });
+/** The same move for the cap and everything fixed to it. */
+const wholeCap = (ctx: Ctx, move: PartMove) => Object.fromEntries(familyOf(ctx.kit, CAP).map((id) => [id, move]));
+const capOnly = (ctx: Ctx, c: CapPose) => wholeCap(ctx, capMove(rigOf(ctx).capPivot, c));
 
-const sphere = (r: number): Shape => ({
+/** A drop's outline, round at the front and drawn out into a tail behind it, longer the faster it falls. */
+const teardrop = (r: number, tail: number): Shape => ({
   kind: "lathe",
-  profile: [0, 1, 2, 3, 4, 5, 6].map((i) => {
-    const a = (i / 6) * Math.PI - Math.PI / 2;
-    return { r: i === 0 || i === 6 ? 0 : r * Math.cos(a), y: r * Math.sin(a) };
-  }),
+  profile: [[0, -1], [0.5, -0.87], [0.87, -0.5], [1, 0], [0.93, 0.4], [0.72, 0.8], [0.45, 0.8 + 0.5 * tail], [0.2, 0.8 + 0.85 * tail], [0, 0.8 + tail]].map(([x, y]) => ({ r: r * x!, y: r * y! })),
 });
-const DROP_SHAPE = sphere(DROP_RADIUS);
-const SPLASH_SHAPE: Shape = { kind: "lathe", profile: [{ r: 0, y: 0 }, { r: 8, y: 0 }, { r: 8, y: 2 }, { r: 0, y: 2 }] };
+const DROP_SHAPE = teardrop(DROP_RADIUS, 0.9);
+const STREAK_SHAPE = teardrop(DROP_RADIUS * 0.85, 1.9);
+/** Above this speed (mm/s) a drop is drawn stretched. */
+const STREAK_SPEED = 380;
+/** A drop hitting the ground throws up a ring that widens and thins, then soaks into the puddle. */
+const CROWN_MS = 240;
+const CROWNS: Shape[] = [0, 1, 2, 3].map((k) => ({ kind: "torus", radius: 3.5 + 2.2 * k, tube: 1.5 - 0.3 * k, arcDegrees: 360 }));
+/** The puddle grows in whole millimetres, so its few sizes are each built once. */
+const puddle = (radius: number): Shape => ({
+  kind: "lathe",
+  profile: [{ r: 0, y: 0 }, { r: radius, y: 0 }, { r: radius - 0.3, y: 0.8 }, { r: radius - 1.6, y: 1.4 }, { r: 0, y: 1.5 }],
+});
+const PUDDLE_GROW_MS = 260;
 
 type Drop = { spawn: number; origin: Vec; vx: number; vy: number; vz: number };
-/** Drops thrown from their origins, falling under G, each a splash once it reaches the ground. */
+/** Seconds from leaving `origin` to reaching the ground (its lowest point a drop radius up). */
+const flightOf = (d: Drop) => (d.vy + Math.sqrt(d.vy * d.vy + 2 * G * Math.max(0, d.origin.y - DROP_RADIUS))) / G;
+const landOf = (d: Drop) => {
+  const t = flightOf(d);
+  return { ms: d.spawn + 1000 * t, x: d.origin.x + d.vx * t, z: d.origin.z + d.vz * t };
+};
+
+/** Drops thrown from their origins and falling under G, each splashing where it lands into one puddle that spreads as they arrive. */
 function dropMarks(drops: readonly Drop[], ms: number): Mark[] {
-  return drops.flatMap((d, i): Mark[] => {
+  if (drops.length === 0) return [];
+  const lands = drops.map(landOf);
+  const middle = { x: lands.reduce((a, l) => a + l.x, 0) / lands.length, z: lands.reduce((a, l) => a + l.z, 0) / lands.length };
+  const reach = Math.max(...lands.map((l) => Math.hypot(l.x - middle.x, l.z - middle.z)));
+  const full = Math.min(40, Math.max(9, reach + 6));
+  const fallen = lands.reduce((a, l) => a + clamp01((ms - l.ms) / PUDDLE_GROW_MS), 0);
+  const size = Math.round(full * Math.sqrt(fallen / lands.length));
+  const pool: Mark[] = size >= 3 ? [{ id: "puddle", shape: puddle(size), at: vec(middle.x, 0.75, middle.z), ride: null }] : [];
+  return [...pool, ...drops.flatMap((d, i): Mark[] => {
     const tau = (ms - d.spawn) / 1000;
+    const land = lands[i]!;
     if (tau < 0) return [];
-    const y = d.origin.y + d.vy * tau - 0.5 * G * tau * tau;
-    // Once on the ground the splash stays where the drop came down.
-    const landTau = (d.vy + Math.sqrt(d.vy * d.vy + 2 * G * Math.max(0, d.origin.y - DROP_RADIUS))) / G;
-    const at = Math.min(tau, landTau);
-    const x = d.origin.x + d.vx * at;
-    const z = d.origin.z + d.vz * at;
-    return y > DROP_RADIUS
-      ? [{ id: `drop-${i}`, shape: DROP_SHAPE, at: vec(x, y, z), ride: null }]
-      : [{ id: `splash-${i}`, shape: SPLASH_SHAPE, at: vec(x, 1.2, z), ride: null }];
-  });
+    if (ms < land.ms) {
+      const vy = d.vy - G * tau;
+      const fast = Math.hypot(d.vx, vy, d.vz) > STREAK_SPEED;
+      // The tail trails the way it came from.
+      const lean = Math.atan2(d.vx, -vy) / DEG;
+      const at = vec(d.origin.x + d.vx * tau, d.origin.y + d.vy * tau - 0.5 * G * tau * tau, d.origin.z + d.vz * tau);
+      return [{ id: `drop-${i}`, shape: fast ? STREAK_SHAPE : DROP_SHAPE, at, rotation: vec(0, 0, lean), ride: null }];
+    }
+    const k = Math.floor((ms - land.ms) / (CROWN_MS / CROWNS.length));
+    const crown = CROWNS[k];
+    return crown ? [{ id: `crown-${i}`, shape: crown, at: vec(land.x, 1.5 + (crown.kind === "torus" ? crown.tube : 0), land.z), ride: null }] : [];
+  })];
 }
 
 const FLIP_UP = 1000;
@@ -196,7 +257,7 @@ const shake: Test = {
         at: (ms) => overlay(rigidAt(ms), ms < SHAKE_SWING ? "Shaking…" : "Still on", capOnly(ctx, cap)),
       };
 
-    const landDy = rig.capHalf - rig.capY;
+    const landDy = rig.capReach - rig.capY;
     const pop = { vx: 170, vy: 260 };
     const startDy = cap.dy + 4;
     const flight = (pop.vy + Math.sqrt(pop.vy * pop.vy + 2 * G * (startDy - landDy))) / G;
@@ -288,6 +349,8 @@ export default defineStory({
   objectName: "Water bottle",
   match: /\b(bottle|flask|thermos)\b/i,
   build: "drag",
+  kit: BOTTLE_KIT,
+  explode,
   // Without the seal ring under it the cap sits lower, and a turn mark rides the cap so its spin shows.
   rest: (ctx): Scene => {
     if (!ctx.present.includes(CAP)) return EMPTY_SCENE;
@@ -295,11 +358,11 @@ export default defineStory({
     const c = rig.capPivot;
     const mark: Mark = {
       id: "turn-mark", ride: CAP,
-      shape: { kind: "box", width: 3, height: 20, depth: 5, cornerRadius: 1 },
-      at: vec(c.x + MARK_RADIUS * Math.cos(MARK_ANGLE * DEG), c.y, c.z - MARK_RADIUS * Math.sin(MARK_ANGLE * DEG)),
+      shape: { kind: "box", width: 2, height: 12, depth: 2.6, cornerRadius: 0.6 },
+      at: vec(c.x + MARK_RADIUS * Math.cos(MARK_ANGLE * DEG), MARK_Y, c.z - MARK_RADIUS * Math.sin(MARK_ANGLE * DEG)),
       rotation: vec(0, MARK_ANGLE, 0),
     };
-    return { moves: { [CAP]: { offset: vec(0, -rig.seatDrop, 0) } }, marks: [mark] };
+    return { moves: wholeCap(ctx, { offset: vec(0, -rig.seatDrop, 0) }), marks: [mark] };
   },
   modules: [
     {
