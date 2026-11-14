@@ -1,3 +1,4 @@
+import type { Part } from "../../shared/kit.ts";
 import { type KitBounds, measurePoses } from "../kit3d/buildKit.ts";
 import type { Primitive, Slider, Values } from "./types.ts";
 
@@ -14,6 +15,28 @@ function sliderSamples(s: Slider, count: number): number[] {
 /** Every combination of `perSlider` evenly spread values of each slider. */
 export function poses(p: Primitive, perSlider: number): Values[] {
   return p.sliders.reduce<Values[]>((acc, s) => acc.flatMap((v) => sliderSamples(s, perSlider).map((x) => ({ ...v, [s.id]: x }))), [{}]);
+}
+
+const RUN_NUMBERS = 5;
+const RUN_FRAMES = 24;
+
+/**
+ * What the figure shows during its game, sampled: the game's number at RUN_NUMBERS settings (the rest at the game's
+ * start), each run at RUN_FRAMES moments, with the game's scene and the frame's marks. Empty without a game.
+ */
+export function runPoses(p: Primitive): Part[][] {
+  const game = p.game;
+  if (!game) return [];
+  const start: Values = { ...Object.fromEntries(p.sliders.map((s) => [s.id, s.initial])), ...game.start };
+  const number = [...p.sliders, ...(game.controls ?? [])].find((s) => s.id === game.number);
+  if (!number) return [];
+  return sliderSamples(number, RUN_NUMBERS).flatMap((n) => {
+    const run = game.play({ ...start, [number.id]: n });
+    return Array.from({ length: RUN_FRAMES + 1 }, (_, i) => {
+      const f = run.at((i / RUN_FRAMES) * run.durationMs);
+      return [...p.build(f.values), ...(game.scene?.(f.values) ?? []), ...(f.marks ?? [])];
+    });
+  });
 }
 
 /** The bounds of every sampled pose together, grown by FRAME_PAD. The radius is an upper bound. */
@@ -38,14 +61,21 @@ function unionBounds(all: KitBounds[]): KitBounds {
 const cache = new Map<string, KitBounds>();
 
 /**
- * Bounds that hold every pose the sliders can reach, so the camera holds still while a slider moves the parts.
- * Built once per primitive from a grid of poses, because measuring a pose builds all of its geometry.
+ * Bounds that hold every pose the figure can show, so the camera holds still while a slider moves the parts or a run
+ * plays. "still" (library pages and lessons): every pose the sliders reach. "game": those with the game's scene, and
+ * every frame of its runs with their marks. Built once per primitive and mode from a grid of poses, because measuring a
+ * pose builds all of its geometry.
  */
-export function framePrimitive(p: Primitive): KitBounds {
-  let bounds = cache.get(p.id);
+export function framePrimitive(p: Primitive, mode: "still" | "game" = "still"): KitBounds {
+  const key = `${p.id}:${mode}`;
+  let bounds = cache.get(key);
   if (!bounds) {
-    bounds = unionBounds(measurePoses(poses(p, FRAME_SAMPLES).map(p.build)));
-    cache.set(p.id, bounds);
+    const grid = poses(p, FRAME_SAMPLES);
+    const still = grid.map(p.build);
+    const scene = p.game?.scene;
+    const game = mode === "game" ? [...(scene ? grid.map((v) => [...p.build(v), ...scene(v)]) : []), ...runPoses(p)] : [];
+    bounds = unionBounds(measurePoses([...still, ...game]));
+    cache.set(key, bounds);
   }
   return bounds;
 }

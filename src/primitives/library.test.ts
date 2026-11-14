@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Kit, kitProblems } from "../../shared/kit.ts";
-import { type KitBounds, measureParts } from "../kit3d/buildKit.ts";
-import { framePrimitive, poses } from "./framing.ts";
+import { measureParts } from "../kit3d/buildKit.ts";
+import { checkContinuity, checkDesign, checkKinds, checkReach, checkRunFrames, checkScene, checkTwoSided, checkVerdictIsJudge, checkWords } from "./checks.ts";
+import { framePrimitive, poses, runPoses } from "./framing.ts";
 import { PRIMITIVES, initialValues, type Values } from "./library.ts";
 import { COLOR, SYNTHWAVE } from "./parts.ts";
 
@@ -55,6 +56,29 @@ describe("primitives library", () => {
         assert.ok(Math.abs(b.centerX - frame.centerX) + b.halfX <= frame.halfX && Math.abs(b.centerZ - frame.centerZ) + b.halfZ <= frame.halfZ, `${at} leaves the framing's footprint`);
         assert.ok(b.radius + Math.hypot(b.centerX - frame.centerX, b.centerZ - frame.centerZ) <= frame.radius, `${at} reaches past the framing's radius`);
       }
+      const game = framePrimitive(p, "game");
+      for (const parts of runPoses(p)) {
+        const b = measureParts(parts);
+        assert.ok(b.minY >= game.minY && b.maxY <= game.maxY, `${p.id}: a run frame leaves the game framing vertically`);
+        assert.ok(b.radius + Math.hypot(b.centerX - game.centerX, b.centerZ - game.centerZ) <= game.radius, `${p.id}: a run frame reaches past the game framing's radius`);
+      }
     });
+  }
+});
+
+// The game and design-language checks (checks.ts) for every primitive that has a game. One without is skipped, so the
+// summary's "skipped" count is the number of models still to rewrite.
+describe("primitive games and figures", () => {
+  for (const p of PRIMITIVES) {
+    const skip = p.game ? false : "no game yet";
+    it(`${p.id} game is two-sided and the start fails`, { skip }, () => checkTwoSided(p));
+    it(`${p.id} play's verdict is judge's at every step`, { skip }, () => checkVerdictIsJudge(p));
+    it(`${p.id} game words fit their limits`, { skip }, () => checkWords(p));
+    it(`${p.id} run frames stay in range and make valid kits`, { skip }, () => checkRunFrames(p));
+    it(`${p.id} game scene keeps its own ids and colours`, { skip }, () => checkScene(p));
+    it(`${p.id} stays within its budget of kinds of part`, { skip }, () => checkKinds(p));
+    it(`${p.id} runs start at the start pose and move continuously`, { skip }, () => checkContinuity(p));
+    it(`${p.id} handle reach is honest and runs keep to it`, { skip }, () => checkReach(p));
+    it(`${p.id} figure follows the design language`, { skip }, () => checkDesign(p));
   }
 });
