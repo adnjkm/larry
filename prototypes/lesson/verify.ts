@@ -8,6 +8,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, type Page } from "playwright-core";
 import { createServer } from "vite";
+import viteConfig from "../../vite.config.ts";
 import { type Kit, parseKit } from "../../shared/kit.ts";
 import { LESSONS } from "./lessons/index.ts";
 import { inspectLesson } from "./lessons/inspect.ts";
@@ -220,7 +221,16 @@ async function playInspect(r: Run, sample: string, url: string) {
 
 const wanted = process.argv.slice(2);
 const runs = wanted.length > 0 ? wanted : [...Object.keys(LESSONS), ...Object.keys(KITS).map((id) => `inspect-${id}`)];
-const server = await createServer({ root, logLevel: "warn", server: { port: 0, host: "127.0.0.1", forwardConsole: false } });
+// No file watcher: an edit to any source mid-run would hot-update main.tsx and reload the page, dropping the
+// lesson mid-play. Inline config cannot set watch to null (mergeConfig skips nulls), so the project config is
+// spread in here instead of loaded from its file.
+const server = await createServer({
+  ...viteConfig,
+  configFile: false,
+  root,
+  logLevel: "warn",
+  server: { ...viteConfig.server, port: 0, host: "127.0.0.1", forwardConsole: false, watch: null },
+});
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 
 try {
