@@ -48,38 +48,126 @@ function halfSize(shape: Shape): Vec {
 
 export type Extents = { min: Vec; max: Vec };
 
-export function extents(parts: readonly Part[]): Extents {
-  const min = vec(Infinity, Infinity, Infinity);
-  const max = vec(-Infinity, -Infinity, -Infinity);
+const RING = Array.from({ length: 16 }, (_, i) => (i / 16) * 2 * Math.PI);
+
+/** Points that hug each part, turned and placed as the part is: rings for round parts, box corners for the rest. */
+function corners(parts: readonly Part[]): Vec[] {
+  const out: Vec[] = [];
   const corner = new Vector3();
   for (const p of parts) {
     const h = halfSize(p.shape);
     const m = matrixOf(p);
-    for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
-      corner.set(sx * h.x, sy * h.y, sz * h.z).applyMatrix4(m);
-      min.x = Math.min(min.x, corner.x);
-      min.y = Math.min(min.y, corner.y);
-      min.z = Math.min(min.z, corner.z);
-      max.x = Math.max(max.x, corner.x);
-      max.y = Math.max(max.y, corner.y);
-      max.z = Math.max(max.z, corner.z);
+    const round = p.shape.kind === "lathe" || p.shape.kind === "torus";
+    const local: [number, number][] = round ? RING.map((a) => [Math.cos(a) * h.x, Math.sin(a) * h.z]) : [[-h.x, -h.z], [-h.x, h.z], [h.x, -h.z], [h.x, h.z]];
+    for (const sy of [-1, 1]) for (const [x, z] of local) {
+      corner.set(x, sy * h.y, z).applyMatrix4(m);
+      out.push(vec(corner.x, corner.y, corner.z));
     }
+  }
+  return out;
+}
+
+export function extents(parts: readonly Part[]): Extents {
+  const min = vec(Infinity, Infinity, Infinity);
+  const max = vec(-Infinity, -Infinity, -Infinity);
+  for (const c of corners(parts)) {
+    min.x = Math.min(min.x, c.x);
+    min.y = Math.min(min.y, c.y);
+    min.z = Math.min(min.z, c.z);
+    max.x = Math.max(max.x, c.x);
+    max.y = Math.max(max.y, c.y);
+    max.z = Math.max(max.z, c.z);
   }
   return { min, max };
 }
 
-export const centreOf = ({ min, max }: Extents): Vec => scale(add(min, max), 0.5);
+/** Whether most of a part sits inside another part's box, so it cannot be seen until the object comes apart. */
+export function enclosed(id: string, parts: readonly Part[]): boolean {
+  const part = parts.find((p) => p.id === id);
+  if (!part) return false;
+  const a = extents([part]);
+  const volume = (e: Extents) => Math.max(0, e.max.x - e.min.x) * Math.max(0, e.max.y - e.min.y) * Math.max(0, e.max.z - e.min.z);
+  const own = volume(a);
+  return parts.some((q) => {
+    if (q.id === id) return false;
+    const b = extents([q]);
+    const overlap = { min: vec(Math.max(a.min.x, b.min.x), Math.max(a.min.y, b.min.y), Math.max(a.min.z, b.min.z)), max: vec(Math.min(a.max.x, b.max.x), Math.min(a.max.y, b.max.y), Math.min(a.max.z, b.max.z)) };
+    return own > 0 && volume(overlap) / own > 0.6;
+  });
+}
 
-/** An invisible measuring box handed to the viewer's `frame` so the camera holds still while parts move. */
-export function frameAround(parts: readonly Part[], pad = 6): Part[] {
-  const { min, max } = extents(parts);
-  const halfDepth = Math.max(Math.abs(min.z), Math.abs(max.z)) + pad;
+/** Share of the viewer's width or height the subject fills at the default view. */
+export const FILL = 0.85;
+// The camera fit in src/kit3d/KitViewer.tsx, which this module cannot change: a margin, a ground shadow
+// sized and offset from the frame's footprint, and a cylinder around the frame so it can be turned.
+const VIEWER_MARGIN = 1.12;
+const viewerZoom = (half: { x: number; z: number }, radius: number, height: number, el: number, width: number, tall: number) => {
+  const footprint = Math.max(half.x, half.z);
+  const shadowReach = footprint * 0.3 + Math.max(half.x, half.z) * 1.05 + 3;
+  const halfWide = Math.max(radius, shadowReach * 0.85);
+  const halfTall = (height / 2) * Math.cos(el) + radius * Math.sin(el);
+  return Math.min(width / (2 * halfWide * VIEWER_MARGIN), tall / (2 * halfTall * VIEWER_MARGIN));
+};
+
+/**
+ * An invisible measuring box for the viewer's `frame` that makes `subject` fill FILL of a `width` by
+ * `tall` viewer at this view, centred, without leaving the viewer when it is dragged round. The
+ * viewer fits a turnable cylinder, so a long object framed by its own bounds fills well under FILL;
+ * this box is sized so the viewer's own fit lands on the zoom the subject needs.
+ */
+export function fitFrame(subject: readonly Part[], view: { elevation: number; azimuth: number }, width: number, tall: number): Part[] {
+  const el = view.elevation * DEG;
+  const az = view.azimuth * DEG;
+  const right = vec(Math.cos(az), 0, -Math.sin(az));
+  const up = vec(-Math.sin(el) * Math.sin(az), Math.cos(el), -Math.sin(el) * Math.cos(az));
+  const dot = (a: Vec, b: Vec) => a.x * b.x + a.y * b.y + a.z * b.z;
+  const pts = corners(subject);
+  const box = extents(subject);
+  const range = (axis: Vec) => {
+    const d = pts.map((p) => dot(p, axis));
+    return { lo: Math.min(...d), hi: Math.max(...d) };
+  };
+  const across = range(right);
+  const upward = range(up);
+  // Shift the turning centre along the screen's horizontal so the subject sits in the middle.
+  const c = centreOf(box);
+  const shift = (across.lo + across.hi) / 2 - dot(vec(c.x, 0, c.z), right);
+  const cx = c.x + shift * right.x;
+  const cz = c.z + shift * right.z;
+  const reach = Math.max(...pts.map((p) => Math.hypot(p.x - cx, p.z - cz)));
+  const height = box.max.y - box.min.y;
+  const zoom = Math.min(
+    (FILL * width) / (across.hi - across.lo),
+    (FILL * tall) / (upward.hi - upward.lo),
+    width / (2 * reach * 1.02),
+    tall / (2 * ((height / 2) * Math.cos(el) + reach * Math.sin(el)) * 1.02),
+  );
+  // The viewer looks at the frame's mid height: pick it so the subject's screen middle lands there.
+  const targetY = ((upward.lo + upward.hi) / 2 + Math.sin(el) * (Math.sin(az) * cx + Math.cos(az) * cz)) / Math.cos(el);
+  const floor = targetY - Math.min(0, box.min.y);
+  const half0 = { x: (box.max.x - box.min.x) / 2, z: (box.max.z - box.min.z) / 2 };
+  const shaped = (s: number) => {
+    const half = { x: Math.max(1, s * half0.x), z: Math.max(1, s * half0.z) };
+    const radius = Math.hypot(half.x, half.z);
+    const want = (2 * (tall / (2 * zoom * VIEWER_MARGIN) - radius * Math.sin(el))) / Math.cos(el);
+    const h = Math.min(Math.max(0.01, want), Math.max(0.01, 2 * floor));
+    return { half, h, zoom: viewerZoom(half, radius, h, el, width, tall) };
+  };
+  let [lo, hi] = [0.02, 50];
+  for (let i = 0; i < 40; i++) {
+    const mid = Math.sqrt(lo * hi);
+    if (shaped(mid).zoom > zoom) lo = mid;
+    else hi = mid;
+  }
+  const { half, h } = shaped(hi);
   return [{
     id: "frame", name: "frame", role: "", parentId: null, joint: null,
-    shape: { kind: "box", width: max.x - min.x + 2 * pad, height: max.y - Math.min(0, min.y) + pad, depth: halfDepth * 2, cornerRadius: 0 },
-    position: vec((min.x + max.x) / 2, (Math.min(0, min.y) + max.y + pad) / 2, 0), rotation: vec(), color: "#ffffff", finish: "matte",
+    shape: { kind: "box", width: 2 * half.x, height: h, depth: 2 * half.z, cornerRadius: 0 },
+    position: vec(cx, targetY, cz), rotation: vec(), color: "#ffffff", finish: "matte",
   }];
 }
+
+export const centreOf = ({ min, max }: Extents): Vec => scale(add(min, max), 0.5);
 
 /** Rescales parts about `centre` by `k` and puts that centre at `at`. */
 export function placeParts(parts: readonly Part[], centre: Vec, k: number, at: Vec): Part[] {

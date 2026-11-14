@@ -3,15 +3,16 @@ import type { Kit, Part } from "../../shared/kit.ts";
 import { initialValues } from "../../src/primitives/library.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
-import { clamp01, easeOut, lerp } from "./ease.ts";
+import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
 import { type PartMove, presentAfter, type Scene, type Target, vec, type Vec, type Workshop } from "./model.ts";
-import { compose, drawObject, extents, frameAround, placeParts, restCentre } from "./pose.ts";
+import { compose, drawObject, enclosed, extents, placeParts, restCentre } from "./pose.ts";
 import { ExplodeSlider, Header, Viewer } from "./ui.tsx";
 
 const FLIGHT_MS = 650;
 /** The piece is spent on the way in; the part appears for the last quarter of the flight and settles. */
 const LAND = 0.75;
 const GAP = 24;
+const REVEAL_MS = 700;
 
 const ringRotation = (axis: Target["ring"]["axis"]): Vec => (axis === "x" ? vec(0, 0, 90) : axis === "z" ? vec(90, 0, 0) : vec());
 const sub = (a: Vec | undefined, b: Vec | undefined) => vec((a?.x ?? 0) - (b?.x ?? 0), (a?.y ?? 0) - (b?.y ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
@@ -29,16 +30,21 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
     const box = extents(whole(0));
     const raw = module.main.build(initialValues(module.main));
     const rawBox = extents(raw);
-    const size = Math.min(100, Math.max(40, 0.55 * Math.max(box.max.x - box.min.x, box.max.y - box.min.y)));
+    const [wide, tall] = [box.max.x - box.min.x, box.max.y - box.min.y];
+    const size = Math.min(100, Math.max(40, 0.55 * Math.max(wide, tall)));
     const scale = Math.min(1, size / Math.max(rawBox.max.x - rawBox.min.x, rawBox.max.y - rawBox.min.y));
-    const piece = { raw, scale, centre: vec((rawBox.min.x + rawBox.max.x) / 2, (rawBox.min.y + rawBox.max.y) / 2, 0), at: vec(box.max.x + GAP + size / 2, Math.max(size / 2 + 8, (box.min.y + box.max.y) / 2), 0) };
+    // The piece floats beside a tall object and above a long one, so it adds as little as it can to the view.
+    const at = tall >= wide
+      ? vec(box.max.x + GAP + size / 2, Math.max(size / 2 + 8, (box.min.y + box.max.y) / 2), 0)
+      : vec((box.min.x + box.max.x) / 2, box.max.y + GAP + size / 2, 0);
+    const piece = { raw, scale, centre: vec((rawBox.min.x + rawBox.max.x) / 2, (rawBox.min.y + rawBox.max.y) / 2, 0), at };
     const target: Part = {
       id: "target", name: "target", role: "", parentId: null, joint: null,
       shape: { kind: "torus", radius: module.target.ring.radius, tube: 2, arcDegrees: 360 },
       position: module.target.at, rotation: ringRotation(module.target.ring.axis), color: COLOR.accent, finish: "matte",
     };
-    const frame = frameAround([...whole(0), ...whole(1), ...placeParts(raw, piece.centre, scale, vec(piece.at.x, piece.at.y + 10, 0)), target]);
-    return { before, after, restBefore, restAfter, centre, piece, target, frame };
+    const around = [...whole(0), ...placeParts(raw, piece.centre, scale, vec(piece.at.x, piece.at.y + 10, 0)), target];
+    return { before, after, restBefore, restAfter, centre, piece, target, around, whole, hidden: module.produces.some((id) => enclosed(id, whole(0))) };
   }, [lesson, kit, index, module]);
 
   const [picked, setPicked] = useState(false);
@@ -63,7 +69,10 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
     void play(FLIGHT_MS, (ms) => {
       setProgress(ms / FLIGHT_MS);
       setExplode(from * (1 - easeOut(clamp01(ms / FLIGHT_MS / LAND))));
-    }, alive);
+    }, alive).then((done) => {
+      // A part that lands inside another would turn pink out of sight, so the object comes apart to show it.
+      if (done && setup.hidden) void play(REVEAL_MS, (ms) => setExplode(smooth(ms / REVEAL_MS)), alive);
+    });
   };
   const drop = () => {
     if (!picked) return setWarn(true);
@@ -92,6 +101,7 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
     return [...object, ...floating, marker];
   }, [setup, kit, lesson.apart, module, progress, landed, tick, picked, explode]);
 
+  const subject = useMemo(() => (landed ? setup.whole(explode) : [...setup.around, ...setup.whole(explode)]), [setup, explode, landed]);
   const names = module.produces.map((id) => kit.parts.find((q) => q.id === id)?.name ?? id).join(" and ");
   const piece = module.main.name.toLowerCase();
   const object = lesson.objectName.toLowerCase();
@@ -100,7 +110,7 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
     <main className="page" data-stage="assemble">
       <Header kicker={`Module ${index + 1} · Build the part`} title={`Turn the ${piece} into the ${names.toLowerCase()}.`} />
       <p className="hint">The {piece} floats beside the {object}. Pick it up, then drop it on the {module.target.label.toLowerCase()}.</p>
-      <Viewer name={lesson.objectName} parts={parts} frame={setup.frame} height={400} />
+      <Viewer name={lesson.objectName} parts={parts} subject={subject} height={400} />
       <ExplodeSlider value={explode} onChange={setExplode} disabled={flying} />
       <div className="row steps">
         <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>

@@ -1,17 +1,20 @@
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { formatSlider, initialValues } from "../../src/primitives/library.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { lerp, smooth } from "./ease.ts";
-import { faultValues, fixedValues, type Module, type Overlay, passBand, presentAfter, type Test, type Values, type Verdict, type Workshop } from "./model.ts";
-import { compose, drawObject, frameAround, restCentre } from "./pose.ts";
+import { type Module, type Overlay, passBand, presentAfter, type Run, type Test, type Values, type Verdict, type Workshop } from "./model.ts";
+import { compose, drawObject, enclosed, restCentre } from "./pose.ts";
 import { ExplodeSlider, Header, SliderRow, Viewer } from "./ui.tsx";
 
 const CLOSE_MS = 350;
 const ASSEMBLE_MS = 800;
-/** Frames sampled from each test to size the camera once, so it holds still through every test. */
+const REVEAL_MS = 700;
+/** Frames sampled from a test to size the camera before it starts, so it holds still through the test. */
 const FRAME_SAMPLES = 48;
+/** Time for the camera to make room for a test before the object moves. */
+const CAMERA_MS = 300;
 
 export type SandboxMode = { kind: "module"; index: number; earned: boolean } | { kind: "final"; done: boolean };
 
@@ -43,18 +46,16 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
     const draw = (overlay: Overlay | null, explode: number, pink: ReadonlySet<string>) =>
       drawObject({ kit, present, scene: overlay ? compose(rest, overlay) : rest, rigid: overlay?.rigid, explode, pink, centre, apart: lesson.apart });
     const none = new Set<string>();
-    const sampled: Part[] = [...draw(null, 0, none), ...draw(null, 1, none)];
-    for (const values of [faultValues(lesson), fixedValues(lesson)])
-      for (const test of tests) {
-        const run = test.run(values, ctx);
-        for (let i = 0; i <= FRAME_SAMPLES; i++) sampled.push(...draw(run.at((run.durationMs * i) / FRAME_SAMPLES), 0, none));
-      }
-    return { present, ctx, draw, frame: frameAround(sampled) };
-  }, [lesson, kit, index, tests]);
+    const hidden = module ? module.produces.some((id) => enclosed(id, draw(null, 0, none))) : false;
+    /** Every pose a run passes through, so the camera can make room for the whole test and hold still through it. */
+    const reach = (run: Run): Part[] => [...draw(null, 0, none), ...Array.from({ length: FRAME_SAMPLES + 1 }, (_, i) => draw(run.at((run.durationMs * i) / FRAME_SAMPLES), 0, none)).flat()];
+    return { present, ctx, draw, hidden, reach };
+  }, [lesson, kit, index, module]);
 
   const [explode, setExplodeState] = useState(isFinal ? 1 : 0);
   const explodeRef = useRef(explode);
   const [anim, setAnim] = useState<Overlay | null>(null);
+  const [reach, setReach] = useState<Part[] | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<Readonly<Record<string, Verdict>>>({});
   const outcomesRef = useRef(outcomes);
@@ -74,6 +75,12 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
     await play(ms, (t) => setExplode(lerp(from, to, smooth(t / ms))), () => alive() && token.current === mine);
   };
 
+  // A part earned inside another would be pink out of sight, so the object comes apart to show it.
+  const revealEarned = mode.kind === "module" && mode.earned && world.hidden;
+  useEffect(() => {
+    if (revealEarned) void tween(1, REVEAL_MS, ++token.current);
+  }, [revealEarned]);
+
   const assemble = () => {
     if (running) return;
     void tween(0, ASSEMBLE_MS, ++token.current);
@@ -86,9 +93,12 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
     if (explodeRef.current > 0.001) await tween(0, CLOSE_MS, mine);
     if (!alive()) return;
     const run = test.run(tuning, world.ctx);
+    setReach(world.reach(run));
+    await play(CAMERA_MS, () => {}, () => alive() && token.current === mine);
     await play(run.durationMs, (ms) => setAnim(run.at(ms)), () => alive() && token.current === mine);
     if (!alive()) return;
     setAnim(null);
+    setReach(null);
     setRunning(null);
     const next = { ...outcomesRef.current, [test.id]: run.verdict };
     outcomesRef.current = next;
@@ -121,6 +131,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
 
   const pink = new Set(tapped ? [tapped] : mode.kind === "module" && mode.earned ? module!.produces : []);
   const parts = world.draw(anim, explode, pink);
+  const subject = useMemo(() => reach ?? world.draw(null, explode, new Set()), [reach, world, explode]);
   const status = (t: Test): Status => {
     const o = outcomes[t.id];
     return o ? (o.pass ? "pass" : "fail") : "idle";
@@ -137,7 +148,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
   return (
     <main className="page" data-stage={mode.kind === "module" ? (mode.earned ? "earned" : "sandbox") : "final"}>
       <Header kicker={mode.kind === "module" ? `Module ${mode.index + 1} · Sandbox` : "Piece it together"} title={module ? module.need : lesson.final.need} />
-      <Viewer name={lesson.objectName} parts={parts} frame={world.frame} height={420} live={anim?.live} />
+      <Viewer name={lesson.objectName} parts={parts} subject={subject} height={420} live={anim?.live} />
       <ExplodeSlider value={explode} disabled={running !== null} onChange={(v) => { token.current++; setExplode(v); }} />
       {isFinal && !earned ? (
         <button type="button" className="btn secondary" data-assemble disabled={closed || running !== null} onClick={assemble}>Assemble</button>

@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { inflateSync } from "node:zlib";
 import { chromium, type Page } from "playwright-core";
 import { createServer } from "vite";
 import viteConfig from "../../vite.config.ts";
@@ -14,6 +15,7 @@ import { LESSONS } from "./lessons/index.ts";
 import { inspectLesson } from "./lessons/inspect.ts";
 import { fixedValues, midWindow, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
 import { restCentre } from "./pose.ts";
+import { SYNTHWAVE } from "../../src/primitives/parts.ts";
 
 const root = resolve(import.meta.dirname, "../..");
 const outDir = join(root, "out", "lesson");
@@ -26,6 +28,14 @@ const READY = 90_000;
 const TEST_TIMEOUT = 30_000;
 /** Long enough into a test that the object is mid-move (the flip has turned over and drops are falling). */
 const MID_TEST_MS = 1300;
+const SHADOW = new Set(SYNTHWAVE.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",")));
+/** The object, or the reach of its tests, fills this share of the viewer's width or height. */
+const FILL_LO = 0.75;
+const FILL_HI = 0.9;
+/** Device pixels of a pink part's shading that count as the piece being in sight. */
+const PINK_SEEN = 200;
+/** Long enough for an explode tween and the camera's ease to settle. */
+const SETTLE_MS = 1000;
 
 function findChromium(): string {
   for (const { dir, executable } of [
@@ -41,6 +51,48 @@ function findChromium(): string {
     }
   }
   throw new Error(`No chromium or chromium_headless_shell in ${cache}`);
+}
+
+/** Decodes an 8-bit RGB or RGBA, non-interlaced PNG, which is what Chromium's screenshots are. */
+function decodePng(png: Buffer): { width: number; height: number; px: (x: number, y: number) => [number, number, number] } {
+  let at = 8;
+  let width = 0;
+  let height = 0;
+  let channels = 4;
+  const data: Buffer[] = [];
+  while (at < png.length) {
+    const length = png.readUInt32BE(at);
+    const type = png.toString("ascii", at + 4, at + 8);
+    const body = png.subarray(at + 8, at + 8 + length);
+    if (type === "IHDR") {
+      width = body.readUInt32BE(0);
+      height = body.readUInt32BE(4);
+      if (body[8] !== 8 || body[12] !== 0) throw new Error("only 8-bit non-interlaced PNGs");
+      channels = body[9] === 6 ? 4 : body[9] === 2 ? 3 : 0;
+      if (!channels) throw new Error(`PNG colour type ${body[9]}`);
+    }
+    if (type === "IDAT") data.push(body);
+    at += 12 + length;
+  }
+  const raw = inflateSync(Buffer.concat(data));
+  const stride = width * channels;
+  const out = Buffer.alloc(stride * height);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)]!;
+    for (let i = 0; i < stride; i++) {
+      const x = raw[y * (stride + 1) + 1 + i]!;
+      const a = i >= channels ? out[y * stride + i - channels]! : 0;
+      const b = y > 0 ? out[(y - 1) * stride + i]! : 0;
+      const c = i >= channels && y > 0 ? out[(y - 1) * stride + i - channels]! : 0;
+      const paeth = () => {
+        const p = a + b - c;
+        const [pa, pb, pc] = [Math.abs(p - a), Math.abs(p - b), Math.abs(p - c)];
+        return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+      };
+      out[y * stride + i] = (x + [0, a, b, (a + b) >> 1, paeth()][filter]!) & 255;
+    }
+  }
+  return { width, height, px: (x, y) => [out[y * stride + x * channels]!, out[y * stride + x * channels + 1]!, out[y * stride + x * channels + 2]!] };
 }
 
 type Row = { run: string; step: string; ok: boolean; detail: string };
@@ -85,6 +137,37 @@ class Run {
     const thumb = await this.page.locator(".north canvas[data-dither]").count();
     const photos = await this.page.locator("img").count();
     this.check("no raw photo, goal is dithered", thumb === 1 && photos === 0, `${thumb} dithered goal, ${photos} <img>`);
+  }
+
+  /**
+   * How much of the viewer the drawn object fills, as the larger of its width and height shares. The
+   * shadow is dithered in exactly the synthwave stops, so those pixels and near-white ones are skipped;
+   * a part's own shading never lands exactly on a stop except the brightest pink.
+   */
+  async fill(stage: string): Promise<{ fill: number; pink: number }> {
+    const viewer = this.page.locator(`[data-stage="${stage}"] .viewer`).first();
+    await this.page.addStyleTag({ content: ".viewer .live, .viewer .drag { visibility: hidden !important; } .viewer, .viewer::after { box-shadow: none !important; }" }).then((h) => h.evaluate((el) => (el as Element).setAttribute("data-measure", "")));
+    const img = decodePng(await viewer.screenshot());
+    await this.page.evaluate(() => document.querySelectorAll("[data-measure]").forEach((el) => el.remove()));
+    let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+    let pink = 0;
+    const inset = 6;
+    for (let y = inset; y < img.height - inset; y++)
+      for (let x = inset; x < img.width - inset; x++) {
+        const [r, g, b] = img.px(x, y);
+        if ((Math.max(r, g, b) - Math.min(r, g, b) <= 10 && r > 235) || SHADOW.has(`${r},${g},${b}`)) continue;
+        if (r > g + 60 && r > b + 20) pink += 1;
+        [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
+      }
+    const fill = x1 < x0 ? 0 : Math.max((x1 - x0 + 1) / (img.width - 2 * inset), (y1 - y0 + 1) / (img.height - 2 * inset));
+    return { fill, pink };
+  }
+
+  /** Checks the object fills a sensible share of the viewer, within `lo`..`hi`. */
+  async framed(stage: string, label: string, pinkShown?: boolean) {
+    const { fill: f, pink } = await this.fill(stage);
+    rows.push({ run: this.name, step: `${label} fills ${Math.round(f * 100)}% of the viewer`, ok: f >= FILL_LO && f <= FILL_HI, detail: `want ${Math.round(FILL_LO * 100)} to ${Math.round(FILL_HI * 100)}%` });
+    if (pinkShown !== undefined) rows.push({ run: this.name, step: `${label} ${pinkShown ? "shows" : "has no"} pink piece`, ok: pinkShown ? pink >= PINK_SEEN : pink < PINK_SEEN, detail: `${pink} pink pixels` });
   }
 
   async setRange(selector: string, value: number) {
@@ -180,15 +263,18 @@ async function playWorkshop(r: Run, lesson: Workshop, url: string) {
     await r.page.click("[data-next]");
 
     await r.stage("assemble");
+    await r.framed("assemble", `${tag} assemble`);
     await r.shot(`${tag}-assemble`);
     await r.page.click("[data-fit]");
     await r.page.waitForSelector('[data-stage="assemble"] [data-next]', { timeout: 10_000 });
-    await r.page.waitForTimeout(300);
+    await r.page.waitForTimeout(SETTLE_MS);
+    await r.framed("assemble", `${tag} built`, true);
     await r.shot(`${tag}-built`);
     r.check(`${tag} fit it`, true);
     await r.page.click("[data-next]");
 
     await r.stage("sandbox");
+    await r.framed("sandbox", `${tag} sandbox`, false);
     const testIds = m.tests.map((t) => t.id);
     const before = await r.runTests(testIds, `${tag}-fault`);
     const failing = testIds.filter((id) => before[id] === "fail");
@@ -224,11 +310,14 @@ async function playWorkshop(r: Run, lesson: Workshop, url: string) {
     const after = await r.runTests(testIds, `${tag}-fixed`);
     await r.stage("earned");
     r.check(`${tag} ${m.fault.slider.id} = ${mid} passes every test`, testIds.every((id) => after[id] === "pass"), JSON.stringify(after));
+    await r.page.waitForTimeout(SETTLE_MS);
+    await r.framed("earned", `${tag} earned`, true);
     await r.shot(`${tag}-earned`);
     await r.page.click("[data-next]");
   }
 
   await r.stage("final");
+  await r.framed("final", "final exploded");
   await r.shot("final-exploded");
   await r.page.click("[data-assemble]");
   await r.page.waitForSelector("[data-assemble][disabled]", { timeout: 10_000 });
@@ -255,8 +344,11 @@ async function playInspect(r: Run, sample: string, url: string) {
   await r.stage("apart");
   const plain = await r.page.locator("[data-structure]").count();
   r.check(lesson.teach.length === 0 ? "says plainly it has no mechanism" : "no structure note when it has mechanisms", plain === (lesson.teach.length === 0 ? 1 : 0));
+  await r.framed("apart", "apart");
   await r.shot("apart");
   await r.setRange("[data-explode] input", 1);
+  await r.page.waitForTimeout(SETTLE_MS);
+  await r.framed("apart", "apart exploded");
   for (const p of kit.parts) {
     await r.page.click(`[data-part="${p.id}"]`);
     const role = (await r.page.textContent(`[data-role="${p.id}"]`)) ?? "";
@@ -284,9 +376,12 @@ async function playInspect(r: Run, sample: string, url: string) {
   r.check(`${lesson.prompts.length} jobs named from kit roles`, true);
 
   await r.stage("final");
+  await r.framed("final", "final exploded");
   await r.shot("final-exploded");
   await r.page.click("[data-assemble]");
   await r.page.waitForSelector('[data-stage="final"] [data-earned]', { timeout: 10_000 });
+  await r.page.waitForTimeout(SETTLE_MS);
+  await r.framed("final", "pieced together");
   r.check("pieced together", true);
   await r.shot("final-earned");
 }

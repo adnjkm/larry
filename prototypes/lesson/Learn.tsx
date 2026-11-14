@@ -53,7 +53,7 @@ export function Learn({ list, kicker, title, hint, next, children, onNext }: Pro
           ))}
         </div>
       ) : null}
-      <Viewer name={p.name} parts={parts} frame={frame} view={p.view} height={340} />
+      <Viewer name={p.name} parts={parts} subject={frame} view={p.view} height={340} />
       <div className="sliders">
         {p.sliders.map((s) => (
           <SliderRow
