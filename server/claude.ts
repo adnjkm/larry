@@ -14,7 +14,7 @@ type StructuredRequest = {
   streamKey: string;
 };
 
-type StructuredEvent = ScannedEvent | { type: "result"; output: unknown; costUsd: number };
+export type StructuredEvent = ScannedEvent | { type: "result"; output: unknown; costUsd: number };
 
 /**
  * Asks Claude for JSON matching `schema`, through the Claude Agent SDK (the user's Claude Code login).
