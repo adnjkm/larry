@@ -7,17 +7,19 @@ import type { Finish, Joint, Part, Shape } from "../../shared/kit.ts";
 export const SYNTHWAVE = ["#000023", "#23005f", "#8700af", "#ff0087", "#ff5f37", "#ffd700"] as const;
 
 /**
- * Part colours, all from Synthwave. Every primitive has exactly one `focus` part: the piece the
- * primitive is about. `structure` is for frames, bases and housings; `second` and `third` tell
- * other moving pieces apart; `light` is a pale tint for large passive surfaces.
+ * Part colours. Components are neutral greys; only the piece a primitive is about gets the pink
+ * accent (`focus`), the way a diagram highlights one thing. Synthwave itself is for the shadow
+ * (see createShadowMaterial). `accent` is a quieter purple for annotations such as force arrows.
+ * The keys `second`, `third` and `purple` are kept as grey shades so existing figures stay neutral.
  */
 export const COLOR = {
   focus: "#ff0087",
-  second: "#ff5f37",
-  third: "#ffd700",
-  purple: "#8700af",
-  structure: "#23005f",
-  light: "#f3e9ff",
+  accent: "#8700af",
+  second: "#a9adb3",
+  third: "#d3d1cc",
+  purple: "#7d8188",
+  structure: "#2e2e30",
+  light: "#ecebe7",
 } as const;
 
 export type Look = { color: string; finish: Finish };
@@ -25,7 +27,8 @@ export const look = {
   focus: { color: COLOR.focus, finish: "matte" },
   focusMetal: { color: COLOR.focus, finish: "metal" },
   focusRubber: { color: COLOR.focus, finish: "rubber" },
-  second: { color: COLOR.second, finish: "matte" },
+  accent: { color: COLOR.accent, finish: "matte" },
+  second: { color: COLOR.second, finish: "metal" },
   third: { color: COLOR.third, finish: "matte" },
   purple: { color: COLOR.purple, finish: "matte" },
   purpleMetal: { color: COLOR.purple, finish: "metal" },

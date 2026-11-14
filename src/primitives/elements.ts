@@ -20,7 +20,7 @@ function arrowOutline(length: number): Pt[] {
 /** A force arrow: tail at `tail`, pointing along `angleDeg` (0 = +x, 90 = up, -90 = down), `length` mm long. */
 function arrow(id: string, name: string, role: string, parentId: string, tail: Vec, angleDeg: number, length: number): Part {
   const a = pivoted(arrowOutline(Math.max(length, 0.5)), 4, [0, 0], tail, angleDeg);
-  return part(id, name, role, a.shape, a.position, look.second, { parentId, joint: "glue" }, a.rotation);
+  return part(id, name, role, a.shape, a.position, look.accent, { parentId, joint: "glue" }, a.rotation);
 }
 
 /** A straight strand from a to b anywhere in 3D: a square-section rounded box, a little longer than the gap so bends close up. */
