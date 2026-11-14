@@ -150,9 +150,11 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
             Back
           </button>
         )}
-        <button type="button" data-action="next" disabled={!complete} {...stylex.props(buttons.base, buttons.primary, styles.next, !complete && buttons.disabled)} onClick={() => dispatch({ type: "next" })}>
-          {last ? "Finish" : "Next"}
-        </button>
+        {complete && (
+          <button type="button" data-action="next" {...stylex.props(buttons.base, buttons.primary, styles.next)} onClick={() => dispatch({ type: "next" })}>
+            {last ? "Finish" : "Next"}
+          </button>
+        )}
       </div>
     </>
   );

@@ -76,10 +76,7 @@ function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
   const lastFailed = state.tried.findLast((i) => !problem.options[i]?.works);
   return (
     <div {...stylex.props(layout.stack)}>
-      <div {...stylex.props(layout.inset, layout.tight)}>
-        <p {...stylex.props(type.story)}>{problem.question}</p>
-        {state.tried.length === 0 && <p {...stylex.props(type.label)}>Tap one to try it</p>}
-      </div>
+      <p {...stylex.props(layout.inset, type.story)}>{problem.question}</p>
       {problem.options.map((option, i) => {
         const primitive = PRIMITIVE_BY_ID.get(option.primitive);
         const tried = state.tried.includes(i);

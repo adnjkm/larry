@@ -290,7 +290,7 @@ try {
         await shot(page, `chapter-${String(chapterNumber).padStart(2, "0")}-${chapter.id}.png`);
         await shot(page, `chapter-${String(chapterNumber).padStart(2, "0")}-${chapter.id}-viewport.png`, false);
       }
-      if (problem) assert.equal(await next.isDisabled(), true, `${step.id}: Next is disabled before the problem is solved`);
+      if (problem) assert.equal(await next.count(), 0, `${step.id}: Next is not offered before the problem is solved`);
 
       if (problem?.type === "run") {
         await page.locator("[data-action=run]").click();
@@ -302,7 +302,7 @@ try {
           await page.locator(`[data-option="${wrong}"] button`).click();
           await page.locator(`[data-option="${wrong}"][data-tried]`).waitFor();
           assert.equal(await page.locator(`[data-option="${wrong}"] button`).isDisabled(), true, "a failed option cannot be re-picked");
-          assert.equal(await next.isDisabled(), true, "a wrong pick does not complete the step");
+          assert.equal(await next.count(), 0, "a wrong pick does not complete the step");
           await viewersReady(page);
           if (index === 1) await shot(page, `pick-wrong-${step.id}.png`);
         }
@@ -320,7 +320,7 @@ try {
         await page.locator("[data-action=try]").click();
         await page.locator('[data-note="fail"]').waitFor();
         assert.ok((await page.locator('[data-note="fail"]').innerText()).includes(problem.tooLow.slice(0, 20)), "too-low text shown below the window");
-        assert.equal(await next.isDisabled(), true, "a failed try does not complete the step");
+        assert.equal(await next.count(), 0, "a failed try does not complete the step");
 
         await setSlider(input, slider.max);
         await page.waitForTimeout(150);
@@ -353,7 +353,7 @@ try {
       }
       assert.notEqual(solved, null, `${step.id} can be completed`);
       if (step.earns.length > 0) assert.equal(await page.locator("[data-added]").count(), 1, "earned parts are announced");
-      assert.equal(await next.isEnabled(), true, `${step.id}: Next is enabled once the step is complete`);
+      assert.equal(await next.count(), 1, `${step.id}: Next appears once the step is complete`);
       if (index === chapter.steps.length - 1 && chapterNumber <= 2) {
         await viewersReady(page);
         await shot(page, `solved-${step.id}.png`);
@@ -369,6 +369,7 @@ try {
   await shot(page, "99-finish.png");
   const done = await page.locator("[data-roadmap] [data-status=done]").count();
   assert.equal(done, chapterNumber, "every roadmap chip is ticked at the finish");
+  assert.equal(await page.locator("[data-roadmap]").getAttribute("aria-valuenow"), String(chapterNumber), "the progress bar reads full at the finish");
   assert.equal(await page.locator("[data-roadmap] [data-placeholder]").count(), 0, "no placeholder chip once the lesson is done");
   if (live) {
     assert.ok(finalLesson(), "the stream ended with done");
