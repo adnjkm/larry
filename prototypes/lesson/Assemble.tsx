@@ -5,6 +5,7 @@ import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
 import { assembledFrom, type Built, type Builds, listOf, type PartMove, presentAfter, type Scene, type Target, vec, type Vec } from "./model.ts";
+import { DragBuild } from "./DragBuild.tsx";
 import { compose, drawObject, enclosed, extents, placeParts, restCentre } from "./pose.ts";
 import { Actions, ExplodeSlider, Plain, Say, Viewer, Why } from "./ui.tsx";
 
@@ -36,7 +37,14 @@ function focusPieces(module: Built): Part[] {
 
 const sub = (a: Vec | undefined, b: Vec | undefined) => vec((a?.x ?? 0) - (b?.x ?? 0), (a?.y ?? 0) - (b?.y ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
 
-export function Assemble({ lesson, kit, index, next = "Next: test it", onNext }: { lesson: Builds; kit: Kit; index: number; next?: string; onNext: () => void }) {
+type BuildProps = { lesson: Builds; kit: Kit; index: number; next?: string; onNext: () => void };
+
+/** The Build step: drag the piece onto its ghost when the lesson asks for it, otherwise tap the piece and then its ring. */
+export function Assemble({ next = "Next: test it", ...props }: BuildProps) {
+  return props.lesson.build === "drag" ? <DragBuild {...props} next={next} /> : <TapBuild {...props} next={next} />;
+}
+
+function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: string }) {
   const module = lesson.modules[index]!;
   const plain = useContext(Plain);
   const alive = useAlive();

@@ -124,7 +124,11 @@ export type Workshop = {
   apart?: Readonly<Record<string, Vec>>;
   /** How the object is seen while it is built and tested; DEFAULT_VIEW when unset. */
   view?: View;
+  build?: BuildStyle;
 };
+
+/** How a Build step is played: tap the piece then its ring, or drag the real piece onto its ghost. Tap when unset. */
+export type BuildStyle = "tap" | "drag";
 
 export type Inspect = {
   kind: "inspect";
@@ -139,7 +143,7 @@ export type Inspect = {
 /** What Assemble reads from any module that builds a part, whatever game the module plays. */
 export type Built = Pick<Module, "id" | "title" | "teach" | "main" | "assemble" | "produces" | "target" | "enter">;
 /** What Assemble reads from any lesson that builds its object module by module. */
-export type Builds = Pick<Workshop, "objectName" | "rest" | "apart" | "view"> & { modules: readonly Built[] };
+export type Builds = Pick<Workshop, "objectName" | "rest" | "apart" | "view" | "build"> & { modules: readonly Built[] };
 
 /** A stretch of a control's travel that feels and reads one way. `until` is where it ends; `gain` is how far the control moves per pixel dragged, so a stiff zone takes more dragging. */
 export type Zone = { id: string; word: string; until: number; gain: number };
@@ -197,6 +201,7 @@ export type Story = {
   rest: (ctx: Ctx) => Scene;
   apart?: Readonly<Record<string, Vec>>;
   view?: View;
+  build?: BuildStyle;
 };
 
 export type StoryModuleSpec = Omit<StoryModule, "teach" | "main" | "enter"> & { primitive: string; teach?: readonly string[]; enter?: Vec };

@@ -28,7 +28,11 @@ Each module meets one requirement ("It must…") in four steps:
 1. **Learn**: play with the primitive on its own (lever, spring, thread…). Every slider is live. Beside
    it, a small drawing of the object with the part pink and one sentence on what the primitive does in
    this object (`uses` in the module).
-2. **Build**: tap the piece, then the ring where it goes. That makes the part.
+2. **Build**: tap the piece, then the ring where it goes. That makes the part. A lesson with
+   `build: "drag"` (the bottle) plays it by hand instead: the real piece rests beside the object in
+   pink, a faint outline marks where it goes, and you drag the piece onto it. The outline turns pink
+   when the piece is close, and the piece lands by itself: a thread spins down, anything else presses
+   in. Dropped elsewhere, it springs back. `DragBuild.tsx`, `lens.ts` and `outline.ts`.
 3. **Test and fix**: run tests, watch the object fail in 3D, tap the part at fault, then tune it with
    the slider that takes the chips' place (`task` is its instruction, 8 words at most).
    Every fix has a two-sided window: too low fails one test, too high fails another.
@@ -66,6 +70,7 @@ kit's joints and words, otherwise Inspect (take it apart and name each part's jo
 | `App.tsx`, `main.tsx` | Picks the lesson for a sample and mounts the app |
 | `Home.tsx` | Sample picker and scan screen |
 | `Workshop.tsx`, `Learn.tsx`, `Assemble.tsx`, `Sandbox.tsx` | The module steps above |
+| `DragBuild.tsx`, `lens.ts`, `outline.ts` | Build by dragging: the step, screen to kit and back through the viewer's camera, the ghost outline |
 | `Story.tsx`, `Play.tsx` | The story lesson's flow and its test screens (without it, make it work, final) |
 | `Inspect.tsx` | The take-apart lesson |
 | `ui.tsx`, `dither.tsx`, `anim.ts`, `ease.ts` | Shared UI, the dithered photo, animation helpers |
