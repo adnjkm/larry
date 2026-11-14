@@ -13,7 +13,7 @@ import viteConfig from "../../vite.config.ts";
 import { type Kit, parseKit } from "../../shared/kit.ts";
 import { LESSONS } from "./lessons/index.ts";
 import { inspectLesson } from "./lessons/inspect.ts";
-import { fixedValues, midWindow, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
+import { fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
 import { restCentre } from "./pose.ts";
 import { SYNTHWAVE } from "../../src/primitives/parts.ts";
 
@@ -22,7 +22,7 @@ const outDir = join(root, "out", "lesson");
 const cache = join(homedir(), "Library", "Caches", "ms-playwright");
 const kitsDir = join(root, "fixtures", "kits");
 const KITS: Record<string, Kit> = Object.fromEntries(
-  readdirSync(kitsDir).filter((f) => f.endsWith(".json")).map((f) => [f.replace(/\.json$/, ""), parseKit(JSON.parse(readFileSync(join(kitsDir, f), "utf8")))]),
+  readdirSync(kitsDir).filter((f) => f.endsWith(".json")).map((f) => [f.replace(/\.json$/, ""), tidyKit(parseKit(JSON.parse(readFileSync(join(kitsDir, f), "utf8"))))]),
 );
 const READY = 90_000;
 const TEST_TIMEOUT = 30_000;
@@ -120,8 +120,13 @@ class Run {
 
   async stage(stage: string) {
     await this.page.waitForSelector(`[data-stage="${stage}"]`, { timeout: READY });
-    if (await this.page.locator(`[data-stage="${stage}"] [data-kit-viewer]`).count()) await this.page.waitForSelector(`[data-stage="${stage}"] [data-kit-viewer][data-ready]`, { timeout: READY });
+    const viewers = await this.page.locator(`[data-stage="${stage}"] [data-kit-viewer]`).count();
+    if (viewers) await this.page.waitForSelector(`[data-stage="${stage}"] [data-kit-viewer][data-ready]`, { timeout: READY });
     await this.page.waitForTimeout(300);
+    const explode = await this.page.locator(`[data-stage="${stage}"] [data-explode]`).count();
+    const drawn = await this.page.locator("img, svg").count();
+    // Learn shows a primitive, not the object, so only it may go without Explode.
+    this.check(`${stage}: object in the 3D viewer${stage === "learn" ? "" : " with Explode"}, no <img> or <svg>`, viewers === 1 && (stage === "learn" || explode === 1) && drawn === 0, `${viewers} viewers, ${explode} explode, ${drawn} img/svg`);
   }
 
   async open(sample: string, inspect: boolean, url: string) {

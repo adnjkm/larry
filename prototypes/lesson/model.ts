@@ -120,6 +120,14 @@ export type ModuleSpec = Omit<Module, "teach" | "main" | "fault" | "enter"> & {
 };
 export type WorkshopSpec = Omit<Workshop, "kind" | "modules" | "rest"> & { modules: ModuleSpec[]; rest?: Workshop["rest"] };
 
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** A scanned kit as the lessons show it: part names start with a capital, whatever the scan wrote. */
+export const tidyKit = (kit: Kit): Kit => ({ ...kit, parts: kit.parts.map((p) => ({ ...p, name: capital(p.name) })) });
+
+/** "A", "A and B", "A, B and C". */
+export const listOf = (items: readonly string[]) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
+
 export function primitiveById(id: string): Primitive {
   const p = PRIMITIVES.find((q) => q.id === id);
   if (!p) throw new Error(`no primitive ${id}`);

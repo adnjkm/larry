@@ -4,7 +4,7 @@ import { initialValues } from "../../src/primitives/library.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
-import { type PartMove, presentAfter, type Scene, type Target, vec, type Vec, type Workshop } from "./model.ts";
+import { listOf, type PartMove, presentAfter, type Scene, type Target, vec, type Vec, type Workshop } from "./model.ts";
 import { compose, drawObject, enclosed, extents, placeParts, restCentre } from "./pose.ts";
 import { ExplodeSlider, Header, Viewer } from "./ui.tsx";
 
@@ -102,7 +102,7 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
   }, [setup, kit, lesson.apart, module, progress, landed, tick, picked, explode]);
 
   const subject = useMemo(() => (landed ? setup.whole(explode) : [...setup.around, ...setup.whole(explode)]), [setup, explode, landed]);
-  const names = module.produces.map((id) => kit.parts.find((q) => q.id === id)?.name ?? id).join(" and ");
+  const names = listOf(module.produces.map((id) => kit.parts.find((q) => q.id === id)?.name ?? id));
   const piece = module.main.name.toLowerCase();
   const object = lesson.objectName.toLowerCase();
 
@@ -130,7 +130,7 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
             <strong>{names}</strong>
             <span>The {piece} is now the {names.toLowerCase()} on the {object}. It is pink because it is the piece this module is about.</span>
           </div>
-          <button type="button" className="btn" data-next onClick={onNext}>Next: test it</button>
+          <button type="button" className="btn" data-next onClick={onNext}>Next: test and fix</button>
         </>
       ) : (
         <button type="button" className="btn secondary" data-fit disabled={progress !== null} onClick={fly}>Fit it</button>

@@ -32,7 +32,7 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
 
   let body;
   if (route === "final") {
-    body = <Sandbox key="final" lesson={lesson} kit={kit} mode={{ kind: "final", done: finalDone }} tuning={tuning} onTune={setTuning} onEarned={() => setFinalDone(true)} onNext={onRestart} />;
+    body = <Sandbox key="final" lesson={lesson} kit={kit} mode={{ kind: "final", done: finalDone }} tuning={tuning} onTune={setTuning} onEarned={() => setFinalDone(true)} onNext={onRestart} onHome={onHome} />;
   } else {
     const module = modules[route]!;
     const stage = stages[module.id]!;
@@ -50,7 +50,7 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
         />
       );
     else if (stage === "assemble") body = <Assemble key={`${module.id}-assemble`} lesson={lesson} kit={kit} index={route} onNext={() => setStage(module.id, "sandbox")} />;
-    else body = <Sandbox key={module.id} lesson={lesson} kit={kit} mode={{ kind: "module", index: route, earned: stage === "earned" }} tuning={tuning} onTune={setTuning} onEarned={() => setStage(module.id, "earned")} onNext={next} />;
+    else body = <Sandbox key={module.id} lesson={lesson} kit={kit} mode={{ kind: "module", index: route, earned: stage === "earned" }} tuning={tuning} onTune={setTuning} onEarned={() => setStage(module.id, "earned")} onNext={next} onHome={onHome} />;
   }
 
   return (

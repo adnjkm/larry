@@ -4,7 +4,7 @@ import { formatSlider, initialValues } from "../../src/primitives/library.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { lerp, smooth } from "./ease.ts";
-import { type Module, type Overlay, passBand, presentAfter, type Run, type Test, type Values, type Verdict, type Workshop } from "./model.ts";
+import { listOf, type Module, type Overlay, passBand, presentAfter, type Run, type Test, type Values, type Verdict, type Workshop } from "./model.ts";
 import { compose, drawObject, enclosed, restCentre } from "./pose.ts";
 import { ExplodeSlider, Header, SliderRow, Viewer } from "./ui.tsx";
 
@@ -26,11 +26,12 @@ type Props = {
   onTune: (next: Values) => void;
   onEarned: () => void;
   onNext: () => void;
+  onHome: () => void;
 };
 
 type Status = "idle" | "pass" | "fail";
 
-export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }: Props) {
+export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, onHome }: Props) {
   const alive = useAlive();
   const module = mode.kind === "module" ? lesson.modules[mode.index]! : null;
   const tests: readonly Test[] = module ? module.tests : lesson.final.tests;
@@ -147,7 +148,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
 
   return (
     <main className="page" data-stage={mode.kind === "module" ? (mode.earned ? "earned" : "sandbox") : "final"}>
-      <Header kicker={mode.kind === "module" ? `Module ${mode.index + 1} · Sandbox` : "Piece it together"} title={module ? module.need : lesson.final.need} />
+      <Header kicker={mode.kind === "module" ? `Module ${mode.index + 1} · Test and fix` : "Final · Piece it together"} title={module ? module.need : lesson.final.need} />
       <Viewer name={lesson.objectName} parts={parts} subject={subject} height={420} live={anim?.live} />
       <ExplodeSlider value={explode} disabled={running !== null} onChange={(v) => { token.current++; setExplode(v); }} />
       {isFinal && !earned ? (
@@ -242,10 +243,10 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
         <>
           <div className="earned" data-earned>
             <span className="mono" style={{ color: COLOR.focus }}>Requirement met · part earned</span>
-            <strong>{module.produces.map((id) => kit.parts.find((p) => p.id === id)?.name ?? id).join(" and ")}</strong>
+            <strong>{listOf(module.produces.map((id) => kit.parts.find((p) => p.id === id)?.name ?? id))}</strong>
             <span>{module.why}</span>
           </div>
-          <button type="button" className="btn" data-next onClick={onNext}>{mode.kind === "module" && mode.index < lesson.modules.length - 1 ? "Next module" : "Piece it together"}</button>
+          <button type="button" className="btn" data-next onClick={onNext}>Next: {(lesson.modules[index + 1]?.title ?? "Piece it together").toLowerCase()}</button>
         </>
       ) : null}
       {isFinal && earned ? (
@@ -253,9 +254,12 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext }:
           <div className="earned" data-earned>
             <span className="mono" style={{ color: COLOR.focus }}>Every requirement met</span>
             <strong>{lesson.final.success}</strong>
-            <span>{lesson.final.detail} The parts you earned: {kit.parts.map((p) => p.name).join(", ")}.</span>
+            <span>{lesson.final.detail} {kit.parts.length} parts: {listOf(kit.parts.map((p) => p.name.toLowerCase()))}.</span>
           </div>
-          <button type="button" className="btn secondary" onClick={onNext}>Start over</button>
+          <div className="row">
+            <button type="button" className="btn secondary" onClick={onNext}>Start over</button>
+            <button type="button" className="btn" onClick={onHome}>Another object</button>
+          </div>
         </>
       ) : null}
     </main>

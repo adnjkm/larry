@@ -3,8 +3,9 @@ import { Dither } from "./dither.tsx";
 import type { Lesson } from "./model.ts";
 import type { Sample } from "./samples.ts";
 
-const describe = (lesson: Lesson) =>
-  lesson.kind === "workshop" ? `Lesson · ${lesson.modules.length} ${lesson.modules.length === 1 ? "module" : "modules"}` : "Inspect";
+const count = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
+const describe = (lesson: Lesson, s: Sample) =>
+  lesson.kind === "workshop" ? `Lesson · ${count(lesson.modules.length, "module")}` : `Inspect · ${count(s.kit.parts.length, "part")}`;
 
 export function Home({ samples, lessonOf, onPick }: { samples: readonly Sample[]; lessonOf: (s: Sample) => Lesson; onPick: (s: Sample) => void }) {
   return (
@@ -19,7 +20,7 @@ export function Home({ samples, lessonOf, onPick }: { samples: readonly Sample[]
           <button key={s.id} type="button" className="sample" data-sample={s.id} onClick={() => onPick(s)}>
             <Dither src={s.photo} aspect={1} className="tile" />
             <span>{s.label}</span>
-            <span className="mono">{describe(lessonOf(s))}</span>
+            <span className="mono">{describe(lessonOf(s), s)}</span>
           </button>
         ))}
       </div>

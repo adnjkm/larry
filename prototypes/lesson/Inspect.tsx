@@ -5,7 +5,7 @@ import { play, useAlive } from "./anim.ts";
 import { lerp, smooth } from "./ease.ts";
 import { Learn } from "./Learn.tsx";
 import { JOINT_PRIMITIVE } from "./lessons/inspect.ts";
-import { EMPTY_SCENE, type Inspect } from "./model.ts";
+import { EMPTY_SCENE, type Inspect, listOf } from "./model.ts";
 import { drawObject, restCentre } from "./pose.ts";
 import { ExplodeSlider, Header, Shell, type Step, Viewer } from "./ui.tsx";
 
@@ -27,7 +27,7 @@ export function InspectFlow({ lesson, kit, photo, onHome, onRestart }: { lesson:
     const next = routes[routes.indexOf(r) + 1];
     if (next) setRoute(next);
   };
-  const TITLE: Record<Route, string> = { learn: "Mechanisms", apart: "Take it apart", jobs: "Name the jobs", final: "Piece it together" };
+  const TITLE: Record<Route, string> = { learn: "Learn", apart: "Take it apart", jobs: "Name the jobs", final: "Piece it together" };
   const steps: Step[] = routes.map((r, i) => ({
     key: r, title: TITLE[r],
     state: done.has(r) ? "done" : route === r ? "now" : "todo",
@@ -43,9 +43,9 @@ export function InspectFlow({ lesson, kit, photo, onHome, onRestart }: { lesson:
       <Learn
         key="learn"
         list={lesson.teach.map((t) => t.primitive)}
-        kicker="Learn · mechanisms in this object"
+        kicker="Inspect · Learn"
         title={`What holds the ${name} together and lets it move.`}
-        hint="Each tab is one mechanism its joints are made of. Play with each one."
+        hint={lesson.teach.length > 1 ? "Its joints work as these mechanisms, one tab each. Play with each one." : "Its joints work as this mechanism. Play with it. Every slider is live."}
         next="Next: take it apart"
         onNext={() => finish("learn")}
       >
@@ -112,7 +112,7 @@ function Apart({ lesson, kit, note, onNext }: { lesson: Inspect; kit: Kit; note:
   const all = looked.size === kit.parts.length;
   return (
     <main className="page" data-stage="apart">
-      <Header kicker="Take it apart" title={`What each part of the ${kit.name.toLowerCase()} does.`} />
+      <Header kicker="Inspect · Take it apart" title={`What each part of the ${kit.name.toLowerCase()} does.`} />
       {note ? <div className="card" data-structure><p>{note}</p></div> : null}
       <p className="hint">Pull Explode to separate the parts. Tap each part to see its job.</p>
       <Viewer name={lesson.objectName} parts={object.draw(explode, new Set(picked ? [picked.id] : []))} subject={object.subject(explode)} height={400} />
@@ -147,7 +147,7 @@ function Jobs({ lesson, kit, onNext }: { lesson: Inspect; kit: Kit; onNext: () =
   const last = at === lesson.prompts.length - 1;
   return (
     <main className="page" data-stage="jobs">
-      <Header kicker={`Name the jobs · ${at + 1} of ${lesson.prompts.length}`} title="Which part does this?" />
+      <Header kicker={`Inspect · Name the jobs · ${at + 1} of ${lesson.prompts.length}`} title="Which part does this?" />
       <blockquote className="prompt" data-prompt={prompt.id}>{prompt.role}</blockquote>
       <Viewer name={lesson.objectName} parts={object.draw(explode, new Set(tapped ? [tapped.id] : []))} subject={object.subject(explode)} height={360} />
       <ExplodeSlider value={explode} onChange={setExplode} />
@@ -187,7 +187,7 @@ function Together({ lesson, kit, done, onDone, onRestart, onHome }: { lesson: In
   const mechanisms = lesson.teach.map((t) => t.primitive.name.toLowerCase());
   return (
     <main className="page" data-stage="final">
-      <Header kicker="Piece it together" title={`Put the ${kit.name.toLowerCase()} back together.`} />
+      <Header kicker="Inspect · Piece it together" title={`Put the ${kit.name.toLowerCase()} back together.`} />
       <Viewer name={lesson.objectName} parts={object.draw(explode, new Set())} subject={object.subject(explode)} height={400} />
       <ExplodeSlider value={explode} onChange={(v) => { token.current++; setExplode(v); }} />
       {done ? (
@@ -196,7 +196,7 @@ function Together({ lesson, kit, done, onDone, onRestart, onHome }: { lesson: In
             <span className="mono" style={{ color: COLOR.focus }}>Taken apart and rebuilt</span>
             <strong>You took apart a {kit.name.toLowerCase()}.</strong>
             <span>
-              {kit.parts.length} parts: {kit.parts.map((p) => p.name).join(", ")}.{" "}
+              {kit.parts.length} parts: {listOf(kit.parts.map((p) => p.name.toLowerCase()))}.{" "}
               {mechanisms.length > 0 ? `Its joints work as ${mechanisms.join(" and ")}.` : "No part of it moves against another."}
             </span>
           </div>
