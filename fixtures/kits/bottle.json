@@ -1,0 +1,172 @@
+{
+  "name": "Insulated Water Bottle",
+  "summary": "A double-walled metal bottle keeps your drink hot or cold, and the shiny cap screws on tight over a rubbery ring so nothing leaks.",
+  "parts": [
+    {
+      "id": "body",
+      "name": "bottle body",
+      "role": "Holds the drink inside its insulated double steel walls.",
+      "parentId": null,
+      "joint": null,
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 34,
+            "y": 0
+          },
+          {
+            "r": 36,
+            "y": 3
+          },
+          {
+            "r": 36,
+            "y": 160
+          },
+          {
+            "r": 33,
+            "y": 170
+          },
+          {
+            "r": 27,
+            "y": 175
+          },
+          {
+            "r": 24,
+            "y": 177
+          },
+          {
+            "r": 0,
+            "y": 177
+          }
+        ]
+      },
+      "position": {
+        "x": 0,
+        "y": 88.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#2b2c2e",
+      "finish": "matte"
+    },
+    {
+      "id": "seal-ring",
+      "name": "seal ring",
+      "role": "A plastic ring at the neck that seals the cap and has a little tab.",
+      "parentId": "body",
+      "joint": "press-fit",
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 22,
+            "y": 0
+          },
+          {
+            "r": 29,
+            "y": 0
+          },
+          {
+            "r": 29,
+            "y": 10
+          },
+          {
+            "r": 22,
+            "y": 10
+          }
+        ]
+      },
+      "position": {
+        "x": 0,
+        "y": 180,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#1c1c1e",
+      "finish": "rubber"
+    },
+    {
+      "id": "ring-tab",
+      "name": "ring tab",
+      "role": "A little tab you can grab on the seal ring.",
+      "parentId": "seal-ring",
+      "joint": "molded",
+      "shape": {
+        "kind": "box",
+        "width": 14,
+        "height": 5,
+        "depth": 10,
+        "cornerRadius": 1.5
+      },
+      "position": {
+        "x": 33,
+        "y": 182,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#1c1c1e",
+      "finish": "rubber"
+    },
+    {
+      "id": "cap",
+      "name": "steel cap",
+      "role": "Screws onto the neck to close the bottle.",
+      "parentId": "body",
+      "joint": "thread",
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 27,
+            "y": 0
+          },
+          {
+            "r": 27.5,
+            "y": 27
+          },
+          {
+            "r": 26,
+            "y": 30
+          },
+          {
+            "r": 0,
+            "y": 30
+          }
+        ]
+      },
+      "position": {
+        "x": 0,
+        "y": 199,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#a9a9ab",
+      "finish": "metal"
+    }
+  ]
+}

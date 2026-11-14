@@ -1,0 +1,83 @@
+{
+  "name": "Coffee mug",
+  "summary": "A thick ceramic cup holds your hot drink, and a loop handle on the side lets you lift it without burning your fingers.",
+  "parts": [
+    {
+      "id": "body",
+      "name": "Cup body",
+      "role": "The round ceramic cup that holds the drink.",
+      "parentId": null,
+      "joint": null,
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 39,
+            "y": 0
+          },
+          {
+            "r": 41,
+            "y": 3
+          },
+          {
+            "r": 41,
+            "y": 95
+          },
+          {
+            "r": 37,
+            "y": 95
+          },
+          {
+            "r": 37,
+            "y": 8
+          },
+          {
+            "r": 0,
+            "y": 8
+          }
+        ]
+      },
+      "position": {
+        "x": 0,
+        "y": 47.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#ece8dc",
+      "finish": "glossy"
+    },
+    {
+      "id": "handle",
+      "name": "Handle",
+      "role": "A loop you grip to lift the mug.",
+      "parentId": "body",
+      "joint": "molded",
+      "shape": {
+        "kind": "torus",
+        "radius": 27,
+        "tube": 6,
+        "arcDegrees": 200
+      },
+      "position": {
+        "x": 39,
+        "y": 55,
+        "z": 0
+      },
+      "rotation": {
+        "x": 90,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#e8e4d8",
+      "finish": "glossy"
+    }
+  ]
+}

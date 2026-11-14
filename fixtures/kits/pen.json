@@ -1,0 +1,200 @@
+{
+  "name": "Striped click pen",
+  "summary": "Pressing the button on the end pushes the ink tube out of the metal tip so you can write, and pressing again pulls it back in.",
+  "parts": [
+    {
+      "id": "barrel",
+      "name": "Striped barrel",
+      "role": "The main tube you hold, which carries the ink tube inside.",
+      "parentId": null,
+      "joint": null,
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 5,
+            "y": 0
+          },
+          {
+            "r": 5,
+            "y": 100
+          },
+          {
+            "r": 0,
+            "y": 100
+          }
+        ]
+      },
+      "position": {
+        "x": 10,
+        "y": 5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": -90
+      },
+      "color": "#1c1c1c",
+      "finish": "glossy"
+    },
+    {
+      "id": "nose-cone",
+      "name": "Metal tip",
+      "role": "Screws onto the barrel and narrows down so the ink point can poke out.",
+      "parentId": "barrel",
+      "joint": "thread",
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 4.8,
+            "y": 0
+          },
+          {
+            "r": 4.6,
+            "y": 20
+          },
+          {
+            "r": 2.5,
+            "y": 24
+          },
+          {
+            "r": 1.5,
+            "y": 32
+          },
+          {
+            "r": 0,
+            "y": 32
+          }
+        ]
+      },
+      "position": {
+        "x": -54,
+        "y": 5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 90
+      },
+      "color": "#8a8c90",
+      "finish": "metal"
+    },
+    {
+      "id": "plunger",
+      "name": "Click button",
+      "role": "You press it to push the ink point out or pull it back.",
+      "parentId": "barrel",
+      "joint": "slide",
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 3.5,
+            "y": 0
+          },
+          {
+            "r": 3.5,
+            "y": 14
+          },
+          {
+            "r": 0,
+            "y": 14
+          }
+        ]
+      },
+      "position": {
+        "x": 65,
+        "y": 5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": -90
+      },
+      "color": "#b5b7ba",
+      "finish": "metal"
+    },
+    {
+      "id": "clip",
+      "name": "Pocket clip",
+      "role": "Springy arm that holds the pen in a pocket.",
+      "parentId": "barrel",
+      "joint": "press-fit",
+      "shape": {
+        "kind": "box",
+        "width": 55,
+        "height": 2,
+        "depth": 3,
+        "cornerRadius": 1
+      },
+      "position": {
+        "x": 32,
+        "y": 10.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#c9cacc",
+      "finish": "metal"
+    },
+    {
+      "id": "refill",
+      "name": "Ink tube",
+      "role": "Holds the ink and has the rolling ball that writes.",
+      "parentId": "barrel",
+      "joint": "slide",
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 1.3,
+            "y": 0
+          },
+          {
+            "r": 1.3,
+            "y": 120
+          },
+          {
+            "r": 0,
+            "y": 120
+          }
+        ]
+      },
+      "position": {
+        "x": -5,
+        "y": 5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": -90
+      },
+      "color": "#3a5fb0",
+      "finish": "matte"
+    }
+  ]
+}
