@@ -1,0 +1,157 @@
+{
+  "name": "Mason jar",
+  "summary": "A metal ring screws onto the glass jar's threads and pushes a flat lid with a rubber seal down tight, so air can't get in and the food stays fresh.",
+  "parts": [
+    {
+      "id": "jar",
+      "name": "glass jar",
+      "role": "Holds the food and has screw threads around its neck.",
+      "parentId": null,
+      "joint": null,
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 40,
+            "y": 0
+          },
+          {
+            "r": 43,
+            "y": 4
+          },
+          {
+            "r": 43.5,
+            "y": 118
+          },
+          {
+            "r": 40,
+            "y": 134
+          },
+          {
+            "r": 34,
+            "y": 146
+          },
+          {
+            "r": 33,
+            "y": 150
+          },
+          {
+            "r": 33,
+            "y": 162
+          },
+          {
+            "r": 30.5,
+            "y": 163
+          }
+        ]
+      },
+      "position": {
+        "x": 0,
+        "y": 81.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#dfe3e2",
+      "finish": "clear"
+    },
+    {
+      "id": "seal",
+      "name": "rubber seal",
+      "role": "Squishes against the jar rim to make it airtight.",
+      "parentId": "lid",
+      "joint": "glue",
+      "shape": {
+        "kind": "torus",
+        "radius": 30,
+        "tube": 1.2,
+        "arcDegrees": 360
+      },
+      "position": {
+        "x": 0,
+        "y": 163,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#b0905a",
+      "finish": "rubber"
+    },
+    {
+      "id": "lid",
+      "name": "flat lid",
+      "role": "Covers the jar opening.",
+      "parentId": "band",
+      "joint": "press-fit",
+      "shape": {
+        "kind": "box",
+        "width": 64,
+        "height": 1.5,
+        "depth": 64,
+        "cornerRadius": 0
+      },
+      "position": {
+        "x": 0,
+        "y": 164,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#b9a65a",
+      "finish": "metal"
+    },
+    {
+      "id": "band",
+      "name": "screw ring",
+      "role": "Screws onto the jar threads and holds the lid down.",
+      "parentId": "jar",
+      "joint": "thread",
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 34.5,
+            "y": 0
+          },
+          {
+            "r": 35,
+            "y": 13
+          },
+          {
+            "r": 34,
+            "y": 15
+          },
+          {
+            "r": 28,
+            "y": 15
+          }
+        ]
+      },
+      "position": {
+        "x": 0,
+        "y": 167.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#b8a252",
+      "finish": "metal"
+    }
+  ]
+}
