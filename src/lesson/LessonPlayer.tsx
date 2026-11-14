@@ -196,8 +196,8 @@ function Finish({ kit, earned, lesson, onRestart }: { kit: Kit; earned: Readonly
           </p>
         ))}
       </GlowCard>
-      <DownloadButton kit={kit} />
-      <button type="button" data-action="restart" {...stylex.props(buttons.base, buttons.primary)} onClick={onRestart}>
+      <DownloadButton kit={kit} primary />
+      <button type="button" data-action="restart" {...stylex.props(buttons.base, buttons.secondary)} onClick={onRestart}>
         Photograph something else
       </button>
     </section>
