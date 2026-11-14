@@ -10,14 +10,16 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { inflateSync } from "node:zlib";
 import { chromium, type Page } from "playwright-core";
+import { Euler, Vector3 } from "three";
 import { createServer } from "vite";
 import viteConfig from "../../vite.config.ts";
 import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { lessonFor, LESSONS } from "./lessons/index.ts";
 import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { EVIDENCE, generatedLesson, JOINT_TEMPLATES, standOf } from "./templates/index.ts";
-import { faultValues, fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, type Run as TestRun, sliderSteps, type Story, type TestCtx, type Values, type Window, type Workshop, zoneAt } from "./model.ts";
-import { extents, restCentre } from "./pose.ts";
+import { aim, idsOf, resting, sharesOf, SPRING, springsAt, type Springs, step } from "./explode.ts";
+import { bindStory, familyOf, faultValues, fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, type Run as TestRun, type Shares, sliderSteps, type Story, type TestCtx, type Values, type Window, type Workshop, zoneAt } from "./model.ts";
+import { corners, drawObject, extents, restCentre } from "./pose.ts";
 import { COLOR, SYNTHWAVE } from "../../src/primitives/parts.ts";
 
 const root = resolve(import.meta.dirname, "../..");
@@ -608,11 +610,135 @@ function checkStory(r: Run, story: Story, kit: Kit) {
   r.check("rules: every verdict and live line is words only", numbered.size === 0, [...numbered].slice(0, 3).join(" | "));
 }
 
+type Rz = { r: number; y: number };
+/** A part's cut through the axis, in (distance from the axis, height): a closed outline, or an open one for a shell. */
+type Section = { pts: Rz[]; closed: boolean };
+/** Overlaps shallower than this, in mm, are parts resting on each other. */
+const FLUSH = 0.05;
+
+/** Whether a part still stands as it was drawn, turned only about the vertical (a turn past a right angle reads back as 180, θ, 180). */
+const upright = (p: Part) => new Vector3(0, 1, 0).applyEuler(new Euler((p.rotation.x * Math.PI) / 180, (p.rotation.y * Math.PI) / 180, (p.rotation.z * Math.PI) / 180, "XYZ")).y > 1 - 1e-6;
+/** Shortest distance from the axis to a closed outline in the floor plane, or 0 when the outline goes round it. */
+function reachIn(foot: readonly { x: number; z: number }[]): number {
+  let inside = false;
+  let near = Infinity;
+  foot.forEach((a, i) => {
+    const b = foot[(i + 1) % foot.length]!;
+    if (a.z > 0 !== b.z > 0 && 0 < a.x + ((b.x - a.x) * -a.z) / (b.z - a.z)) inside = !inside;
+    const [dx, dz] = [b.x - a.x, b.z - a.z];
+    const t = Math.max(0, Math.min(1, -(a.x * dx + a.z * dz) / (dx * dx + dz * dz || 1)));
+    near = Math.min(near, Math.hypot(a.x + t * dx, a.z + t * dz));
+  });
+  return inside ? 0 : near;
+}
+
+/**
+ * A part's cut through the bottle's axis. An explode moves the bottle's assemblies only along the axis
+ * and turns them about it, so two parts meet exactly where their cuts do. Round parts give their true
+ * cut; anything else the band of distances and heights it sweeps as it turns, which can only be bigger.
+ */
+function sectionOf(p: Part): Section {
+  const s = p.shape;
+  if (s.kind === "lathe" && upright(p)) {
+    const ys = s.profile.map((q) => q.y);
+    const mid = (Math.max(...ys) + Math.min(...ys)) / 2;
+    const pts = s.profile.map((q) => ({ r: q.r, y: q.y - mid + p.position.y }));
+    const [a, b] = [pts[0]!, pts[pts.length - 1]!];
+    const shut = a.r === b.r && a.y === b.y;
+    return { pts: shut ? pts.slice(0, -1) : pts, closed: shut || (a.r < 1e-6 && b.r < 1e-6) };
+  }
+  if (s.kind === "helix" && upright(p)) {
+    const [r0, r1, y0, y1] = [s.radius - s.tube, s.radius + s.tube, p.position.y - s.length / 2, p.position.y + s.length / 2];
+    return { pts: [{ r: r0, y: y0 }, { r: r1, y: y0 }, { r: r1, y: y1 }, { r: r0, y: y1 }], closed: true };
+  }
+  if (s.kind === "torus" && upright(p) && s.arcDegrees >= 360) {
+    return { pts: Array.from({ length: 16 }, (_, i) => ({ r: s.radius + s.tube * Math.cos((i / 16) * 2 * Math.PI), y: p.position.y + s.tube * Math.sin((i / 16) * 2 * Math.PI) })), closed: true };
+  }
+  const pts = corners([p]);
+  const ys = pts.map((q) => q.y);
+  const plan = s.kind === "extrusion" || s.kind === "box" ? pts.slice(0, pts.length / 2).map((q) => ({ x: q.x, z: q.z })) : [];
+  const flat = plan.length > 0 && new Set(pts.slice(0, pts.length / 2).map((q) => q.y.toFixed(3))).size === 1;
+  const near = flat ? reachIn(plan) : Math.min(...pts.map((q) => Math.hypot(q.x, q.z)));
+  const wraps = !flat && Math.min(...pts.map((q) => q.x)) < 0 && Math.max(...pts.map((q) => q.x)) > 0 && Math.min(...pts.map((q) => q.z)) < 0 && Math.max(...pts.map((q) => q.z)) > 0;
+  const [r0, r1, y0, y1] = [wraps ? 0 : near, Math.max(...pts.map((q) => Math.hypot(q.x, q.z))), Math.min(...ys), Math.max(...ys)];
+  return { pts: [{ r: r0, y: y0 }, { r: r1, y: y0 }, { r: r1, y: y1 }, { r: r0, y: y1 }], closed: true };
+}
+
+const edges = (s: Section) => s.pts.flatMap((a, i) => (i + 1 < s.pts.length ? [[a, s.pts[i + 1]!] as const] : s.closed ? [[a, s.pts[0]!] as const] : []));
+/** How far `p` is from the line through `a` and `b`, signed by side. */
+const side = (a: Rz, b: Rz, p: Rz) => ((b.r - a.r) * (p.y - a.y) - (b.y - a.y) * (p.r - a.r)) / (Math.hypot(b.r - a.r, b.y - a.y) || 1);
+const nearEdge = (s: Section, p: Rz) =>
+  Math.min(...edges(s).map(([a, b]) => {
+    const [dr, dy] = [b.r - a.r, b.y - a.y];
+    const t = Math.max(0, Math.min(1, ((p.r - a.r) * dr + (p.y - a.y) * dy) / (dr * dr + dy * dy || 1)));
+    return Math.hypot(p.r - a.r - t * dr, p.y - a.y - t * dy);
+  }));
+const inside = (s: Section, p: Rz) => s.closed && edges(s).reduce((n, [a, b]) => (a.y > p.y !== b.y > p.y && p.r < a.r + ((b.r - a.r) * (p.y - a.y)) / (b.y - a.y) ? !n : n), false) && nearEdge(s, p) > FLUSH;
+
+/** Whether two cuts pass into each other by more than FLUSH: their edges cross, or a corner of one sits inside the other. */
+function interpenetrate(a: Section, b: Section): boolean {
+  for (const [p, q] of edges(a))
+    for (const [u, v] of edges(b)) if (side(u, v, p) * side(u, v, q) < 0 && Math.min(Math.abs(side(u, v, p)), Math.abs(side(u, v, q))) > FLUSH && side(p, q, u) * side(p, q, v) < 0 && Math.min(Math.abs(side(p, q, u)), Math.abs(side(p, q, v))) > FLUSH) return true;
+  return a.pts.some((p) => inside(b, p)) || b.pts.some((p) => inside(a, p));
+}
+
+/**
+ * The explode, sampled on the real springs: no assembly passes into another while opening, closing,
+ * reversing just after the second spring starts or late, or in the prefix states (the earlier
+ * assemblies out, one on its way, the rest home). Drawn at the lesson's rest, the cap seated.
+ */
+function checkExplode(r: Run, story: Story, kit: Kit) {
+  const plan = story.explode;
+  if (!plan) return;
+  const present = kit.parts.map((p) => p.id);
+  const scene = story.rest({ kit, present });
+  const centre = restCentre(kit, present, scene);
+  const owner = new Map(plan.order.flatMap((l) => familyOf(kit, l.id).map((id) => [id, l.id] as const)));
+  const ids = idsOf(plan);
+  const frames: { label: string; shares: Shares }[] = [];
+  const DT = 1000 / 60;
+  const play = (label: string, from: number, to: number, reverseAt?: number) => {
+    let s: Springs = aim(springsAt(ids, from), to);
+    let turned = reverseAt === undefined;
+    for (let i = 0; i < 400 && !(turned && resting(s)); i++) {
+      if (!turned && s.ms >= reverseAt!) [s, turned] = [aim(s, from), true];
+      s = step(s, DT);
+      frames.push({ label: `${label} at ${Math.round(s.ms)} ms`, shares: sharesOf(s) });
+    }
+  };
+  play("opening", 0, 1);
+  play("closing", 1, 0);
+  const reversals = [SPRING.staggerMs + 8, 300];
+  for (const t of reversals) {
+    play(`opened then reversed at ${t} ms,`, 0, 1, t);
+    play(`closed then reversed at ${t} ms,`, 1, 0, t);
+  }
+  ids.forEach((id, k) => [0.25, 0.5, 0.75, 1].forEach((x) => frames.push({ label: `prefix ${id} at ${x}`, shares: Object.fromEntries(ids.map((other, j) => [other, j < k ? 1 : j === k ? x : 0])) })));
+  const clashes: string[] = [];
+  for (const f of frames) {
+    const parts = drawObject({ kit, present, scene, explode: f.shares, plan, pink: new Set(), centre }).filter((p) => present.includes(p.id));
+    const cut = parts.map((p) => ({ id: p.id, owner: owner.get(p.id) ?? "body", section: sectionOf(p) }));
+    for (const [i, a] of cut.entries())
+      for (const b of cut.slice(i + 1)) if (a.owner !== b.owner && interpenetrate(a.section, b.section)) clashes.push(`${f.label}: ${a.id} into ${b.id}`);
+    if (clashes.length > 0) break;
+  }
+  r.check(`explode: no assembly passes into another in ${frames.length} replayed frames (opening, closing, ${reversals.length} reversals each way, prefix states)`, clashes.length === 0, clashes.slice(0, 3).join(" | "));
+  const apart = drawObject({ kit, present, scene, explode: Object.fromEntries(ids.map((id) => [id, 1])), plan, pink: new Set(), centre }).filter((p) => present.includes(p.id));
+  const boxOf = (id: string) => extents(apart.filter((p) => (owner.get(p.id) ?? "body") === id));
+  const gaps = ids.map((id, k) => {
+    const below = k + 1 < ids.length ? boxOf(ids[k + 1]!) : boxOf("body");
+    return boxOf(id).min.y - below.max.y;
+  });
+  r.check(`explode: apart, each assembly clears the next one out, and the last clears the body (${gaps.map((g) => g.toFixed(0)).join(", ")} mm)`, gaps.every((g) => g > 5));
+}
+
 /** Plays a story lesson: each module's failure, Learn in words, Build, then twisting the cap by hand until it works. No number may show on any screen. */
-async function playStory(r: Run, story: Story, sample: string, url: string) {
-  const kit = KITS[sample];
-  if (!kit) throw new Error(`no fixture kit for ${sample}`);
+async function playStory(r: Run, written: Story, sample: string, url: string) {
+  const scanned = KITS[sample];
+  if (!scanned) throw new Error(`no fixture kit for ${sample}`);
+  const { story, kit } = bindStory(written, scanned);
   checkStory(r, story, kit);
+  checkExplode(r, story, kit);
   await r.open(sample, "", url, true);
   const said = async () => ((await r.page.textContent("h1.do")) ?? "").trim();
   for (const [i, m] of story.modules.entries()) {
