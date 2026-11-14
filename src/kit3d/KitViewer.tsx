@@ -1,16 +1,14 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
 import type { Part } from "../../shared/kit.ts";
 import { reducedMotion, velocityTracker } from "../motion.ts";
-import { colors } from "../tokens.stylex.ts";
 import { type BuiltPart, type KitBounds, measure, rotationOf } from "./buildKit.ts";
+import { DEFAULT_LOOK, type DitherLook } from "./ditherLook.ts";
+import { applyLook, createDitherMaterial, createLookUniforms, createShadowMaterial } from "./ditherMaterial.ts";
 import { buildGeometry } from "./geometry.ts";
-import { createDitherMaterial, createShadowMaterial } from "./ditherMaterial.ts";
 
-/** The canvas draws this many pixels tall and is scaled up in CSS. */
-const PIXEL_ROWS = 180;
 const MARGIN = 1.12;
 const SPIN_RADIANS_PER_SECOND = 0.5;
 const DRAG_RADIANS_PER_PIXEL = 0.012;
@@ -28,22 +26,24 @@ type KitViewerProps = {
   elevation?: number;
   /** Degrees around y, 0 looks along -z. */
   azimuth?: number;
-  /** CSS height in px. Pick a multiple of 180 so the pixels stay square. */
+  /** CSS height in px. */
   height?: number;
   /** Bounds to fit the camera to instead of the parts' own, so the view holds still while the parts move or arrive. */
   frame?: KitBounds;
-  /** CSS pixels per dither pixel. Unset keeps PIXEL_ROWS rows whatever the height; 1 is the finest. */
+  /** CSS pixels per dither pixel, overriding the look's. 1 is the finest. */
   pixelScale?: number;
-  /** Colours for a gradient shadow, centre first (see createShadowMaterial). Unset keeps the plain shadow. */
+  /** Colours for a gradient shadow, centre first (see createShadowMaterial). Unset keeps the look's shadow. */
   shadowStops?: readonly string[];
+  look?: DitherLook;
 };
 
 const styles = stylex.create({
-  box: (height: number) => ({
+  // Both sides are whole multiples of a drawn pixel. A fractional scale would stretch some pixels and break up the dither pattern.
+  box: (height: number, pixelSize: number, paper: string) => ({
     position: "relative",
-    width: "100%",
-    height,
-    backgroundColor: colors.paper,
+    width: `round(down, 100%, ${pixelSize}px)`,
+    height: Math.floor(height / pixelSize) * pixelSize,
+    backgroundColor: paper,
     // Horizontal drags turn the model; vertical swipes and pinch zoom stay with the page so a tall viewer never traps them.
     touchAction: "pan-y pinch-zoom",
     overflow: "hidden",
@@ -85,7 +85,6 @@ const shapeKey = (part: Part) => JSON.stringify(part.shape);
 const makeGeometry = (part: Part) => buildGeometry(part.shape);
 const disposeGeometry = (geometry: BufferGeometry) => geometry.dispose();
 const lookKey = (part: Part) => `${part.color} ${part.finish}`;
-const makeMaterial = (part: Part) => createDitherMaterial(part.color, part.finish);
 const disposeMaterial = (material: ShaderMaterial) => material.dispose();
 
 function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimuth: number) {
@@ -100,26 +99,27 @@ function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimu
   cam.updateProjectionMatrix();
 }
 
-export function KitViewer({ parts, spin: wantsSpin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops }: KitViewerProps) {
+export function KitViewer({ parts, spin: wantsSpin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops, look = DEFAULT_LOOK }: KitViewerProps) {
   const spin = wantsSpin && !reducedMotion.matches;
+  const pixelSize = pixelScale ?? look.pixels.size;
   return (
-    <div data-kit-viewer {...stylex.props(styles.box(height))}>
+    <div data-kit-viewer {...stylex.props(styles.box(height, pixelSize, look.colors.paper))}>
       <Canvas
         orthographic
         flat
         frameloop={spin ? "always" : "demand"}
-        dpr={pixelScale ? 1 / pixelScale : PIXEL_ROWS / height}
+        dpr={1 / pixelSize}
         gl={{ antialias: false, alpha: false }}
         camera={{ position: [0, 0, 100], near: 0.1, far: 10000 }}
       >
-        <color attach="background" args={[colors.paper]} />
-        <Scene parts={parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} shadowStops={shadowStops} />
+        <color attach="background" args={[look.colors.paper]} />
+        <Scene parts={parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} shadowStops={shadowStops} look={look} />
       </Canvas>
     </div>
   );
 }
 
-function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: KitBounds | undefined; shadowStops: readonly string[] | undefined }) {
+function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: KitBounds | undefined; shadowStops: readonly string[] | undefined; look: DitherLook }) {
   const { camera, size, gl, invalidate } = useThree();
   const geometries = useShared(parts, shapeKey, makeGeometry, disposeGeometry);
   const built = useMemo((): BuiltPart[] => parts.map((part, i) => ({ part, geometry: geometries[i]!, rotation: rotationOf(part) })), [parts, geometries]);
@@ -134,10 +134,17 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts:
   const fit = useRef<Fit>(undefined);
   const fitGoal = useRef<Fit>(undefined);
 
+  const lookUniforms = useMemo(() => createLookUniforms(), []);
+  useLayoutEffect(() => {
+    applyLook(lookUniforms, look);
+    invalidate();
+  }, [lookUniforms, look, invalidate]);
+
+  const makeMaterial = useCallback((part: Part) => createDitherMaterial(part.color, part.finish, lookUniforms), [lookUniforms]);
   const materials = useShared(parts, lookKey, makeMaterial, disposeMaterial);
 
   const shadowGeometry = useMemo(() => new PlaneGeometry(2, 2).rotateX(-Math.PI / 2), []);
-  const shadowMaterial = useMemo(() => createShadowMaterial(shadowStops), [shadowStops]);
+  const shadowMaterial = useMemo(() => createShadowMaterial(lookUniforms, shadowStops), [lookUniforms, shadowStops]);
   useEffect(
     () => () => {
       shadowGeometry.dispose();
@@ -250,7 +257,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts:
 
   return (
     <>
-      <mesh ref={shadow} geometry={shadowGeometry} material={shadowMaterial} position={shadowPosition} scale={[shadowRadius.x, 1, shadowRadius.z]} renderOrder={-1} />
+      <mesh ref={shadow} visible={look.shadow.show} geometry={shadowGeometry} material={shadowMaterial} position={shadowPosition} scale={[shadowRadius.x, 1, shadowRadius.z]} renderOrder={-1} />
       <group ref={pivot}>
         <group position={[-bounds.centerX, 0, -bounds.centerZ]}>
           {built.map(({ part, geometry, rotation }, i) => (

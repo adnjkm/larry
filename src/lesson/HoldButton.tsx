@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { Button } from "@ui-sdk/react/button";
 import { useRef, useState } from "react";
 import { buttons, type } from "../styles.ts";
 import { colors } from "../tokens.stylex.ts";
@@ -37,8 +38,7 @@ export function HoldButton({ label, onHeld, ...rest }: { label: string; onHeld: 
 
   return (
     <div {...stylex.props(styles.wrap)}>
-      <button
-        type="button"
+      <Button
         {...rest}
         {...stylex.props(buttons.base, buttons.primary, styles.button)}
         onPointerDown={(e) => {
@@ -67,7 +67,7 @@ export function HoldButton({ label, onHeld, ...rest }: { label: string; onHeld: 
       >
         <span ref={fill} aria-hidden {...stylex.props(styles.fill)} />
         {label}
-      </button>
+      </Button>
       {hint && (
         <p role="status" {...stylex.props(type.label, styles.hint)}>
           Hold until it fills

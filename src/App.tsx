@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { Button } from "@ui-sdk/react/button";
 import { useEffect, useRef, useState } from "react";
 import type { Kit, KitEvent, Part } from "../shared/kit.ts";
 import type { Lesson } from "../shared/lesson.ts";
@@ -36,7 +37,7 @@ const sweep = stylex.keyframes({
 });
 
 const styles = stylex.create({
-  summary: { margin: 0, fontSize: 14, lineHeight: "19px", color: colors.graphite },
+  summary: { margin: 0, fontSize: 14, lineHeight: "20px", color: colors.graphite },
   hook: { display: "flex", flexDirection: "column", gap: 8 },
   parts: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8, fontSize: 16, lineHeight: "22px" },
   photoFrame: { position: "relative", overflow: "hidden" },
@@ -155,10 +156,10 @@ export function App() {
         <>
           {state.phase === "viewing" && (
             <div {...stylex.props(bars.top)}>
-              <button type="button" data-action="restart" {...stylex.props(buttons.base, buttons.topText)} onClick={restart}>
+              <Button data-action="restart" {...stylex.props(buttons.base, buttons.topText)} onClick={restart}>
                 <Chevron />
                 New photo
-              </button>
+              </Button>
             </div>
           )}
           {view.header && (
@@ -213,12 +214,12 @@ export function App() {
             <p {...stylex.props(type.label, notes.failText)}>Larry couldn't take it apart</p>
             <p {...stylex.props(type.body)}>{state.message}</p>
           </div>
-          <button type="button" {...stylex.props(buttons.base, buttons.primary)} onClick={state.retry}>
+          <Button {...stylex.props(buttons.base, buttons.primary)} onClick={state.retry}>
             Try again
-          </button>
-          <button type="button" {...stylex.props(buttons.base, buttons.secondary)} onClick={restart}>
+          </Button>
+          <Button {...stylex.props(buttons.base, buttons.secondary)} onClick={restart}>
             Photograph something else
-          </button>
+          </Button>
         </>
       )}
     </main>

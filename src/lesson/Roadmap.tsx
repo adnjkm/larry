@@ -3,8 +3,8 @@ import { colors } from "../tokens.stylex.ts";
 import { type LessonState, chapterStatus, isComplete } from "./model.ts";
 
 const styles = stylex.create({
-  segments: { display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 3 },
-  segment: { width: 26, height: 4, borderRadius: 1, backgroundColor: colors.segmentTodo },
+  segments: { display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 4 },
+  segment: { width: 26, height: 4, borderRadius: 2, backgroundColor: colors.segmentTodo },
   done: { backgroundColor: colors.ink },
   current: { overflow: "hidden" },
   fill: (share: number) => ({ display: "block", height: "100%", width: `${share * 100}%`, backgroundColor: colors.accent, transitionProperty: "width", transitionDuration: "240ms", transitionTimingFunction: "ease-out" }),

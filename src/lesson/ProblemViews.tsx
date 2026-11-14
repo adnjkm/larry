@@ -1,10 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
+import { Button } from "@ui-sdk/react/button";
 import { type ReactNode, useEffect, useRef } from "react";
 import type { Problem, ProblemType } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
 import { reducedMotion } from "../motion.ts";
 import { layout, notes, type } from "../styles.ts";
-import { colors, radii } from "../tokens.stylex.ts";
+import { colors, fonts, radii } from "../tokens.stylex.ts";
 import type { ProblemAction, ProblemState } from "./problems.ts";
 
 type Of<T extends ProblemType> = Extract<Problem, { type: T }>;
@@ -41,7 +42,7 @@ const styles = stylex.create({
     borderRadius: 12,
     backgroundColor: "transparent",
     color: colors.ink,
-    fontFamily: "inherit",
+    fontFamily: fonts.sans,
     textAlign: "left",
     cursor: "pointer",
     touchAction: "manipulation",
@@ -53,7 +54,7 @@ const styles = stylex.create({
     transitionTimingFunction: "ease-out",
   },
   optionName: { fontSize: 16, lineHeight: "22px", fontWeight: 600 },
-  optionJob: { fontSize: 14, lineHeight: "19px", color: colors.graphite },
+  optionJob: { fontSize: 14, lineHeight: "20px", color: colors.graphite },
   optionDone: { cursor: "default" },
   cardBody: { display: "flex", flexDirection: "column", gap: 10, padding: "0 8px 8px" },
 });
@@ -108,12 +109,12 @@ function PickView({ problem, state, dispatch }: ViewProps<"pick">) {
             data-tried={tried || undefined}
             {...stylex.props(styles.card, tried && !option.works && styles.cardFail, tried && !option.works && !state.solved && styles.cardShake, tried && option.works && styles.cardOk)}
           >
-            {/* aria-disabled, not disabled, so a tried option keeps focus and its verdict stays readable. */}
-            <button type="button" aria-disabled={frozen} {...stylex.props(styles.option, frozen && styles.optionDone)} onClick={() => frozen || dispatch({ type: "pick", option: i })}>
+            {/* Focusable when disabled, so a tried option keeps focus and its verdict stays readable. */}
+            <Button disabled={frozen} focusableWhenDisabled {...stylex.props(styles.option, frozen && styles.optionDone)} onClick={() => frozen || dispatch({ type: "pick", option: i })}>
               {tried && <span {...stylex.props(type.label, option.works ? notes.okText : notes.failText)}>{option.works ? "This works" : "This fails"}</span>}
               <span {...stylex.props(styles.optionName)}>{primitive?.name ?? option.primitive}</span>
               {primitive && !spent && <span {...stylex.props(styles.optionJob)}>{primitive.job}</span>}
-            </button>
+            </Button>
             {tried && !spent && (
               <div {...stylex.props(styles.cardBody)}>
                 <p {...stylex.props(type.body)}>{option.outcome}</p>

@@ -1,0 +1,260 @@
+{
+  "name": "Kids' safety scissors",
+  "summary": "Two blades cross at a little rivet, so when you squeeze the red finger loops together the blades slide past each other and snip the paper between them.",
+  "parts": [
+    {
+      "id": "blade-bottom",
+      "name": "bottom blade",
+      "role": "The lower cutting blade that the other blade slides across.",
+      "parentId": null,
+      "joint": null,
+      "shape": {
+        "kind": "extrusion",
+        "outline": [
+          {
+            "x": -2,
+            "y": 3
+          },
+          {
+            "x": -2,
+            "y": -5
+          },
+          {
+            "x": -68,
+            "y": -26
+          },
+          {
+            "x": -70,
+            "y": -20
+          }
+        ],
+        "depth": 1.5
+      },
+      "position": {
+        "x": -36,
+        "y": 0.75,
+        "z": 11.5
+      },
+      "rotation": {
+        "x": -90,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#2c4fa0",
+      "finish": "metal"
+    },
+    {
+      "id": "blade-top",
+      "name": "top blade",
+      "role": "The upper cutting blade that swings on the rivet.",
+      "parentId": "rivet",
+      "joint": "rivet",
+      "shape": {
+        "kind": "extrusion",
+        "outline": [
+          {
+            "x": -2,
+            "y": -3
+          },
+          {
+            "x": -2,
+            "y": 5
+          },
+          {
+            "x": -66,
+            "y": 22
+          },
+          {
+            "x": -69,
+            "y": 17
+          }
+        ],
+        "depth": 1.5
+      },
+      "position": {
+        "x": -35.5,
+        "y": 2.25,
+        "z": -9.5
+      },
+      "rotation": {
+        "x": -90,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#3358b0",
+      "finish": "metal"
+    },
+    {
+      "id": "rivet",
+      "name": "pivot rivet",
+      "role": "Holds the two blades together and lets them turn.",
+      "parentId": "blade-bottom",
+      "joint": "rivet",
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 3,
+            "y": 0
+          },
+          {
+            "r": 3,
+            "y": 4
+          },
+          {
+            "r": 0,
+            "y": 4
+          }
+        ]
+      },
+      "position": {
+        "x": 0,
+        "y": 2,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#c8c8c8",
+      "finish": "metal"
+    },
+    {
+      "id": "grip-top",
+      "name": "top grip",
+      "role": "Red plastic arm moulded onto the top blade for your thumb side.",
+      "parentId": "blade-top",
+      "joint": "molded",
+      "shape": {
+        "kind": "extrusion",
+        "outline": [
+          {
+            "x": -4,
+            "y": -3
+          },
+          {
+            "x": -2,
+            "y": 6
+          },
+          {
+            "x": 28,
+            "y": 24
+          },
+          {
+            "x": 32,
+            "y": 14
+          }
+        ],
+        "depth": 8
+      },
+      "position": {
+        "x": 14,
+        "y": 4,
+        "z": -10.5
+      },
+      "rotation": {
+        "x": -90,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#c0262c",
+      "finish": "glossy"
+    },
+    {
+      "id": "ring-top",
+      "name": "thumb loop",
+      "role": "Loop your thumb goes through to push the top blade.",
+      "parentId": "grip-top",
+      "joint": "molded",
+      "shape": {
+        "kind": "torus",
+        "radius": 13,
+        "tube": 3.5,
+        "arcDegrees": 360
+      },
+      "position": {
+        "x": 42,
+        "y": 4,
+        "z": -27
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#c0262c",
+      "finish": "glossy"
+    },
+    {
+      "id": "grip-bottom",
+      "name": "bottom grip",
+      "role": "Red plastic arm moulded onto the bottom blade for your fingers.",
+      "parentId": "blade-bottom",
+      "joint": "molded",
+      "shape": {
+        "kind": "extrusion",
+        "outline": [
+          {
+            "x": -4,
+            "y": 3
+          },
+          {
+            "x": -2,
+            "y": -6
+          },
+          {
+            "x": 30,
+            "y": -24
+          },
+          {
+            "x": 34,
+            "y": -14
+          }
+        ],
+        "depth": 8
+      },
+      "position": {
+        "x": 15,
+        "y": 4,
+        "z": 10.5
+      },
+      "rotation": {
+        "x": -90,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#c0262c",
+      "finish": "glossy"
+    },
+    {
+      "id": "ring-bottom",
+      "name": "finger loop",
+      "role": "Big loop your fingers squeeze to close the blades.",
+      "parentId": "grip-bottom",
+      "joint": "molded",
+      "shape": {
+        "kind": "torus",
+        "radius": 15,
+        "tube": 3.5,
+        "arcDegrees": 360
+      },
+      "position": {
+        "x": 46,
+        "y": 4,
+        "z": 32
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#c0262c",
+      "finish": "glossy"
+    }
+  ]
+}

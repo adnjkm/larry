@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { Button } from "@ui-sdk/react/button";
 import { type RefObject, useEffect, useEffectEvent, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import type { Lesson } from "../../shared/lesson.ts";
@@ -63,9 +64,9 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
     <>
       <div {...stylex.props(bars.top)}>
         {state.at > 0 ? (
-          <button type="button" data-action="back" aria-label="Back" {...stylex.props(buttons.base, buttons.icon)} onClick={() => dispatch({ type: "back" })}>
+          <Button data-action="back" aria-label="Back" {...stylex.props(buttons.base, buttons.icon)} onClick={() => dispatch({ type: "back" })}>
             <Chevron />
-          </button>
+          </Button>
         ) : (
           <span {...stylex.props(styles.backSpace)} />
         )}
@@ -168,9 +169,9 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
           {run ? (
             <HoldButton data-action="run" label={run.action} onHeld={() => dispatch({ type: "problem", action: { type: "run" } })} />
           ) : (
-            <button type="button" data-action="next" {...stylex.props(buttons.base, buttons.primary)} onClick={() => dispatch({ type: "next" })}>
+            <Button data-action="next" {...stylex.props(buttons.base, buttons.primary)} onClick={() => dispatch({ type: "next" })}>
               {last ? "Finish" : "Next"}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -288,9 +289,9 @@ function Waiting({ stalled }: { stalled?: Stalled }) {
       )}
       {stalled && (
         <div {...stylex.props(bars.action)}>
-          <button type="button" data-action="retry" {...stylex.props(buttons.base, buttons.primary)} onClick={stalled.onRetry}>
+          <Button data-action="retry" {...stylex.props(buttons.base, buttons.primary)} onClick={stalled.onRetry}>
             Try again
-          </button>
+          </Button>
         </div>
       )}
     </section>
@@ -314,9 +315,9 @@ function Finish({ kit, earned, lesson, onRestart }: { kit: Kit; earned: Readonly
           </p>
         ))}
       </GlowCard>
-      <button type="button" data-action="restart" {...stylex.props(buttons.base, buttons.secondary)} onClick={onRestart}>
+      <Button data-action="restart" {...stylex.props(buttons.base, buttons.secondary)} onClick={onRestart}>
         Photograph something else
-      </button>
+      </Button>
       <div {...stylex.props(bars.action)}>
         <DownloadButton kit={kit} primary />
       </div>

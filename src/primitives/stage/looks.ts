@@ -2,7 +2,7 @@
 // renderer, so a shared material is one compiled program and one set of uniforms, never disposed (the palette is small).
 import type { Finish } from "../../../shared/kit.ts";
 import type { Material } from "three";
-import { createDitherMaterial, createShadowMaterial } from "../../kit3d/ditherMaterial.ts";
+import { createDitherMaterial, createShadowMaterial } from "./ditherMaterial.ts";
 import { colors } from "../../tokens.stylex.ts";
 import { COLOR, SYNTHWAVE } from "../parts.ts";
 import type { Looks } from "./scene.ts";

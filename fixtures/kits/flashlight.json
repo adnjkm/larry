@@ -1,0 +1,189 @@
+{
+  "name": "Keychain Flashlight",
+  "summary": "A battery inside the body pushes power to a tiny LED in the head, and twisting the head squeezes them together to turn the light on.",
+  "parts": [
+    {
+      "id": "body",
+      "name": "Body Tube",
+      "role": "Holds the battery and gives you something to grip.",
+      "parentId": null,
+      "joint": null,
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 10,
+            "y": 0
+          },
+          {
+            "r": 10,
+            "y": 40
+          },
+          {
+            "r": 8,
+            "y": 43
+          },
+          {
+            "r": 0,
+            "y": 43
+          }
+        ]
+      },
+      "position": {
+        "x": 10.5,
+        "y": 10.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": -90
+      },
+      "color": "#c4bba3",
+      "finish": "metal"
+    },
+    {
+      "id": "head",
+      "name": "Twist Head",
+      "role": "Holds the LED and reflector and twists to switch the light on.",
+      "parentId": "body",
+      "joint": "thread",
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 10,
+            "y": 0
+          },
+          {
+            "r": 10,
+            "y": 10
+          },
+          {
+            "r": 10.5,
+            "y": 12
+          },
+          {
+            "r": 10.5,
+            "y": 25
+          },
+          {
+            "r": 0,
+            "y": 25
+          }
+        ]
+      },
+      "position": {
+        "x": -22.5,
+        "y": 10.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 90
+      },
+      "color": "#bfb69f",
+      "finish": "metal"
+    },
+    {
+      "id": "lens",
+      "name": "Glass Lens",
+      "role": "Protects the LED and lets the light shine out.",
+      "parentId": "head",
+      "joint": "press-fit",
+      "shape": {
+        "kind": "lathe",
+        "profile": [
+          {
+            "r": 0,
+            "y": 0
+          },
+          {
+            "r": 8,
+            "y": 0
+          },
+          {
+            "r": 8,
+            "y": 1
+          },
+          {
+            "r": 0,
+            "y": 1
+          }
+        ]
+      },
+      "position": {
+        "x": -35.2,
+        "y": 10.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 90
+      },
+      "color": "#d8dde2",
+      "finish": "clear"
+    },
+    {
+      "id": "o-ring",
+      "name": "Rubber Seal",
+      "role": "Keeps water out where the head screws on.",
+      "parentId": "body",
+      "joint": "press-fit",
+      "shape": {
+        "kind": "torus",
+        "radius": 9.6,
+        "tube": 0.8,
+        "arcDegrees": 360
+      },
+      "position": {
+        "x": -10.3,
+        "y": 10.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 90
+      },
+      "color": "#1e1e1e",
+      "finish": "rubber"
+    },
+    {
+      "id": "tab",
+      "name": "Key Ring Tab",
+      "role": "Lets you hang the light on your keys.",
+      "parentId": "body",
+      "joint": "molded",
+      "shape": {
+        "kind": "box",
+        "width": 5,
+        "height": 7,
+        "depth": 3,
+        "cornerRadius": 1
+      },
+      "position": {
+        "x": 33.5,
+        "y": 10.5,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "color": "#b3aa93",
+      "finish": "metal"
+    }
+  ]
+}

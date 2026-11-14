@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { Button } from "@ui-sdk/react/button";
 import type { Kit } from "../../shared/kit.ts";
 import { Dots } from "../Dots.tsx";
 import { bars, buttons, layout, notes, type } from "../styles.ts";
@@ -67,11 +68,11 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry }: { kit: Kit; le
 
       <div {...stylex.props(bars.action)}>
         {failed ? (
-          <button type="button" data-action="retry" {...stylex.props(buttons.base, buttons.primary)} onClick={onRetry}>
+          <Button data-action="retry" {...stylex.props(buttons.base, buttons.primary)} onClick={onRetry}>
             Try again
-          </button>
+          </Button>
         ) : (
-          <button type="button" data-action="start" disabled={!ready} {...stylex.props(buttons.base, buttons.primary, !ready && buttons.disabled)} onClick={onStart}>
+          <Button data-action="start" disabled={!ready} {...stylex.props(buttons.base, buttons.primary, !ready && buttons.disabled)} onClick={onStart}>
             {ready ? (
               "Start building"
             ) : (
@@ -80,7 +81,7 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry }: { kit: Kit; le
                 <Dots />
               </>
             )}
-          </button>
+          </Button>
         )}
       </div>
     </>

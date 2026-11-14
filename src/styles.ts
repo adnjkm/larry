@@ -7,8 +7,8 @@ export const type = stylex.create({
   title: { margin: 0, fontSize: 24, lineHeight: "30px", fontWeight: 600, letterSpacing: "-0.02em", textWrap: "balance" },
   task: { margin: 0, fontSize: 22, lineHeight: "28px", fontWeight: 600, letterSpacing: "-0.02em", textWrap: "balance" },
   story: { margin: 0, fontSize: 16, lineHeight: "22px", color: colors.ink },
-  body: { margin: 0, fontSize: 14, lineHeight: "19px", color: colors.ink },
-  muted: { margin: 0, fontSize: 14, lineHeight: "19px", color: colors.graphite },
+  body: { margin: 0, fontSize: 14, lineHeight: "20px", color: colors.ink },
+  muted: { margin: 0, fontSize: 14, lineHeight: "20px", color: colors.graphite },
 });
 
 export const layout = stylex.create({
