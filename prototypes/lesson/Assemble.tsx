@@ -40,8 +40,11 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
   const module = lesson.modules[index]!;
   const alive = useAlive();
   const setup = useMemo(() => {
-    const before = presentAfter(lesson, kit, index - 1);
     const after = presentAfter(lesson, kit, index);
+    // A module that earns the first parts (an object's stand earns its root) has nothing to land on, so
+    // its parts wait in grey where they sit and turn pink when the piece lands.
+    const built = presentAfter(lesson, kit, index - 1);
+    const before = built.length > 0 ? built : after;
     const restBefore = lesson.rest({ kit, present: before });
     const restAfter = lesson.rest({ kit, present: after });
     const centre = restCentre(kit, after, restAfter);

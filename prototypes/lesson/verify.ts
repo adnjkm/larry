@@ -15,7 +15,7 @@ import viteConfig from "../../vite.config.ts";
 import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { lessonFor, LESSONS } from "./lessons/index.ts";
 import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
-import { EVIDENCE, generatedLesson, JOINT_TEMPLATES } from "./templates/index.ts";
+import { EVIDENCE, generatedLesson, JOINT_TEMPLATES, standOf } from "./templates/index.ts";
 import { faultValues, fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
 import { restCentre } from "./pose.ts";
 import { COLOR, SYNTHWAVE } from "../../src/primitives/parts.ts";
@@ -457,11 +457,12 @@ function checkTemplates(r: Run) {
   for (const t of JOINT_TEMPLATES)
     r.check(`${t.primitive} template teaches what Inspect maps ${t.joints.join(" and ")} to`, t.joints.every((j) => JOINT_PRIMITIVE[j] === t.primitive));
   const plain = (p: Part, i: number): Part => ({ ...p, name: `Part ${i + 1}`, role: "Part of the object.", joint: p.parentId === null ? null : "molded" });
-  type Variant = { label: string; make: (kit: Kit, child: Part) => Kit };
+  type Variant = { label: string; primitive: string; make: (kit: Kit, child: Part) => Kit };
   const variants: Variant[] = [
-    ...JOINT_TEMPLATES.map((t): Variant => ({ label: t.primitive, make: (kit, child) => ({ ...kit, summary: "", parts: kit.parts.map((p, i) => (p.id === child.id ? { ...plain(p, i), joint: t.joints[0]! } : plain(p, i))) }) })),
+    ...JOINT_TEMPLATES.map((t): Variant => ({ label: t.primitive, primitive: t.primitive, make: (kit, child) => ({ ...kit, summary: "", parts: kit.parts.map((p, i) => (p.id === child.id ? { ...plain(p, i), joint: t.joints[0]! } : plain(p, i))) }) })),
     ...EVIDENCE.map((e): Variant => ({
       label: `${e.template.primitive} by evidence (${e.id})`,
+      primitive: e.template.primitive,
       make: (kit, child) => ({
         ...kit,
         summary: "",
@@ -481,16 +482,45 @@ function checkTemplates(r: Run) {
         const each = new Run(`templates ${sample} ${v.label} ${child.id}`, r.page);
         try {
           const lesson = generatedLesson(variant, each.name);
-          each.check("generates one module", lesson?.modules.length === 1, String(lesson?.modules.length));
+          // A kit that stands also gets its stand module, so the two are checked together.
+          const ids = lesson?.modules.map((m) => m.main.id) ?? [];
+          each.check(`generates the ${v.primitive} module`, ids.filter((id) => id !== "weight").length === 1 && ids.includes(v.primitive), ids.join("+"));
           checkRules(each, lesson!, variant);
           lessons += 1;
         } catch (error) {
           if (!rows.slice(start).some((row) => row.run === each.name && !row.ok)) rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n")[0]! });
         }
       }
+  // The stand: every kit with plain words (geometry alone decides), then each part in turn named as its
+  // base, then each part in turn named as a handle. When it stands, the one module must keep the rules.
+  const stands: string[] = [];
+  const standVariants = (kit: Kit): { label: string; kit: Kit }[] => {
+    const bare = kit.parts.map(plain);
+    return [
+      { label: "plain", kit: { ...kit, summary: "", parts: bare } },
+      ...kit.parts.map((p, i) => ({ label: `base ${p.id}`, kit: { ...kit, summary: "", parts: bare.map((q, j) => (j === i ? { ...q, name: "Base", role: "The flat base it stands on." } : q)) } })),
+      ...kit.parts.map((p, i) => ({ label: `handle ${p.id}`, kit: { ...kit, summary: "", parts: bare.map((q, j) => (j === i ? { ...q, name: "Handle", role: "You lift it by this." } : q)) } })),
+    ];
+  };
+  for (const [sample, kit] of Object.entries(KITS))
+    for (const v of standVariants(kit)) {
+      const each = new Run(`templates ${sample} stand ${v.label}`, r.page);
+      if (!standOf(v.kit)) continue;
+      try {
+        const lesson = generatedLesson(v.kit, each.name);
+        each.check("generates one module", lesson?.modules.length === 1 && lesson.modules[0]!.id === "stand", String(lesson?.modules.map((m) => m.id)));
+        checkRules(each, lesson!, v.kit);
+        stands.push(`${sample} ${v.label}`);
+        lessons += 1;
+      } catch (error) {
+        if (!rows.slice(start).some((row) => row.run === each.name && !row.ok)) rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n")[0]! });
+      }
+    }
   const checked = rows.splice(start);
   rows.push(...checked.filter((row) => !row.ok));
   r.check(`every template keeps the fix rules on every kit's parts (${lessons} lessons, ${checked.length} checks)`, checked.every((row) => row.ok));
+  const plainStands = Object.keys(KITS).filter((id) => stands.includes(`${id} plain`));
+  r.check(`the stand template reads upright roots from geometry alone (${plainStands.join(", ")}) and the stapler's rubber foot from its name`, plainStands.join() === "bottle,jar,mug" && standOf(KITS.stapler!)?.footing.part.id === "rubber-pad");
 }
 
 const SAMPLE_IDS = Object.keys(KITS);
