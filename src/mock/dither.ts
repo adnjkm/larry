@@ -18,38 +18,65 @@ function rectFor(fit: PhotoFit, iw: number, ih: number, w: number, h: number) {
   return { x: (w - iw * scale) / 2, y: (h - ih * scale) / 2, w: iw * scale, h: ih * scale };
 }
 
+const photoScratch = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+
 /**
- * Draws the photo as it sits in a `box`-sized viewfinder, one canvas pixel per `pixel` CSS pixels,
- * and dithers it to two colours. `bias` brightens or darkens before dithering.
+ * The viewfinder's photo in grey, dithered the way the rest of the screen is: one cell per `cellCss` CSS px at the
+ * device's resolution, in the surfaces' greys (the wheel's four plus white), so it reads as the same material as the
+ * wheel and the shutter rather than a two-colour print. `zoom` matches the viewfinder's zoom, about the centre.
+ * `bias` brightens or darkens before dithering.
  */
 export function ditherPhoto(
   canvas: HTMLCanvasElement,
   image: HTMLImageElement,
   box: { width: number; height: number },
-  pixel: number,
-  { method = "bayer", bias = 0, dark = "#232323", light = "#ffffff" }: { method?: DitherMethod; bias?: number; dark?: string; light?: string } = {},
+  cellCss: number,
+  { method = "bayer", bias = 0, zoom = 1 }: { method?: DitherMethod; bias?: number; zoom?: number } = {},
 ) {
-  const cols = Math.ceil(box.width / pixel);
-  const rows = Math.ceil(box.height / pixel);
-  canvas.width = cols;
-  canvas.height = rows;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return;
-  const fit = fitFor({ width: image.naturalWidth, height: image.naturalHeight }, box);
-  ctx.clearRect(0, 0, cols, rows);
-  if (fit === "contain") {
-    const back = rectFor("cover", image.naturalWidth, image.naturalHeight, cols, rows);
-    ctx.filter = `blur(${Math.max(1, 16 / pixel)}px) brightness(0.55)`;
-    ctx.drawImage(image, back.x, back.y, back.w, back.h);
-    ctx.filter = "none";
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const W = Math.round(box.width * dpr);
+  const H = Math.round(box.height * dpr);
+  if (canvas.width !== W || canvas.height !== H) {
+    canvas.width = W;
+    canvas.height = H;
   }
-  const r = rectFor(fit, image.naturalWidth, image.naturalHeight, cols, rows);
-  ctx.drawImage(image, r.x, r.y, r.w, r.h);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const cell = Math.max(2, Math.round(cellCss * dpr));
+  const cols = Math.ceil(W / cell);
+  const rows = Math.ceil(H / cell);
+  let scratch = photoScratch.get(canvas);
+  if (!scratch) {
+    scratch = document.createElement("canvas");
+    photoScratch.set(canvas, scratch);
+  }
+  scratch.width = cols;
+  scratch.height = rows;
+  const small = scratch.getContext("2d", { willReadFrequently: true });
+  if (!small) return;
+  // The cells cover a little more than the box when it isn't a whole number of cells; the photo is laid out over the box.
+  const bw = (W / cell) * zoom;
+  const bh = (H / cell) * zoom;
+  const ox = (W / cell - bw) / 2;
+  const oy = (H / cell - bh) / 2;
+  const fit = fitFor({ width: image.naturalWidth, height: image.naturalHeight }, box);
+  if (fit === "contain") {
+    const back = rectFor("cover", image.naturalWidth, image.naturalHeight, bw, bh);
+    small.filter = `blur(${Math.max(1, (16 * dpr) / cell)}px) brightness(0.55)`;
+    small.drawImage(image, ox + back.x, oy + back.y, back.w, back.h);
+    small.filter = "none";
+  }
+  const r = rectFor(fit, image.naturalWidth, image.naturalHeight, bw, bh);
+  small.drawImage(image, ox + r.x, oy + r.y, r.w, r.h);
 
-  const data = ctx.getImageData(0, 0, cols, rows);
+  const data = small.getImageData(0, 0, cols, rows);
   stretchToGray(data.data, bias);
-  dither(data, { method, palette: [hex(dark), hex(light)] });
-  ctx.putImageData(data, 0, 0);
+  if (method === "bayer") ordered(data, { palette: PHOTO_TONES });
+  else dither(data, { method, palette: PHOTO_TONES });
+  small.putImageData(data, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(scratch, 0, 0, cols * cell, rows * cell);
 }
 
 /** Greys the image and stretches its own range to full black and white, so a dark object on a mid-tone wall still separates. */
@@ -65,26 +92,6 @@ function stretchToGray(px: Uint8ClampedArray, bias: number) {
     const v = (((lums[i] ?? 0) - low) / range + bias) * 255;
     px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = v;
   }
-}
-
-/** A scan bar `rows` tall whose pixels thin out upward from a solid leading edge at the bottom. */
-export function drawScanBand(canvas: HTMLCanvasElement, cols: number, rows: number, color: string) {
-  canvas.width = cols;
-  canvas.height = rows;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const data = ctx.createImageData(cols, rows);
-  for (let y = 0; y < rows; y++) {
-    const v = ((y + 1) / rows) ** 1.6 * 255;
-    for (let x = 0; x < cols; x++) data.data.set([v, v, v, 255], (y * cols + x) * 4);
-  }
-  ordered(data, { palette: [[0, 0, 0], hex(color)] });
-  clearBlack(data.data);
-  ctx.putImageData(data, 0, 0);
-}
-
-function clearBlack(px: Uint8ClampedArray) {
-  for (let i = 0; i < px.length; i += 4) if (px[i] === 0 && px[i + 1] === 0 && px[i + 2] === 0) px[i + 3] = 0;
 }
 
 // ---------------------------------------------------------------- edge glow
@@ -358,73 +365,10 @@ export function drawDitherBar(canvas: HTMLCanvasElement, width: number, height: 
   ctx.restore();
 }
 
-// ---------------------------------------------------------------- dithered disc
-
-/**
- * A white disc built from dither cells, so knobs and the shutter face match the dithered bars: its edge is pixelated
- * at the dither's grain rather than a smooth circle, and grey cells gather toward the rim and the lower right, as if
- * lit from the upper left, drifting slowly with noise. `strength` scales the shading; the pixelated edge stays.
- */
-export function drawDitherDisc(canvas: HTMLCanvasElement, size: number, cellCss: number, strength: number, seconds: number) {
-  const dpr = Math.min(3, window.devicePixelRatio || 1);
-  const S = Math.round(size * dpr);
-  if (canvas.width !== S || canvas.height !== S) {
-    canvas.width = S;
-    canvas.height = S;
-  }
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, S, S);
-
-  const cell = Math.max(2, Math.round(cellCss * dpr));
-  const n = Math.ceil(S / cell);
-  // The grid is centred so the disc's pixelated edge is symmetric.
-  const start = (S - n * cell) / 2;
-  const R = S / 2;
-  const coverage = new ImageData(n, n);
-  const shade = new ImageData(n, n);
-  const scale = cell / dpr;
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      const cx = start + (x + 0.5) * cell - R;
-      const cy = start + (y + 0.5) * cell - R;
-      const dist = Math.hypot(cx, cy);
-      // How much of this cell the circle covers, roughly: 1 well inside, 0 well outside.
-      const c = Math.max(0, Math.min(1, (R - dist) / cell + 0.5));
-      const dx = cx / R;
-      const dy = cy / R;
-      const d = dist / R;
-      const rim = Math.max(0, (d - 0.45) / 0.55) ** 2;
-      // Facing away from a light at the upper left.
-      const away = Math.max(0, (dx + dy) / Math.SQRT2);
-      const noise = valueNoise(x * scale * 0.12 + seconds, y * scale * 0.12 - seconds * 0.5);
-      const v = d <= 1 ? (0.55 * rim + 0.35 * away * d + 0.25 * (noise - 0.5)) * strength : 0;
-      const cg = Math.round(c * 255);
-      const sg = Math.max(0, Math.min(255, Math.round(v * 255)));
-      coverage.data.set([cg, cg, cg, 255], (y * n + x) * 4);
-      shade.data.set([sg, sg, sg, 255], (y * n + x) * 4);
-    }
-  }
-  ordered(coverage, { palette: [[0, 0, 0], [255, 255, 255]] });
-  ordered(shade, { palette: [[0, 0, 0], [255, 255, 255]] });
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      const i = (y * n + x) * 4;
-      if (coverage.data[i] === 0) continue;
-      const px = Math.round(start + x * cell);
-      const py = Math.round(start + y * cell);
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(px, py, cell, cell);
-      if (shade.data[i] !== 0) {
-        ctx.fillStyle = "#C9C9C9";
-        ctx.fillRect(px, py, cell - 1, cell - 1);
-      }
-    }
-  }
-}
-
 // ---------------------------------------------------------------- thumbwheel
+
+/** Raised parts dither a little finer than the bars' grain: they are small and their shading is their whole shape. */
+const FINE = 0.67;
 
 /** Dark to light. The dark two sit low so the grooves and rims read as shadow; the pale grey gives the lit faces a step before white. */
 const WHEEL_TONES: [number, number, number][] = [
@@ -477,8 +421,7 @@ export function drawThumbwheel(
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, W, H);
 
-  // A little finer than the bars' grain: the wheel is small and its ridges are its whole shape.
-  const cell = Math.max(2, Math.round(cellCss * dpr * 0.67));
+  const cell = Math.max(2, Math.round(cellCss * dpr * FINE));
   const cols = Math.ceil(W / cell);
   const rows = Math.ceil(H / cell);
   const field = new ImageData(cols, rows);
@@ -540,6 +483,148 @@ export function drawThumbwheel(
   ctx.restore();
 }
 
+// ---------------------------------------------------------------- raised surface
+
+/** The wheel's greys, plus white for faces tipped toward the light. */
+const SURFACE_TONES: [number, number, number][] = [...WHEEL_TONES, [255, 255, 255]];
+/** A dithered photo is in the same greys. */
+const PHOTO_TONES = SURFACE_TONES;
+
+/**
+ * A face square to the viewer sits a little under the wheel's pale grey, so it carries a sparse speck of the grey below,
+ * as the wheel's own faces do. That leaves headroom: a face tipped toward the light loses its specks and reads clean
+ * and bright, so the lit lower wall of a hollow and the lit top edge of a rim stand apart from the flat rim.
+ */
+const FLAT = 232 / 255;
+
+/** Where raised parts are lit from: above and in front, as the wheel is lit from in front, so a top edge catches it and a bottom edge falls away. */
+const LIGHT = (() => {
+  const [x, y, z] = [0, -0.6, 1];
+  const n = Math.hypot(x, y, z);
+  return { x: x / n, y: y / n, z: z / n };
+})();
+
+/** A raised part's shape across its face. See RELIEF in DitherSurface.tsx for the presets. */
+export type Relief = {
+  /** How far in from the edge the edge rounds over, as a share of the shorter half-side. 1 rounds all the way to a dome. */
+  bevel: number;
+  /** How tall the rounded edge stands for its width. 1 is a quarter round; lower is a gentler slope. */
+  depth: number;
+  /** How much the face bulges toward its middle, as a share of the shorter half-side. */
+  crown: number;
+  /** A bowl sunk into the face, like a 3DS circle pad's: it starts `inset` in from the edge and sinks `depth` at its middle, both as shares of the shorter half-side. Its upper lip casts a shadow into it. */
+  well?: { inset: number; depth: number };
+};
+
+const surfaceScratch = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+
+/**
+ * A raised part seen from the front, a `width` x `height` rounded rectangle (a circle when `radius` is half its side),
+ * shaded in the wheel's greys and dithered at its grain. The face's height comes from `relief`; each cell is lit by
+ * how its slope faces LIGHT, so the top edge stays white and the lower edge and sides shade grey. The outline is
+ * dithered too, pixelated at the grain like everything else. `strength` scales a faint drifting grain over the face.
+ */
+export function drawSurface(
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+  radius: number,
+  relief: Relief,
+  cellCss: number,
+  strength: number,
+  seconds: number,
+) {
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const W = Math.round(width * dpr);
+  const H = Math.round(height * dpr);
+  if (canvas.width !== W || canvas.height !== H) {
+    canvas.width = W;
+    canvas.height = H;
+  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, W, H);
+
+  const cell = Math.max(2, Math.round(cellCss * dpr * FINE));
+  const cols = Math.ceil(W / cell);
+  const rows = Math.ceil(H / cell);
+  // Centred, so the pixelated outline is symmetric.
+  const offX = (W - cols * cell) / 2;
+  const offY = (H - rows * cell) / 2;
+  const half = Math.min(width, height) / 2;
+  const bevel = Math.max(0.5, relief.bevel * half);
+  const r = Math.min(radius, half);
+  const heightAt = (x: number, y: number) => {
+    const e = Math.min(bevel, Math.max(0, insetDistance(x, y, width, height, r)));
+    const edge = relief.depth * bevel * Math.sqrt(1 - (1 - e / bevel) ** 2);
+    const q = ((x - width / 2) / (width / 2)) ** 2 + ((y - height / 2) / (height / 2)) ** 2;
+    return edge + relief.crown * half * Math.max(0, 1 - q) - sunk(q);
+  };
+  // How far the well sinks at a point. Its wall is steepest at the lip and flattens toward the middle, so the shadow
+  // gathers in a crescent under the lip and fades out across the bowl instead of stopping at a line.
+  const well = relief.well;
+  const sunk = (q: number) => (well ? well.depth * half * Math.max(0, 1 - (q / (1 - well.inset) ** 2) ** 2) : 0);
+
+  // How much of a point the surface hides from the light, 0 to 1: walk from it toward the light, the ray climbing at
+  // the light's elevation, and see how far the surface rises above the ray. Only a sunk part can be shaded so.
+  const toLight = Math.hypot(LIGHT.x, LIGHT.y);
+  const climb = LIGHT.z / Math.max(1e-6, toLight);
+  const reach = well ? (well.depth * half + relief.depth * bevel) / climb + 1 : 0;
+  const shadowAt = (x: number, y: number) => {
+    if (!well || toLight < 1e-6) return 0;
+    const start = heightAt(x, y);
+    let blocked = 0;
+    for (let s = 0.5; s <= reach; s += 0.5) {
+      const over = heightAt(x + (LIGHT.x / toLight) * s, y + (LIGHT.y / toLight) * s) - (start + s * climb);
+      if (over > blocked) blocked = over;
+    }
+    // Soft over the first px, so the shadow's edge breaks up in the dither rather than cutting a line.
+    return Math.min(1, blocked);
+  };
+
+  const field = new ImageData(cols, rows);
+  const inside = new Uint8Array(cols * rows);
+  const step = 0.5;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = y * cols + x;
+      // This cell's centre, in CSS px from the part's top left.
+      const px = (offX + (x + 0.5) * cell) / dpr;
+      const py = (offY + (y + 0.5) * cell) / dpr;
+      const d = insetDistance(px, py, width, height, r);
+      const threshold = ((BAYER4[(y % 4) * 4 + (x % 4)] ?? 0) + 0.5) / 16;
+      inside[i] = d / (cell / dpr) + 0.5 > threshold ? 1 : 0;
+      const hx = (heightAt(px + step, py) - heightAt(px - step, py)) / (2 * step);
+      const hy = (heightAt(px, py + step) - heightAt(px, py - step)) / (2 * step);
+      const n = Math.hypot(hx, hy, 1);
+      // 1 where the face is flat, above 1 where it tips toward the light, below where it tips away.
+      const lit = ((-hx * LIGHT.x - hy * LIGHT.y + LIGHT.z) / n) / LIGHT.z;
+      // Faces tipped away from the light fall toward the darker greys; faces tipped toward it rise to white.
+      let t = lit < 1 ? FLAT * (1 - (1 - lit) * 1.15) : FLAT + (lit - 1) * 0.8;
+      // Whatever stands between a point and the light shades it.
+      t -= shadowAt(px, py) * 0.22;
+      t += (valueNoise(x * 0.4 + seconds, y * 0.4) - 0.5) * 0.08 * strength;
+      const g = Math.max(0, Math.min(255, Math.round(t * 255)));
+      field.data.set([g, g, g, 255], i * 4);
+    }
+  }
+  ordered(field, { palette: SURFACE_TONES });
+  for (let i = 0; i < inside.length; i++) field.data[i * 4 + 3] = inside[i] ? 255 : 0;
+
+  let scratch = surfaceScratch.get(canvas);
+  if (!scratch) {
+    scratch = document.createElement("canvas");
+    surfaceScratch.set(canvas, scratch);
+  }
+  if (scratch.width !== cols || scratch.height !== rows) {
+    scratch.width = cols;
+    scratch.height = rows;
+  }
+  scratch.getContext("2d")?.putImageData(field, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(scratch, offX, offY, cols * cell, rows * cell);
+}
+
 // ---------------------------------------------------------------- shot unveil
 
 /** funky-shadow's synthwave preset end to end: near-black, indigo, purple, our pink, coral and gold. */
@@ -560,7 +645,8 @@ const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
  * each cell's colour to the synthwave palette, and each cell is kept or dropped by its opacity against a Bayer
  * threshold, so the band's soft edges break up into cells instead of fading. `bleed` is how far, in CSS px, the source
  * reaches past the box on every side; only the part over the box is drawn. `scratch` is a spare canvas reused between
- * frames. Returns whether any of the band showed.
+ * frames. Returns how far down the box the band's top edge is, 0 at the top to 1 at the bottom, or null if none of
+ * it showed.
  */
 export function ditherBand(
   out: HTMLCanvasElement,
@@ -570,7 +656,7 @@ export function ditherBand(
   bleed: number,
   cellCss: number,
   scratch: HTMLCanvasElement,
-): boolean {
+): number | null {
   const dpr = Math.min(3, window.devicePixelRatio || 1);
   const W = Math.round(width * dpr);
   const H = Math.round(height * dpr);
@@ -579,7 +665,7 @@ export function ditherBand(
     out.height = H;
   }
   const ctx = out.getContext("2d");
-  if (!ctx) return false;
+  if (!ctx) return null;
   ctx.clearRect(0, 0, W, H);
   const cell = Math.max(1, Math.round(cellCss * dpr));
   const cols = Math.ceil(W / cell);
@@ -589,7 +675,7 @@ export function ditherBand(
     scratch.height = rows;
   }
   const small = scratch.getContext("2d", { willReadFrequently: true });
-  if (!small || source.width === 0 || source.height === 0) return false;
+  if (!small || source.width === 0 || source.height === 0) return null;
   small.clearRect(0, 0, cols, rows);
   const sx = (bleed / (width + 2 * bleed)) * source.width;
   const sy = (bleed / (height + 2 * bleed)) * source.height;
@@ -602,14 +688,15 @@ export function ditherBand(
 
   // ditherdance works on colour, so set each cell's opacity aside and dither it separately.
   const alpha = new Uint8ClampedArray(cols * rows);
-  let shown = false;
+  // The first row the band shows in, so a caller can tell when it has climbed to the top.
+  let front = -1;
   for (let i = 0; i < alpha.length; i++) {
     const a = data[i * 4 + 3] ?? 0;
     alpha[i] = a;
     data[i * 4 + 3] = 255;
-    if (a > 8) shown = true;
+    if (a > 8 && front < 0) front = Math.floor(i / cols);
   }
-  if (!shown) return false;
+  if (front < 0) return null;
   ordered(image, { palette: SYNTHWAVE });
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
@@ -621,5 +708,103 @@ export function ditherBand(
   small.putImageData(image, 0, 0);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(scratch, 0, 0, cols * cell, rows * cell);
-  return true;
+  return front / rows;
+}
+
+// ---------------------------------------------------------------- develop light
+
+/** One ring of the develop wave: how far out its leading edge is, how thick it is, both in CSS px, and how strong, 0 to 1. */
+export type Ring = { radius: number; band: number; strength: number };
+
+/** How far a ring's edge wanders in and out with noise, in CSS px, and how many steps round it's worked out at. */
+const WOBBLE = 7;
+const WOBBLE_STEPS = 360;
+
+/**
+ * The light of the develop wave over the photo, as synthwave dither: rings travelling out from `origin` across a
+ * `width` x `height` box with `radius` corners. Each ring is gold at its leading edge, falling through coral and pink
+ * to indigo behind, its edge wobbling a little with noise, like glimm's band bent into a circle.
+ */
+export function drawDevelopLight(
+  out: HTMLCanvasElement,
+  width: number,
+  height: number,
+  radius: number,
+  origin: [number, number],
+  rings: readonly Ring[],
+  cellCss: number,
+  seconds: number,
+  scratch: HTMLCanvasElement,
+) {
+  // The phone is drawn small, so this stops at 2x: a third more cells would cost frames, not detail.
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = Math.round(width * dpr);
+  const H = Math.round(height * dpr);
+  if (out.width !== W || out.height !== H) {
+    out.width = W;
+    out.height = H;
+  }
+  const ctx = out.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, W, H);
+  if (rings.every((r) => r.strength <= 0)) return;
+  const cell = Math.max(1, Math.round(cellCss * dpr));
+  const cols = Math.ceil(W / cell);
+  const rows = Math.ceil(H / cell);
+  if (scratch.width !== cols || scratch.height !== rows) {
+    scratch.width = cols;
+    scratch.height = rows;
+  }
+  const small = scratch.getContext("2d", { willReadFrequently: true });
+  if (!small) return;
+  const image = small.createImageData(cols, rows);
+  const { data } = image;
+  const size = cell / dpr;
+  // The wobble depends only on the angle around the origin, so it's worked out once per frame for each step round.
+  const wobble = new Float32Array(WOBBLE_STEPS);
+  for (let i = 0; i < WOBBLE_STEPS; i++) wobble[i] = (valueNoise(((i / WOBBLE_STEPS) * 2 * Math.PI - Math.PI) * 4 + 20, seconds * 0.6) - 0.5) * 2 * WOBBLE;
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const px = (x + 0.5) * size;
+      const py = (y + 0.5) * size;
+      if (insetDistance(px, py, width, height, radius) < -size * 0.5) continue;
+      const dx = px - origin[0];
+      const dy = py - origin[1];
+      const plain = Math.hypot(dx, dy);
+      // Most cells are nowhere near a ring and have nothing to draw.
+      let nearRing = false;
+      for (const ring of rings) if (ring.strength > 0 && plain > ring.radius - ring.band - WOBBLE && plain < ring.radius + WOBBLE) nearRing = true;
+      if (!nearRing) continue;
+      const d = plain + (wobble[Math.round(((Math.atan2(dy, dx) + Math.PI) / (2 * Math.PI)) * WOBBLE_STEPS) % WOBBLE_STEPS] ?? 0);
+      let a = 0;
+      let tone = 0.5;
+      for (const ring of rings) {
+        if (ring.strength <= 0) continue;
+        // 0 at the leading edge, 1 at the back of the band.
+        const k = (ring.radius - d) / ring.band;
+        if (k < 0 || k > 1) continue;
+        // A crisp leading edge, then a long soft tail, as glimm's band has.
+        const shape = k < 0.1 ? k / 0.1 : (1 - k) ** 1.4;
+        const v = shape * ring.strength;
+        if (v > a) {
+          a = v;
+          tone = 1 - k;
+        }
+      }
+      // Ordered dither done here rather than by ditherdance: the cell's place along the palette is already known, so
+      // the threshold picks between the two stops either side of it, and keeps or drops the cell by its strength.
+      const threshold = ((BAYER4[(y % 4) * 4 + (x % 4)] ?? 0) + 0.5) / 16;
+      if (a <= threshold) continue;
+      const stop = SYNTHWAVE[Math.min(SYNTHWAVE.length - 1, Math.floor(tone * (SYNTHWAVE.length - 1) + threshold))] ?? [0, 0, 0];
+      const i = (y * cols + x) * 4;
+      data[i] = stop[0];
+      data[i + 1] = stop[1];
+      data[i + 2] = stop[2];
+      data[i + 3] = 255;
+    }
+  }
+  small.putImageData(image, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(scratch, 0, 0, cols * cell, rows * cell);
 }
