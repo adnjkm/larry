@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
 import type { Part } from "../../shared/kit.ts";
 import { colors } from "../tokens.stylex.ts";
-import { type BuiltPart, measure, measureParts, rotationOf } from "./buildKit.ts";
+import { type BuiltPart, type KitBounds, measure, rotationOf } from "./buildKit.ts";
 import { buildGeometry } from "./geometry.ts";
 import { createDitherMaterial, createShadowMaterial } from "./ditherMaterial.ts";
 
@@ -27,8 +27,8 @@ type KitViewerProps = {
   azimuth?: number;
   /** CSS height in px. Pick a multiple of 180 so the pixels stay square. */
   height?: number;
-  /** Parts to fit the camera to instead of `parts`, so the view holds still while sliders move the kit. */
-  frame?: Part[];
+  /** Bounds to fit the camera to instead of the parts' own, so the view holds still while the parts move or arrive. */
+  frame?: KitBounds;
   /** CSS pixels per dither pixel. Unset keeps PIXEL_ROWS rows whatever the height; 1 is the finest. */
   pixelScale?: number;
   /** Colours for a gradient shadow, centre first (see createShadowMaterial). Unset keeps the plain shadow. */
@@ -114,12 +114,11 @@ export function KitViewer({ parts, spin = false, elevation = 20, azimuth = 30, h
   );
 }
 
-function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: Part[] | undefined; shadowStops: readonly string[] | undefined }) {
+function Scene({ parts, spin, elevation, azimuth, frame, shadowStops }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: KitBounds | undefined; shadowStops: readonly string[] | undefined }) {
   const { camera, size, gl, invalidate } = useThree();
   const geometries = useShared(parts, shapeKey, makeGeometry, disposeGeometry);
   const built = useMemo((): BuiltPart[] => parts.map((part, i) => ({ part, geometry: geometries[i]!, rotation: rotationOf(part) })), [parts, geometries]);
-  const framed = useMemo(() => (frame ? measureParts(frame) : undefined), [frame]);
-  const bounds = useMemo(() => framed ?? measure(built), [framed, built]);
+  const bounds = useMemo(() => frame ?? measure(built), [frame, built]);
   const pivot = useRef<Group>(null);
   const shadow = useRef<Mesh>(null);
   const yaw = useRef(0);

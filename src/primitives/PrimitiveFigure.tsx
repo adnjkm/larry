@@ -4,7 +4,8 @@ import { KitViewer } from "../kit3d/KitViewer.tsx";
 import { chips, layout, notes, type } from "../styles.ts";
 import { colors, fonts } from "../tokens.stylex.ts";
 import { PRIMITIVE_BY_ID } from "./catalog.ts";
-import { type Primitive, type Values, formatSlider, framingParts } from "./library.ts";
+import { framePrimitive } from "./framing.ts";
+import { type Primitive, type Values, formatSlider } from "./library.ts";
 import { SYNTHWAVE } from "./parts.ts";
 
 const FIGURE_HEIGHT = 270;
@@ -54,7 +55,7 @@ type FigureProps = {
 
 export function PrimitiveFigure({ primitive, values, onSlider, focus, introduce = false, height = FIGURE_HEIGHT, pink = false }: FigureProps) {
   const parts = useMemo(() => primitive.build(values), [primitive, values]);
-  const frame = useMemo(() => framingParts(primitive), [primitive]);
+  const frame = useMemo(() => framePrimitive(primitive), [primitive]);
   const madeOf = madeOfPrimitives(primitive);
 
   return (
