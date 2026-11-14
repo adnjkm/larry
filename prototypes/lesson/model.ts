@@ -3,7 +3,7 @@
 // building, told in words with no numbers: each part's failure first, then a direct control), or an
 // Inspect lesson derived from any kit. Lessons never hold a kit: they are bound to one at run time, and a
 // Workshop only binds to a kit that has every part it names.
-import type { Kit, Part, Shape } from "../../shared/kit.ts";
+import type { Joint, Kit, Part, Shape } from "../../shared/kit.ts";
 import { PRIMITIVES, type Primitive, type Readout, type Slider } from "../../src/primitives/library.ts";
 
 export type Vec = { x: number; y: number; z: number };
@@ -22,6 +22,13 @@ export type Values = Readonly<Record<string, number>>;
 export type Turn = { axis: Vec; pivot: Vec; deg: number };
 /** How one part sits away from its kit pose: turned in list order, then shifted by `offset`. */
 export type PartMove = { offset?: Vec; turns?: readonly Turn[] };
+/** One assembly leaving the object: part `id` and every part fixed to it (see familyOf) ride one spring, and `at` is where they sit a `share` of the way out, 0 home and 1 apart. */
+export type Leave = { id: string; at: (share: number) => PartMove };
+/** How an object comes apart: its assemblies in the order they leave, outside first. Parts in none of them stay put. */
+export type ExplodePlan = { order: readonly Leave[] };
+/** How far out each assembly of an ExplodePlan is right now, by its id. */
+export type Shares = Readonly<Record<string, number>>;
+
 /** A purple annotation (water drop, turn mark, target). It moves with part `ride`, or stays in the world frame when `ride` is null. */
 export type Mark = { id: string; shape: Shape; at: Vec; rotation?: Vec; ride: string | null };
 export type Scene = { moves: Readonly<Record<string, PartMove>>; marks: readonly Mark[] };
@@ -143,7 +150,7 @@ export type Inspect = {
 /** What Assemble reads from any module that builds a part, whatever game the module plays. */
 export type Built = Pick<Module, "id" | "title" | "teach" | "main" | "assemble" | "produces" | "target" | "enter">;
 /** What Assemble reads from any lesson that builds its object module by module. */
-export type Builds = Pick<Workshop, "objectName" | "rest" | "apart" | "view" | "build"> & { modules: readonly Built[] };
+export type Builds = Pick<Workshop, "objectName" | "rest" | "apart" | "view" | "build"> & { modules: readonly Built[]; explode?: ExplodePlan };
 
 /** A stretch of a control's travel that feels and reads one way. `until` is where it ends; `gain` is how far the control moves per pixel dragged, so a stiff zone takes more dragging. */
 export type Zone = { id: string; word: string; until: number; gain: number };
@@ -202,6 +209,13 @@ export type Story = {
   final: { title: string; say: string; success: string; cheer: string; control: Control; tests: readonly Test[]; why: readonly string[]; payoff: readonly { part: string; job: string }[] };
   rest: (ctx: Ctx) => Scene;
   apart?: Readonly<Record<string, Vec>>;
+  /** Assemblies that come apart on their own springs, in place of `apart`. */
+  explode?: ExplodePlan;
+  /**
+   * A hand-made model drawn in place of the scanned kit (see bindStory). Its part ids include every
+   * id the lesson names, as the roots of its assemblies; detail parts hang off them by fixed joints.
+   */
+  kit?: Kit;
   view?: View;
   build?: BuildStyle;
 };
@@ -353,6 +367,42 @@ export function missingParts(lesson: Workshop | Story, kit: Kit): string[] {
     : lesson.modules.flatMap((m) => [...m.produces, ...m.without.adds]);
   const ids = new Set(kit.parts.map((p) => p.id));
   return [...new Set(named)].filter((id) => !ids.has(id));
+}
+
+/** Joints that make two parts one piece: they never come apart, so the pieces move, show and light up together. */
+const FIXED: readonly Joint[] = ["molded", "weld", "glue"];
+const fixed = (p: Part) => p.joint !== null && FIXED.includes(p.joint);
+
+const families = new WeakMap<Kit, Map<string, string[]>>();
+/** Part `id` and every part fixed to it, directly or through another. Asked every frame, so it is worked out once per kit. */
+export function familyOf(kit: Kit, id: string): string[] {
+  const known = families.get(kit) ?? new Map<string, string[]>();
+  families.set(kit, known);
+  const seen = known.get(id);
+  if (seen) return seen;
+  const out = [id];
+  for (let i = 0; i < out.length; i++) for (const p of kit.parts) if (p.parentId === out[i] && fixed(p)) out.push(p.id);
+  known.set(id, out);
+  return out;
+}
+
+/** The part that `id` is fixed to, followed up to one that is not fixed to anything. */
+export function rootOf(kit: Kit, id: string): string {
+  let part = kit.parts.find((p) => p.id === id);
+  while (part && fixed(part)) part = kit.parts.find((p) => p.id === part!.parentId);
+  return part?.id ?? id;
+}
+
+/**
+ * The story and the kit it is drawn with. A story with its own model draws that model, and each module
+ * earns the parts it names together with every part fixed to them.
+ */
+export function bindStory(story: Story, scanned: Kit): { story: Story; kit: Kit } {
+  const kit = story.kit;
+  if (!kit) return { story, kit: scanned };
+  const grow = (ids: readonly string[]) => [...new Set(ids.flatMap((id) => familyOf(kit, id)))];
+  const modules = story.modules.map((m) => ({ ...m, produces: grow(m.produces), without: { ...m.without, adds: grow(m.without.adds) } }));
+  return { kit, story: { ...story, modules } };
 }
 
 /** Part ids present once modules up to and including `index` are earned. Parts no module produces are there from the start. */

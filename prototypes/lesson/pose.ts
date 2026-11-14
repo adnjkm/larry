@@ -3,7 +3,7 @@
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import type { Kit, Part, Shape } from "../../shared/kit.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
-import { DEFAULT_VIEW, type PartMove, type Rigid, type Scene, STILL, type Vec, vec, type View } from "./model.ts";
+import { DEFAULT_VIEW, type ExplodePlan, familyOf, type Leave, type PartMove, type Rigid, type Scene, type Shares, STILL, type Vec, vec, type View } from "./model.ts";
 
 const DEG = Math.PI / 180;
 export const EXPLODE_STEP = 24;
@@ -67,7 +67,7 @@ function localPoints(shape: Shape): Vec[] {
 }
 
 /** Points that hug each part, turned and placed as the part is. */
-function corners(parts: readonly Part[]): Vec[] {
+export function corners(parts: readonly Part[]): Vec[] {
   const out: Vec[] = [];
   const corner = new Vector3();
   for (const p of parts) {
@@ -94,15 +94,15 @@ export function extents(parts: readonly Part[]): Extents {
   return { min, max };
 }
 
-/** Whether most of a part sits inside another part's box, so it cannot be seen until the object comes apart. */
-export function enclosed(id: string, parts: readonly Part[]): boolean {
+/** Whether most of a part sits inside the box of a part other than itself and `beside`, so it cannot be seen until the object comes apart. */
+export function enclosed(id: string, parts: readonly Part[], beside: readonly string[] = []): boolean {
   const part = parts.find((p) => p.id === id);
   if (!part) return false;
   const a = extents([part]);
   const volume = (e: Extents) => Math.max(0, e.max.x - e.min.x) * Math.max(0, e.max.y - e.min.y) * Math.max(0, e.max.z - e.min.z);
   const own = volume(a);
   return parts.some((q) => {
-    if (q.id === id) return false;
+    if (q.id === id || beside.includes(q.id)) return false;
     const b = extents([q]);
     const overlap = { min: vec(Math.max(a.min.x, b.min.x), Math.max(a.min.y, b.min.y), Math.max(a.min.z, b.min.z)), max: vec(Math.min(a.max.x, b.max.x), Math.min(a.max.y, b.max.y), Math.min(a.max.z, b.max.z)) };
     return own > 0 && volume(overlap) / own > 0.6;
@@ -223,8 +223,8 @@ export function rigidPoint(centre: Vec, rigid: Rigid, p: Vec): Vec {
   return vec(v.x, v.y, v.z);
 }
 
-function moveMatrix(move: PartMove | undefined, lift: Vec): Matrix4 {
-  const m = T(add(move?.offset ?? vec(), lift));
+function moveMatrix(move: PartMove | undefined): Matrix4 {
+  const m = T(move?.offset ?? vec());
   for (const t of [...(move?.turns ?? [])].reverse()) {
     const axis = new Vector3(t.axis.x, t.axis.y, t.axis.z).normalize();
     m.multiply(T(t.pivot)).multiply(new Matrix4().makeRotationAxis(axis, t.deg * DEG)).multiply(T(neg(t.pivot)));
@@ -248,7 +248,9 @@ export type Draw = {
   kit: Kit;
   present: readonly string[];
   scene: Scene;
-  explode: number;
+  /** How far apart: one amount for the whole object, or with a `plan`, each assembly's own share. */
+  explode: number | Shares;
+  plan?: ExplodePlan;
   pink: ReadonlySet<string>;
   /** The object's resting centre, which a rigid move tips about. */
   centre: Vec;
@@ -256,9 +258,35 @@ export type Draw = {
   apart?: Readonly<Record<string, Vec>>;
 };
 
-export function drawObject({ kit, present, scene, explode, pink, centre, rigid = STILL, apart = {} }: Draw): Part[] {
+export function drawObject({ kit, present, scene, explode, plan, pink, centre, rigid = STILL, apart = {} }: Draw): Part[] {
   const shown = kit.parts.filter((p) => present.includes(p.id));
   const whole = rigidMatrix(centre, rigid);
+  const lift = plan ? plannedLift(kit, plan, explode) : spreadLift(kit, shown, typeof explode === "number" ? explode : 0, apart);
+  const parts = shown.map((p) => {
+    const out = withMatrix(p, whole.clone().multiply(lift(p.id)).multiply(moveMatrix(scene.moves[p.id])).multiply(matrixOf(p)));
+    return pink.has(p.id) ? pinkOf(out) : { ...out, color: greyOf(out.color) };
+  });
+  const marks = scene.marks.flatMap((k): Part[] => {
+    if (k.ride !== null && !present.includes(k.ride)) return [];
+    const base: Part = { id: k.id, name: "mark", role: "", parentId: null, joint: null, shape: k.shape, position: k.at, rotation: k.rotation ?? vec(), color: COLOR.accent, finish: "matte" };
+    if (k.ride === null) return [base];
+    return [withMatrix(base, whole.clone().multiply(lift(k.ride)).multiply(moveMatrix(scene.moves[k.ride])).multiply(matrixOf(base)))];
+  });
+  return [...parts, ...marks];
+}
+
+/** Each assembly where its share puts it; a part fixed to an assembly rides it, and parts in none stay. */
+function plannedLift(kit: Kit, plan: ExplodePlan, explode: number | Shares): (id: string) => Matrix4 {
+  const leaving = new Map<string, Leave>(plan.order.flatMap((l) => familyOf(kit, l.id).map((id): [string, Leave] => [id, l])));
+  const share = (l: Leave) => Math.max(0, typeof explode === "number" ? explode : (explode[l.id] ?? 0));
+  return (id) => {
+    const l = leaving.get(id);
+    return l ? moveMatrix(l.at(share(l))) : new Matrix4();
+  };
+}
+
+/** Without a plan: each part straight out from the main part (or along `apart`), the further the later it comes. */
+function spreadLift(kit: Kit, shown: readonly Part[], explode: number, apart: Readonly<Record<string, Vec>>): (id: string) => Matrix4 {
   const rootCentre = centreOf(extents(kit.parts.filter((p) => p.parentId === null)));
   // Parts centred on the main part (a cap on a bottle, a refill in a barrel) have no outward direction, so they go up.
   const outward = shown.map((part) => {
@@ -274,23 +302,12 @@ export function drawObject({ kit, present, scene, explode, pink, centre, rigid =
     const behind = outward.filter((o, j) => o.part.parentId !== null && o.dir.x * me.dir.x + o.dir.y * me.dir.y + o.dir.z * me.dir.z > 0.9 && (o.length < me.length || (o.length === me.length && j < i)));
     return behind.length + 1;
   };
-  const liftOf = (id: string) => {
+  return (id) => {
     const set = apart[id];
-    if (set) return scale(set, explode);
+    if (set) return T(scale(set, explode));
     const i = shown.findIndex((q) => q.id === id);
-    return scale(outward[i]!.dir, EXPLODE_STEP * steps(i) * explode);
+    return T(scale(outward[i]!.dir, EXPLODE_STEP * steps(i) * explode));
   };
-  const parts = shown.map((p) => {
-    const out = withMatrix(p, whole.clone().multiply(moveMatrix(scene.moves[p.id], liftOf(p.id))).multiply(matrixOf(p)));
-    return pink.has(p.id) ? pinkOf(out) : { ...out, color: greyOf(out.color) };
-  });
-  const marks = scene.marks.flatMap((k): Part[] => {
-    if (k.ride !== null && !present.includes(k.ride)) return [];
-    const base: Part = { id: k.id, name: "mark", role: "", parentId: null, joint: null, shape: k.shape, position: k.at, rotation: k.rotation ?? vec(), color: COLOR.accent, finish: "matte" };
-    if (k.ride === null) return [base];
-    return [withMatrix(base, whole.clone().multiply(moveMatrix(scene.moves[k.ride], liftOf(k.ride))).multiply(matrixOf(base)))];
-  });
-  return [...parts, ...marks];
 }
 
 /** The resting centre of the present parts in a scene, for rigid moves and framing. */

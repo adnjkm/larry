@@ -28,7 +28,7 @@ export type InObject = { line: string; parts: Part[] };
 export function objectFor(lesson: Builds, kit: Kit, m: Built & { uses: Readonly<Record<string, string>> }, p: Primitive): InObject {
   const present = kit.parts.map((q) => q.id);
   const scene = lesson.rest({ kit, present });
-  const draw = (explode: number) => drawObject({ kit, present, scene, explode, pink: new Set(m.produces), centre: restCentre(kit, present, scene), apart: lesson.apart });
+  const draw = (explode: number) => drawObject({ kit, present, scene, explode, plan: lesson.explode, pink: new Set(m.produces), centre: restCentre(kit, present, scene), apart: lesson.apart });
   const shut = draw(0);
   return { line: m.uses[p.id]!, parts: m.produces.some((id) => enclosed(id, shut)) ? draw(0.6) : shut };
 }

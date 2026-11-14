@@ -1,5 +1,5 @@
-// A part drawn as thin edge lines only: rings round a round part's rims with a few lines down its
-// sides, or the twelve edges of any other part's box. Used as the ghost a piece snaps onto, so it
+// A part drawn as thin edge lines only: rings round a round part's outer rims with a few lines down
+// its sides, or the twelve edges of any other part's box. Used as the ghost a piece snaps onto, so it
 // marks the place without looking like a second solid piece.
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import type { Part, Shape } from "../../shared/kit.ts";
@@ -18,14 +18,32 @@ const bar = (length: number): Shape => ({ kind: "box", width: LINE, height: leng
 
 type Edge = { shape: Shape; at: Matrix4 };
 
-/** Rings at each rim of the profile, and lines along its steep runs, so flat faces get no spokes. */
+/** The profile's outside: at each of its heights, the furthest it reaches from the axis. A hollow part's inside never shows in an outline. */
+function outerSide(profile: readonly { r: number; y: number }[]): { r: number; y: number }[] {
+  const ys = [...new Set(profile.map((p) => p.y))].sort((a, b) => a - b);
+  return ys.map((y) => {
+    let r = 0;
+    profile.forEach((a, i) => {
+      const b = profile[i + 1];
+      if (a.y === y) r = Math.max(r, a.r);
+      if (!b || y < Math.min(a.y, b.y) || y > Math.max(a.y, b.y)) return;
+      r = Math.max(r, a.y === b.y ? Math.max(a.r, b.r) : a.r + ((b.r - a.r) * (y - a.y)) / (b.y - a.y));
+    });
+    return { r, y };
+  });
+}
+
+/** Rings at the rims of the profile's outside, and lines along its steep runs, so flat faces get no spokes. */
 function latheEdges(profile: readonly { r: number; y: number }[]): Edge[] {
-  const ys = profile.map((p) => p.y);
+  const outside = outerSide(profile);
+  const ys = outside.map((p) => p.y);
   const mid = (Math.max(...ys) + Math.min(...ys)) / 2;
-  const pts = profile.map((p) => ({ r: p.r, y: p.y - mid }));
-  // A bevel's two rims (a cap's top edge) read as one line, so a ring this close to a kept one is dropped.
-  const kept: { r: number; y: number }[] = [];
-  for (const p of pts) if (p.r > LINE && kept.every((k) => Math.hypot(k.r - p.r, k.y - p.y) > 4 * LINE)) kept.push(p);
+  const pts = outside.map((p) => ({ r: p.r, y: p.y - mid }));
+  // A bevel's two rims (a cap's top edge) read as one line, so a ring this close to a kept one is
+  // dropped; the top and bottom rims always stay.
+  const [first, last] = [pts[0]!, pts[pts.length - 1]!];
+  const kept = [first, last].filter((p) => p.r > LINE);
+  for (const p of pts.slice(1, -1)) if (p.r > LINE && kept.every((k) => Math.hypot(k.r - p.r, k.y - p.y) > 4 * LINE)) kept.push(p);
   const rings = kept.map((p) => ({ shape: ring(p.r), at: T(0, p.y, 0) }));
   const sides = pts.slice(1).flatMap((b, i) => {
     const a = pts[i]!;

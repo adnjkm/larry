@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { play, useAlive } from "./anim.ts";
-import { lerp, smooth } from "./ease.ts";
-import { type Overlay, presentAfter, type Run, STILL, type Story, type Test, type Values, type Verdict } from "./model.ts";
+import { useExplode } from "./useExplode.ts";
+import { type Overlay, presentAfter, type Run, type Shares, STILL, type Story, type Test, type Values, type Verdict } from "./model.ts";
 import { compose, drawObject, restCentre } from "./pose.ts";
 import { Cheer } from "./Cheer.tsx";
 import { Actions, ExplodeSlider, Say, Strip, Viewer, Why } from "./ui.tsx";
 
-const CLOSE_MS = 350;
-const ASSEMBLE_MS = 800;
 const FRAME_SAMPLES = 48;
 const CAMERA_MS = 300;
 
@@ -50,7 +48,7 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
     const centre = restCentre(kit, present, rest);
     const ctx = { kit, present, centre };
     const pink = new Set(mode.kind === "play" ? module!.produces : []);
-    const draw = (overlay: Overlay, explode: number) => drawObject({ kit, present, scene: compose(rest, overlay), rigid: overlay.rigid, explode, pink, centre, apart: story.apart });
+    const draw = (overlay: Overlay, explode: number | Shares) => drawObject({ kit, present, scene: compose(rest, overlay), rigid: overlay.rigid, explode, plan: story.explode, pink, centre, apart: story.apart });
     const held = (v: number): Overlay => ({ ...control.pose(v, ctx), rigid: STILL, live: "" });
     const reach = (run: Run, v: number): Part[] => [...draw(held(v), 0), ...Array.from({ length: FRAME_SAMPLES + 1 }, (_, i) => draw(run.at((run.durationMs * i) / FRAME_SAMPLES), 0)).flat()];
     return { present, ctx, draw, held, reach, zones: control.zones(ctx) };
@@ -66,11 +64,12 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
   }, [done, mode.kind]);
   const cheer = module ? module.cheer : story.final.cheer;
 
-  const [explode, setExplodeState] = useState(mode.kind === "final" ? 1 : 0);
-  const explodeRef = useRef(explode);
+  // The final screen opens up on arrival, so the parts it names are all in view.
+  const explode = useExplode(story.explode, mode.kind === "final" ? 1 : 0);
   const [anim, setAnim] = useState<Overlay | null>(null);
   const [reach, setReach] = useState<Part[] | null>(null);
   const [running, setRunning] = useState<string | null>(null);
+  const [arming, setArming] = useState(false);
   const [outcomes, setOutcomes] = useState<Readonly<Record<string, Verdict>>>({});
   const outcomesRef = useRef(outcomes);
   const [last, setLast] = useState<string | null>(null);
@@ -78,21 +77,17 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
   const [readAhead, setReadAhead] = useState(0);
   const token = useRef(0);
 
-  const setExplode = (v: number) => {
-    explodeRef.current = v;
-    setExplodeState(v);
-  };
-  const tween = async (to: number, ms: number, mine: number) => {
-    const from = explodeRef.current;
-    await play(ms, (t) => setExplode(lerp(from, to, smooth(t / ms))), () => alive() && token.current === mine);
-  };
-
   const runTest = async (test: Test) => {
     if (running) return;
     const mine = ++token.current;
     setRunning(test.id);
-    if (explodeRef.current > 0.001) await tween(0, CLOSE_MS, mine);
-    if (!alive()) return;
+    // Armed first: a test never starts on a half-open bottle, so it closes up and waits for every part to land.
+    if (!explode.home()) {
+      setArming(true);
+      explode.set(0);
+      if (!(await explode.settled(alive))) return;
+      setArming(false);
+    }
     const run = test.run(tuning, world.ctx);
     setReach(world.reach(run, value));
     await play(CAMERA_MS, () => {}, () => alive() && token.current === mine);
@@ -120,11 +115,11 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
     const o = outcomes[t.id];
     return o ? (o.pass ? "pass" : "fail") : "idle";
   };
-  const closed = explode <= 0.02;
+  const closed = explode.target === 0;
   const blocked = mode.kind === "final" && !closed;
   const latest = (last ? outcomes[last] : undefined) ?? Object.values(outcomes).find((o) => !o.pass);
-  const parts = world.draw(anim ?? world.held(value), explode);
-  const subject = useMemo(() => reach ?? world.draw(world.held(value), explode), [reach, world, value, explode]);
+  const parts = world.draw(anim ?? world.held(value), explode.shown);
+  const subject = useMemo(() => reach ?? world.draw(world.held(value), explode.shown), [reach, world, value, explode.shown]);
 
   const say =
     mode.kind === "problem" ? (done ? module!.without.line : module!.without.say)
@@ -156,9 +151,9 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
   return (
     <main className="page" data-stage={stage}>
       <Say kicker={kicker} why={sheet} found={done && mode.kind !== "problem"} note={mode.kind === "problem" && done}>{say}</Say>
-      <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live || undefined} />
+      <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live || (arming ? "Closing up…" : undefined)} />
       <Cheer text={cheer} show={cheers} />
-      <ExplodeSlider value={explode} disabled={running !== null} onChange={(v) => { token.current++; setExplode(v); }} />
+      <ExplodeSlider value={explode.target} disabled={running !== null} onChange={(v) => { token.current++; explode.set(v); }} />
       {mode.kind === "problem" ? null : (
         <Strip id={control.key} label={control.verb} value={value} min={0} max={world.zones[world.zones.length - 1]!.until} zones={world.zones} disabled={running !== null || done} onChange={turn} />
       )}
@@ -179,7 +174,7 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
         <p className="result" data-result-line data-bad={latest && !latest.pass ? "" : undefined}>{latest ? latest.line : " "}</p>
       )}
       {mode.kind === "final" && !done ? (
-        <button type="button" className="btn secondary" data-assemble disabled={closed || running !== null} onClick={() => !running && void tween(0, ASSEMBLE_MS, ++token.current)}>Assemble</button>
+        <button type="button" className="btn secondary" data-assemble disabled={closed || running !== null} onClick={() => !running && explode.set(0)}>Assemble</button>
       ) : null}
       <Actions>
         {mode.kind === "final" ? (

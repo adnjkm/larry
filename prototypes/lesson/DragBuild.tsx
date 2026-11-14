@@ -3,9 +3,10 @@ import type { Kit, Part } from "../../shared/kit.ts";
 import { reducedMotion, spring } from "../../src/motion.ts";
 import { play, useAlive } from "./anim.ts";
 import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
+import { useExplode } from "./useExplode.ts";
 import { type Lens, lensOf, type Point } from "./lens.ts";
 import { outline } from "./outline.ts";
-import { AXIS, type Builds, listOf, presentAfter, type Scene, vec, type Vec } from "./model.ts";
+import { AXIS, type Builds, listOf, presentAfter, rootOf, type Scene, type Shares, vec, type Vec } from "./model.ts";
 import { centreOf, compose, drawObject, enclosed, type Extents, extents, restCentre } from "./pose.ts";
 import { Actions, ExplodeSlider, Say, Viewer, Why } from "./ui.tsx";
 
@@ -40,9 +41,6 @@ const SCREW_MS = 720;
 const PRESS_MS = 320;
 const SNAP_MS = 160;
 const LOWER_MS = 420;
-const REVEAL_MS = 700;
-/** An exploded object closes up this fast once a piece is dropped on it, and always before the piece seats. */
-const CLOSE_MS = 380;
 const SCREW_TURNS = 2;
 const PRESS_DIP = 1.5;
 
@@ -65,15 +63,19 @@ function cover(el: HTMLElement, viewer: DOMRect, b: ReturnType<typeof screenBox>
   Object.assign(el.style, { left: `${(b.x0 + b.x1) / 2 - w / 2 - viewer.left}px`, top: `${(b.y0 + b.y1) / 2 - h / 2 - viewer.top}px`, width: `${w}px`, height: `${h}px`, visibility: "visible" });
 }
 
-/** The piece's path from where it was let go to its place. `k` is how far parts lifted out of its way still are. */
-function landingPath(style: Landing, from: Vec, to: Vec, hover: number, lowers: boolean) {
-  const seatMs = style === "snap" ? SNAP_MS : APPROACH_MS + (style === "screw" ? SCREW_MS : PRESS_MS);
+/**
+ * The piece's path from where it was let go to its place. `k` is how far parts lifted out of its way
+ * still are. It flies to just above its place for `approachMs`, long enough for an opened object to
+ * close up first, and only then seats.
+ */
+function landingPath(style: Landing, from: Vec, to: Vec, hover: number, lowers: boolean, approachMs = APPROACH_MS) {
+  const seatMs = style === "snap" ? SNAP_MS : approachMs + (style === "screw" ? SCREW_MS : PRESS_MS);
   const totalMs = seatMs + (lowers && style !== "snap" ? LOWER_MS : 0);
   const above = vec(to.x, to.y + hover, to.z);
   const at = (ms: number): { at: Vec; turn: number; k: number } => {
     if (style === "snap") return { at: mix(from, to, easeOut(clamp01(ms / SNAP_MS))), turn: 0, k: ms >= SNAP_MS ? 0 : 1 };
-    if (ms < APPROACH_MS) return { at: mix(from, above, easeOut(ms / APPROACH_MS)), turn: 0, k: 1 };
-    const q = clamp01((ms - APPROACH_MS) / (seatMs - APPROACH_MS));
+    if (ms < approachMs) return { at: mix(from, above, easeOut(ms / approachMs)), turn: 0, k: 1 };
+    const q = clamp01((ms - approachMs) / (seatMs - approachMs));
     const k = 1 - smooth(clamp01((ms - seatMs) / LOWER_MS));
     if (style === "screw") {
       // Down the thread: each turn carries it the same way further.
@@ -96,20 +98,28 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
     const before = presentAfter(lesson, kit, index - 1);
     const restAfter = lesson.rest({ kit, present: after });
     const centre = restCentre(kit, after, restAfter);
-    const draw = (present: readonly string[], scene: Scene, explode: number, pink = new Set<string>()) => drawObject({ kit, present, scene, explode, pink, centre, apart: lesson.apart });
+    const draw = (present: readonly string[], scene: Scene, explode: number | Shares, pink = new Set<string>()) => drawObject({ kit, present, scene, explode, plan: lesson.explode, pink, centre, apart: lesson.apart });
     const own = (parts: Part[]) => parts.filter((p) => produces.includes(p.id));
     const home = extents(own(draw(after, restAfter, 0)));
     const homeCentre = centreOf(home);
-    // Parts already on the object that sit where the piece goes (a cap over the seal) lift clear until it is in.
-    const blockers = before.flatMap((id) => {
-      if (kit.parts.find((p) => p.id === id)?.parentId === null) return [];
-      const b = extents(draw(before, restAfter, 0).filter((p) => p.id === id));
+    // Pieces already on the object that sit where this one goes (a cap over the seal) lift clear until it
+    // is in, each with everything fixed to it. The main part and what is fixed to it never move.
+    const pieces = new Map<string, string[]>();
+    for (const id of before) {
+      const root = rootOf(kit, id);
+      if (kit.parts.find((p) => p.id === root)?.parentId !== null) pieces.set(root, [...(pieces.get(root) ?? []), id]);
+    }
+    const blockers = [...pieces.values()].flatMap((ids) => {
+      const b = extents(draw(before, restAfter, 0).filter((p) => ids.includes(p.id)));
       const overlaps = b.min.x < home.max.x && b.max.x > home.min.x && b.min.y < home.max.y + 1 && b.max.y > home.min.y && b.min.z < home.max.z && b.max.z > home.min.z;
-      return overlaps ? [{ id, lift: home.max.y - b.min.y + Math.max(GAP, 2 * (home.max.y - home.min.y)) }] : [];
+      const lift = home.max.y - b.min.y + Math.max(GAP, 2 * (home.max.y - home.min.y));
+      return overlaps ? ids.map((id) => ({ id, lift })) : [];
     });
     const lifted = (k: number): Scene => compose(restAfter, { moves: Object.fromEntries(blockers.map((b) => [b.id, { offset: vec(0, b.lift * k, 0) }])), marks: [] });
-    const object = (explode: number, k: number) => draw(before, lifted(k), explode);
-    const ghost = (explode: number) => own(draw(after, restAfter, explode));
+    const object = (explode: number | Shares, k: number) => draw(before, lifted(k), explode);
+    const ghost = (explode: number | Shares) => own(draw(after, restAfter, explode));
+    // The outline traces the piece's own shell, not every rib and thread fixed to it.
+    const shell = (parts: Part[]) => parts.filter((p) => !produces.includes(p.parentId ?? ""));
     const piece = (at: Vec, turn: number): Part[] => {
       const moves = Object.fromEntries(produces.map((id) => [id, { offset: sub(at, homeCentre), turns: [{ axis: AXIS.y, pivot: homeCentre, deg: turn }] }]));
       return draw(produces, compose(restAfter, { moves, marks: [] }), 0, new Set(produces)).map((p) => ({ ...p, id: `piece-${p.id}` }));
@@ -120,17 +130,18 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
     const tray = box.max.y - box.min.y >= box.max.x - box.min.x
       ? vec(box.max.x + GAP + half.x, box.min.y + half.y, (box.min.z + box.max.z) / 2)
       : vec((box.min.x + box.max.x) / 2, box.max.y + GAP + half.y, (box.min.z + box.max.z) / 2);
-    const whole = (explode: number) => draw(after, restAfter, explode);
+    const whole = (explode: number | Shares) => draw(after, restAfter, explode);
     return {
       after, restAfter, centre, tray, object, ghost, piece, whole, lifts: blockers.length > 0,
       hover: module.main.id === "thread" ? Math.max(8, 0.6 * (home.max.y - home.min.y)) : 6,
       around: [...piece(tray, 0), ...object(0, 1)],
-      hidden: produces.some((id) => enclosed(id, whole(0))),
+      hidden: produces.some((id) => enclosed(id, whole(0), produces)),
+      shell,
     };
   }, [lesson, kit, index, module]);
 
   const [phase, setPhase] = useState<Phase>({ kind: "loose", at: setup.tray, missed: false });
-  const [explode, setExplode] = useState(0);
+  const explode = useExplode(lesson.explode, 0);
   const placed = phase.kind === "placed";
   const screws = module.main.id === "thread";
 
@@ -140,17 +151,17 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
   const tone = phase.kind === "held" ? (phase.near ? GHOST.lit : GHOST.held) : GHOST.idle;
 
   const parts = useMemo(() => {
-    if (phase.kind === "placed") return drawObject({ kit, present: setup.after, scene: setup.restAfter, explode, pink: new Set(module.produces), centre: setup.centre, apart: lesson.apart });
-    const ghost = phase.kind === "landing" ? [] : outline(setup.ghost(explode), tone);
-    return [...setup.object(explode, pose.k), ...ghost, ...setup.piece(pose.at, pose.turn)];
-  }, [setup, kit, lesson.apart, module, phase.kind, explode, tone, pose.at, pose.turn, pose.k]);
-  const subject = useMemo(() => (placed ? setup.whole(explode) : [...setup.around, ...setup.whole(explode)]), [setup, explode, placed]);
+    if (phase.kind === "placed") return drawObject({ kit, present: setup.after, scene: setup.restAfter, explode: explode.shown, plan: lesson.explode, pink: new Set(module.produces), centre: setup.centre, apart: lesson.apart });
+    const ghost = phase.kind === "landing" ? [] : outline(setup.shell(setup.ghost(explode.shown)), tone);
+    return [...setup.object(explode.shown, pose.k), ...ghost, ...setup.piece(pose.at, pose.turn)];
+  }, [setup, kit, lesson.apart, lesson.explode, module, phase.kind, explode.shown, tone, pose.at, pose.turn, pose.k]);
+  const subject = useMemo(() => (placed ? setup.whole(explode.shown) : [...setup.around, ...setup.whole(explode.shown)]), [setup, explode.shown, placed]);
 
   // What the pointer handlers and the overlay loop read between renders.
   const live = useRef({ piece: [] as Vec[], ghost: [] as Vec[], at: setup.tray, phase });
-  const ghostNow = setup.ghost(explode);
+  const ghostNow = setup.ghost(explode.shown);
   live.current = { piece: cornersOf(extents(setup.piece(pose.at, pose.turn))), ghost: ghostNow.length > 0 ? cornersOf(extents(ghostNow)) : [], at: pose.at, phase };
-  const ghostCentre = () => centreOf(extents(setup.ghost(explode)));
+  const ghostCentre = () => centreOf(extents(setup.ghost(explode.shown)));
 
   const handle = useRef<HTMLButtonElement>(null);
   const spot = useRef<HTMLSpanElement>(null);
@@ -183,18 +194,16 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
 
   const land = (from: Vec) => {
     stopBack.current?.();
-    // The piece lands on the object put back together: aim at the ghost's assembled spot, and close
-    // any explode while the piece flies in, so it is whole before the piece seats (or at once, for
-    // reduced motion).
+    // The piece lands on the object put back together: aim at the ghost's assembled spot, close any
+    // explode, and keep the piece just above its place until every part is home, so it never seats on
+    // a half-open object (reduced motion closes it at once).
     const to = centreOf(extents(setup.ghost(0)));
-    const path = landingPath(reducedMotion.matches ? "snap" : screws ? "screw" : "press", from, to, setup.hover, setup.lifts);
-    const opened = explode;
-    const closeMs = reducedMotion.matches ? 0 : Math.min(CLOSE_MS, path.seatMs * 0.7);
-    if (closeMs === 0) setExplode(0);
+    explode.set(0);
+    const approachMs = Math.max(APPROACH_MS, explode.msUntilShut());
+    const path = landingPath(reducedMotion.matches ? "snap" : screws ? "screw" : "press", from, to, setup.hover, setup.lifts, approachMs);
     let seated = false;
     setPhase({ kind: "landing", from, to, ms: 0 });
     void play(path.totalMs, (ms) => {
-      if (opened > 0 && closeMs > 0) setExplode(opened * (1 - smooth(Math.min(1, ms / closeMs))));
       if (!seated && ms >= path.seatMs) {
         seated = true;
         navigator.vibrate?.(18);
@@ -204,7 +213,7 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
       if (!done) return;
       setPhase({ kind: "placed" });
       // A part that lands inside another would turn pink out of sight, so the object comes apart to show it.
-      if (setup.hidden) void play(REVEAL_MS, (ms) => setExplode(smooth(ms / REVEAL_MS)), alive);
+      if (setup.hidden) explode.set(1);
     });
   };
 
@@ -318,7 +327,7 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
           </>
         )}
       </Viewer>
-      <ExplodeSlider value={explode} onChange={setExplode} disabled={phase.kind === "held" || phase.kind === "landing"} />
+      <ExplodeSlider value={explode.target} onChange={explode.set} disabled={phase.kind === "held" || phase.kind === "landing"} />
       <Actions>
         <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>{next}</button>
       </Actions>

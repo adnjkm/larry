@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import { Assemble } from "./Assemble.tsx";
 import { Learn, objectFor } from "./Learn.tsx";
-import { rigList, type Story, type Values } from "./model.ts";
+import { bindStory, rigList, type Story, type Values } from "./model.ts";
 import { Play } from "./Play.tsx";
 import { Plain, Shell, type Step } from "./ui.tsx";
 
@@ -13,7 +13,8 @@ type Route = number | "final";
 const startValues = (story: Story): Values => Object.fromEntries([...story.modules.map((m) => m.play.control), story.final.control].map((c) => [c.key, c.start]));
 
 /** A story lesson, told with no numbers anywhere: every screen sits inside Plain. */
-export function StoryFlow({ story, kit, photo, onHome, onRestart }: { story: Story; kit: Kit; photo: string; onHome: () => void; onRestart: () => void }) {
+export function StoryFlow({ story: written, kit: scanned, photo, onHome, onRestart }: { story: Story; kit: Kit; photo: string; onHome: () => void; onRestart: () => void }) {
+  const { story, kit } = useMemo(() => bindStory(written, scanned), [written, scanned]);
   const { modules } = story;
   const [route, setRoute] = useState<Route>(0);
   const [stages, setStages] = useState<Readonly<Record<string, Stage>>>(() => Object.fromEntries(modules.map((m) => [m.id, "problem" as Stage])));
