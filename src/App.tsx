@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { Button } from "@ui-sdk/react/button";
 import { useEffect, useState } from "react";
 import type { Kit, KitEvent, Part } from "../shared/kit.ts";
 import { CapturePicker } from "./capture/CapturePicker.tsx";
@@ -105,21 +106,21 @@ export function App() {
             ))}
           </ul>
           {view.done && (
-            <button type="button" {...stylex.props(styles.button)} onClick={restart}>
+            <Button {...stylex.props(styles.button)} onClick={restart}>
               Scan something else
-            </button>
+            </Button>
           )}
         </>
       )}
       {state.phase === "failed" && (
         <>
           <p {...stylex.props(styles.status)}>{state.message}</p>
-          <button type="button" {...stylex.props(styles.button, styles.primary)} onClick={state.retry}>
+          <Button {...stylex.props(styles.button, styles.primary)} onClick={state.retry}>
             Try again
-          </button>
-          <button type="button" {...stylex.props(styles.button)} onClick={restart}>
+          </Button>
+          <Button {...stylex.props(styles.button)} onClick={restart}>
             Use other photos
-          </button>
+          </Button>
         </>
       )}
     </main>

@@ -13,13 +13,18 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test",
     "kits": "node --env-file-if-exists=.env scripts/generate-kits.ts",
-    "compare": "node scripts/compare.ts"
+    "compare": "node scripts/compare.ts",
+    "lint": "oxlint"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.323",
     "@hono/node-server": "^2.1.8",
     "@react-three/fiber": "^9.8.2",
     "@stylexjs/stylex": "^0.19.2",
+    "@ui-sdk/core": "0.1.0-beta.2",
+    "@ui-sdk/react": "0.1.0-beta.2",
+    "ditherdance": "0.3.0",
+    "glimm": "0.4.1",
     "hono": "^4.13.18",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -34,6 +39,9 @@
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "dialkit": "^2.2.0",
+    "motion": "^14.13.0",
+    "oxlint": "^1.93.0",
     "playwright-core": "^1.65.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
