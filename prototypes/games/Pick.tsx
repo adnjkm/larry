@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Challenge, Earned, wait } from "./shared.tsx";
+import { Challenge, type GameProps, useOnMet, Earned, wait } from "./shared.tsx";
 
 type Tip = "out" | "in";
 type Option = { id: string; name: string; parts: string; after: (press: number) => Tip; verdict: string };
@@ -13,7 +13,7 @@ const OPTIONS: Option[] = [
   { id: "cam", name: "A spring, a cam and a catch", parts: "spring + cam + catch", after: (i) => (i % 2 === 0 ? "out" : "in"), verdict: "" },
 ];
 
-export default function Pick() {
+export default function Pick({ onMet }: GameProps) {
   const [picked, setPicked] = useState<Option | null>(null);
   const [got, setGot] = useState<Tip[]>([]);
   const [pressing, setPressing] = useState(false);
@@ -43,6 +43,8 @@ export default function Pick() {
   const matched = got.filter((t, i) => t === WANT[i]).length;
   const met = done && matched === PRESSES;
   const tipOut = tip === "out";
+
+  useOnMet(met, onMet);
 
   return (
     <Challenge module="Retract" need="It must stay out after one press, and go back in on the next." move="Pick" tests="Repeat ×6" goal="Survive">

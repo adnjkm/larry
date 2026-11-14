@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Challenge, Earned, Log, type LogLine, wait } from "./shared.tsx";
+import { Challenge, type GameProps, useOnMet, Earned, Log, type LogLine, wait } from "./shared.tsx";
 
 // Game numbers, not measured: ink thicker than 7 skips, thinner than 4 leaks through the ball's gap.
 const SKIPS_ABOVE = 7;
@@ -23,7 +23,7 @@ function Pen() {
   );
 }
 
-export default function Tune() {
+export default function Tune({ onMet }: GameProps) {
   const [thick, setThick] = useState(2.5);
   const [mode, setMode] = useState<"idle" | "write" | "tilt">("idle");
   const [written, setWritten] = useState(false);
@@ -67,6 +67,8 @@ export default function Tune() {
   // A wavy handwriting line across the paper, cut into segments that skip when the ink is too thick.
   const pts = Array.from({ length: SEGMENTS + 1 }, (_, i) => [40 + (i / SEGMENTS) * 300, 196 + Math.sin(i * 0.9) * 7] as const);
   const segs = pts.slice(0, -1).map((p, i) => ({ p, q: pts[i + 1]!, on: noise(i) >= skip }));
+
+  useOnMet(met, onMet);
 
   return (
     <Challenge module="Write" need="It must give ink only on paper, and never leak." move="Tune" tests="Run · Tilt" goal="Window">

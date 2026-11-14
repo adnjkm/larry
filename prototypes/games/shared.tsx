@@ -1,13 +1,26 @@
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext, useEffect } from "react";
+
+/** The scanned object's name, when a game is played from the scan flow. */
+export const ObjectName = createContext<string | null>(null);
+
+/** Calls `onMet` once when the requirement becomes met. */
+export function useOnMet(met: boolean, onMet?: () => void) {
+  useEffect(() => {
+    if (met) onMet?.();
+  }, [met, onMet]);
+}
+
+export type GameProps = { onMet?: () => void };
 
 export type LogLine = { label: string; value: string; bad?: boolean };
 
 /** The frame every game type shares: object, module, the requirement, and the move/test/goal it uses. */
-export function Challenge(props: { module: string; need: string; move: string; tests: string; goal: string; children: ReactNode }) {
+export function Challenge(props: { object?: string; module: string; need: string; move: string; tests: string; goal: string; children: ReactNode }) {
+  const scanned = useContext(ObjectName);
   return (
     <main className="page">
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <span className="mono">Click pen · module: {props.module}</span>
+        <span className="mono">{scanned ?? props.object ?? "Click pen"} · module: {props.module}</span>
         <h1 className="need">{props.need}</h1>
       </div>
       <div className="chips">

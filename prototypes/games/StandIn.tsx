@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Challenge, Earned, Log, type LogLine, wait } from "./shared.tsx";
+import { Challenge, type GameProps, useOnMet, Earned, Log, type LogLine, wait } from "./shared.tsx";
 
 // Game numbers, not measured: the refill drags with 1.5 N of friction; a click over 10 N feels like work.
 const FRICTION = 1.5;
@@ -8,7 +8,7 @@ const COMPRESSION_OUT = 4; // mm the spring is squeezed when the tip is out
 const COMPRESSION_PRESS = 8; // mm at the bottom of a click
 const PUSHES_TO_LEARN = 3;
 
-export default function StandIn() {
+export default function StandIn({ onMet }: GameProps) {
   const [phase, setPhase] = useState<"hand" | "spring">("hand");
   const [tipOut, setTipOut] = useState(false);
   const [drag, setDrag] = useState(0);
@@ -64,6 +64,8 @@ export default function StandIn() {
     lines.push({ label: "Push to click", value: `${result.press.toFixed(1)} N${result.press > COMFORT ? " · too stiff" : ""}`, bad: result.press > COMFORT });
     met = result.returned && result.press <= COMFORT;
   }
+
+  useOnMet(met, onMet);
 
   return (
     <Challenge module="Retract" need="It must hide the tip when you're done." move={phase === "hand" ? "Stand in" : "Tune"} tests="Run" goal="Window">

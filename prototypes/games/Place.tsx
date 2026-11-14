@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Challenge, Earned, Log, type LogLine, wait } from "./shared.tsx";
+import { Challenge, type GameProps, useOnMet, Earned, Log, type LogLine, wait } from "./shared.tsx";
 
 // A stapler arm: hinged at the back, your hand presses the far end, the staple sits somewhere between.
 // Force at the staple = hand force × (hand distance ÷ staple distance); travel shrinks by the same ratio.
@@ -14,7 +14,7 @@ const HAND_X = 330;
 const ARM_Y = 112;
 const PRESS_DEG = (Math.atan2(30, HAND_X - HINGE_X) * 180) / Math.PI;
 
-export default function Place() {
+export default function Place({ onMet }: GameProps) {
   const [stapleX, setStapleX] = useState(260);
   const [pressed, setPressed] = useState(false);
   const [result, setResult] = useState<{ force: number; travel: number } | null>(null);
@@ -51,8 +51,10 @@ export default function Place() {
     met = result.force >= NEED_FORCE && result.travel >= NEED_TRAVEL;
   }
 
+  useOnMet(met, onMet);
+
   return (
-    <Challenge module="Squeeze" need="It must push a staple through 20 sheets with an ordinary squeeze." move="Place" tests="Load · 20 sheets" goal="Window">
+    <Challenge object="Stapler" module="Squeeze" need="It must push a staple through 20 sheets with an ordinary squeeze." move="Place" tests="Load · 20 sheets" goal="Window">
       <div className="stage">
         <svg
           ref={svg}
