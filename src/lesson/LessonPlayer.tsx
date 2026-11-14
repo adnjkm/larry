@@ -101,9 +101,11 @@ function StepScreen({ kit, earned, state, dispatch }: { kit: Kit; earned: Readon
         )}
 
         <div {...stylex.props(layout.inset, layout.tight)}>
-          <p {...stylex.props(type.label)}>
-            Step {flat.index + 1} of {inChapter}
-          </p>
+          {inChapter > 1 && (
+            <p {...stylex.props(type.label)}>
+              Step {flat.index + 1} of {inChapter}
+            </p>
+          )}
           <h2 {...stylex.props(type.title)}>{step.title}</h2>
         </div>
 
