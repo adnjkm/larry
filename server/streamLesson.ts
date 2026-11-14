@@ -77,49 +77,65 @@ export type LessonStats = { ms: number; firstChapterMs: number | undefined; cost
 const Header = z.object({ title: z.string(), hook: z.array(z.string()) });
 
 /**
- * Yields the title and hook, then each chapter as soon as Claude has written it and it passes its
- * own checks, then the whole checked lesson. Chapters stop streaming at the first one that fails;
- * if the finished lesson breaks a rule, Claude rewrites it once and `done` carries the rewrite.
+ * Puts the title, hook and chapters the reader has already been shown back in front of a rewrite, so
+ * the finished lesson never changes what they have played. The rewrite supplies the rest.
  */
-export async function* streamLesson(kit: Kit, brain: Brain = LESSON_BRAIN, onStats?: (stats: LessonStats) => void): AsyncGenerator<LessonEvent> {
+export function keepShown(rewrite: Lesson, header: z.infer<typeof Header> | undefined, shown: Chapter[]): Lesson {
+  return { ...rewrite, ...header, chapters: [...shown, ...rewrite.chapters.slice(shown.length)] };
+}
+
+/**
+ * Yields the title and hook, then each chapter as soon as Claude has written it and it passes its
+ * own checks, then the whole checked lesson. Chapters stop streaming at the first one that fails.
+ * If the finished lesson breaks a rule, Claude rewrites it once: the rewrite keeps the chapters
+ * already shown, streams the ones after them, and `done` carries the whole.
+ */
+export async function* streamLesson(kit: Kit, brain: Brain = LESSON_BRAIN, onStats?: (stats: LessonStats) => void, ask: typeof streamStructured = streamStructured): AsyncGenerator<LessonEvent> {
   const started = Date.now();
   let firstChapterMs: number | undefined;
   let costUsd = 0;
   let feedback = "";
+  let header: z.infer<typeof Header> | undefined;
+  const shown: Chapter[] = [];
 
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const streaming = attempt === 1;
     let chaptersOk = true;
+    let seen = 0;
     let output: unknown;
     const text = `Catalogue of primitives:\n${catalogText()}\n\n${kitText(kit)}\n\nWrite the lesson for this ${kit.name}.${feedback}`;
 
-    for await (const event of streamStructured({ system: SYSTEM_PROMPT, schema: lessonJsonSchema, brain, content: [{ type: "text", text }], streamKey: "chapters" })) {
+    for await (const event of ask({ system: SYSTEM_PROMPT, schema: lessonJsonSchema, brain, content: [{ type: "text", text }], streamKey: "chapters" })) {
       if (event.type === "result") {
         output = event.output;
         costUsd += event.costUsd;
-      } else if (!streaming) {
-        continue;
       } else if (event.type === "header") {
-        const header = Header.safeParse(event.value);
-        if (header.success) yield { type: "started", ...header.data };
-      } else if (chaptersOk) {
+        const parsed = Header.safeParse(event.value);
+        if (parsed.success && !header) {
+          header = parsed.data;
+          yield { type: "started", ...header };
+        }
+      } else if (chaptersOk && seen++ >= shown.length) {
         const chapter = Chapter.safeParse(event.value);
         chaptersOk = chapter.success && chapterProblems(chapter.data, CATALOG).length === 0;
         if (!chapter.success || !chaptersOk) continue;
         firstChapterMs ??= Date.now() - started;
+        shown.push(chapter.data);
         yield { type: "chapter", chapter: chapter.data };
       }
     }
 
     const raw = repairEarns(output, kit);
-    const problems = lessonProblems(raw, kit, CATALOG);
-    if (problems.length === 0 || attempt === 2) {
-      const lesson = parseLesson(raw, kit, CATALOG);
+    const kept = repairEarns(keepShown(raw, header, shown), kit);
+    const best = [kept, raw].find((lesson) => lessonProblems(lesson, kit, CATALOG).length === 0);
+    if (best || attempt === 2) {
+      const lesson = parseLesson(best ?? kept, kit, CATALOG);
       onStats?.({ ms: Date.now() - started, firstChapterMs, costUsd, attempts: attempt });
       yield { type: "done", lesson };
       return;
     }
-    feedback = `\n\nYour previous lesson broke these rules. Write it again with them fixed, keeping what was good:\n${problems.map((p) => `- ${p}`).join("\n")}\n\nPrevious lesson:\n${JSON.stringify(raw)}`;
+    const problems = lessonProblems(kept, kit, CATALOG);
+    const reader = shown.length > 0 ? `\n\nThe reader has already been shown the title, the hook and the first ${shown.length} chapter(s) below, so they cannot change. Rewrite the lesson with those kept word for word, then fix everything after them.` : "";
+    feedback = `\n\nYour previous lesson broke these rules. Write it again with them fixed, keeping what was good:\n${problems.map((p) => `- ${p}`).join("\n")}${reader}\n\nPrevious lesson:\n${JSON.stringify(kept)}`;
   }
 }
 

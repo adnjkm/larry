@@ -1,7 +1,9 @@
-// Plays a whole lesson in a phone-sized browser: node scripts/play-lesson.ts [name] [--live]
+// Plays a whole lesson in a phone-sized browser: node scripts/play-lesson.ts [name] [--live | --photo]
 // Uses fixtures/lessons/<name>.json when it exists, otherwise serves out/sample-lesson.json from a stubbed POST /api/lessons.
 // --live loads the kit fixture and asks the real API server (node server/index.ts, port 8787) to write the lesson, and plays
 // it while it streams in. Every line of the stream is timestamped on the way through, so the log shows what arrived when.
+// --photo implies --live and starts from nothing: it uploads fixtures/photos/<name>.jpg through the capture input, watches the
+// real POST /api/kits stream the kit in, and takes the kit for the rest of the run from that stream instead of from a fixture.
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { request as httpRequest, createServer as createHttpServer } from "node:http";
@@ -10,19 +12,21 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { type Locator, type Page, chromium } from "playwright-core";
 import { createServer } from "vite";
-import { parseKit } from "../shared/kit.ts";
+import { type Kit, KitEvent, parseKit } from "../shared/kit.ts";
 import { type Chapter, type Lesson, LessonEvent, parseLesson } from "../shared/lesson.ts";
 import { CATALOG, PRIMITIVE_BY_ID } from "../src/primitives/catalog.ts";
 
 const root = resolve(import.meta.dirname, "..");
-const live = process.argv.includes("--live");
-const outDir = join(root, "out", live ? "play-live" : "play");
+const photo = process.argv.includes("--photo");
+const live = photo || process.argv.includes("--live");
+const outDir = join(root, "out", photo ? "play-photo" : live ? "play-live" : "play");
 const name = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? "pen";
 const API_PORT = Number(process.env.LARRY_API_PORT ?? 8787);
 const cache = join(homedir(), "Library", "Caches", "ms-playwright");
 const READY_TIMEOUT_MS = 90_000;
 const STEP_TIMEOUT_MS = 20_000;
 const LIVE_TIMEOUT_MS = 150_000;
+const KIT_TIMEOUT_MS = 150_000;
 
 const browserLayouts = [
   { dir: "chromium_headless_shell", executable: "chrome-headless-shell-mac-arm64/chrome-headless-shell" },
@@ -42,26 +46,41 @@ function findChromium(): string {
   throw new Error(`No chromium or chromium_headless_shell in ${cache}`);
 }
 
-const kit = parseKit(JSON.parse(readFileSync(join(root, "fixtures", "kits", `${name}.json`), "utf8")));
+const photoPath = join(root, "fixtures", "photos", `${name}.jpg`);
+if (photo && !existsSync(photoPath)) throw new Error(`No photo at ${photoPath}`);
+const fixtureKit = photo ? undefined : parseKit(JSON.parse(readFileSync(join(root, "fixtures", "kits", `${name}.json`), "utf8")));
 const fixturePath = join(root, "fixtures", "lessons", `${name}.json`);
 const stubbed = !live && !existsSync(fixturePath);
 const lessonPath = stubbed ? join(root, "out", "sample-lesson.json") : fixturePath;
 const lessonRaw: unknown = live ? null : JSON.parse(readFileSync(lessonPath, "utf8"));
-const lesson: Lesson | undefined = live ? undefined : parseLesson(lessonRaw, kit, CATALOG);
+const lesson: Lesson | undefined = live || !fixtureKit ? undefined : parseLesson(lessonRaw, fixtureKit, CATALOG);
 
 /** What the live stream has delivered so far, each event stamped with the time it passed through the tee. */
 const arrivals: { t: number; event: LessonEvent }[] = [];
+const kitArrivals: { t: number; event: KitEvent }[] = [];
 const t0 = Date.now();
 const since = (t = Date.now()) => `${((t - t0) / 1000).toFixed(1)}s`;
 const arrival = (type: LessonEvent["type"]) => arrivals.filter((a) => a.event.type === type);
+const kitArrival = (type: KitEvent["type"]) => kitArrivals.filter((a) => a.event.type === type);
+const streamedKit = (): Kit | undefined => {
+  const done = kitArrival("done")[0]?.event;
+  return done?.type === "done" ? done.kit : undefined;
+};
+/** The kit the lesson is built from: the fixture, or the one the real kit stream ended with. */
+const playedKit = (): Kit => {
+  const found = fixtureKit ?? streamedKit();
+  assert.ok(found, "the kit has arrived");
+  return found;
+};
 const finalLesson = () => {
   const done = arrival("done")[0]?.event;
   return done?.type === "done" ? done.lesson : undefined;
 };
 
-/** Forwards the app's lesson request to the API server unchanged and records each NDJSON line as it goes by. */
+/** Forwards the app's kit and lesson requests to the API server unchanged and records each NDJSON line as it goes by. */
 function teeToApi() {
   return createHttpServer((req, res) => {
+    const recordsKit = req.url === "/api/kits";
     const upstream = httpRequest({ host: "127.0.0.1", port: API_PORT, method: req.method, path: req.url, headers: req.headers }, (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);
       let buffer = "";
@@ -71,7 +90,9 @@ function teeToApi() {
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
         for (const line of lines) {
-          if (line.trim()) arrivals.push({ t: Date.now(), event: LessonEvent.parse(JSON.parse(line)) });
+          if (!line.trim()) continue;
+          if (recordsKit) kitArrivals.push({ t: Date.now(), event: KitEvent.parse(JSON.parse(line)) });
+          else arrivals.push({ t: Date.now(), event: LessonEvent.parse(JSON.parse(line)) });
         }
       });
       up.on("end", () => res.end());
@@ -119,13 +140,13 @@ async function download(page: Page, button: Locator, file: string) {
   const jsonLength = bytes.readUInt32LE(12);
   assert.equal(bytes.readUInt32LE(16), 0x4e4f534a, "first chunk is JSON");
   const gltf = JSON.parse(bytes.subarray(20, 20 + jsonLength).toString("utf8")) as { meshes: unknown[]; nodes: { name?: string; scale?: number[] }[]; materials: unknown[] };
-  assert.equal(gltf.meshes.length, kit.parts.length, "one mesh per part");
+  assert.equal(gltf.meshes.length, playedKit().parts.length, "one mesh per part");
   assert.ok(gltf.nodes.some((n) => n.scale?.[0] === 0.001), "root is scaled from mm to m");
   console.log(`download ${saved.suggestedFilename()}: ${bytes.length} bytes, ${gltf.meshes.length} meshes, ${gltf.materials.length} materials, root scale 0.001`);
 }
 
 mkdirSync(outDir, { recursive: true });
-if (live && !(await apiIsUp())) throw new Error(`--live needs the API server: node server/index.ts (port ${API_PORT})`);
+if (live && !(await apiIsUp())) throw new Error(`--live and --photo need the API server: node server/index.ts (port ${API_PORT})`);
 const tee = live ? teeToApi().listen(0, "127.0.0.1") : undefined;
 const teePort = tee ? await new Promise<number>((r) => tee.once("listening", () => r((tee.address() as { port: number }).port))) : 0;
 const server = await createServer({
@@ -156,7 +177,7 @@ try {
       await new Promise((r) => setTimeout(r, 1200));
       if (lessonRequests === 1) await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Larry's planner is asleep" }) });
       else {
-        const whole = parseLesson(lessonRaw, kit, CATALOG);
+        const whole = parseLesson(lessonRaw, playedKit(), CATALOG);
         const events: LessonEvent[] = [{ type: "started", title: whole.title, hook: whole.hook }, ...whole.chapters.map((chapter): LessonEvent => ({ type: "chapter", chapter })), { type: "done", lesson: whole }];
         await route.fulfill({ status: 200, contentType: "application/x-ndjson", body: events.map((e) => JSON.stringify(e)).join("\n") + "\n" });
       }
@@ -186,8 +207,31 @@ try {
     return known(c);
   }
 
-  await page.goto(`${url}?demo=${name}${live ? "&live" : ""}`, { waitUntil: "domcontentloaded" });
+  await page.goto(photo ? url : `${url}?demo=${name}${live ? "&live" : ""}`, { waitUntil: "domcontentloaded" });
   const start = page.locator("[data-action=start]");
+  if (photo) {
+    await page.getByRole("button", { name: "Photograph something" }).waitFor();
+    await shot(page, "k0-capture.png", false);
+    const uploaded = Date.now();
+    await page.locator("input[type=file]").setInputFiles(photoPath);
+    await page.getByText("Larry is taking it apart…").waitFor();
+    await shot(page, "k1-kit-waiting.png", false);
+    console.log(`${since()} uploaded ${name}.jpg, kit request sent, waiting screen shown`);
+    while (kitArrival("part").length < 3 && kitArrival("done").length === 0) {
+      if (kitArrival("failed").length > 0) throw new Error(`kit stream failed: ${JSON.stringify(kitArrival("failed")[0]?.event)}`);
+      if (Date.now() - uploaded > KIT_TIMEOUT_MS) throw new Error("no kit parts arrived");
+      await page.waitForTimeout(100);
+    }
+    console.log(`${since(kitArrival("part")[0]?.t)} kit first part (started ${since(kitArrival("started")[0]?.t)}, ${kitArrival("part").length} part(s) streamed by ${since()}), done: ${kitArrival("done").length > 0 ? "yes" : "no"}`);
+    await page.waitForTimeout(300);
+    await shot(page, "k2-kit-streaming.png", false);
+    console.log(`${since()} kit streaming screen: ${await page.locator("li").count()} part row(s) listed, ${kitArrival("part").length} part(s) streamed, done: ${kitArrival("done").length > 0 ? "yes" : "no"}`);
+    await start.waitFor({ timeout: KIT_TIMEOUT_MS });
+    const kit = playedKit();
+    console.log(`${since()} kit done at ${since(kitArrival("done")[0]?.t)}: "${kit.name}", ${kit.parts.length} parts, north-star screen shown`);
+    await viewersReady(page);
+    await shot(page, "k3-north-star-after-kit.png");
+  }
   if (stubbed) {
     await page.getByText("Larry is planning your build…").waitFor();
     assert.equal(await page.locator("button", { hasText: "Larry is planning your build…" }).isDisabled(), true, "Start is disabled while the lesson is planned");
@@ -204,7 +248,7 @@ try {
     const chaptersAtHook = arrival("chapter").length;
     assert.equal(chaptersAtHook, 0, "the hook is shown before any chapter has arrived");
     assert.equal(await start.isDisabled(), true, "Start is disabled until the first chapter arrives");
-    console.log(`${since(hookSeen)} hook shown (started arrived ${since(arrival("started")[0]?.t)}), Start disabled, 0 chapters`);
+    console.log(`${since(hookSeen)} lesson started: hook shown (started arrived ${since(arrival("started")[0]?.t)}), Start disabled, 0 chapters`);
     await viewersReady(page);
     await shot(page, "00-north-star-hook-only.png");
   }
@@ -328,7 +372,7 @@ try {
   assert.equal(await page.locator("[data-roadmap] [data-placeholder]").count(), 0, "no placeholder chip once the lesson is done");
   if (live) {
     assert.ok(finalLesson(), "the stream ended with done");
-    console.log(`${since()} finish shown: ${chapterNumber} chapters played, stream timeline ${arrivals.map((a) => `${a.event.type}@${since(a.t)}`).join(" ")}`);
+    console.log(`${since()} finish shown: ${chapterNumber} chapters played, kit timeline ${kitArrivals.map((a) => `${a.event.type}@${since(a.t)}`).join(" ")}, lesson timeline ${arrivals.map((a) => `${a.event.type}@${since(a.t)}`).join(" ")}`);
   }
   await download(page, page.locator("[data-action=download]"), `${name}.glb`);
   await page.locator("[data-action=restart]").click();
