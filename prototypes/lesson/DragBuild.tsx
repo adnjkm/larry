@@ -155,7 +155,8 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
     const ghost = phase.kind === "landing" ? [] : outline(setup.shell(setup.ghost(explode.shown)), tone);
     return [...setup.object(explode.shown, pose.k), ...ghost, ...setup.piece(pose.at, pose.turn)];
   }, [setup, kit, lesson.apart, lesson.explode, module, phase.kind, explode.shown, tone, pose.at, pose.turn, pose.k]);
-  const subject = useMemo(() => (placed ? setup.whole(explode.shown) : [...setup.around, ...setup.whole(explode.shown)]), [setup, explode.shown, placed]);
+  // Together and fully apart, so the camera and its shadow hold still while Explode moves.
+  const subject = useMemo(() => [...setup.around, ...setup.whole(0), ...setup.whole(1)], [setup]);
 
   // What the pointer handlers and the overlay loop read between renders.
   const live = useRef({ piece: [] as Vec[], ghost: [] as Vec[], at: setup.tray, phase });

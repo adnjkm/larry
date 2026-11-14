@@ -119,7 +119,13 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
   const blocked = mode.kind === "final" && !closed;
   const latest = (last ? outcomes[last] : undefined) ?? Object.values(outcomes).find((o) => !o.pass);
   const parts = world.draw(anim ?? world.held(value), explode.shown);
-  const subject = useMemo(() => reach ?? world.draw(world.held(value), explode.shown), [reach, world, value, explode.shown]);
+  // The camera, and the shadow sized from the same box, hold still while Explode or the grip moves:
+  // the box already holds the object together and fully apart, at both ends of the grip.
+  const still = useMemo(() => {
+    const ends = [0, world.zones[world.zones.length - 1]?.until ?? value];
+    return ends.flatMap((v) => [...world.draw(world.held(v), 0), ...world.draw(world.held(v), 1)]);
+  }, [world]);
+  const subject = useMemo(() => (reach ? [...still, ...reach] : still), [reach, still]);
 
   const say =
     mode.kind === "problem" ? (done ? module!.without.line : module!.without.say)

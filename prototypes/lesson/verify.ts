@@ -39,6 +39,11 @@ const FOCUS = [1, 3, 5].map((i) => parseInt(COLOR.focus.slice(i, i + 2), 16)).jo
 const SHADOW = new Set(SYNTHWAVE.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",")));
 /** The object, or the reach of its tests, fills this share of the viewer's width or height. */
 const FILL_LO = 0.75;
+/**
+ * Story lessons frame the object together and fully apart at once, so the camera and its shadow hold
+ * still while Explode moves; the assembled object then fills a little less of the viewer.
+ */
+const HELD_FILL_LO = 0.65;
 const FILL_HI = 0.9;
 /** Device pixels of a pink part's shading that count as the piece being in sight. */
 const PINK_SEEN = 200;
@@ -122,6 +127,7 @@ const rows: Row[] = [];
 
 class Run {
   shots = 0;
+  fillLo = FILL_LO;
   errors: string[] = [];
   readonly name: string;
   readonly page: Page;
@@ -251,8 +257,29 @@ class Run {
   async framed(stage: string, label: string, pinkShown?: boolean, share = 1) {
     const { fill: f, pink, flat } = await this.fill(stage);
     const seen = Math.round(PINK_SEEN * Math.min(1, share / PINK_SHARE) ** 2);
-    rows.push({ run: this.name, step: `${label} fills ${Math.round(f * 100)}% of the viewer`, ok: f >= FILL_LO && f <= FILL_HI, detail: `want ${Math.round(FILL_LO * 100)} to ${Math.round(FILL_HI * 100)}%` });
+    rows.push({ run: this.name, step: `${label} fills ${Math.round(f * 100)}% of the viewer`, ok: f >= this.fillLo && f <= FILL_HI, detail: `want ${Math.round(this.fillLo * 100)} to ${Math.round(FILL_HI * 100)}%` });
     if (pinkShown !== undefined) rows.push({ run: this.name, step: `${label} ${pinkShown ? "shows" : "has no"} pink piece`, ok: pinkShown ? pink + flat >= seen : pink < PINK_SEEN, detail: `${pink} shaded and ${flat} flat pink pixels, want ${pinkShown ? `${seen} or more` : `under ${PINK_SEEN}`}` });
+  }
+
+  /**
+   * Drags Explode through several values, shooting the bottom of the viewer (the body's base and its
+   * shadow, which an explode never moves) mid-spring and settled: every shot must match the first,
+   * so the shadow never shifts or shimmers. Leaves Explode at 0.
+   */
+  async shadowHolds(stage: string) {
+    const box = (await this.page.locator(`[data-stage="${stage}"] .viewer`).boundingBox())!;
+    const clip = { x: box.x + 2, y: box.y + box.height * 0.78, width: box.width - 4, height: box.height * 0.2 };
+    const base = await this.page.screenshot({ clip });
+    let changed = 0;
+    for (const v of [0.3, 0.8, 0.1, 1, 0]) {
+      await this.setRange(`[data-stage="${stage}"] [data-explode] input`, v);
+      for (const wait of [60, 180]) {
+        await this.page.waitForTimeout(wait);
+        if (!(await this.page.screenshot({ clip })).equals(base)) changed++;
+      }
+    }
+    await this.page.waitForTimeout(SETTLE_MS);
+    this.check(`${stage}: the shadow holds still while Explode moves`, changed === 0, `${changed} of 10 shots differ`);
   }
 
   async setRange(selector: string, value: number) {
@@ -739,6 +766,7 @@ async function playStory(r: Run, written: Story, sample: string, url: string) {
   const { story, kit } = bindStory(written, scanned);
   checkStory(r, story, kit);
   checkExplode(r, story, kit);
+  r.fillLo = HELD_FILL_LO;
   await r.open(sample, "", url, true);
   const said = async () => ((await r.page.textContent("h1.do")) ?? "").trim();
   for (const [i, m] of story.modules.entries()) {
@@ -786,6 +814,7 @@ async function playStory(r: Run, written: Story, sample: string, url: string) {
     await r.stage("play");
     await r.noDigits(`${tag} play`);
     await r.framed("play", `${tag} play`, true, shareOf(kit, m.produces));
+    if (i === 0) await r.shadowHolds("play");
     const ids = m.play.tests.map((t) => t.id);
     const zone = () => r.page.getAttribute("[data-strip] .grip", "aria-valuetext");
     r.check(`${tag} play starts Loose`, (await zone()) === "Loose", (await zone()) ?? "");
