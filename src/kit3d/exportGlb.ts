@@ -38,7 +38,7 @@ function buildScene(kit: Kit) {
   return { scene, dispose: () => owned.forEach((o) => o.dispose()) };
 }
 
-export async function kitToGlb(kit: Kit): Promise<ArrayBuffer> {
+async function kitToGlb(kit: Kit): Promise<ArrayBuffer> {
   const { scene, dispose } = buildScene(kit);
   try {
     const result = await new GLTFExporter().parseAsync(scene, { binary: true, trs: true });
@@ -49,7 +49,7 @@ export async function kitToGlb(kit: Kit): Promise<ArrayBuffer> {
   }
 }
 
-export const glbFileName = (kit: Kit) => `${kit.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "model"}.glb`;
+const glbFileName = (kit: Kit) => `${kit.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "model"}.glb`;
 
 export async function downloadGlb(kit: Kit): Promise<void> {
   const url = URL.createObjectURL(new Blob([await kitToGlb(kit)], { type: "model/gltf-binary" }));

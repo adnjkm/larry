@@ -35,13 +35,13 @@ Joints: every part except the main one names its parent, the part it attaches to
 
 If the photos show several objects, build the one most centred and in focus. All photos show the same object; the first is the main view.`;
 
-export type KitStats = { ms: number; firstPartMs: number | undefined; costUsd: number };
+type KitStats = { ms: number; firstPartMs: number | undefined; costUsd: number };
 
 const Header = Kit.pick({ name: true, summary: true });
 
-/** Yields the header and each part as Claude writes them, then the checked kit. `onStats` fires just before `done`. */
 export const KIT_BRAIN: Brain = { model: "claude-opus-5-5", effort: "low" };
 
+/** Yields the header and each part as Claude writes them, then the checked kit. `onStats` fires just before `done`. */
 export async function* streamKit(photos: Photo[], brain: Brain = KIT_BRAIN, onStats?: (stats: KitStats) => void): AsyncGenerator<KitEvent> {
   const started = Date.now();
   let firstPartMs: number | undefined;

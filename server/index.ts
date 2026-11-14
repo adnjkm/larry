@@ -3,11 +3,11 @@ import { type Context, Hono } from "hono";
 import { stream } from "hono/streaming";
 import { KitError, parseKit } from "../shared/kit.ts";
 import { LessonError } from "../shared/lesson.ts";
-import { type Photo, streamKit } from "./streamKit.ts";
-import { streamLesson } from "./streamLesson.ts";
+import { MAX_PHOTOS } from "../shared/photos.ts";
+import { KIT_BRAIN, type Photo, streamKit } from "./streamKit.ts";
+import { LESSON_BRAIN, streamLesson } from "./streamLesson.ts";
 
 const MEDIA_TYPES = new Set<Photo["mediaType"]>(["image/jpeg", "image/png", "image/webp"]);
-const MAX_PHOTOS = 4;
 
 /** Streams events as NDJSON. An error after the stream has started becomes a `failed` event. */
 function ndjson(c: Context, events: AsyncGenerator<{ type: string }>, failure: (error: unknown) => string) {
@@ -37,7 +37,7 @@ const app = new Hono()
       photos.push({ mediaType: file.type as Photo["mediaType"], base64: Buffer.from(await file.arrayBuffer()).toString("base64") });
     }
 
-    const events = streamKit(photos, undefined, (s) => console.log(`kit: first part ${s.firstPartMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}`));
+    const events = streamKit(photos, KIT_BRAIN,(s) => console.log(`kit: first part ${s.firstPartMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}`));
     return ndjson(c, events, (error) => (error instanceof KitError ? "Larry built an inconsistent kit" : "Larry couldn't build this one"));
   })
   .post("/api/lessons", async (c) => {
@@ -48,10 +48,8 @@ const app = new Hono()
     } catch {
       return c.json({ error: "Send the kit to plan a lesson for" }, 400);
     }
-    const events = streamLesson(kit, undefined, (s) => console.log(`lesson: first chapter ${s.firstChapterMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}, ${s.attempts} attempt(s)`));
+    const events = streamLesson(kit, LESSON_BRAIN,(s) => console.log(`lesson: first chapter ${s.firstChapterMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}, ${s.attempts} attempt(s)`));
     return ndjson(c, events, (error) => (error instanceof LessonError ? "Larry's plan didn't hold together" : "Larry couldn't plan this one"));
   });
-
-export type AppType = typeof app;
 
 serve({ fetch: app.fetch, port: Number(process.env.LARRY_API_PORT ?? 8787) }, ({ port }) => console.log(`server on :${port}`));

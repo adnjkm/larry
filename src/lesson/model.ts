@@ -7,7 +7,7 @@ import { initialValues } from "../primitives/library.ts";
 import type { Values } from "../primitives/types.ts";
 import { type ProblemAction, type ProblemState, initProblem, problemSolved, reduceProblem } from "./problems.ts";
 
-export type FlatStep = {
+type FlatStep = {
   chapter: number;
   /** Position inside its chapter. */
   index: number;
@@ -16,7 +16,7 @@ export type FlatStep = {
   introduces: boolean;
 };
 
-export type StepState = {
+type StepState = {
   /** The figure's slider values. A tune problem judges the one it names. */
   values: Values;
   problem: ProblemState | null;
@@ -100,7 +100,7 @@ export function earnedParts(s: LessonState): Set<string> {
   return earned;
 }
 
-export type ChapterStatus = "done" | "current" | "upcoming";
+type ChapterStatus = "done" | "current" | "upcoming";
 
 export function chapterStatus(s: LessonState, chapter: number): ChapterStatus {
   const last = s.flat.findLastIndex((f) => f.chapter === chapter);

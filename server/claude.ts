@@ -5,7 +5,7 @@ export type Model = "claude-opus-5-5" | "claude-sonnet-5-5";
 export type Effort = "low" | "medium" | "high";
 export type Brain = { model: Model; effort: Effort };
 
-export type StructuredRequest = {
+type StructuredRequest = {
   system: string;
   schema: Record<string, unknown>;
   brain: Brain;
@@ -14,7 +14,7 @@ export type StructuredRequest = {
   streamKey: string;
 };
 
-export type StructuredEvent = ScannedEvent | { type: "result"; output: unknown; costUsd: number };
+type StructuredEvent = ScannedEvent | { type: "result"; output: unknown; costUsd: number };
 
 /**
  * Asks Claude for JSON matching `schema`, through the Claude Agent SDK (the user's Claude Code login).

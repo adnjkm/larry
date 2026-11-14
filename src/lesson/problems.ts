@@ -5,7 +5,7 @@ import type { Values } from "../primitives/types.ts";
 
 type Of<T extends ProblemType> = Extract<Problem, { type: T }>;
 
-export type TuneVerdict = "below" | "inside" | "above";
+type TuneVerdict = "below" | "inside" | "above";
 
 type StateOf = {
   run: { ran: boolean };
@@ -29,7 +29,7 @@ type Kind<T extends ProblemType> = {
   solved: (state: StateOf[T]) => boolean;
 };
 
-export const PROBLEMS: { [T in ProblemType]: Kind<T> } = {
+const PROBLEMS: { [T in ProblemType]: Kind<T> } = {
   run: {
     init: () => ({ ran: false }),
     reduce: () => ({ ran: true }),
