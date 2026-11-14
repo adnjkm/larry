@@ -1,8 +1,9 @@
 // Plays every lesson through the real UI, driven only by the lesson data, and screenshots each stage.
 // Usage: node prototypes/lesson/verify.ts [run ...]
-//   run = a lesson id from lessons/index.ts (e.g. bottle), or inspect-<sample> for the Inspect lesson
-//   derived from that sample's kit. With no runs: every hand-written lesson plus inspect-<sample> for
-//   every fixture kit. Screenshots go to out/lesson/<run>-<nn>-<stage>.png.
+//   run = a lesson id from lessons/index.ts (e.g. bottle), generated-<sample> for the lesson generated
+//   from that sample's joints, inspect-<sample> for the Inspect lesson derived from its kit, or
+//   templates to check every joint template's rules on every fixture kit's geometry without a browser.
+//   With no runs: all of them. Screenshots go to out/lesson/<run>-<nn>-<stage>.png.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -12,7 +13,8 @@ import { createServer } from "vite";
 import viteConfig from "../../vite.config.ts";
 import { type Kit, parseKit } from "../../shared/kit.ts";
 import { LESSONS } from "./lessons/index.ts";
-import { inspectLesson } from "./lessons/inspect.ts";
+import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
+import { generatedLesson, TEMPLATES } from "./templates/index.ts";
 import { fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
 import { restCentre } from "./pose.ts";
 import { SYNTHWAVE } from "../../src/primitives/parts.ts";
@@ -129,8 +131,8 @@ class Run {
     this.check(`${stage}: object in the 3D viewer${stage === "learn" ? "" : " with Explode"}, no <img> or <svg>`, viewers === 1 && (stage === "learn" || explode === 1) && drawn === 0, `${viewers} viewers, ${explode} explode, ${drawn} img/svg`);
   }
 
-  async open(sample: string, inspect: boolean, url: string) {
-    await this.page.goto(`${url}prototypes/lesson/${inspect ? "?inspect" : ""}`, { waitUntil: "networkidle" });
+  async open(sample: string, query: "" | "?inspect" | "?generated", url: string) {
+    await this.page.goto(`${url}prototypes/lesson/${query}`, { waitUntil: "networkidle" });
     await this.page.waitForSelector(`[data-sample="${sample}"] canvas[data-ready]`, { timeout: READY });
     await this.shot("home");
     await this.page.click(`[data-sample="${sample}"]`);
@@ -254,11 +256,11 @@ function checkRules(r: Run, lesson: Workshop, kit: Kit) {
   r.check(`rules: every reachable tuning (${reachable.length}) passes the final tests`, failing.length === 0, JSON.stringify(failing[0] ?? {}));
 }
 
-async function playWorkshop(r: Run, lesson: Workshop, url: string) {
-  const kit = KITS[lesson.id];
-  if (!kit) throw new Error(`no fixture kit for lesson ${lesson.id}`);
+async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: "" | "?generated", url: string) {
+  const kit = KITS[sample];
+  if (!kit) throw new Error(`no fixture kit for ${sample}`);
   checkRules(r, lesson, kit);
-  await r.open(lesson.id, false, url);
+  await r.open(sample, query, url);
   for (const [i, m] of lesson.modules.entries()) {
     const tag = `m${i + 1}`;
     await r.stage("learn");
@@ -347,7 +349,7 @@ async function playInspect(r: Run, sample: string, url: string) {
   const kit = KITS[sample];
   if (!kit) throw new Error(`no fixture kit ${sample}`);
   const lesson = inspectLesson(kit);
-  await r.open(sample, true, url);
+  await r.open(sample, "?inspect", url);
   if (lesson.teach.length > 0) {
     await r.stage("learn");
     const tabs = await r.page.locator("[data-tab]").count();
@@ -401,8 +403,37 @@ async function playInspect(r: Run, sample: string, url: string) {
   await r.shot("final-earned");
 }
 
+/**
+ * Every template on every kit's geometry: each non-root part in turn gets the template's joint and
+ * every other part a fixed one, and the one-module lesson that generates must keep the fix rules.
+ */
+function checkTemplates(r: Run) {
+  for (const t of TEMPLATES)
+    r.check(`${t.primitive} template teaches what Inspect maps ${t.joints.join(" and ")} to`, t.joints.every((j) => JOINT_PRIMITIVE[j] === t.primitive));
+  const start = rows.length;
+  let lessons = 0;
+  for (const [sample, kit] of Object.entries(KITS))
+    for (const t of TEMPLATES)
+      for (const child of kit.parts.filter((p) => p.parentId !== null)) {
+        const variant: Kit = { ...kit, parts: kit.parts.map((p) => (p.parentId === null ? p : { ...p, joint: p.id === child.id ? t.joints[0]! : "molded" })) };
+        const each = new Run(`templates ${sample} ${t.primitive} ${child.id}`, r.page);
+        try {
+          const lesson = generatedLesson(variant, each.name);
+          each.check("generates one module", lesson?.modules.length === 1, String(lesson?.modules.length));
+          checkRules(each, lesson!, variant);
+          lessons += 1;
+        } catch (error) {
+          if (!rows.slice(start).some((row) => row.run === each.name && !row.ok)) rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n")[0]! });
+        }
+      }
+  const checked = rows.splice(start);
+  rows.push(...checked.filter((row) => !row.ok));
+  r.check(`every template keeps the fix rules on every kit's parts (${lessons} lessons, ${checked.length} checks)`, checked.every((row) => row.ok));
+}
+
+const GENERATED = Object.keys(KITS).filter((id) => generatedLesson(KITS[id]!) !== null).map((id) => `generated-${id}`);
 const wanted = process.argv.slice(2);
-const runs = wanted.length > 0 ? wanted : [...Object.keys(LESSONS), ...Object.keys(KITS).map((id) => `inspect-${id}`)];
+const runs = wanted.length > 0 ? wanted : [...Object.keys(LESSONS), "templates", ...GENERATED, ...Object.keys(KITS).map((id) => `inspect-${id}`)];
 // No file watcher: an edit to any source mid-run would hot-update main.tsx and reload the page, dropping the
 // lesson mid-play. Inline config cannot set watch to null (mergeConfig skips nulls), so the project config is
 // spread in here instead of loaded from its file.
@@ -435,9 +466,15 @@ try {
     const started = Date.now();
     try {
       const lesson = LESSONS[name];
-      if (lesson) await playWorkshop(r, lesson, url);
-      else if (name.startsWith("inspect-")) await playInspect(r, name.slice("inspect-".length), url);
-      else throw new Error(`unknown run ${name}: use a lesson id (${Object.keys(LESSONS).join(", ")}) or inspect-<sample>`);
+      const generated = name.startsWith("generated-") ? KITS[name.slice("generated-".length)] : undefined;
+      if (lesson) await playWorkshop(r, lesson, name, "", url);
+      else if (name === "templates") checkTemplates(r);
+      else if (generated) {
+        const made = generatedLesson(generated, name);
+        if (!made) throw new Error(`${name}: no joint in this kit moves, so it has no generated lesson`);
+        await playWorkshop(r, made, name.slice("generated-".length), "?generated", url);
+      } else if (name.startsWith("inspect-")) await playInspect(r, name.slice("inspect-".length), url);
+      else throw new Error(`unknown run ${name}: use a lesson id (${Object.keys(LESSONS).join(", ")}), generated-<sample>, inspect-<sample> or templates`);
     } catch (error) {
       if (!rows.some((row) => row.run === name && !row.ok)) rows.push({ run: name, step: "aborted", ok: false, detail: error instanceof Error ? error.message.split("\n")[0]! : String(error) });
       await r.shot("aborted").catch(() => {});

@@ -3,12 +3,15 @@ import { Home, Scan } from "./Home.tsx";
 import { InspectFlow } from "./Inspect.tsx";
 import { lessonFor } from "./lessons/index.ts";
 import { inspectLesson } from "./lessons/inspect.ts";
+import { generatedLesson } from "./templates/index.ts";
 import type { Lesson } from "./model.ts";
 import { type Sample, SAMPLES } from "./samples.ts";
 import { WorkshopFlow } from "./Workshop.tsx";
 
-const FORCE_INSPECT = new URLSearchParams(location.search).has("inspect");
-const lessonOf = (s: Sample): Lesson => (FORCE_INSPECT ? inspectLesson(s.kit) : lessonFor(s.kit, s.id));
+const QUERY = new URLSearchParams(location.search);
+/** `?inspect` forces the Inspect lesson and `?generated` the joint-generated one, so either can be compared with a hand-written lesson. */
+const lessonOf = (s: Sample): Lesson =>
+  QUERY.has("inspect") ? inspectLesson(s.kit) : QUERY.has("generated") ? (generatedLesson(s.kit, `generated-${s.id}`) ?? inspectLesson(s.kit)) : lessonFor(s.kit, s.id);
 
 type Screen = { at: "home" } | { at: "scan"; sample: Sample } | { at: "lesson"; sample: Sample; run: number };
 

@@ -4,6 +4,7 @@ import type { Kit } from "../../../shared/kit.ts";
 import { type Lesson, missingParts, type Workshop } from "../model.ts";
 import bottle from "./bottle.ts";
 import pen from "./pen.ts";
+import { generatedLesson } from "../templates/index.ts";
 import { inspectLesson } from "./inspect.ts";
 import stapler from "./stapler.ts";
 
@@ -11,7 +12,8 @@ export const LESSONS: Readonly<Record<string, Workshop>> = { bottle, pen, staple
 
 /**
  * The lesson for a kit: the one written for this sample, else one whose name pattern matches the
- * scanned object and whose parts the kit has, else an Inspect lesson derived from the kit.
+ * scanned object and whose parts the kit has, else one generated from its joints, else an Inspect
+ * lesson derived from the kit.
  */
 export function lessonFor(kit: Kit, sampleId?: string): Lesson {
   const written = sampleId === undefined ? undefined : LESSONS[sampleId];
@@ -21,5 +23,5 @@ export function lessonFor(kit: Kit, sampleId?: string): Lesson {
     return written;
   }
   const matched = Object.values(LESSONS).find((l) => l.match.test(kit.name) && missingParts(l, kit).length === 0);
-  return matched ?? inspectLesson(kit);
+  return matched ?? generatedLesson(kit) ?? inspectLesson(kit);
 }
