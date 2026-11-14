@@ -7,7 +7,7 @@ import { preparePhoto } from "./capture/preparePhoto.ts";
 import { requestKit } from "./capture/requestKit.ts";
 import { KitViewer } from "./kit3d/KitViewer.tsx";
 import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
-import { type LessonLoad, addLessonEvent, arrivedOf, loadDemo, planning, requestLesson } from "./lesson/lessonSource.ts";
+import { type LessonLoad, addLessonEvent, arrivedOf, hookOf, loadDemo, planning, requestLesson } from "./lesson/lessonSource.ts";
 import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
 import { buttons, layout, notes, type } from "./styles.ts";
 import { colors, fonts } from "./tokens.stylex.ts";
@@ -30,6 +30,7 @@ const LIVE = params.has("live");
 
 const styles = stylex.create({
   summary: { margin: 0, fontSize: 14, lineHeight: "19px", color: colors.graphite },
+  hook: { display: "flex", flexDirection: "column", gap: 8 },
   parts: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8, fontSize: 16, lineHeight: "22px" },
   photo: { width: "100%", maxHeight: "60dvh", objectFit: "contain" },
   status: { margin: 0, fontFamily: fonts.mono, fontSize: 14, lineHeight: "20px" },
@@ -110,6 +111,8 @@ export function App() {
         ? { header: state.header, parts: state.parts, done: false }
         : undefined;
 
+  const hook = state.phase === "viewing" ? hookOf(state.lesson) : undefined;
+
   return (
     <main {...stylex.props(layout.page)}>
       {state.phase === "capture" && <CapturePicker onPick={(files) => void generate(files)} />}
@@ -125,10 +128,20 @@ export function App() {
             <div {...stylex.props(layout.inset, layout.tight)}>
               <p {...stylex.props(type.label)}>Larry found a</p>
               <h1 {...stylex.props(type.title)}>{view.header.name}</h1>
-              <p {...stylex.props(styles.summary)}>{view.header.summary}</p>
+              {hook ? (
+                <div data-hook {...stylex.props(styles.hook)}>
+                  {hook.map((p) => (
+                    <p key={p} {...stylex.props(type.story)}>
+                      {p}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p {...stylex.props(styles.summary)}>{view.header.summary}</p>
+              )}
             </div>
           )}
-          <KitViewer parts={view.parts} spin />
+          <KitViewer parts={view.parts} spin height={270} />
           {state.phase === "viewing" ? (
             <NorthStarPanel
               kit={state.kit}

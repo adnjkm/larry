@@ -3,7 +3,7 @@ import type { Kit } from "../../shared/kit.ts";
 import { buttons, layout, notes, type } from "../styles.ts";
 import { colors, radii } from "../tokens.stylex.ts";
 import { DownloadButton } from "./DownloadButton.tsx";
-import { type LessonLoad, arrivedOf, hookOf } from "./lessonSource.ts";
+import { type LessonLoad, arrivedOf } from "./lessonSource.ts";
 import { needText } from "./needText.ts";
 
 const styles = stylex.create({
@@ -18,7 +18,6 @@ const styles = stylex.create({
 
 export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { kit: Kit; lesson: LessonLoad; onStart: () => void; onRetry: () => void; onRestart: () => void }) {
   const { chapters } = arrivedOf(lesson);
-  const hook = hookOf(lesson);
   const modules = chapters.flatMap((c) => (c.kind === "module" ? [c] : []));
   const known = modules.filter((m) => !m.surprise);
   const surprises = modules.length - known.length;
@@ -30,17 +29,6 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
         <p {...stylex.props(type.numeral)}>{kit.parts.length}</p>
         <p {...stylex.props(type.numeralUnit)}>{kit.parts.length === 1 ? "part" : "parts"}</p>
       </div>
-
-      {hook && (
-        <section data-hook {...stylex.props(layout.inset, layout.stack)}>
-          {hook.map((p) => (
-            <div key={p} {...stylex.props(styles.line)}>
-              <span {...stylex.props(styles.marker)} />
-              <p {...stylex.props(type.story)}>{p}</p>
-            </div>
-          ))}
-        </section>
-      )}
 
       {known.length > 0 && (
         <section data-requirements {...stylex.props(layout.inset, layout.tight)}>
