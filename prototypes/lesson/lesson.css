@@ -153,24 +153,30 @@ html, body { height: 100%; }
 @media (prefers-reduced-motion: reduce) { .scan[data-go] .reveal, .scan[data-go] .beam { transition: none; } .parts li { animation: none; } }
 @media (max-width: 359px) { .north { display: none; } .do { font-size: 18px; } }
 
-/* Cheer: a "well done" that pops in over the model and fades away (Cheer.tsx). 1.4 s in all. */
-.cheer { position: fixed; left: 50%; top: 38%; z-index: 30; pointer-events: none; transform: translate(-50%, -50%); animation: cheer-pop 1400ms var(--ease-out) forwards; }
-.cheer-shadow { position: absolute; image-rendering: pixelated; animation: cheer-bloom 1400ms var(--ease-out) forwards; }
-.cheer-card { position: relative; display: block; padding: 14px 24px; border-radius: 14px; background: #fff; color: var(--ink); font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; box-shadow: 0 0 0 1.5px var(--ink) inset; }
-@keyframes cheer-pop {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8) rotate(-4deg); }
-  14% { opacity: 1; transform: translate(-50%, -50%) scale(1.06) rotate(1.5deg); }
-  24% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
-  78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -62%) scale(0.96); }
+/* Cheer: a "well done" that washes in over the model on a dithered splat, then dissolves (Cheer.tsx).
+   The splat animates in canvas; the card and its letters ride in behind the wash. 1.7 s in all. */
+.cheer { position: fixed; left: 50%; top: 38%; z-index: 30; pointer-events: none; transform: translate(-50%, -50%) rotate(-2deg); }
+.cheer-splat { position: absolute; image-rendering: pixelated; }
+.cheer-card { position: relative; display: block; padding: 14px 24px; border-radius: 14px; background: #fff; color: var(--ink); font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; box-shadow: 0 0 0 1.5px var(--ink) inset;
+  animation: cheer-card-in 560ms 220ms var(--ease-out) both, cheer-card-out 360ms 1260ms ease-in forwards; }
+.cheer-letter { display: inline-block; animation: cheer-letter 520ms var(--ease-out) both; }
+@keyframes cheer-card-in {
+  0% { clip-path: inset(0 100% 0 0 round 14px); transform: translateX(-14px) skewX(-8deg); }
+  70% { transform: translateX(3px) skewX(2deg); }
+  100% { clip-path: inset(0 0 0 0 round 14px); transform: none; }
 }
-@keyframes cheer-bloom {
-  0% { transform: scale(0.6); }
-  22% { transform: scale(1.04); }
-  32%, 100% { transform: scale(1); }
+@keyframes cheer-letter {
+  0% { opacity: 0; transform: translate(-10px, 9px) rotate(-14deg) scale(0.7); }
+  55% { opacity: 1; transform: translate(1px, -4px) rotate(4deg) scale(1.12); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes cheer-card-out {
+  0% { clip-path: inset(0 0 0 0 round 14px); transform: none; }
+  100% { clip-path: inset(0 0 0 100% round 14px); transform: translateX(12px) skewX(6deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .cheer { animation-name: cheer-fade; }
-  .cheer-shadow { animation: none; }
-  @keyframes cheer-fade { 0% { opacity: 0; } 12%, 80% { opacity: 1; } 100% { opacity: 0; } }
+  .cheer { transform: translate(-50%, -50%); }
+  .cheer-card { animation: cheer-fade 1700ms linear both; }
+  .cheer-letter { animation: none; }
+  @keyframes cheer-fade { 0% { opacity: 0; } 12%, 78% { opacity: 1; } 100% { opacity: 0; } }
 }
