@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import { Assemble } from "./Assemble.tsx";
 import { Learn } from "./Learn.tsx";
-import { faultValues, type Values, type Workshop } from "./model.ts";
+import { faultValues, learnList, type Values, type Workshop } from "./model.ts";
 import { Sandbox } from "./Sandbox.tsx";
 import { Shell, type Step } from "./ui.tsx";
 
@@ -41,11 +41,18 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
       body = (
         <Learn
           key={`${module.id}-learn`}
-          list={module.teach}
+          list={learnList(module)}
           kicker={`Module ${route + 1} · Learn`}
           title={module.need}
           hint={module.teach.length > 1 ? "First the parts it is made of, then the whole. Play with each one." : "Play with it. Every slider is live."}
           next="Next: build the part"
+          own={{
+            primitive: module.fault.primitive.id,
+            slider: module.fault.slider.id,
+            object: lesson.objectName.toLowerCase(),
+            numbers: (v) => module.numbers({ ...tuning, [module.fault.key]: v }),
+            generic: !module.hideLearnReadouts,
+          }}
           onNext={() => setStage(module.id, "assemble")}
         />
       );

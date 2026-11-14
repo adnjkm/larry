@@ -16,7 +16,7 @@ import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { lessonFor, LESSONS } from "./lessons/index.ts";
 import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { EVIDENCE, generatedLesson, JOINT_TEMPLATES } from "./templates/index.ts";
-import { fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
+import { faultValues, fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
 import { restCentre } from "./pose.ts";
 import { COLOR, SYNTHWAVE } from "../../src/primitives/parts.ts";
 
@@ -202,6 +202,31 @@ class Run {
     }, value);
   }
 
+  /**
+   * On the fault primitive's Learn tab, the object's own numbers sit under the figure and follow its
+   * slider, matching the module's numbers at that value; the primitive's own readouts are hidden when the
+   * module says they would contradict them.
+   */
+  async learnNumbers(tag: string, m: Module, tuning: Values) {
+    if (m.teach.length > 1) await this.page.click(`[data-tab="${m.fault.primitive.id}"]`);
+    const shown = () => this.page.locator('[data-stage="learn"] [data-own] [data-number]').evaluateAll((els) => els.map((e) => [...e.children].map((c) => c.textContent).join(": ")));
+    const want = (v: number) => m.numbers({ ...tuning, [m.fault.key]: v }).map((x) => `${x.label}: ${x.value}`);
+    const input = `[data-stage="learn"] input[data-slider="${m.fault.slider.id}"]`;
+    const at = Number(await this.page.locator(input).inputValue());
+    const first = await shown();
+    const mid = midWindow(m.fault.slider, m.fix.window);
+    await this.setRange(input, mid);
+    await this.page.waitForTimeout(100);
+    const moved = await shown();
+    const generic = await this.page.locator('[data-stage="learn"] [data-generic]').count();
+    this.check(
+      `${tag} learn shows the ${m.fault.primitive.id}'s numbers in the object at ${at} and ${mid}${m.hideLearnReadouts ? ", not the primitive's own" : ""}`,
+      at === m.fault.slider.initial && JSON.stringify(first) === JSON.stringify(want(at)) && JSON.stringify(moved) === JSON.stringify(want(mid)) && generic === (m.hideLearnReadouts ? 0 : 1),
+      `${JSON.stringify(first)} | ${JSON.stringify(moved)} | ${generic} generic`,
+    );
+    await this.shot(`${tag}-learn-numbers`);
+  }
+
   /** Runs each test, screenshotting it mid-move, and returns the statuses. */
   async runTests(ids: readonly string[], label: string): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
@@ -278,12 +303,14 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
   if (!kit) throw new Error(`no fixture kit for ${sample}`);
   checkRules(r, lesson, kit);
   await r.open(sample, query, url);
+  const tuning: Record<string, number> = { ...faultValues(lesson) };
   for (const [i, m] of lesson.modules.entries()) {
     const tag = `m${i + 1}`;
     await r.stage("learn");
     const tabs = await r.page.locator("[data-tab]").count();
     r.check(`${tag} learn teaches ${m.teach.map((p) => p.id).join("+")}`, m.teach.length === 1 ? tabs === 0 : tabs === m.teach.length, `${tabs} tabs`);
     await r.shot(`${tag}-learn`);
+    await r.learnNumbers(tag, m, tuning);
     await r.page.click("[data-next]");
 
     await r.stage("assemble");
@@ -341,6 +368,7 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
 
     const mid = midWindow(m.fault.slider, m.fix.window);
     await r.setRange(`[data-fix] input[data-slider="${m.fault.slider.id}"]`, mid);
+    tuning[m.fault.key] = mid;
     const after = await r.runTests(testIds, `${tag}-fixed`);
     await r.stage("earned");
     r.check(`${tag} ${m.fault.slider.id} = ${mid} passes every test`, testIds.every((id) => after[id] === "pass"), JSON.stringify(after));

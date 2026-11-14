@@ -1,14 +1,22 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { framingParts, initialValues, type Primitive, type Values } from "../../src/primitives/library.ts";
+import { framingParts, initialValues, type Primitive, type Readout, type Values } from "../../src/primitives/library.ts";
 import { primitiveById } from "./model.ts";
 import { Header, SliderRow, Viewer } from "./ui.tsx";
 
 const SWEEP_SECONDS = 4;
 
-type Props = { list: readonly Primitive[]; kicker: string; title: string; hint: string; next: string; children?: ReactNode; onNext: () => void };
+/**
+ * The object's own numbers for one primitive's slider, shown under that primitive while it is moved, so
+ * Learn and the fix card never give two answers to one question. `generic` keeps the primitive's own
+ * readouts beside them; it is false when numbers fixed in the primitive (the lever's 100 N load) would
+ * contradict the object's.
+ */
+export type Own = { primitive: string; slider: string; object: string; numbers: (value: number) => readonly Readout[]; generic: boolean };
+
+type Props = { list: readonly Primitive[]; kicker: string; title: string; hint: string; next: string; own?: Own; children?: ReactNode; onNext: () => void };
 
 /** One tab per primitive, each a live figure with its sliders, so the user plays with every piece before using it. */
-export function Learn({ list, kicker, title, hint, next, children, onNext }: Props) {
+export function Learn({ list, kicker, title, hint, next, own, children, onNext }: Props) {
   const [tab, setTab] = useState(0);
   const [seen, setSeen] = useState<ReadonlySet<number>>(new Set([0]));
   const [values, setValues] = useState<Record<string, Values>>(() => Object.fromEntries(list.map((p) => [p.id, initialValues(p)])));
@@ -18,6 +26,7 @@ export function Learn({ list, kicker, title, hint, next, children, onNext }: Pro
   const frame = useMemo(() => framingParts(p), [p]);
   const parts = useMemo(() => p.build(v), [p, v]);
   const motion = p.sliders[p.sliders.length - 1]!;
+  const mine = own?.primitive === p.id ? own : undefined;
 
   useEffect(() => {
     if (!playing) return;
@@ -70,14 +79,30 @@ export function Learn({ list, kicker, title, hint, next, children, onNext }: Pro
           {playing ? "Stop" : `Play ${motion.label.toLowerCase()}`}
         </button>
       </div>
-      <div className="log">
-        {p.readouts(v).map((r) => (
-          <div key={r.label} className="log-row">
-            <span>{r.label}</span>
-            <span>{r.value}</span>
+      {mine ? (
+        <div className="log" data-own>
+          <div className="readouts">
+            <span className="mono">In the {mine.object}</span>
+            {mine.numbers(v[mine.slider] ?? 0).map((r) => (
+              <div key={r.label} className="readout" data-number>
+                <span>{r.label}</span>
+                <span>{r.value}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ) : null}
+      {mine && !mine.generic ? null : (
+        <div className="log" data-generic>
+          {mine ? <span className="mono">This {p.name.toLowerCase()}</span> : null}
+          {p.readouts(v).map((r) => (
+            <div key={r.label} className="log-row">
+              <span>{r.label}</span>
+              <span>{r.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="card">
         <span className="mono">{p.job}</span>
         <p>{p.howItWorks}</p>

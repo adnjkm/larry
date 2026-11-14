@@ -133,8 +133,11 @@ export type ModuleSpec = Omit<Module, "teach" | "main" | "fault" | "enter"> & {
   primitive: string;
   /** Primitive ids taught, in order, when the module teaches more than the main primitive's own parts (it must include `primitive`). */
   teach?: readonly string[];
-  /** `key` defaults to the slider id; set it when two modules tune sliders with the same id (a press-fit's and a seal's squeeze). */
-  fault: { primitive: string; slider: string; start: number; key?: string };
+  /**
+   * `key` defaults to the slider id; set it when two modules tune sliders with the same id (a press-fit's and a seal's squeeze).
+   * `range` fits the primitive's slider to this object (a mug's mass, not the pendulum's 1 to 5 kg); Learn uses it too.
+   */
+  fault: { primitive: string; slider: string; start: number; key?: string; range?: Partial<Pick<Slider, "label" | "min" | "max" | "step" | "initial">> };
   enter?: Vec;
 };
 export type WorkshopSpec = Omit<Workshop, "kind" | "modules" | "rest"> & { modules: ModuleSpec[]; rest?: Workshop["rest"] };
@@ -171,9 +174,11 @@ export function defineLesson(spec: WorkshopSpec): Workshop {
     const teach = [...new Set(m.teach ?? [...main.madeOf, main.id])].map(primitiveById);
     if (!teach.includes(main)) problems.push(`${m.id}: the main primitive ${main.id} is not taught in this module`);
     const primitive = primitiveById(m.fault.primitive);
-    const slider = primitive.sliders.find((s) => s.id === m.fault.slider);
+    const own = primitive.sliders.find((s) => s.id === m.fault.slider);
     if (!teach.includes(primitive)) problems.push(`${m.id}: fault primitive ${primitive.id} is not taught in this module`);
-    if (!slider) throw new Error(`${spec.id}/${m.id}: ${primitive.id} has no slider ${m.fault.slider}`);
+    if (!own) throw new Error(`${spec.id}/${m.id}: ${primitive.id} has no slider ${m.fault.slider}`);
+    const slider: Slider = { ...own, ...m.fault.range };
+    if (slider.initial < slider.min || slider.initial > slider.max) problems.push(`${m.id}: slider ${slider.id} starts outside ${slider.min}..${slider.max}`);
     const key = m.fault.key ?? slider.id;
     if (keys.has(key)) problems.push(`${m.id}: tuning key ${key} is used by two modules`);
     keys.add(key);
@@ -189,6 +194,16 @@ export function defineLesson(spec: WorkshopSpec): Workshop {
   spec.final.tests.forEach(track);
   if (problems.length > 0) throw new Error(`lesson ${spec.id}:\n${problems.join("\n")}`);
   return { ...spec, kind: "workshop", modules, rest: spec.rest ?? (() => EMPTY_SCENE) };
+}
+
+const learnLists = new WeakMap<Module, Primitive[]>();
+/** The primitives a module's Learn stage shows: its fault primitive with the slider fitted to this object. The same array every call, so Learn's figures are not rebuilt on every render. */
+export function learnList(m: Module): Primitive[] {
+  const known = learnLists.get(m);
+  if (known) return known;
+  const list = m.teach.map((p) => (p === m.fault.primitive ? { ...p, sliders: p.sliders.map((s) => (s.id === m.fault.slider.id ? m.fault.slider : s)) } : p));
+  learnLists.set(m, list);
+  return list;
 }
 
 /** Kit part ids the lesson names that the kit lacks. A lesson binds to a kit only when this is empty. */
