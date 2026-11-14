@@ -359,7 +359,10 @@ try {
         console.log(`${since()} mid-stream: playing ${chapter.id}/${step.id} with ${arrival("chapter").length} chapter(s) streamed, lesson not done`);
       }
       assert.notEqual(solved, null, `${step.id} can be completed`);
-      if (step.earns.length > 0) assert.equal(await page.locator("[data-added]").count(), 1, "earned parts are announced");
+      assert.equal(await page.locator("[data-added]").count(), step.earns.length > 0 ? 1 : 0, `${step.id}: earned parts are announced, and only when there are some`);
+      assert.equal(await page.locator("[data-added] [data-kit-viewer]").count(), step.earns.length > 0 ? 1 : 0, `${step.id}: the build is drawn where the part is announced, and only there`);
+      const strays = await page.evaluate(() => [...document.querySelectorAll("[data-kit-viewer]")].filter((v) => !v.closest("[data-figure], [data-added]")).length);
+      assert.equal(strays, 0, `${step.id}: no model sits outside a step's figure or its earned-part moment`);
       assert.equal(await next.count(), 1, `${step.id}: Next appears once the step is complete`);
       if (index === chapter.steps.length - 1 && chapterNumber <= 2) {
         await viewersReady(page);
@@ -373,6 +376,7 @@ try {
 
   await page.locator("[data-finish]").waitFor();
   await viewersReady(page);
+  assert.equal(await page.locator("[data-finish] [data-kit-viewer]").count(), 1, "the finish shows the built model");
   await shot(page, "99-finish.png");
   const done = await page.locator("[data-roadmap] [data-status=done]").count();
   assert.equal(done, chapterNumber, "every roadmap chip is ticked at the finish");

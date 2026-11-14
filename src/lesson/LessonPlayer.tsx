@@ -46,14 +46,12 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
   return (
     <>
       <Roadmap state={state} />
-      {/* Short during steps so the step's own figure and controls start higher on a phone. */}
-      <BuildViewer kit={kit} earned={earned} height={state.done && finished ? 270 : 180} />
       {state.done && finished ? (
-        <Finish kit={kit} lesson={state.done} onRestart={onRestart} />
+        <Finish kit={kit} earned={earned} lesson={state.done} onRestart={onRestart} />
       ) : waiting ? (
         <Waiting stalled={stalled} />
       ) : (
-        <StepScreen key={state.at} kit={kit} state={state} dispatch={dispatch} />
+        <StepScreen key={state.at} kit={kit} earned={earned} state={state} dispatch={dispatch} />
       )}
       {state.at >= state.flat.length && state.at > 0 && (
         <button type="button" {...stylex.props(buttons.base, buttons.secondary)} onClick={() => dispatch({ type: "back" })}>
@@ -64,7 +62,7 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
   );
 }
 
-function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; dispatch: Dispatch }) {
+function StepScreen({ kit, earned, state, dispatch }: { kit: Kit; earned: ReadonlySet<string>; state: LessonState; dispatch: Dispatch }) {
   const flat = state.flat[state.at];
   const current = state.steps[state.at];
   if (!flat || !current) return null;
@@ -131,9 +129,10 @@ function StepScreen({ kit, state, dispatch }: { kit: Kit; state: LessonState; di
         )}
 
         {complete && added.length > 0 && (
-          <div data-added {...stylex.props(notes.base, notes.accent)}>
-            <p {...stylex.props(type.label, type.labelAccent)}>Added to your build</p>
-            <div {...stylex.props(layout.row)}>
+          <div data-added {...stylex.props(layout.stack)}>
+            <p {...stylex.props(layout.inset, type.label, type.labelAccent)}>Added to your build</p>
+            <BuildViewer kit={kit} earned={earned} />
+            <div {...stylex.props(layout.inset, layout.row)}>
               {added.map((p) => (
                 <span key={p.id} {...stylex.props(chips.base, chips.grey, styles.part)}>
                   <span {...stylex.props(styles.swatch)} style={{ backgroundColor: p.color }} />
@@ -182,9 +181,10 @@ function Waiting({ stalled }: { stalled?: Stalled }) {
   );
 }
 
-function Finish({ kit, lesson, onRestart }: { kit: Kit; lesson: Lesson; onRestart: () => void }) {
+function Finish({ kit, earned, lesson, onRestart }: { kit: Kit; earned: ReadonlySet<string>; lesson: Lesson; onRestart: () => void }) {
   return (
     <section data-finish {...stylex.props(layout.stack)}>
+      <BuildViewer kit={kit} earned={earned} />
       <div {...stylex.props(layout.inset, layout.tight)}>
         <p {...stylex.props(type.label, type.labelAccent)}>You built it</p>
         <h2 {...stylex.props(type.task)}>{lesson.title}</h2>
