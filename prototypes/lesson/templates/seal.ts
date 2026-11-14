@@ -169,6 +169,7 @@ function open(closer: Pair): Test {
 export const sealTemplate: Template = {
   joints: [],
   primitive: "seal",
+  last: true,
   module: (pair) => {
     const child = pair.childName;
     const closerPart = closerOf(pair.kit, pair.child);

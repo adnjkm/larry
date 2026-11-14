@@ -34,6 +34,10 @@ export type Template = {
   joints: readonly Joint[];
   /** The library primitive those joints are instances of; the same one the Inspect lesson teaches. */
   primitive: string;
+  /** Plays after the other modules: it is tested by working the parts it holds or closes over, so those are built first. */
+  last?: true;
+  /** Whether the pair gives this template a fair challenge; a template without it always applies. */
+  applies?: (pair: Pair) => boolean;
   module: (pair: Pair) => ModuleSpec;
 };
 

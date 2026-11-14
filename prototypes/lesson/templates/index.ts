@@ -8,7 +8,6 @@ import { defineLesson, type ModuleSpec, type Workshop } from "../model.ts";
 import { extents, facingView } from "../pose.ts";
 import { readPart } from "./evidence.ts";
 import { pairOf, type Template } from "./pair.ts";
-import { sealTemplate } from "./seal.ts";
 import { standModule, standOf } from "./stand.ts";
 
 export type { Pair, Template } from "./pair.ts";
@@ -33,16 +32,19 @@ type Candidate = { part: Part; last: boolean; build: (earns: readonly string[]) 
  * The generated lesson for a kit, or null when nothing in it moves, seals or stands. One module per
  * joint template, for its largest part, and one for standing; the MAX_MODULES largest are kept. A
  * module earns its part and the parts below it that no other module earns. Modules run parents first,
- * and seals last: a seal is tested by opening what closes over it, so that part is built first.
+ * and templates marked `last` (a seal, a pin's clamp) after the rest: they are tested by working the
+ * parts they hold or close over, so those are built first.
  */
 export function generatedLesson(kit: Kit, id = "generated"): Workshop | null {
   const byTemplate = new Map<Template, Candidate>();
   for (const part of kit.parts) {
     const reading = readPart(kit, part);
     if (!reading) continue;
-    const best = byTemplate.get(reading.template);
+    const { template, pin } = reading;
+    if (template.applies && !template.applies(pairOf(kit, part, [part.id], pin))) continue;
+    const best = byTemplate.get(template);
     if (!best || volume(part) > volume(best.part))
-      byTemplate.set(reading.template, { part, last: reading.template === sealTemplate, build: (earns) => reading.template.module(pairOf(kit, part, earns, reading.pin)) });
+      byTemplate.set(template, { part, last: template.last === true, build: (earns) => template.module(pairOf(kit, part, earns, pin)) });
   }
   const stand = standOf(kit);
   const candidates = [...byTemplate.values(), ...(stand ? [{ part: stand.root, last: false, build: (earns: readonly string[]) => standModule(stand, earns) }] : [])];

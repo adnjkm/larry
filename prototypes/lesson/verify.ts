@@ -17,7 +17,7 @@ import { lessonFor, LESSONS } from "./lessons/index.ts";
 import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { EVIDENCE, generatedLesson, JOINT_TEMPLATES, standOf } from "./templates/index.ts";
 import { faultValues, fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
-import { restCentre } from "./pose.ts";
+import { extents, restCentre } from "./pose.ts";
 import { COLOR, SYNTHWAVE } from "../../src/primitives/parts.ts";
 
 const root = resolve(import.meta.dirname, "../..");
@@ -38,6 +38,16 @@ const FILL_LO = 0.75;
 const FILL_HI = 0.9;
 /** Device pixels of a pink part's shading that count as the piece being in sight. */
 const PINK_SEEN = 200;
+/** Pink parts at least this share of the object's size must show PINK_SEEN pixels. */
+const PINK_SHARE = 0.15;
+/** The earned parts' largest size over the whole object's. */
+const shareOf = (kit: Kit, ids: readonly string[]) => {
+  const span = (parts: readonly Part[]) => {
+    const { min, max } = extents(parts);
+    return Math.max(max.x - min.x, max.y - min.y, max.z - min.z);
+  };
+  return span(kit.parts.filter((p) => ids.includes(p.id))) / span(kit.parts);
+};
 /** Long enough for an explode tween and the camera's ease to settle. */
 const SETTLE_MS = 1000;
 
@@ -187,11 +197,16 @@ class Run {
     return { fill, pink, flat };
   }
 
-  /** Checks the object fills a sensible share of the viewer, within `lo`..`hi`. */
-  async framed(stage: string, label: string, pinkShown?: boolean) {
+  /**
+   * Checks the object fills a sensible share of the viewer, within `lo`..`hi`. `share` is the pink
+   * parts' size over the object's: a part much smaller than the object (a 6 mm rivet on 120 mm
+   * scissors) cannot cover PINK_SEEN pixels, so the bar scales with its area below PINK_SHARE.
+   */
+  async framed(stage: string, label: string, pinkShown?: boolean, share = 1) {
     const { fill: f, pink, flat } = await this.fill(stage);
+    const seen = Math.round(PINK_SEEN * Math.min(1, share / PINK_SHARE) ** 2);
     rows.push({ run: this.name, step: `${label} fills ${Math.round(f * 100)}% of the viewer`, ok: f >= FILL_LO && f <= FILL_HI, detail: `want ${Math.round(FILL_LO * 100)} to ${Math.round(FILL_HI * 100)}%` });
-    if (pinkShown !== undefined) rows.push({ run: this.name, step: `${label} ${pinkShown ? "shows" : "has no"} pink piece`, ok: pinkShown ? pink + flat >= PINK_SEEN : pink < PINK_SEEN, detail: `${pink} shaded and ${flat} flat pink pixels` });
+    if (pinkShown !== undefined) rows.push({ run: this.name, step: `${label} ${pinkShown ? "shows" : "has no"} pink piece`, ok: pinkShown ? pink + flat >= seen : pink < PINK_SEEN, detail: `${pink} shaded and ${flat} flat pink pixels, want ${pinkShown ? `${seen} or more` : `under ${PINK_SEEN}`}` });
   }
 
   async setRange(selector: string, value: number) {
@@ -319,7 +334,7 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
     await r.page.click("[data-fit]");
     await r.page.waitForSelector('[data-stage="assemble"] [data-next]', { timeout: 10_000 });
     await r.page.waitForTimeout(SETTLE_MS);
-    await r.framed("assemble", `${tag} built`, true);
+    await r.framed("assemble", `${tag} built`, true, shareOf(kit, m.produces));
     await r.shot(`${tag}-built`);
     r.check(`${tag} fit it`, true);
     await r.page.click("[data-next]");
@@ -373,7 +388,7 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
     await r.stage("earned");
     r.check(`${tag} ${m.fault.slider.id} = ${mid} passes every test`, testIds.every((id) => after[id] === "pass"), JSON.stringify(after));
     await r.page.waitForTimeout(SETTLE_MS);
-    await r.framed("earned", `${tag} earned`, true);
+    await r.framed("earned", `${tag} earned`, true, shareOf(kit, m.produces));
     await r.shot(`${tag}-earned`);
     await r.page.click("[data-next]");
   }
@@ -457,12 +472,14 @@ function checkTemplates(r: Run) {
   for (const t of JOINT_TEMPLATES)
     r.check(`${t.primitive} template teaches what Inspect maps ${t.joints.join(" and ")} to`, t.joints.every((j) => JOINT_PRIMITIVE[j] === t.primitive));
   const plain = (p: Part, i: number): Part => ({ ...p, name: `Part ${i + 1}`, role: "Part of the object.", joint: p.parentId === null ? null : "molded" });
-  type Variant = { label: string; primitive: string; make: (kit: Kit, child: Part) => Kit };
+  /** `declines`: the template may judge the part unfit (a clamp with nothing turning on it) and generate nothing. */
+  type Variant = { label: string; primitive: string; declines: boolean; make: (kit: Kit, child: Part) => Kit };
   const variants: Variant[] = [
-    ...JOINT_TEMPLATES.map((t): Variant => ({ label: t.primitive, primitive: t.primitive, make: (kit, child) => ({ ...kit, summary: "", parts: kit.parts.map((p, i) => (p.id === child.id ? { ...plain(p, i), joint: t.joints[0]! } : plain(p, i))) }) })),
+    ...JOINT_TEMPLATES.map((t): Variant => ({ label: t.primitive, primitive: t.primitive, declines: t.applies !== undefined, make: (kit, child) => ({ ...kit, summary: "", parts: kit.parts.map((p, i) => (p.id === child.id ? { ...plain(p, i), joint: t.joints[0]! } : plain(p, i))) }) })),
     ...EVIDENCE.map((e): Variant => ({
       label: `${e.template.primitive} by evidence (${e.id})`,
       primitive: e.template.primitive,
+      declines: e.template.applies !== undefined,
       make: (kit, child) => ({
         ...kit,
         summary: "",
@@ -475,6 +492,7 @@ function checkTemplates(r: Run) {
   ];
   const start = rows.length;
   let lessons = 0;
+  const made = new Map<string, number>();
   for (const [sample, kit] of Object.entries(KITS))
     for (const v of variants)
       for (const child of kit.parts.filter((p) => p.parentId !== null)) {
@@ -484,6 +502,8 @@ function checkTemplates(r: Run) {
           const lesson = generatedLesson(variant, each.name);
           // A kit that stands also gets its stand module, so the two are checked together.
           const ids = lesson?.modules.map((m) => m.main.id) ?? [];
+          if (v.declines && !ids.includes(v.primitive)) continue;
+          made.set(v.label, (made.get(v.label) ?? 0) + 1);
           each.check(`generates the ${v.primitive} module`, ids.filter((id) => id !== "weight").length === 1 && ids.includes(v.primitive), ids.join("+"));
           checkRules(each, lesson!, variant);
           lessons += 1;
@@ -519,6 +539,8 @@ function checkTemplates(r: Run) {
   const checked = rows.splice(start);
   rows.push(...checked.filter((row) => !row.ok));
   r.check(`every template keeps the fix rules on every kit's parts (${lessons} lessons, ${checked.length} checks)`, checked.every((row) => row.ok));
+  const never = variants.filter((v) => !made.get(v.label)).map((v) => v.label);
+  r.check(`every template generates on some kit's parts`, never.length === 0, never.join(", "));
   const plainStands = Object.keys(KITS).filter((id) => stands.includes(`${id} plain`));
   r.check(`the stand template reads upright roots from geometry alone (${plainStands.join(", ")}) and the stapler's rubber foot from its name`, plainStands.join() === "bottle,jar,mug" && standOf(KITS.stapler!)?.footing.part.id === "rubber-pad");
 }
