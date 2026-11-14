@@ -303,6 +303,73 @@ class Run {
     await this.page.mouse.up();
   }
 
+  async centreOf(selector: string) {
+    const b = await this.page.locator(selector).boundingBox();
+    if (!b) throw new Error(`no ${selector} on screen`);
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  }
+
+  /**
+   * Plays a drag Build step with the mouse: a drop far away springs the piece home, holding it never
+   * turns the view, a turned view still aims true (`turn`), and a drop on the lit ghost lands it.
+   */
+  async dragBuild(tag: string, turn: boolean) {
+    const piece = '[data-stage="assemble"] [data-piece]';
+    const ghost = '[data-stage="assemble"] [data-ghost]';
+    const said = async () => ((await this.page.textContent("h1.do")) ?? "").trim();
+    const apart = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+    const { mouse } = this.page;
+    this.check(`${tag} build has no pick-up or drop-on cards`, (await this.page.locator('[data-stage="assemble"] [data-step]').count()) === 0);
+    await this.page.waitForTimeout(300);
+    const home = await this.centreOf(piece);
+    await this.shot(`${tag}-build-rest`);
+
+    const viewer = (await this.page.locator('[data-stage="assemble"] .viewer').boundingBox())!;
+    const spot = await this.centreOf(ghost);
+    await mouse.move(home.x, home.y);
+    await mouse.down();
+    const corners = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([s, t]) => ({ x: viewer.x + 40 + s! * (viewer.width - 80), y: viewer.y + 60 + t! * (viewer.height - 120) }));
+    const wide = corners.reduce((a, b) => (apart(b, spot) > apart(a, spot) ? b : a));
+    await mouse.move(wide.x, wide.y, { steps: 12 });
+    const held = await this.centreOf(piece);
+    const spotHeld = await this.centreOf(ghost);
+    this.check(`${tag} the piece follows the mouse and the view holds still`, apart(held, wide) < 0.2 * apart(home, wide) && apart(spot, spotHeld) < 2, `piece ${apart(held, wide).toFixed(0)} px from the mouse; ghost moved ${apart(spot, spotHeld).toFixed(1)} px`);
+    await mouse.up();
+    const missed = await said();
+    await this.page.waitForTimeout(1000);
+    const back = await this.centreOf(piece);
+    this.check(`${tag} a drop far away springs the piece home`, missed.startsWith("Not there") && apart(back, home) < 4, `"${missed}", ${apart(back, home).toFixed(1)} px from home`);
+    await this.noDigits(`${tag} build missed`);
+
+    if (turn) {
+      const at = { x: viewer.x + viewer.width * 0.15, y: viewer.y + viewer.height * 0.5 };
+      await mouse.move(at.x, at.y);
+      await mouse.down();
+      await mouse.move(at.x + 60, at.y, { steps: 6 });
+      // Still before lifting, so the view stops where it was dragged instead of flinging on.
+      await this.page.waitForTimeout(200);
+      await mouse.up();
+      await this.page.waitForTimeout(300);
+      const turned = await this.centreOf(piece);
+      this.check(`${tag} dragging the view elsewhere still turns it`, apart(turned, back) > 10, `${apart(turned, back).toFixed(1)} px`);
+      await this.shot(`${tag}-build-turned`);
+    }
+
+    const from = await this.centreOf(piece);
+    const to = await this.centreOf(ghost);
+    await mouse.move(from.x, from.y);
+    await mouse.down();
+    await mouse.move(to.x + 6, to.y - 4, { steps: 16 });
+    await this.page.waitForTimeout(150);
+    this.check(`${tag} the ghost lights up with the piece over it`, (await this.page.locator(`${piece}[data-near]`).count()) === 1 && (await said()) === "Let go.", await said());
+    await this.noDigits(`${tag} build near`);
+    await this.shot(`${tag}-build-near`);
+    await mouse.up();
+    await this.page.waitForTimeout(400);
+    await this.shot(`${tag}-build-landing`);
+    await this.page.waitForSelector('[data-stage="assemble"] [data-next]:not([disabled])', { timeout: 10_000 });
+  }
+
   /** Twists the play grip in short drags, one way, until it reads `word`. */
   async twistTo(word: string, dir: 1 | -1) {
     const grip = "[data-strip] .grip";
@@ -578,9 +645,7 @@ async function playStory(r: Run, story: Story, sample: string, url: string) {
     await r.stage("assemble");
     await r.noDigits(`${tag} build`);
     await r.framed("assemble", `${tag} assemble`);
-    await r.page.click('[data-step="piece"]');
-    await r.page.click('[data-step="target"]');
-    await r.page.waitForSelector('[data-stage="assemble"] [data-next]:not([disabled])', { timeout: 10_000 });
+    await r.dragBuild(tag, i === 0);
     await r.page.waitForTimeout(SETTLE_MS);
     await r.framed("assemble", `${tag} built`, true, shareOf(kit, m.produces));
     await r.noDigits(`${tag} built`);
