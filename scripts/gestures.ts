@@ -44,7 +44,12 @@ try {
   assert.equal(await page.locator("[data-step]").evaluate((el: HTMLElement) => el.style.transform), "", "it springs back into place");
   console.log("swipe left on an unfinished step: rubber-bands and stays");
 
-  await page.locator("[data-action=run]").click();
+  await page.locator("[data-action=run]").click({ delay: 150 });
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator("[data-action=next]").count(), 0, "a short tap on a hold button does not run the experiment");
+  assert.ok(await page.getByText("Hold until it fills").isVisible(), "and says to hold");
+  await page.locator("[data-action=run]").click({ delay: 900 });
+  console.log("hold button: a short tap only hints, a held press runs it");
   await page.locator("[data-action=next]").waitFor();
   await swipe([300, y], [60, y]);
   const second = await stepId();

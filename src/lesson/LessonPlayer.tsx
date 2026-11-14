@@ -11,6 +11,7 @@ import { bars, buttons, layout, notes, type } from "../styles.ts";
 import { BuildViewer } from "./BuildViewer.tsx";
 import { DownloadButton } from "./DownloadButton.tsx";
 import { GlowCard } from "./GlowCard.tsx";
+import { HoldButton } from "./HoldButton.tsx";
 import { type Arrived, type LessonState, earnedParts, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
 import { ProblemView } from "./ProblemViews.tsx";
 import { Roadmap } from "./Roadmap.tsx";
@@ -165,9 +166,7 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
       {(run || complete) && (
         <div data-action-bar {...stylex.props(bars.action)}>
           {run ? (
-            <button type="button" data-action="run" {...stylex.props(buttons.base, buttons.primary)} onClick={() => dispatch({ type: "problem", action: { type: "run" } })}>
-              {run.action}
-            </button>
+            <HoldButton data-action="run" label={run.action} onHeld={() => dispatch({ type: "problem", action: { type: "run" } })} />
           ) : (
             <button type="button" data-action="next" {...stylex.props(buttons.base, buttons.primary)} onClick={() => dispatch({ type: "next" })}>
               {last ? "Finish" : "Next"}

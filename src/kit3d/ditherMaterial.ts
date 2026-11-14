@@ -80,14 +80,12 @@ void main() {
   shade += uSpecular * pow(max(dot(n, halfway), 0.0), uShininess);
   shade = clamp(shade, 0.0, 1.0);
 
-  // Five tones, darkest first: deep shadow, shadow, the colour, light, highlight.
+  // Five tones, darkest first: the colour mixed 85% or 50% toward ink, itself, then 50% or 88% toward white.
+  // Picked with step() rather than branches, which compile faster and run evenly on mobile GPUs.
   float tone = clamp(floor(shade * 4.0 + threshold - 0.5 + 0.5), 0.0, 4.0);
-  vec3 colour = tone < 0.5 ? mix(uColor, INK, 0.85)
-    : tone < 1.5 ? mix(uColor, INK, 0.5)
-    : tone < 2.5 ? uColor
-    : tone < 3.5 ? mix(uColor, vec3(1.0), 0.5)
-    : mix(uColor, vec3(1.0), 0.88);
-  gl_FragColor = vec4(colour, 1.0);
+  float toInk = 0.85 * (1.0 - step(0.5, tone)) + 0.5 * (step(0.5, tone) - step(1.5, tone));
+  float toWhite = 0.5 * (step(2.5, tone) - step(3.5, tone)) + 0.88 * step(3.5, tone);
+  gl_FragColor = vec4(mix(mix(uColor, INK, toInk), vec3(1.0), toWhite), 1.0);
 }
 `;
 

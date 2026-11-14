@@ -87,7 +87,7 @@ try {
       const problem = step.problem;
       if (problem?.type === "run") {
         if (step.primitive !== null) await once("Run step", () => shoot(page, "Run step with its figure"));
-        await page.locator("[data-action=run]").click();
+        await page.locator("[data-action=run]").click({ delay: 900 });
       } else if (problem?.type === "pick") {
         const wrong = problem.options.findIndex((o) => !o.works);
         const right = problem.options.findIndex((o) => o.works);

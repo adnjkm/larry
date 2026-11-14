@@ -301,7 +301,7 @@ try {
           await shot(page, `run-figure-${step.id}.png`, false);
           firstRun = false;
         }
-        await page.locator("[data-action=run]").click();
+        await page.locator("[data-action=run]").click({ delay: 900 });
         await page.locator("[data-note]").waitFor();
       } else if (problem?.type === "pick") {
         const wrong = problem.options.findIndex((o) => !o.works);

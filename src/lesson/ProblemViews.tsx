@@ -67,9 +67,27 @@ function Observation({ label, children, tone }: { label: string; children: React
   );
 }
 
-/** The run action itself sits in the action bar; this is where its outcome lands. */
+/** The run action itself sits in the action bar; this is where its outcome lands, brought into view. */
 function RunView({ problem, state }: ViewProps<"run">) {
-  return <div aria-live="polite">{state.ran && <Observation label="What happened">{problem.outcome}</Observation>}</div>;
+  const outcome = useScrollIntoViewOn(state.ran);
+  return (
+    <div ref={outcome} aria-live="polite">
+      {state.ran && <Observation label="What happened">{problem.outcome}</Observation>}
+    </div>
+  );
+}
+
+/** Scrolls the element into view when `trigger` turns truthy, unless it is already on screen. */
+function useScrollIntoViewOn(trigger: unknown) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !trigger) return;
+    const { top, bottom } = el.getBoundingClientRect();
+    if (top >= 0 && bottom <= innerHeight) return;
+    el.scrollIntoView({ block: "center", behavior: reducedMotion.matches ? "instant" : "smooth" });
+  }, [trigger]);
+  return ref;
 }
 
 /** Once solved, only what was tried stays: the wrong tries shrink to their names and the right one keeps its reason. */
@@ -110,14 +128,7 @@ function PickView({ problem, state, dispatch }: ViewProps<"pick">) {
 
 /** The slider itself is on the stage above; this is the target and the verdict on each release. */
 function TuneView({ problem, state }: ViewProps<"tune">) {
-  const verdict = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = verdict.current;
-    if (!el || !state.verdict) return;
-    const { top, bottom } = el.getBoundingClientRect();
-    if (top >= 0 && bottom <= innerHeight) return;
-    el.scrollIntoView({ block: "nearest", behavior: reducedMotion.matches ? "instant" : "smooth" });
-  }, [state.verdict]);
+  const verdict = useScrollIntoViewOn(state.verdict);
 
   return (
     <div {...stylex.props(layout.stack)}>
