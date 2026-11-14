@@ -5,6 +5,7 @@ import type { Lesson } from "../shared/lesson.ts";
 import { CapturePicker } from "./capture/CapturePicker.tsx";
 import { preparePhoto } from "./capture/preparePhoto.ts";
 import { requestKit } from "./capture/requestKit.ts";
+import { Dots } from "./Dots.tsx";
 import { KitViewer } from "./kit3d/KitViewer.tsx";
 import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
 import { type LessonLoad, addLessonEvent, arrivedOf, hookOf, loadDemo, planning, requestLesson } from "./lesson/lessonSource.ts";
@@ -28,11 +29,33 @@ const params = new URLSearchParams(location.search);
 const DEMO = params.get("demo");
 const LIVE = params.has("live");
 
+const sweep = stylex.keyframes({
+  from: { transform: "translateY(-100%)" },
+  to: { transform: "translateY(250%)" },
+});
+
 const styles = stylex.create({
   summary: { margin: 0, fontSize: 14, lineHeight: "19px", color: colors.graphite },
   hook: { display: "flex", flexDirection: "column", gap: 8 },
   parts: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8, fontSize: 16, lineHeight: "22px" },
-  photo: { width: "100%", maxHeight: "60dvh", objectFit: "contain" },
+  photoFrame: { position: "relative", overflow: "hidden" },
+  photo: { display: "block", width: "100%", maxHeight: "60dvh", objectFit: "contain" },
+  shimmer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "40%",
+    pointerEvents: "none",
+    backgroundImage: `radial-gradient(${colors.accent} 0.9px, transparent 1.3px)`,
+    backgroundSize: "4px 4px",
+    maskImage: "linear-gradient(transparent, black, transparent)",
+    animationName: { default: sweep, "@media (prefers-reduced-motion: reduce)": "none" },
+    animationDuration: "3.2s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    opacity: { default: 0.55, "@media (prefers-reduced-motion: reduce)": 0 },
+  },
   status: { margin: 0, fontFamily: fonts.mono, fontSize: 14, lineHeight: "20px" },
 });
 
@@ -198,9 +221,15 @@ function GeneratingPhoto({ photo }: { photo: Blob }) {
 
   return (
     <>
-      {url && <img src={url} alt="Your photo" {...stylex.props(styles.photo)} />}
+      {url && (
+        <div {...stylex.props(styles.photoFrame)}>
+          <img src={url} alt="Your photo" {...stylex.props(styles.photo)} />
+          <div aria-hidden {...stylex.props(styles.shimmer)} />
+        </div>
+      )}
       <p role="status" {...stylex.props(styles.status)}>
-        Larry is taking it apart…
+        Larry is taking it apart
+        <Dots />
       </p>
     </>
   );

@@ -4,6 +4,7 @@ import type { Kit } from "../../shared/kit.ts";
 import type { Lesson } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
 import { PrimitiveFigure } from "../primitives/PrimitiveFigure.tsx";
+import { Dots } from "../Dots.tsx";
 import { buttons, chips, layout, notes, type } from "../styles.ts";
 import { colors } from "../tokens.stylex.ts";
 import { BuildViewer } from "./BuildViewer.tsx";
@@ -176,7 +177,10 @@ function Waiting({ stalled }: { stalled?: Stalled }) {
   return (
     <section data-waiting role="status" {...stylex.props(layout.inset, layout.stack)}>
       <p {...stylex.props(type.label, type.labelAccent)}>Up next</p>
-      <p {...stylex.props(type.story)}>Larry is still writing the next part…</p>
+      <p {...stylex.props(type.story)}>
+        Larry is still writing the next part
+        <Dots />
+      </p>
     </section>
   );
 }

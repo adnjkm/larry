@@ -215,7 +215,7 @@ try {
     await shot(page, "k0-capture.png", false);
     const uploaded = Date.now();
     await page.locator("input[type=file]").setInputFiles(photoPath);
-    await page.getByText("Larry is taking it apart…").waitFor();
+    await page.getByText("Larry is taking it apart").waitFor();
     await shot(page, "k1-kit-waiting.png", false);
     console.log(`${since()} uploaded ${name}.jpg, kit request sent, waiting screen shown`);
     while (kitArrival("part").length < 3 && kitArrival("done").length === 0) {
@@ -234,8 +234,8 @@ try {
     await shot(page, "k3-north-star-after-kit.png");
   }
   if (stubbed) {
-    await page.getByText("Larry is planning your build…").waitFor();
-    assert.equal(await page.locator("button", { hasText: "Larry is planning your build…" }).isDisabled(), true, "Start is disabled while the lesson is planned");
+    await page.getByText("Larry is planning your build").waitFor();
+    assert.equal(await page.locator("button", { hasText: "Larry is planning your build" }).isDisabled(), true, "Start is disabled while the lesson is planned");
     await viewersReady(page);
     await shot(page, "00-north-star-planning.png");
     await page.locator("[data-lesson-failed]").waitFor();

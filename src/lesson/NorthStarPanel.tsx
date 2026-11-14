@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Kit } from "../../shared/kit.ts";
+import { Dots } from "../Dots.tsx";
 import { buttons, layout, notes, type } from "../styles.ts";
 import { colors, radii } from "../tokens.stylex.ts";
 import { DownloadButton } from "./DownloadButton.tsx";
@@ -49,7 +50,10 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
             {lesson.status === "planning" && (
               <li data-more {...stylex.props(styles.line, styles.need, styles.surprise)}>
                 <span {...stylex.props(styles.marker, styles.markerHollow)} />
-                <span>Larry is still writing the rest</span>
+                <span>
+                  Larry is still writing the rest
+                  <Dots />
+                </span>
               </li>
             )}
           </ul>
@@ -69,7 +73,14 @@ export function NorthStarPanel({ kit, lesson, onStart, onRetry, onRestart }: { k
         </button>
       ) : (
         <button type="button" data-action="start" disabled={!ready} {...stylex.props(buttons.base, buttons.primary, !ready && buttons.disabled)} onClick={onStart}>
-          {ready ? "Start building" : "Larry is planning your build…"}
+          {ready ? (
+            "Start building"
+          ) : (
+            <>
+              Larry is planning your build
+              <Dots />
+            </>
+          )}
         </button>
       )}
 
