@@ -3,8 +3,8 @@
 // mechanism a part is, as for the Workshop; each mechanism with a story template becomes a module:
 // a thread or a tight fit (closure.ts), a seal (seal.ts), a spring (spring.ts), a hinge or pin
 // (hinge.ts), and, when none of those applies, standing up (stand.ts). Snap-fits and pins that clamp
-// have no story template; their parts are built with the module above them. A template that cannot read a part is left out, so an
-// odd kit still gets the modules it can.
+// have no story template; their parts are built with the module above them. A template that cannot
+// read a part is left out, so an odd kit still gets the modules it can.
 import type { Kit, Part } from "../../../shared/kit.ts";
 import { defineStory, listOf, type Scene, type Story, type StoryModuleSpec, type Test } from "../model.ts";
 import { extents, facingView } from "../pose.ts";
