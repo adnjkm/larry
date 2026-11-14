@@ -10,7 +10,7 @@ type TuneVerdict = "below" | "inside" | "above";
 type StateOf = {
   run: { ran: boolean };
   pick: { tried: number[]; solved: boolean };
-  tune: { attempts: number; verdict: TuneVerdict | null; solved: boolean };
+  tune: { verdict: TuneVerdict | null; solved: boolean };
 };
 
 type ActionOf = {
@@ -47,13 +47,13 @@ const PROBLEMS: { [T in ProblemType]: Kind<T> } = {
   },
 
   tune: {
-    init: () => ({ attempts: 0, verdict: null, solved: false }),
+    init: () => ({ verdict: null, solved: false }),
     reduce: (s, _action, problem, values) => {
       if (s.solved) return s;
       const value = values[problem.slider];
       if (value === undefined) return s;
       const verdict: TuneVerdict = value < problem.min ? "below" : value > problem.max ? "above" : "inside";
-      return { attempts: s.attempts + 1, verdict, solved: verdict === "inside" };
+      return { verdict, solved: verdict === "inside" };
     },
     solved: (s) => s.solved,
   },

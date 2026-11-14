@@ -91,10 +91,19 @@ describe("lesson player", () => {
     const at = (value: number) => run(toTune(), { type: "slider", id: "stiffness", value }, tryTune);
     const toTune = () =>
       run(startLesson(whole), { type: "problem", action: { type: "run" } }, { type: "next" }, { type: "problem", action: { type: "pick", option: 1 } }, { type: "next" });
-    assert.deepEqual(at(below).steps[2]?.problem, { type: "tune", attempts: 1, verdict: "below", solved: false });
-    assert.deepEqual(at(above).steps[2]?.problem, { type: "tune", attempts: 1, verdict: "above", solved: false });
+    assert.deepEqual(at(below).steps[2]?.problem, { type: "tune", verdict: "below", solved: false });
+    assert.deepEqual(at(above).steps[2]?.problem, { type: "tune", verdict: "above", solved: false });
     const solved = run(at(above), { type: "slider", id: "stiffness", value: inside }, tryTune);
-    assert.deepEqual(solved.steps[2]?.problem, { type: "tune", attempts: 2, verdict: "inside", solved: true });
+    assert.deepEqual(solved.steps[2]?.problem, { type: "tune", verdict: "inside", solved: true });
+  });
+
+  it("drops a tune verdict once the slider moves, so it never describes a setting that has changed", () => {
+    const toTune = run(startLesson(whole), { type: "problem", action: { type: "run" } }, { type: "next" }, { type: "problem", action: { type: "pick", option: 1 } }, { type: "next" });
+    const judged = run(toTune, { type: "slider", id: "stiffness", value: below }, tryTune);
+    const moved = reduce(judged, { type: "slider", id: "stiffness", value: above });
+    assert.deepEqual(moved.steps[2]?.problem, { type: "tune", verdict: null, solved: false });
+    const solved = run(moved, { type: "slider", id: "stiffness", value: inside }, tryTune);
+    assert.deepEqual(reduce(solved, { type: "slider", id: "stiffness", value: below }).steps[2]?.problem, { type: "tune", verdict: "inside", solved: true });
   });
 
   it("earns parts only from completed steps the player has reached", () => {
