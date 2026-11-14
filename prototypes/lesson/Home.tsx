@@ -2,19 +2,16 @@ import { useEffect, useState } from "react";
 import { Dither } from "./dither.tsx";
 import type { Lesson } from "./model.ts";
 import type { Sample } from "./samples.ts";
+import { Actions, Say } from "./ui.tsx";
 
 const count = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
 const describe = (lesson: Lesson, s: Sample) =>
-  lesson.kind === "workshop" ? `Lesson · ${count(lesson.modules.length, "module")}` : `Inspect · ${count(s.kit.parts.length, "part")}`;
+  lesson.kind === "workshop" ? count(lesson.modules.length, "build") : count(s.kit.parts.length, "part");
 
 export function Home({ samples, lessonOf, onPick }: { samples: readonly Sample[]; lessonOf: (s: Sample) => Lesson; onPick: (s: Sample) => void }) {
   return (
-    <main className="page" data-stage="home">
-      <div className="head">
-        <span className="mono">Larry · sample photos</span>
-        <h1 className="need">Photograph something.</h1>
-        <p className="hint">Pick a sample photo. Each already has its kit, so this runs without the network.</p>
-      </div>
+    <main className="page screen" data-stage="home">
+      <Say kicker="Larry">Pick something to take apart.</Say>
       <div className="samples">
         {samples.map((s) => (
           <button key={s.id} type="button" className="sample" data-sample={s.id} onClick={() => onPick(s)}>
@@ -45,34 +42,21 @@ export function Scan({ sample, lesson, onStart }: { sample: Sample; lesson: Less
   }, [parts]);
 
   return (
-    <main className="page" data-stage="scan">
-      <div className="head">
-        <span className="mono">{finished ? "Done" : "Larry is taking it apart…"}</span>
-        <h1 className="need">{shown > 0 ? sample.kit.name : "Scanning"}</h1>
-      </div>
+    <main className="page screen" data-stage="scan">
+      <Say kicker={finished ? sample.kit.name : "Scanning"} found={finished}>
+        {finished ? (lesson.kind === "workshop" ? `${count(lesson.modules.length, "thing")} to build and fix.` : "Take it apart and see each job.") : "Finding its parts…"}
+      </Say>
       <div className="scan" data-go={go ? "" : undefined}>
-        <Dither src={sample.photo} className="faint" />
-        <div className="reveal"><Dither src={sample.photo} /></div>
+        <Dither src={sample.photo} aspect={1} className="faint" />
+        <div className="reveal"><Dither src={sample.photo} aspect={1} /></div>
         <span className="beam" />
       </div>
-      <ul className="parts">
-        {parts.slice(0, shown).map((p) => (
-          <li key={p.id}>
-            <span>{p.name}</span>
-            <span>{p.joint ?? "main part"}</span>
-          </li>
-        ))}
+      <ul className="parts" aria-label="Parts found">
+        {parts.slice(0, shown).map((p) => <li key={p.id}>{p.name}</li>)}
       </ul>
-      {finished ? (
-        <>
-          <p className="hint">
-            {lesson.kind === "workshop"
-              ? `There is a lesson for this: ${lesson.modules.length} requirements to build, break and fix, then piece it together.`
-              : `There is no hand-written lesson for a ${sample.kit.name.toLowerCase()} yet. You can take it apart and learn what each part does, but there are no faults to fix.`}
-          </p>
-          <button type="button" className="btn" data-start onClick={onStart}>Start</button>
-        </>
-      ) : null}
+      <Actions>
+        <button type="button" className="btn" data-start disabled={!finished} onClick={onStart}>Start</button>
+      </Actions>
     </main>
   );
 }

@@ -6,7 +6,7 @@ import { play, useAlive } from "./anim.ts";
 import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
 import { assembledFrom, listOf, type Module, type PartMove, presentAfter, type Scene, type Target, vec, type Vec, type Workshop } from "./model.ts";
 import { compose, drawObject, enclosed, extents, placeParts, restCentre } from "./pose.ts";
-import { ExplodeSlider, Header, Viewer } from "./ui.tsx";
+import { Actions, ExplodeSlider, Say, Viewer, Why } from "./ui.tsx";
 
 const FLIGHT_MS = 650;
 /** The piece is spent on the way in; the part appears for the last quarter of the flight and settles. */
@@ -125,37 +125,41 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
 
   const subject = useMemo(() => (landed ? setup.whole(explode) : [...setup.around, ...setup.whole(explode)]), [setup, explode, landed]);
   const names = listOf(module.produces.map((id) => kit.parts.find((q) => q.id === id)?.name ?? id));
-  const object = lesson.objectName.toLowerCase();
+  const piece = module.assemble.piece;
+  const target = module.target.label;
+  const say = placed ? `Built: ${names}.` : warn ? `Tap the ${piece.toLowerCase()} first.` : picked ? `Now tap ${target.toLowerCase()}.` : `Tap the ${piece.toLowerCase()}.`;
 
   return (
     <main className="page" data-stage="assemble">
-      <Header kicker={`Module ${index + 1} · Build the part`} title={module.assemble.title} />
-      <p className="hint">Pick up the piece floating beside the {object} and drop it on the {module.target.label.toLowerCase()}.</p>
-      <Viewer name={lesson.objectName} parts={parts} subject={subject} view={lesson.view} height={400} />
+      <Say
+        kicker={`${module.title} · Build`}
+        found={placed}
+        why={
+          <Why title="Build it">
+            <p className="sheet-lead">{module.assemble.title}</p>
+            {placed ? <p>{module.assemble.built} Pink marks the part this lesson is about.</p> : <p>Tap the floating piece, then the ring on the {lesson.objectName.toLowerCase()} where it goes.</p>}
+          </Why>
+        }
+      >
+        {say}
+      </Say>
+      <Viewer parts={parts} subject={subject} view={lesson.view} />
       <ExplodeSlider value={explode} onChange={setExplode} disabled={flying} />
-      <div className="row steps">
-        <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>
-          <span className="mono">1 · Pick up</span>
-          <strong>{module.assemble.piece}</strong>
-        </button>
-        <button type="button" className="step" data-step="target" data-on={placed ? "" : undefined} disabled={progress !== null} onClick={drop}>
-          <span className="mono">2 · Drop on</span>
-          <strong>{module.target.label}</strong>
-        </button>
-      </div>
-      {warn ? <p className="hint warn">Pick up the {module.assemble.piece.toLowerCase()} first.</p> : null}
-      {placed ? (
-        <>
-          <div className="earned">
-            <span className="mono" style={{ color: COLOR.focus }}>Part built</span>
-            <strong>{names}</strong>
-            <span>{module.assemble.built} Pink marks the part this module is about.</span>
-          </div>
-          <button type="button" className="btn" data-next onClick={onNext}>Next: test and fix</button>
-        </>
-      ) : (
-        <button type="button" className="btn secondary" data-fit disabled={progress !== null} onClick={fly}>Fit it</button>
+      {placed ? null : (
+        <div className="row steps">
+          <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>
+            <span className="mono">1 · Pick up</span>
+            <strong>{piece}</strong>
+          </button>
+          <button type="button" className="step" data-step="target" disabled={progress !== null} onClick={drop}>
+            <span className="mono">2 · Drop on</span>
+            <strong>{target}</strong>
+          </button>
+        </div>
       )}
+      <Actions>
+        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>Next: test it</button>
+      </Actions>
     </main>
   );
 }

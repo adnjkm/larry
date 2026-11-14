@@ -1,12 +1,11 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { formatSlider, initialValues } from "../../src/primitives/library.ts";
-import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { lerp, smooth } from "./ease.ts";
 import { listOf, type Module, type Overlay, passBand, presentAfter, type Run, type Test, type Values, type Verdict, type Workshop } from "./model.ts";
 import { compose, drawObject, enclosed, restCentre } from "./pose.ts";
-import { ExplodeSlider, Header, SliderRow, Viewer } from "./ui.tsx";
+import { Actions, ExplodeSlider, Say, SliderRow, Viewer, Why } from "./ui.tsx";
 
 const CLOSE_MS = 350;
 const ASSEMBLE_MS = 800;
@@ -65,6 +64,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
   const [found, setFound] = useState(earned && !isFinal);
   const [note, setNote] = useState<string | null>(null);
   const [readAhead, setReadAhead] = useState(0);
+  const [last, setLast] = useState<string | null>(null);
   const token = useRef(0);
 
   const setExplode = (v: number) => {
@@ -105,6 +105,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
     const next = { ...outcomesRef.current, [test.id]: run.verdict };
     outcomesRef.current = next;
     setOutcomes(next);
+    setLast(test.id);
     if (!run.verdict.pass) setFails((n) => n + 1);
     if (tests.every((t) => next[t.id]?.pass)) onEarned();
   };
@@ -112,10 +113,10 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
   const tap = (id: string) => {
     setTapped(id);
     if (!module) return;
-    if (fails === 0) return setNote("Run a test first and watch what goes wrong.");
+    if (fails === 0) return setNote("Run a test first. Watch what goes wrong.");
     if (id === module.suspect) {
       setFound(true);
-      return setNote("That is the part at fault. The fix control below is unlocked.");
+      return setNote(null);
     }
     setNote(module.misses[id] ?? module.missDefault);
   };
@@ -128,6 +129,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
     if (!module) return;
     outcomesRef.current = {};
     setOutcomes({});
+    setLast(null);
     onTune({ ...tuning, [module.fault.key]: value });
   };
 
@@ -145,31 +147,43 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
     const o = outcomes[t.id];
     return o ? [{ test: t, verdict: o }] : [];
   });
+  // The line under the tests: the latest failure while any test is failing, else the latest run.
+  const latest = [...lines].reverse().find((l) => !l.verdict.pass && l.test.id === last) ?? lines.find((l) => !l.verdict.pass) ?? lines.find((l) => l.test.id === last);
   const shownParts = kit.parts.filter((p) => world.present.includes(p.id));
-  const object = lesson.objectName.toLowerCase();
+  const nextTitle = (lesson.modules[index + 1]?.title ?? "Piece it together").toLowerCase();
 
-  return (
-    <main className="page" data-stage={mode.kind === "module" ? (mode.earned ? "earned" : "sandbox") : "final"}>
-      <Header kicker={mode.kind === "module" ? `Module ${mode.index + 1} · Test and fix` : "Final · Piece it together"} title={module ? module.need : lesson.final.need} />
-      <Viewer name={lesson.objectName} parts={parts} subject={subject} view={lesson.view} height={420} live={anim?.live} />
-      <ExplodeSlider value={explode} disabled={running !== null} onChange={(v) => { token.current++; setExplode(v); }} />
-      {isFinal && !earned ? (
-        <button type="button" className="btn secondary" data-assemble disabled={closed || running !== null} onClick={assemble}>Assemble</button>
+  const say =
+    isFinal ? (earned ? lesson.final.success : blocked ? "Put it back together, then test it." : "Run every test.")
+    : earned ? `${module!.title}: done.`
+    : found ? module!.task
+    : note ?? (fails > 0 ? "Tap the part that went wrong." : "Run a test. Watch what fails.");
+
+  const sheet = (
+    <Why label={module && !earned ? "Hint" : "Why?"} title={module ? module.title : "Piece it together"}>
+      <p className="sheet-lead">{module ? module.need : lesson.final.need}</p>
+      {earned ? <p>{module ? module.why : `${lesson.final.detail} ${kit.parts.length} parts: ${listOf(kit.parts.map((p) => p.name.toLowerCase()))}.`}</p> : null}
+      {module && !earned ? (
+        <div className="hints" data-guide-hints>
+          {hintsShown === 0 ? <p>Run a test and watch what goes wrong.</p> : null}
+          {hintsShown >= 1 ? <Hint n={1} latest={hintsShown === 1}>{module.hints.observe}</Hint> : null}
+          {hintsShown >= 2 ? <Hint n={2} latest={hintsShown === 2}>{module.hints.principle}</Hint> : null}
+          {hintsShown >= 3 ? (
+            <Hint n={3} latest>
+              {module.hints.direction}
+              <span className="side"><b>Too low</b>{module.hints.low}</span>
+              <span className="side"><b>Too high</b>{module.hints.high}</span>
+              The pink band on the slider marks the values that pass.
+            </Hint>
+          ) : null}
+          {hintsShown < HINT_COUNT ? (
+            <button type="button" className="link" data-next-hint onClick={() => setReadAhead(hintsShown + 1)}>Next hint</button>
+          ) : null}
+          {lines.flatMap(({ verdict }) => (!verdict.pass && verdict.nudge ? [verdict.nudge] : [])).map((n) => <p key={n} className="hintline"><b>!</b>{n}</p>)}
+        </div>
       ) : null}
-
-      <div className="tests">
-        {tests.map((t) => (
-          <button key={t.id} type="button" className="test" data-test={t.id} data-status={status(t)} disabled={running !== null || blocked} onClick={() => void runTest(t)}>
-            <span className="dot" />
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {blocked ? <p className="hint">Pull Explode back to 0, or tap Assemble, before you test it.</p> : null}
-
-      <div className="log" aria-live="polite" data-log>
+      <div className="log" data-log>
         {lines.length === 0 ? (
-          <span className="log-empty">Run a test. The {object} does it, and the result lands here.</span>
+          <span className="log-empty">No tests run yet.</span>
         ) : (
           lines.map(({ test, verdict }) => (
             <div key={test.id} className="log-row" data-result={test.id}>
@@ -179,101 +193,84 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
           ))
         )}
       </div>
-
-      {module && !earned ? (
-        <section className="card" data-guide>
-          <span className="mono">Find the fault</span>
-          {hintsShown === 0 ? <p>Run a test and watch what goes wrong.</p> : null}
-          {hintsShown >= 1 ? <Hint n={1} latest={hintsShown === 1}>{module.hints.observe}</Hint> : null}
-          {hintsShown >= 2 ? <Hint n={2} latest={hintsShown === 2}>{module.hints.principle}</Hint> : null}
-          {hintsShown >= 3 ? (
-            <Hint n={3} latest>
-              {module.hints.direction}
-              <span className="side"><b>Too low</b>{module.hints.low}</span>
-              <span className="side"><b>Too high</b>{module.hints.high}</span>
-              The band on the slider marks the values that pass at your current settings.
-            </Hint>
-          ) : null}
-          {hintsShown < HINT_COUNT ? (
-            <button type="button" className="link" data-next-hint onClick={() => setReadAhead(hintsShown + 1)}>Next hint</button>
-          ) : null}
-          {lines.flatMap(({ verdict }) => (!verdict.pass && verdict.nudge ? [verdict.nudge] : [])).map((n) => <p key={n} className="hintline"><b>!</b>{n}</p>)}
-          <span className="mono">Which part is at fault? Tap it.</span>
-          <div className="pchips">
-            {shownParts.map((p) => (
-              <button key={p.id} type="button" className="pchip" data-part={p.id} data-on={tapped === p.id ? "" : undefined} onClick={() => tap(p.id)}>{p.name}</button>
-            ))}
-          </div>
-          {note ? <p className="note-line" data-note data-found={found ? "" : undefined}>{note}</p> : null}
-        </section>
-      ) : null}
-
-      {module ? (
-        <section className="card fix" data-fix data-locked={found ? undefined : ""}>
-          <span className="mono">Fix · {module.fault.primitive.name}</span>
-          <SliderRow slider={module.fault.slider} value={tuning[module.fault.key] ?? module.fault.start} onChange={tune} disabled={!found || earned} band={band ?? undefined} />
-          {found ? (
-            <div className="readouts" data-readouts>
-              {module.hideLearnReadouts ? null : (
-                <>
-                  <span className="mono">{module.fault.primitive.name}, as in Learn</span>
-                  {module.fault.primitive.readouts(readoutValues(module, tuning)).map((r) => (
-                    <div key={r.label} className="readout">
-                      <span>{r.label}</span>
-                      <span>{r.value}</span>
-                    </div>
-                  ))}
-                </>
-              )}
-              <span className="mono">In the {object}</span>
-              {module.numbers(tuning).map((r) => (
-                <div key={r.label} className="readout" data-number>
+      {module && found ? (
+        <div className="readouts" data-readouts>
+          {module.hideLearnReadouts ? null : (
+            <>
+              <span className="mono">{module.fault.primitive.name}, as in Learn</span>
+              {module.fault.primitive.readouts(readoutValues(module, tuning)).map((r) => (
+                <div key={r.label} className="readout">
                   <span>{r.label}</span>
                   <span>{r.value}</span>
                 </div>
               ))}
-            </div>
-          ) : (
-            <p className="hint">Locked until you find the part at fault.</p>
+            </>
           )}
-          <details className="game" data-game-note>
-            <summary className="mono">Game numbers</summary>
-            <p className="note">{module.gameNote}</p>
-          </details>
-        </section>
-      ) : null}
-
-      {isFinal ? (
-        <div className="log">
-          {lesson.modules.map((m) => (
-            <div key={m.id} className="log-row"><span>{m.title}</span><span>{m.fault.slider.label} {formatSlider(m.fault.slider, tuning[m.fault.key] ?? m.fault.start)}</span></div>
+          <span className="mono">In the {lesson.objectName.toLowerCase()}</span>
+          {module.numbers(tuning).map((r) => (
+            <div key={r.label} className="readout" data-number>
+              <span>{r.label}</span>
+              <span>{r.value}</span>
+            </div>
           ))}
         </div>
       ) : null}
+      {isFinal ? (
+        <div className="readouts">
+          {lesson.modules.map((m) => (
+            <div key={m.id} className="readout"><span>{m.title}</span><span>{m.fault.slider.label} {formatSlider(m.fault.slider, tuning[m.fault.key] ?? m.fault.start)}</span></div>
+          ))}
+        </div>
+      ) : null}
+      {module ? (
+        <details className="game" data-game-note>
+          <summary className="mono">Game numbers</summary>
+          <p className="note">{module.gameNote}</p>
+        </details>
+      ) : null}
+    </Why>
+  );
 
-      {earned && module ? (
-        <>
-          <div className="earned" data-earned>
-            <span className="mono" style={{ color: COLOR.focus }}>Requirement met · part earned</span>
-            <strong>{listOf(module.produces.map((id) => kit.parts.find((p) => p.id === id)?.name ?? id))}</strong>
-            <span>{module.why}</span>
-          </div>
-          <button type="button" className="btn" data-next onClick={onNext}>Next: {(lesson.modules[index + 1]?.title ?? "Piece it together").toLowerCase()}</button>
-        </>
+  return (
+    <main className="page" data-stage={mode.kind === "module" ? (mode.earned ? "earned" : "sandbox") : "final"}>
+      <Say kicker={module ? `${module.title} · Test and fix` : "Piece it together"} why={sheet} note={note !== null && !found} found={found || earned}>{say}</Say>
+      <Viewer parts={parts} subject={subject} view={lesson.view} live={anim?.live} />
+      <ExplodeSlider value={explode} disabled={running !== null} onChange={(v) => { token.current++; setExplode(v); }} />
+      <div className="tests">
+        {tests.map((t) => (
+          <button key={t.id} type="button" className="test" data-test={t.id} data-status={status(t)} disabled={running !== null || blocked} onClick={() => void runTest(t)}>
+            <span className="dot" aria-hidden="true" />
+            {t.label}
+            {status(t) === "idle" ? null : <span className="sr">{status(t) === "pass" ? ", passed" : ", failed"}</span>}
+          </button>
+        ))}
+      </div>
+      <p className="result" data-result-line data-bad={latest && !latest.verdict.pass ? "" : undefined}>{latest ? latest.verdict.line : "\u00a0"}</p>
+      {module && !earned && !found ? (
+        <div className="pchips" data-guide role="group" aria-label="Which part went wrong?">
+          {shownParts.map((p) => (
+            <button key={p.id} type="button" className="pchip" data-part={p.id} data-on={tapped === p.id ? "" : undefined} onClick={() => tap(p.id)}>{p.name}</button>
+          ))}
+        </div>
       ) : null}
-      {isFinal && earned ? (
-        <>
-          <div className="earned" data-earned>
-            <span className="mono" style={{ color: COLOR.focus }}>Every requirement met</span>
-            <strong>{lesson.final.success}</strong>
-            <span>{lesson.final.detail} {kit.parts.length} parts: {listOf(kit.parts.map((p) => p.name.toLowerCase()))}.</span>
-          </div>
-          <div className="row">
-            <button type="button" className="btn secondary" onClick={onNext}>Start over</button>
-            <button type="button" className="btn" onClick={onHome}>Another object</button>
-          </div>
-        </>
+      {module && found ? (
+        <div className="fix" data-fix>
+          <SliderRow slider={module.fault.slider} value={tuning[module.fault.key] ?? module.fault.start} onChange={tune} disabled={earned} band={band ?? undefined} />
+        </div>
       ) : null}
+      {isFinal && !earned ? (
+        <button type="button" className="btn secondary" data-assemble disabled={closed || running !== null} onClick={assemble}>Assemble</button>
+      ) : null}
+      <Actions>
+        {isFinal ? (
+          <>
+            <button type="button" className="btn secondary" data-restart disabled={!earned} onClick={onNext}>Start over</button>
+            <button type="button" className="btn" data-next disabled={!earned} onClick={onHome}>Another object</button>
+          </>
+        ) : (
+          <button type="button" className="btn" data-next disabled={!earned} onClick={onNext}>Next: {nextTitle}</button>
+        )}
+      </Actions>
     </main>
   );
 }

@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Joint, Kit, Part } from "../../shared/kit.ts";
-import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { lerp, smooth } from "./ease.ts";
 import { Learn } from "./Learn.tsx";
 import { JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { EMPTY_SCENE, type Inspect, listOf } from "./model.ts";
 import { drawObject, restCentre } from "./pose.ts";
-import { ExplodeSlider, Header, Shell, type Step, Viewer } from "./ui.tsx";
+import { Actions, ExplodeSlider, Say, Shell, type Step, Viewer, Why } from "./ui.tsx";
 
 type Route = "learn" | "apart" | "jobs" | "final";
 const FIXED: ReadonlySet<Joint> = new Set(["rivet", "glue", "weld", "molded"]);
@@ -18,9 +17,6 @@ export function InspectFlow({ lesson, kit, photo, onHome, onRestart }: { lesson:
   const routes: Route[] = lesson.teach.length > 0 ? ["learn", "apart", "jobs", "final"] : ["apart", "jobs", "final"];
   const [route, setRoute] = useState<Route>(routes[0]!);
   const [done, setDone] = useState<ReadonlySet<Route>>(new Set());
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [route]);
 
   const finish = (r: Route) => {
     setDone((d) => new Set(d).add(r));
@@ -36,39 +32,31 @@ export function InspectFlow({ lesson, kit, photo, onHome, onRestart }: { lesson:
   }));
 
   const movingUnmapped = kit.parts.filter((p) => p.joint && !FIXED.has(p.joint) && JOINT_PRIMITIVE[p.joint] === null);
-  const name = kit.name.toLowerCase();
   let body;
   if (route === "learn") {
     body = (
       <Learn
         key="learn"
         list={lesson.teach.map((t) => t.primitive)}
-        kicker="Inspect · Learn"
-        title={`What holds the ${name} together and lets it move.`}
-        hint={lesson.teach.length > 1 ? "Its joints work as these mechanisms, one tab each. Play with each one." : "Its joints work as this mechanism. Play with it. Every slider is live."}
+        kicker="Learn"
         next="Next: take it apart"
+        view={lesson.view}
+        inObject={(p) => {
+          const t = lesson.teach.find((q) => q.primitive === p)!;
+          return { line: t.parts[0]!.role, parts: drawWhole(kit, 0, new Set(t.parts.map((q) => q.id))) };
+        }}
         onNext={() => finish("learn")}
-      >
-        <div className="card" data-mechanisms>
-          {lesson.teach.map((t) => (
-            <div key={t.primitive.id} className="log-row">
-              <span>{t.primitive.name}</span>
-              <span>{t.parts.map((p) => p.name).join(", ")} · {t.joints.join(", ")}</span>
-            </div>
-          ))}
-          {movingUnmapped.length > 0 ? <p className="note">{plainSlide(movingUnmapped)}</p> : null}
-        </div>
-      </Learn>
+      />
     );
   } else if (route === "apart") {
-    body = <Apart key="apart" lesson={lesson} kit={kit} note={lesson.teach.length === 0 ? structureNote(kit, movingUnmapped) : null} onNext={() => finish("apart")} />;
+    body = <Apart key="apart" lesson={lesson} kit={kit} note={lesson.teach.length === 0 ? structureNote(kit, movingUnmapped) : null} slide={lesson.teach.length > 0 && movingUnmapped.length > 0 ? plainSlide(movingUnmapped) : null} onNext={() => finish("apart")} />;
   } else if (route === "jobs") {
     body = <Jobs key="jobs" lesson={lesson} kit={kit} onNext={() => finish("jobs")} />;
   } else {
     body = <Together key="final" lesson={lesson} kit={kit} done={done.has("final")} onDone={() => setDone((d) => new Set(d).add("final"))} onRestart={onRestart} onHome={onHome} />;
   }
   return (
-    <Shell objectName={kit.name} kind="Inspect" photo={photo} steps={steps} onHome={onHome}>
+    <Shell objectName={kit.name} photo={photo} steps={steps} onHome={onHome}>
       {body}
     </Shell>
   );
@@ -86,13 +74,15 @@ function structureNote(kit: Kit, movingUnmapped: readonly Part[]): string {
 }
 
 /** The object with every part present, drawn the same way on each Inspect page. */
+function drawWhole(kit: Kit, explode: number, pink: ReadonlySet<string>): Part[] {
+  const present = kit.parts.map((p) => p.id);
+  return drawObject({ kit, present, scene: EMPTY_SCENE, explode, pink, centre: restCentre(kit, present, EMPTY_SCENE) });
+}
+
 function useObject(kit: Kit) {
   return useMemo(() => {
-    const present = kit.parts.map((p) => p.id);
-    const centre = restCentre(kit, present, EMPTY_SCENE);
-    const draw = (explode: number, pink: ReadonlySet<string>) => drawObject({ kit, present, scene: EMPTY_SCENE, explode, pink, centre });
     const none = new Set<string>();
-    return { draw, subject: (explode: number) => draw(explode, none) };
+    return { draw: (explode: number, pink: ReadonlySet<string>) => drawWhole(kit, explode, pink), subject: (explode: number) => drawWhole(kit, explode, none) };
   }, [kit]);
 }
 
@@ -104,7 +94,7 @@ function jointLine(kit: Kit, part: Part): string {
   return `Joined to the ${parent.toLowerCase()} by a ${part.joint} joint. ${how}`;
 }
 
-function Apart({ lesson, kit, note, onNext }: { lesson: Inspect; kit: Kit; note: string | null; onNext: () => void }) {
+function Apart({ lesson, kit, note, slide, onNext }: { lesson: Inspect; kit: Kit; note: string | null; slide: string | null; onNext: () => void }) {
   const object = useObject(kit);
   const [explode, setExplode] = useState(0);
   const [picked, setPicked] = useState<Part | null>(null);
@@ -112,27 +102,29 @@ function Apart({ lesson, kit, note, onNext }: { lesson: Inspect; kit: Kit; note:
   const all = looked.size === kit.parts.length;
   return (
     <main className="page" data-stage="apart">
-      <Header kicker="Inspect · Take it apart" title={`What each part of the ${kit.name.toLowerCase()} does.`} />
-      {note ? <div className="card" data-structure><p>{note}</p></div> : null}
-      <p className="hint">Pull Explode to separate the parts. Tap each part to see its job.</p>
-      <Viewer name={lesson.objectName} parts={object.draw(explode, new Set(picked ? [picked.id] : []))} subject={object.subject(explode)} view={lesson.view} height={400} />
+      <Say
+        kicker={`Take it apart · ${looked.size} of ${kit.parts.length} seen`}
+        note={picked !== null}
+        why={
+          <Why title="Take it apart">
+            {note ? <p className="sheet-lead" data-structure>{note}</p> : null}
+            {slide ? <p>{slide}</p> : null}
+            {picked ? <p data-joint>{jointLine(kit, picked)}</p> : <p>Pull Explode to separate the parts. Tap each part to see its job.</p>}
+          </Why>
+        }
+      >
+        {picked ? <span data-role={picked.id}><b>{picked.name}.</b> {picked.role}</span> : "Tap each part to see its job."}
+      </Say>
+      <Viewer parts={object.draw(explode, new Set(picked ? [picked.id] : []))} subject={object.subject(explode)} view={lesson.view} />
       <ExplodeSlider value={explode} onChange={setExplode} />
       <div className="pchips">
         {kit.parts.map((p) => (
           <button key={p.id} type="button" className="pchip" data-part={p.id} data-on={picked?.id === p.id ? "" : undefined} data-seen={looked.has(p.id) ? "" : undefined} onClick={() => { setPicked(p); setLooked((s) => new Set(s).add(p.id)); }}>{p.name}</button>
         ))}
       </div>
-      {picked ? (
-        <section className="card" data-role={picked.id}>
-          <span className="mono" style={{ color: COLOR.focus }}>{picked.name}</span>
-          <p>{picked.role}</p>
-          <p className="note">{jointLine(kit, picked)}</p>
-        </section>
-      ) : (
-        <p className="log-empty">Tap a part.</p>
-      )}
-      <span className="mono">Looked at {looked.size} of {kit.parts.length} parts</span>
-      <button type="button" className="btn" data-next disabled={!all} onClick={onNext}>{all ? "Next: name the jobs" : "Look at every part first"}</button>
+      <Actions>
+        <button type="button" className="btn" data-next disabled={!all} onClick={onNext}>Next: name the jobs</button>
+      </Actions>
     </main>
   );
 }
@@ -147,23 +139,22 @@ function Jobs({ lesson, kit, onNext }: { lesson: Inspect; kit: Kit; onNext: () =
   const last = at === lesson.prompts.length - 1;
   return (
     <main className="page" data-stage="jobs">
-      <Header kicker={`Inspect · Name the jobs · ${at + 1} of ${lesson.prompts.length}`} title="Which part does this?" />
-      <blockquote className="prompt" data-prompt={prompt.id}>{prompt.role}</blockquote>
-      <Viewer name={lesson.objectName} parts={object.draw(explode, new Set(tapped ? [tapped.id] : []))} subject={object.subject(explode)} view={lesson.view} height={360} />
+      <Say kicker={`Which part does this? · ${at + 1} of ${lesson.prompts.length}`}>
+        <q className="prompt" data-prompt={prompt.id}>{prompt.role}</q>
+      </Say>
+      <Viewer parts={object.draw(explode, new Set(tapped ? [tapped.id] : []))} subject={object.subject(explode)} view={lesson.view} />
       <ExplodeSlider value={explode} onChange={setExplode} />
       <div className="pchips">
         {kit.parts.map((p) => (
           <button key={p.id} type="button" className="pchip" data-part={p.id} data-on={tapped?.id === p.id ? "" : undefined} disabled={right} onClick={() => setTapped(p)}>{p.name}</button>
         ))}
       </div>
-      {tapped ? (
-        <p className="note-line" data-note data-found={right ? "" : undefined}>
-          {right ? `Yes. The ${tapped.name.toLowerCase()}.` : `No. The ${tapped.name.toLowerCase()}: ${tapped.role}`}
-        </p>
-      ) : null}
-      {right ? (
-        <button type="button" className="btn" data-next onClick={() => (last ? onNext() : (setAt(at + 1), setTapped(null)))}>{last ? "Next: piece it together" : "Next job"}</button>
-      ) : null}
+      <p className="result" data-note={tapped ? "" : undefined} data-found={right ? "" : undefined} aria-live="polite">
+        {tapped ? (right ? `Yes. The ${tapped.name.toLowerCase()}.` : `No. That is the ${tapped.name.toLowerCase()}.`) : "\u00a0"}
+      </p>
+      <Actions>
+        <button type="button" className="btn" data-next disabled={!right} onClick={() => (last ? onNext() : (setAt(at + 1), setTapped(null)))}>{last ? "Next: piece it together" : "Next job"}</button>
+      </Actions>
     </main>
   );
 }
@@ -185,29 +176,30 @@ function Together({ lesson, kit, done, onDone, onRestart, onHome }: { lesson: In
     void play(ASSEMBLE_MS, (ms) => setExplode(lerp(from, 0, smooth(ms / ASSEMBLE_MS))), () => alive() && token.current === mine);
   };
   const mechanisms = lesson.teach.map((t) => t.primitive.name.toLowerCase());
+  const name = kit.name.toLowerCase();
   return (
     <main className="page" data-stage="final">
-      <Header kicker="Inspect · Piece it together" title={`Put the ${kit.name.toLowerCase()} back together.`} />
-      <Viewer name={lesson.objectName} parts={object.draw(explode, new Set())} subject={object.subject(explode)} view={lesson.view} height={400} />
-      <ExplodeSlider value={explode} onChange={(v) => { token.current++; setExplode(v); }} />
-      {done ? (
-        <>
-          <div className="earned" data-earned>
-            <span className="mono" style={{ color: COLOR.focus }}>Taken apart and rebuilt</span>
-            <strong>You took apart a {kit.name.toLowerCase()}.</strong>
-            <span>
+      <Say
+        kicker="Piece it together"
+        found={done}
+        why={
+          <Why title="Piece it together">
+            <p>
               {kit.parts.length} parts: {listOf(kit.parts.map((p) => p.name.toLowerCase()))}.{" "}
               {mechanisms.length > 0 ? `Its joints work as ${mechanisms.join(" and ")}.` : "No part of it moves against another."}
-            </span>
-          </div>
-          <div className="row">
-            <button type="button" className="btn secondary" onClick={onRestart}>Start over</button>
-            <button type="button" className="btn" onClick={onHome}>Another object</button>
-          </div>
-        </>
-      ) : (
-        <button type="button" className="btn secondary" data-assemble onClick={assemble}>Assemble</button>
-      )}
+            </p>
+          </Why>
+        }
+      >
+        {done ? `You took apart a ${name}.` : `Put the ${name} back together.`}
+      </Say>
+      <Viewer parts={object.draw(explode, new Set())} subject={object.subject(explode)} view={lesson.view} />
+      <ExplodeSlider value={explode} onChange={(v) => { token.current++; setExplode(v); }} />
+      {done ? null : <button type="button" className="btn secondary" data-assemble onClick={assemble}>Assemble</button>}
+      <Actions>
+        <button type="button" className="btn secondary" disabled={!done} onClick={onRestart}>Start over</button>
+        <button type="button" className="btn" data-next disabled={!done} onClick={onHome}>Another object</button>
+      </Actions>
     </main>
   );
 }

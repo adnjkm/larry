@@ -50,6 +50,9 @@ const shareOf = (kit: Kit, ids: readonly string[]) => {
 };
 /** Long enough for an explode tween and the camera's ease to settle. */
 const SETTLE_MS = 1000;
+/** Every screen fits one phone screen at the main size and the small one, and still reflows at 320 wide. */
+const SCREENS = [{ width: 390, height: 844 }, { width: 375, height: 667 }] as const;
+const NARROW = { width: 320, height: 640 };
 
 function findChromium(): string {
   for (const { dir, executable } of [
@@ -133,23 +136,61 @@ class Run {
     await this.page.screenshot({ path: join(outDir, `${this.name}-${String(this.shots).padStart(2, "0")}-${stage}.png`), fullPage: true });
   }
 
+  /**
+   * The screen as it stands fits the viewport without scrolling, and its pinned action sits wholly in
+   * view, at each size in SCREENS; at 320 wide nothing runs off the side. The page returns to the
+   * main size afterwards.
+   */
+  async fits(label: string) {
+    const measure = () => this.page.evaluate(() => {
+      const el = document.scrollingElement!;
+      const bar = document.querySelector("[data-actions]")?.getBoundingClientRect();
+      return { tall: el.scrollHeight, wide: el.scrollWidth, h: innerHeight, w: innerWidth, bar: bar ? bar.top >= 0 && bar.bottom <= innerHeight + 0.5 && bar.height > 0 : null };
+    });
+    const problems: string[] = [];
+    for (const size of [...SCREENS, NARROW]) {
+      await this.page.setViewportSize(size);
+      await this.page.waitForTimeout(120);
+      const m = await measure();
+      const at = `${size.width}×${size.height}`;
+      if (m.wide > m.w) problems.push(`${at} scrolls sideways (${m.wide} wide)`);
+      if (size !== NARROW && m.tall > m.h) problems.push(`${at} scrolls (${m.tall} tall)`);
+      if (size !== NARROW && m.bar === false) problems.push(`${at} action bar out of view`);
+    }
+    await this.page.setViewportSize(SCREENS[0]);
+    // The camera eases to the restored size; let it land before anything measures the viewer.
+    await this.page.waitForTimeout(SETTLE_MS);
+    this.check(`${label}: one screen, no scroll, action in view`, problems.length === 0, problems.join("; "));
+  }
+
   async stage(stage: string) {
     await this.page.waitForSelector(`[data-stage="${stage}"]`, { timeout: READY });
-    const viewers = await this.page.locator(`[data-stage="${stage}"] [data-kit-viewer]`).count();
-    if (viewers) await this.page.waitForSelector(`[data-stage="${stage}"] [data-kit-viewer][data-ready]`, { timeout: READY });
+    const viewers = await this.page.locator(`[data-stage="${stage}"] .viewer [data-kit-viewer]`).count();
+    if (viewers) await this.page.waitForSelector(`[data-stage="${stage}"] .viewer [data-kit-viewer][data-ready]`, { timeout: READY });
     await this.page.waitForTimeout(300);
     const explode = await this.page.locator(`[data-stage="${stage}"] [data-explode]`).count();
     const drawn = await this.page.locator("img, svg").count();
     // Learn shows a primitive, not the object, so only it may go without Explode.
     this.check(`${stage}: object in the 3D viewer${stage === "learn" ? "" : " with Explode"}, no <img> or <svg>`, viewers === 1 && (stage === "learn" || explode === 1) && drawn === 0, `${viewers} viewers, ${explode} explode, ${drawn} img/svg`);
+    await this.fits(stage);
+  }
+
+  /** Opens the Why sheet, runs `inside`, and closes it again. */
+  async inSheet(inside: () => Promise<void>) {
+    await this.page.click("[data-why]");
+    await this.page.waitForSelector("[data-sheet][open]");
+    await inside();
+    await this.page.click("[data-sheet][open] [data-close]");
   }
 
   async open(sample: string, query: Query, url: string) {
     await this.page.goto(`${url}prototypes/lesson/${query}`, { waitUntil: "networkidle" });
     await this.page.waitForSelector(`[data-sample="${sample}"] canvas[data-ready]`, { timeout: READY });
+    await this.fits("home");
     await this.shot("home");
     await this.page.click(`[data-sample="${sample}"]`);
-    await this.page.waitForSelector("[data-start]", { timeout: 20_000 });
+    await this.page.waitForSelector("[data-start]:not([disabled])", { timeout: 20_000 });
+    await this.fits("scan");
     const listed = await this.page.locator(".parts li").count();
     this.check("scan lists every kit part", listed === KITS[sample]!.parts.length, `${listed} of ${KITS[sample]!.parts.length}`);
     await this.shot("scan");
@@ -166,7 +207,7 @@ class Run {
    */
   async fill(stage: string): Promise<{ fill: number; pink: number; flat: number }> {
     const viewer = this.page.locator(`[data-stage="${stage}"] .viewer`).first();
-    await this.page.addStyleTag({ content: ".viewer .live, .viewer .drag { visibility: hidden !important; } .viewer, .viewer::after { box-shadow: none !important; }" }).then((h) => h.evaluate((el) => (el as Element).setAttribute("data-measure", "")));
+    await this.page.addStyleTag({ content: ".viewer .live, .viewer .drag, .viewer .play { visibility: hidden !important; } .viewer, .viewer::after { box-shadow: none !important; }" }).then((h) => h.evaluate((el) => (el as Element).setAttribute("data-measure", "")));
     const img = decodePng(await viewer.screenshot());
     await this.page.evaluate(() => document.querySelectorAll("[data-measure]").forEach((el) => el.remove()));
     let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
@@ -331,12 +372,13 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
     await r.stage("assemble");
     await r.framed("assemble", `${tag} assemble`);
     await r.shot(`${tag}-assemble`);
-    await r.page.click("[data-fit]");
-    await r.page.waitForSelector('[data-stage="assemble"] [data-next]', { timeout: 10_000 });
+    await r.page.click('[data-step="piece"]');
+    await r.page.click('[data-step="target"]');
+    await r.page.waitForSelector('[data-stage="assemble"] [data-next]:not([disabled])', { timeout: 10_000 });
     await r.page.waitForTimeout(SETTLE_MS);
     await r.framed("assemble", `${tag} built`, true, shareOf(kit, m.produces));
     await r.shot(`${tag}-built`);
-    r.check(`${tag} fit it`, true);
+    await r.fits(`${tag} built`);
     await r.page.click("[data-next]");
 
     await r.stage("sandbox");
@@ -347,7 +389,9 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
     r.check(`${tag} tests fail at the fault`, failing.length > 0 && (await r.page.locator('[data-stage="sandbox"]').count()) === 1, JSON.stringify(before));
     const auto = await r.page.locator("[data-hint]").count();
     r.check(`${tag} each failed run reveals a hint`, auto === Math.min(failing.length, 3), `${auto} hints after ${failing.length} failures`);
-    for (let i = auto; i < 3; i++) await r.page.click("[data-next-hint]");
+    await r.inSheet(async () => {
+      for (let i = auto; i < 3; i++) await r.page.click("[data-next-hint]");
+    });
     r.check(`${tag} Next hint reads ahead to hint 3 after ${failing.length} failures`, (await r.page.locator('[data-hint="3"] .side').count()) === 2 && (await r.page.locator("[data-next-hint]").count()) === 0);
 
     const chips = await r.page.locator("[data-guide] [data-part]").evaluateAll((els) => els.map((e) => e.getAttribute("data-part") ?? ""));
@@ -360,13 +404,17 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
     }
     await r.page.click(`[data-guide] [data-part="${m.suspect}"]`);
     r.check(`${tag} suspect (${m.suspect}) unlocks the fix`, (await r.page.locator("[data-note][data-found]").count()) === 1 && (await r.page.locator(`[data-fix] input[data-slider="${m.fault.slider.id}"]:not([disabled])`).count()) === 1);
+    await r.fits(`${tag} diagnosed`);
     await r.shot(`${tag}-diagnosed`);
-    const note = r.page.locator("[data-fix] [data-game-note]");
-    const closed = (await note.getAttribute("open")) === null && !(await note.locator(".note").isVisible());
-    await note.locator("summary").click();
-    const shown = (await note.getAttribute("open")) !== null && (await note.locator(".note").isVisible()) && (await note.locator(".note").textContent()) === m.gameNote;
-    r.check(`${tag} game numbers start closed and open to the module's note`, closed && shown);
-    await note.locator("summary").click();
+    const note = r.page.locator("[data-sheet] [data-game-note]");
+    await r.inSheet(async () => {
+      const closed = (await note.getAttribute("open")) === null && !(await note.locator(".note").isVisible());
+      await note.locator("summary").click();
+      const shown = (await note.getAttribute("open")) !== null && (await note.locator(".note").isVisible()) && (await note.locator(".note").textContent()) === m.gameNote;
+      r.check(`${tag} game numbers in the Why sheet start closed and open to the module's note`, closed && shown);
+      await r.shot(`${tag}-why`);
+      await note.locator("summary").click();
+    });
 
     const failed: Record<string, string> = {};
     for (const side of ["low", "high"] as const) {
@@ -379,7 +427,7 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
     }
     r.check(`${tag} the two sides fail differently`, failed.low !== failed.high, `${failed.low} | ${failed.high}`);
     r.check(`${tag} third hint names both sides`, (await r.page.locator('[data-hint="3"] .side').count()) === 2);
-    r.check(`${tag} readouts beside the fix`, (await r.page.locator("[data-fix] [data-readouts] [data-number]").count()) > 0);
+    r.check(`${tag} readouts in the Why sheet`, (await r.page.locator("[data-sheet] [data-readouts] [data-number]").count()) > 0);
 
     const mid = midWindow(m.fault.slider, m.fix.window);
     await r.setRange(`[data-fix] input[data-slider="${m.fault.slider.id}"]`, mid);
@@ -400,7 +448,8 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
   await r.page.waitForSelector("[data-assemble][disabled]", { timeout: 10_000 });
   const finalIds = lesson.final.tests.map((t) => t.id);
   const statuses = await r.runTests(finalIds, "final");
-  await r.page.waitForSelector('[data-stage="final"] [data-earned]', { timeout: 5_000 });
+  await r.page.waitForSelector('[data-stage="final"] [data-next]:not([disabled])', { timeout: 5_000 });
+  await r.fits("final earned");
   r.check("final tests pass and the object is earned", finalIds.every((id) => statuses[id] === "pass"), JSON.stringify(statuses));
   await r.shot("final-earned");
 }
@@ -432,6 +481,7 @@ async function playInspect(r: Run, sample: string, query: Query, url: string) {
     if (!role.includes(p.role)) r.check(`tap ${p.id} shows its kit role`, false, role);
   }
   r.check("every part shows its kit role", true);
+  await r.fits("apart, every part seen");
   await r.shot("apart-exploded");
   await r.page.click("[data-next]");
 
@@ -456,7 +506,8 @@ async function playInspect(r: Run, sample: string, query: Query, url: string) {
   await r.framed("final", "final exploded");
   await r.shot("final-exploded");
   await r.page.click("[data-assemble]");
-  await r.page.waitForSelector('[data-stage="final"] [data-earned]', { timeout: 10_000 });
+  await r.page.waitForSelector('[data-stage="final"] [data-next]:not([disabled])', { timeout: 10_000 });
+  await r.fits("final earned");
   await r.page.waitForTimeout(SETTLE_MS);
   await r.framed("final", "pieced together");
   r.check("pieced together", true);

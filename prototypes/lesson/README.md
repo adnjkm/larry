@@ -18,11 +18,19 @@ Open `/prototypes/lesson/` at the address Vite prints. It is built for a phone-s
 
 ## How a lesson runs
 
+Every step is one phone screen with no scrolling: the top bar (back, object, a dot per step, the goal
+photo), one line saying what to do, the 3D viewer filling the rest, the step's controls, and the action
+pinned at the bottom. Everything explanatory (the principle, hints, readouts, game numbers) sits behind
+one **Why?** or **Hint** button that opens a bottom sheet.
+
 Each module meets one requirement ("It must…") in four steps:
 
-1. **Learn**: play with the primitive on its own (lever, spring, thread…). Every slider is live.
-2. **Build**: pick up the piece and drop it on the object. That makes the part.
-3. **Test and fix**: run tests, watch the object fail in 3D, tap the part at fault, then tune it.
+1. **Learn**: play with the primitive on its own (lever, spring, thread…). Every slider is live. Beside
+   it, a small drawing of the object with the part pink and one sentence on what the primitive does in
+   this object (`uses` in the module).
+2. **Build**: tap the piece, then the ring where it goes. That makes the part.
+3. **Test and fix**: run tests, watch the object fail in 3D, tap the part at fault, then tune it with
+   the slider that takes the chips' place (`task` is its instruction, 8 words at most).
    Every fix has a two-sided window: too low fails one test, too high fails another.
 4. **Earned**: the part turns pink and the requirement is ticked.
 

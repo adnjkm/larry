@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
+import type { Primitive } from "../../src/primitives/library.ts";
 import { Assemble } from "./Assemble.tsx";
 import { Learn } from "./Learn.tsx";
-import { faultValues, learnList, type Values, type Workshop } from "./model.ts";
+import { faultValues, learnList, type Module, type Values, type Workshop } from "./model.ts";
+import { drawObject, enclosed, restCentre } from "./pose.ts";
 import { Sandbox } from "./Sandbox.tsx";
 import { Shell, type Step } from "./ui.tsx";
 
@@ -17,11 +19,6 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
   const [tuning, setTuning] = useState<Values>(() => faultValues(lesson));
   const [finalDone, setFinalDone] = useState(false);
 
-  const stageNow = route === "final" ? "final" : stages[modules[route]!.id];
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [route, stageNow]);
-
   const earned = (id: string) => stages[id] === "earned";
   const unlocked = (r: Route) => (r === "final" ? modules.every((m) => earned(m.id)) : modules.slice(0, r).every((m) => earned(m.id)));
   const setStage = (id: string, stage: Stage) => setStages((s) => (s[id] === stage ? s : { ...s, [id]: stage }));
@@ -29,6 +26,15 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
     ...modules.map((m, i): Step => ({ key: String(i), title: m.title, state: earned(m.id) ? "done" : route === i ? "now" : "todo", enabled: unlocked(i), go: () => setRoute(i) })),
     { key: "final", title: "Piece it together", state: finalDone ? "done" : route === "final" ? "now" : "todo", enabled: unlocked("final"), go: () => setRoute("final") },
   ];
+
+  /** The whole object at rest with this module's parts pink, opened up when they sit inside another part. */
+  const inObject = useCallback((m: Module, p: Primitive) => {
+    const present = kit.parts.map((q) => q.id);
+    const scene = lesson.rest({ kit, present });
+    const draw = (explode: number) => drawObject({ kit, present, scene, explode, pink: new Set(m.produces), centre: restCentre(kit, present, scene), apart: lesson.apart });
+    const shut = draw(0);
+    return { line: m.uses[p.id]!, parts: m.produces.some((id) => enclosed(id, shut)) ? draw(0.6) : shut };
+  }, [kit, lesson]);
 
   let body;
   if (route === "final") {
@@ -42,10 +48,10 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
         <Learn
           key={`${module.id}-learn`}
           list={learnList(module)}
-          kicker={`Module ${route + 1} · Learn`}
-          title={module.need}
-          hint={module.teach.length > 1 ? "First the parts it is made of, then the whole. Play with each one." : "Play with it. Every slider is live."}
-          next="Next: build the part"
+          kicker={`${module.title} · Learn`}
+          next="Next: build it"
+          inObject={(p) => inObject(module, p)}
+          view={lesson.view}
           own={{
             primitive: module.fault.primitive.id,
             slider: module.fault.slider.id,
@@ -61,7 +67,7 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
   }
 
   return (
-    <Shell objectName={lesson.objectName} kind="Lesson" photo={photo} steps={steps} onHome={onHome}>
+    <Shell objectName={lesson.objectName} photo={photo} steps={steps} onHome={onHome}>
       {body}
     </Shell>
   );
