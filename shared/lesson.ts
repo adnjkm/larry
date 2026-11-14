@@ -128,6 +128,9 @@ function overLength(where: string, what: keyof typeof WORDS, paragraphs: string[
   return words > WORDS[what].max ? [`${where} ${what} is ${words} words; write about ${WORDS[what].aim}`] : [];
 }
 
+/** Checks that need only the title and hook, so they can be shown before the chapters are written. */
+export const headerProblems = (header: Pick<Lesson, "hook">): string[] => overLength("the lesson", "hook", header.hook);
+
 /** Checks that need only the chapter itself, so a chapter can be shown as soon as it is written. */
 export function chapterProblems(chapter: Chapter, catalog: CatalogEntry[]): string[] {
   const primitives = new Map(catalog.map((p) => [p.id, p]));
@@ -166,7 +169,7 @@ export function lessonProblems(lesson: Lesson, kit: Kit, catalog: CatalogEntry[]
   if (kinds[0] !== "module") problems.push("the first chapter must be a module");
   if (kinds.at(-1) !== "casing") problems.push("the last chapter must be the casing");
   if (kinds.filter((k) => k === "casing").length !== 1) problems.push("there must be exactly one casing chapter");
-  problems.push(...overLength("the lesson", "hook", lesson.hook), ...overLength("the lesson", "closing", lesson.closing));
+  problems.push(...headerProblems(lesson), ...overLength("the lesson", "closing", lesson.closing));
 
   const partIds = new Set(kit.parts.map((p) => p.id));
   const earned = new Map<string, string>();

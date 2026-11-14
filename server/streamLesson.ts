@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Kit } from "../shared/kit.ts";
-import { Chapter, chapterProblems, Lesson, LessonError, type LessonEvent, lessonJsonSchema, lessonProblems, parseLesson, WORDS } from "../shared/lesson.ts";
+import { Chapter, chapterProblems, headerProblems, Lesson, LessonError, type LessonEvent, lessonJsonSchema, lessonProblems, parseLesson, WORDS } from "../shared/lesson.ts";
 import { CATALOG } from "../src/primitives/catalog.ts";
 import { PRIMITIVES, formatSlider, initialValues } from "../src/primitives/library.ts";
 import { type Brain, streamStructured } from "./claude.ts";
@@ -87,8 +87,8 @@ export function keepShown(rewrite: Lesson, header: z.infer<typeof Header> | unde
 }
 
 /**
- * Yields the title and hook, then each chapter as soon as Claude has written it and it passes its
- * own checks, then the whole checked lesson. Chapters stop streaming at the first one that fails.
+ * Yields the title and hook, then each chapter, as soon as each is written and passes its own checks,
+ * then the whole checked lesson. Chapters stop streaming at the first one that fails.
  * If the finished lesson breaks a rule, Claude rewrites it once: the rewrite keeps the chapters
  * already shown, streams the ones after them, and `done` carries the whole.
  */
@@ -112,7 +112,7 @@ export async function* streamLesson(kit: Kit, brain: Brain = LESSON_BRAIN, onSta
         costUsd += event.costUsd;
       } else if (event.type === "header") {
         const parsed = Header.safeParse(event.value);
-        if (parsed.success && !header) {
+        if (parsed.success && !header && headerProblems(parsed.data).length === 0) {
           header = parsed.data;
           yield { type: "started", ...header };
         }
@@ -128,18 +128,15 @@ export async function* streamLesson(kit: Kit, brain: Brain = LESSON_BRAIN, onSta
 
     const written = Lesson.safeParse(output);
     if (!written.success) throw new LessonError(`Claude's lesson did not match the schema: ${written.error.message}`);
-    const raw = repairEarns(written.data, kit);
-    const kept = repairEarns(keepShown(raw, header, shown), kit);
-    const best = [kept, raw].find((lesson) => lessonProblems(lesson, kit, CATALOG).length === 0);
-    if (best || attempt === 2) {
-      const lesson = parseLesson(best ?? kept, kit, CATALOG);
+    const lesson = repairEarns(keepShown(written.data, header, shown), kit);
+    const problems = lessonProblems(lesson, kit, CATALOG);
+    if (problems.length === 0 || attempt === 2) {
       onStats?.({ ms: Date.now() - started, firstChapterMs, costUsd, attempts: attempt });
-      yield { type: "done", lesson };
+      yield { type: "done", lesson: parseLesson(lesson, kit, CATALOG) };
       return;
     }
-    const problems = lessonProblems(kept, kit, CATALOG);
     const reader = shown.length > 0 ? `\n\nThe reader has already been shown the title, the hook and the first ${shown.length} chapter(s) below, so they cannot change. Rewrite the lesson with those kept word for word, then fix everything after them.` : "";
-    feedback = `\n\nYour previous lesson broke these rules. Write it again with them fixed, keeping what was good:\n${problems.map((p) => `- ${p}`).join("\n")}${reader}\n\nPrevious lesson:\n${JSON.stringify(kept)}`;
+    feedback = `\n\nYour previous lesson broke these rules. Write it again with them fixed, keeping what was good:\n${problems.map((p) => `- ${p}`).join("\n")}${reader}\n\nPrevious lesson:\n${JSON.stringify(lesson)}`;
   }
 }
 

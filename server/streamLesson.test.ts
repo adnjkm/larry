@@ -66,6 +66,19 @@ test("a rewrite after a broken chapter keeps what was streamed and streams the r
   assert.deepEqual(lesson.chapters.map((c) => c.id), streamed);
 });
 
+test("a hook that runs long is held back, and the rewrite's title and hook are the ones shown", async () => {
+  const rambling = { ...pen, hook: [Array.from({ length: WORDS.hook.max + 1 }, () => "word").join(" ")] };
+  const rewrite = { ...pen, title: "Rewritten" };
+  const items = (lesson: Lesson) => lesson.chapters.map((value): StructuredEvent => ({ type: "item", value }));
+
+  const { events, lesson } = await play(scripted([header(rambling), ...items(rambling), result(rambling)], [header(rewrite), ...items(rewrite), result(rewrite)]));
+
+  const started = events.filter((e) => e.type === "started");
+  assert.deepEqual(started.map((e) => e.title), ["Rewritten"]);
+  assert.equal(lesson.title, "Rewritten");
+  assert.deepEqual(lesson.hook, pen.hook);
+});
+
 const words = (count: number) => Array.from({ length: count }, () => "word").join(" ");
 
 const [firstStep, ...otherSteps] = first.steps;
