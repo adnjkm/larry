@@ -2,14 +2,14 @@
 // Uses the kits already generated for the repo's sample photos, so no Claude call is needed.
 import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { type Kit, parseKit } from "../../shared/kit.ts";
-import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
-import { SYNTHWAVE } from "../../src/primitives/parts.ts";
+import { type Kit, parseKit } from "../../../shared/kit.ts";
+import { KitViewer } from "../../../src/kit3d/KitViewer.tsx";
+import { SYNTHWAVE } from "../../../src/primitives/parts.ts";
 import { ObjectName } from "../games/shared.tsx";
 import { type Module, recipeFor } from "./catalog.ts";
 
-const photoUrls = import.meta.glob<string>("../../fixtures/photos/*.jpg", { eager: true, query: "?url", import: "default" });
-const kitJson = import.meta.glob<unknown>("../../fixtures/kits/*.json", { eager: true, import: "default" });
+const photoUrls = import.meta.glob<string>("../../../fixtures/photos/*.jpg", { eager: true, query: "?url", import: "default" });
+const kitJson = import.meta.glob<unknown>("../../../fixtures/kits/*.json", { eager: true, import: "default" });
 const idOf = (path: string) => path.split("/").pop()!.replace(/\.\w+$/, "");
 
 type Sample = { id: string; photo: string; kit: Kit };
