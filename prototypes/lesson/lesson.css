@@ -51,6 +51,24 @@ html, body { height: 100%; }
 .slider input { position: relative; }
 .slider input:disabled { opacity: 0.35; }
 
+.slider[data-plain] { grid-template-columns: 84px minmax(0, 1fr); }
+
+/* A grip dragged sideways, like rolling a cap under a thumb. The ridges move with the finger; the
+   faint fill says how far it has gone; the word beside it says how it feels. */
+.strip { flex: none; user-select: none; -webkit-user-select: none; display: grid; grid-template-columns: 84px minmax(0, 1fr) 76px; align-items: center; gap: 12px; min-height: 48px; }
+.strip[data-free] { grid-template-columns: 84px minmax(0, 1fr); }
+.grip { position: relative; display: block; height: 44px; border-radius: 12px; overflow: hidden; background-color: var(--soft); background-image: repeating-linear-gradient(90deg, rgba(20, 20, 20, 0.7) 0 3px, transparent 3px 11px); box-shadow: 0 0 0 1px var(--rule) inset; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.grip:active { cursor: grabbing; }
+.grip::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 12%, rgba(255, 255, 255, 0) 88%, rgba(255, 255, 255, 0.85)); pointer-events: none; }
+.grip .amount { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(20, 20, 20, 0.12); pointer-events: none; }
+.grip[aria-disabled] { opacity: 0.35; cursor: default; }
+.grip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.zone { font-size: 15px; font-weight: 600; text-align: right; }
+.zone[data-zone="loose"] { color: var(--graphite); font-weight: 500; }
+[data-why-text] { display: flex; flex-direction: column; gap: 8px; }
+.payoff { flex: none; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 20px; }
+.payoff b { font-weight: 600; }
+
 .steps { flex: none; gap: 8px; }
 .step { flex: 1; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; min-height: 56px; padding: 8px 14px; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--rule) inset; text-align: left; cursor: pointer; transition: transform 150ms ease-out; }
 .step strong { font-size: 16px; }

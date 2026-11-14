@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { initialValues } from "../../src/primitives/library.ts";
 import { COLOR } from "../../src/primitives/parts.ts";
 import { play, useAlive } from "./anim.ts";
 import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
-import { assembledFrom, listOf, type Module, type PartMove, presentAfter, type Scene, type Target, vec, type Vec, type Workshop } from "./model.ts";
+import { assembledFrom, type Built, type Builds, listOf, type PartMove, presentAfter, type Scene, type Target, vec, type Vec } from "./model.ts";
 import { compose, drawObject, enclosed, extents, placeParts, restCentre } from "./pose.ts";
-import { Actions, ExplodeSlider, Say, Viewer, Why } from "./ui.tsx";
+import { Actions, ExplodeSlider, Plain, Say, Viewer, Why } from "./ui.tsx";
 
 const FLIGHT_MS = 650;
 /** The piece is spent on the way in; the part appears for the last quarter of the flight and settles. */
@@ -21,7 +21,7 @@ const MAX_ENLARGE = 2;
 const PIECE_GAP = 10;
 
 /** The focus pieces of the primitives this module assembles, each at its Learn values, side by side along x. */
-function focusPieces(module: Module): Part[] {
+function focusPieces(module: Built): Part[] {
   let x = 0;
   return assembledFrom(module).flatMap((p) => {
     // Drawn matte whatever the primitive's finish, so a rubber pad or a metal coil floats in the same bright pink as the part it becomes.
@@ -36,8 +36,9 @@ function focusPieces(module: Module): Part[] {
 
 const sub = (a: Vec | undefined, b: Vec | undefined) => vec((a?.x ?? 0) - (b?.x ?? 0), (a?.y ?? 0) - (b?.y ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
 
-export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit: Kit; index: number; onNext: () => void }) {
+export function Assemble({ lesson, kit, index, next = "Next: test it", onNext }: { lesson: Builds; kit: Kit; index: number; next?: string; onNext: () => void }) {
   const module = lesson.modules[index]!;
+  const plain = useContext(Plain);
   const alive = useAlive();
   const setup = useMemo(() => {
     const after = presentAfter(lesson, kit, index);
@@ -148,17 +149,17 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
       {placed ? null : (
         <div className="row steps">
           <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>
-            <span className="mono">1 · Pick up</span>
+            <span className="mono">{plain ? "Pick up" : "1 · Pick up"}</span>
             <strong>{piece}</strong>
           </button>
           <button type="button" className="step" data-step="target" disabled={progress !== null} onClick={drop}>
-            <span className="mono">2 · Drop on</span>
+            <span className="mono">{plain ? "Drop on" : "2 · Drop on"}</span>
             <strong>{target}</strong>
           </button>
         </div>
       )}
       <Actions>
-        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>Next: test it</button>
+        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>{next}</button>
       </Actions>
     </main>
   );

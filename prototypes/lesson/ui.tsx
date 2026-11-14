@@ -1,11 +1,11 @@
-import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, type ReactNode, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Part } from "../../shared/kit.ts";
 import { type KitBounds, measureParts } from "../../src/kit3d/buildKit.ts";
 import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "../../src/primitives/library.ts";
 import { SYNTHWAVE } from "../../src/primitives/parts.ts";
 import { Dither } from "./dither.tsx";
-import { DEFAULT_VIEW, type View } from "./model.ts";
+import { DEFAULT_VIEW, type View, type Zone, zoneAt as zoneOf } from "./model.ts";
 import { fitFrame, reuseParts } from "./pose.ts";
 
 /** The camera frame for `subject` in a box, kept as the same object while it does not change, so the camera holds still. */
@@ -64,15 +64,88 @@ export function Inset({ parts, view }: { parts: Part[]; view?: View }) {
   );
 }
 
+/** True inside a lesson that shows no numbers: controls drop their values and step dots their counts. */
+export const Plain = createContext(false);
+
 export function ExplodeSlider({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) {
+  const plain = useContext(Plain);
   return (
-    <label className="slider" data-explode>
+    <label className="slider" data-explode data-plain={plain ? "" : undefined}>
       <span className="mono">Explode</span>
       <span className="track">
         <input type="range" min={0} max={1} step={0.01} value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} />
       </span>
-      <span className="val">{Math.round(value * 100)}%</span>
+      {plain ? null : <span className="val">{Math.round(value * 100)}%</span>}
     </label>
+  );
+}
+
+/** Pixels of drag that carry a strip through its whole travel where it moves freely. */
+const STRIP_PX = 300;
+const KEY_PX = 12;
+
+/**
+ * A grip you drag sideways to do something to the object by hand (twist a cap on). Its ridges move
+ * with the finger, slower where `zones` make it stiff, and the word for the current zone sits beside
+ * it. No numbers: how far it has gone shows as a faint fill.
+ */
+export function Strip(props: { id: string; label: string; value: number; min: number; max: number; zones?: readonly Zone[]; disabled?: boolean; onChange: (v: number) => void }) {
+  const { min, max, zones } = props;
+  const now = useRef(props.value);
+  now.current = props.value;
+  const last = useRef<number | null>(null);
+  const zoneAt = (v: number) => (zones ? zoneOf(zones, v) : undefined);
+  const zone = zoneAt(props.value);
+  const step = (px: number) => {
+    if (props.disabled || px === 0) return;
+    const from = now.current;
+    const next = Math.min(max, Math.max(min, from + (px / STRIP_PX) * (max - min) * (zoneAt(from)?.gain ?? 1)));
+    if (next === from) return;
+    if (zoneAt(next)?.id !== zoneAt(from)?.id) navigator.vibrate?.(12);
+    now.current = next;
+    props.onChange(next);
+  };
+  const share = (props.value - min) / (max - min || 1);
+  return (
+    <div className="strip" data-strip={props.id} data-free={zones ? undefined : ""}>
+      <span className="mono">{props.label}</span>
+      <span
+        className="grip"
+        role="slider"
+        tabIndex={props.disabled ? -1 : 0}
+        aria-label={props.label}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={props.value}
+        aria-valuetext={zone?.word ?? props.label}
+        aria-disabled={props.disabled || undefined}
+        style={{ backgroundPositionX: `${share * STRIP_PX}px` }}
+        onPointerDown={(e) => {
+          if (props.disabled) return;
+          // A drag must turn the cap, not start selecting the words around the grip.
+          e.preventDefault();
+          e.currentTarget.focus();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          last.current = e.clientX;
+        }}
+        onPointerMove={(e) => {
+          if (last.current === null) return;
+          step(e.clientX - last.current);
+          last.current = e.clientX;
+        }}
+        onPointerUp={() => (last.current = null)}
+        onPointerCancel={() => (last.current = null)}
+        onKeyDown={(e) => {
+          const dir = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
+          if (!dir) return;
+          e.preventDefault();
+          step(dir * KEY_PX);
+        }}
+      >
+        <span className="amount" style={{ width: `${share * 100}%` }} />
+      </span>
+      {zone ? <span className="zone" data-zone={zone.id}>{zone.word}</span> : null}
+    </div>
   );
 }
 
@@ -138,6 +211,7 @@ const STATE: Record<Step["state"], string> = { done: "done", now: "you are here"
 
 /** The lesson's top bar: back to the photos, the object, a dot per step, and the scanned photo as the goal. */
 export function Shell({ objectName, photo, steps, onHome, children }: { objectName: string; photo: string; steps: Step[]; onHome: () => void; children: ReactNode }) {
+  const plain = useContext(Plain);
   return (
     <div className="screen">
       <header className="top">
@@ -146,7 +220,7 @@ export function Shell({ objectName, photo, steps, onHome, children }: { objectNa
         <nav className="dots-nav" aria-label="Progress">
           {steps.map((s, i) => (
             <button key={s.key} type="button" className="step-dot" data-state={s.state} data-pill={s.key} disabled={!s.enabled} aria-label={`${i + 1}. ${s.title}, ${STATE[s.state]}`} aria-current={s.state === "now" ? "step" : undefined} onClick={s.go}>
-              <span aria-hidden="true">{s.state === "done" ? "✓" : i + 1}</span>
+              <span aria-hidden="true">{s.state === "done" ? "✓" : plain ? "" : i + 1}</span>
             </button>
           ))}
         </nav>

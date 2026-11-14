@@ -36,6 +36,20 @@ Each module meets one requirement ("It must…") in four steps:
 
 The final module, **Piece it together**, runs every test at once.
 
+### Story lessons (the water bottle)
+
+A story lesson (`defineStory`, `Story.tsx`, `Play.tsx`) teaches the same parts with no numbers anywhere:
+no units, counts, percentages or slider values on any screen or sheet. Each module runs:
+
+1. **Without it**: the object without this part fails in 3D (the cap shakes off, the neck drips).
+2. **Learn**: the primitive with word-only grips ("Twist", "Squeeze") and a Why sheet in plain words.
+3. **Build**: as above.
+4. **Make it work**: drag the grip to twist the cap on. The word beside it (Loose, Snug, Too tight)
+   comes from the same zones the tests read, and the grip gets stiffer as it tightens.
+
+The final screen runs every test and names each part's job. `defineStory` refuses any copy with a
+digit, and `verify.ts` checks that no digit shows on any screen. Only the bottle uses it so far.
+
 Which lesson an object gets: a hand-written lesson if one matches, otherwise one generated from the
 kit's joints and words, otherwise Inspect (take it apart and name each part's job).
 
@@ -46,12 +60,13 @@ kit's joints and words, otherwise Inspect (take it apart and name each part's jo
 | `model.ts` | The lesson as data: Workshop, Inspect, modules, tests, verdicts |
 | `pose.ts` | Turns a kit plus part moves and Explode into what the viewer draws |
 | `samples.ts` | The 8 sample photos and their kits, from `fixtures/` |
-| `lessons/` | Hand-written lessons (`pen`, `stapler`, `bottle`) and the Inspect lesson |
+| `lessons/` | Hand-written lessons (`pen`, `stapler`, and `bottle` as a story) and the Inspect lesson |
 | `templates/` | One template per mechanism, used to build a lesson for any kit |
 | `templates/evidence.ts` | Which template a part gets, from the kit's own words first and its joint second |
 | `App.tsx`, `main.tsx` | Picks the lesson for a sample and mounts the app |
 | `Home.tsx` | Sample picker and scan screen |
 | `Workshop.tsx`, `Learn.tsx`, `Assemble.tsx`, `Sandbox.tsx` | The module steps above |
+| `Story.tsx`, `Play.tsx` | The story lesson's flow and its test screens (without it, make it work, final) |
 | `Inspect.tsx` | The take-apart lesson |
 | `ui.tsx`, `dither.tsx`, `anim.ts`, `ease.ts` | Shared UI, the dithered photo, animation helpers |
 | `base.css`, `lesson.css` | Styles |

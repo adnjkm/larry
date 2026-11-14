@@ -1,10 +1,8 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
-import type { Primitive } from "../../src/primitives/library.ts";
 import { Assemble } from "./Assemble.tsx";
-import { Learn } from "./Learn.tsx";
-import { faultValues, learnList, type Module, type Values, type Workshop } from "./model.ts";
-import { drawObject, enclosed, restCentre } from "./pose.ts";
+import { Learn, objectFor } from "./Learn.tsx";
+import { faultValues, learnList, type Values, type Workshop } from "./model.ts";
 import { Sandbox } from "./Sandbox.tsx";
 import { Shell, type Step } from "./ui.tsx";
 
@@ -27,15 +25,6 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
     { key: "final", title: "Piece it together", state: finalDone ? "done" : route === "final" ? "now" : "todo", enabled: unlocked("final"), go: () => setRoute("final") },
   ];
 
-  /** The whole object at rest with this module's parts pink, opened up when they sit inside another part. */
-  const inObject = useCallback((m: Module, p: Primitive) => {
-    const present = kit.parts.map((q) => q.id);
-    const scene = lesson.rest({ kit, present });
-    const draw = (explode: number) => drawObject({ kit, present, scene, explode, pink: new Set(m.produces), centre: restCentre(kit, present, scene), apart: lesson.apart });
-    const shut = draw(0);
-    return { line: m.uses[p.id]!, parts: m.produces.some((id) => enclosed(id, shut)) ? draw(0.6) : shut };
-  }, [kit, lesson]);
-
   let body;
   if (route === "final") {
     body = <Sandbox key="final" lesson={lesson} kit={kit} mode={{ kind: "final", done: finalDone }} tuning={tuning} onTune={setTuning} onEarned={() => setFinalDone(true)} onNext={onRestart} onHome={onHome} />;
@@ -50,7 +39,7 @@ export function WorkshopFlow({ lesson, kit, photo, onHome, onRestart }: { lesson
           list={learnList(module)}
           kicker={`${module.title} · Learn`}
           next="Next: build it"
-          inObject={(p) => inObject(module, p)}
+          inObject={(p) => objectFor(lesson, kit, module, p)}
           view={lesson.view}
           own={{
             primitive: module.fault.primitive.id,

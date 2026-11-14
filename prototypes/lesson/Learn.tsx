@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Part } from "../../shared/kit.ts";
+import type { Kit, Part } from "../../shared/kit.ts";
 import { initialValues, type Primitive, type Readout, type Values } from "../../src/primitives/library.ts";
-import type { View } from "./model.ts";
-import { Actions, Inset, Say, SliderRow, Viewer, Why } from "./ui.tsx";
+import type { Built, Builds, View } from "./model.ts";
+import { drawObject, enclosed, restCentre } from "./pose.ts";
+import { Actions, Inset, Say, SliderRow, Strip, Viewer, Why } from "./ui.tsx";
 
 /** Parts at every combination of slider extremes. The camera fits these once, so it holds still while a slider moves the parts. */
 function framingParts(p: Primitive): Part[] {
@@ -23,8 +24,21 @@ export type Own = { primitive: string; slider: string; object: string; numbers: 
 /** What a primitive does in this object, in one sentence, and the object drawn with those parts pink. */
 export type InObject = { line: string; parts: Part[] };
 
+/** The whole object at rest with this module's parts pink, opened up when they sit inside another part. */
+export function objectFor(lesson: Builds, kit: Kit, m: Built & { uses: Readonly<Record<string, string>> }, p: Primitive): InObject {
+  const present = kit.parts.map((q) => q.id);
+  const scene = lesson.rest({ kit, present });
+  const draw = (explode: number) => drawObject({ kit, present, scene, explode, pink: new Set(m.produces), centre: restCentre(kit, present, scene), apart: lesson.apart });
+  const shut = draw(0);
+  return { line: m.uses[p.id]!, parts: m.produces.some((id) => enclosed(id, shut)) ? draw(0.6) : shut };
+}
+
+/** Learn in words only: the instruction, and per primitive why it matters, in place of its numbers. Its sliders become grips with no values. */
+export type Words = { say: string; why: (p: Primitive) => readonly string[] };
+
 type Props = {
   list: readonly Primitive[];
+  words?: Words;
   kicker: string;
   next: string;
   own?: Own;
@@ -34,7 +48,7 @@ type Props = {
 };
 
 /** One tab per primitive, each a live figure with its sliders, beside a small drawing of where it sits in the object. */
-export function Learn({ list, kicker, next, own, inObject, view, onNext }: Props) {
+export function Learn({ list, words, kicker, next, own, inObject, view, onNext }: Props) {
   const [tab, setTab] = useState(0);
   const [values, setValues] = useState<Record<string, Values>>(() => Object.fromEntries(list.map((p) => [p.id, initialValues(p)])));
   const [playing, setPlaying] = useState(false);
@@ -65,6 +79,11 @@ export function Learn({ list, kicker, next, own, inObject, view, onNext }: Props
       <Say
         kicker={kicker}
         why={
+          words ? (
+            <Why title={p.name}>
+              {words.why(p).map((line, i) => <p key={line} className={i === 0 ? "sheet-lead" : undefined}>{line}</p>)}
+            </Why>
+          ) : (
           <Why title={p.name}>
             <p className="sheet-lead">{p.job}</p>
             <p>{p.howItWorks}</p>
@@ -91,9 +110,10 @@ export function Learn({ list, kicker, next, own, inObject, view, onNext }: Props
               </div>
             )}
           </Why>
+          )
         }
       >
-        Slide to see how it works.
+        {words ? words.say : "Slide to see how it works."}
       </Say>
       {list.length > 1 ? (
         <div className="tabs" role="tablist">
@@ -112,17 +132,16 @@ export function Learn({ list, kicker, next, own, inObject, view, onNext }: Props
         <p><b>{p.name}.</b> {here.line}</p>
       </section>
       <div className="sliders">
-        {p.sliders.map((s) => (
-          <SliderRow
-            key={s.id}
-            slider={s}
-            value={v[s.id] ?? s.initial}
-            onChange={(n) => {
-              setPlaying(false);
-              setValues((all) => ({ ...all, [p.id]: { ...all[p.id]!, [s.id]: n } }));
-            }}
-          />
-        ))}
+        {p.sliders.map((s) => {
+          const change = (n: number) => {
+            setPlaying(false);
+            setValues((all) => ({ ...all, [p.id]: { ...all[p.id]!, [s.id]: n } }));
+          };
+          const value = v[s.id] ?? s.initial;
+          return words
+            ? <Strip key={s.id} id={s.id} label={s.label} value={value} min={s.min} max={s.max} onChange={change} />
+            : <SliderRow key={s.id} slider={s} value={value} onChange={change} />;
+        })}
       </div>
       <Actions>
         <button type="button" className="btn" data-next onClick={onNext}>{next}</button>
