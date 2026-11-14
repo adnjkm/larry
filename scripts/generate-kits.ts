@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import { type Effort, generateKit } from "../server/generateKit.ts";
+import { type Effort, streamKit } from "../server/generateKit.ts";
+import type { Kit } from "../shared/kit.ts";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -21,9 +22,17 @@ const selected = positionals.length > 0 ? names.filter((n) => positionals.includ
 const results = await Promise.allSettled(
   selected.map(async (name) => {
     const base64 = (await readFile(new URL(`${name}.jpg`, photoDir))).toString("base64");
-    const { kit, ms, costUsd } = await generateKit([{ mediaType: "image/jpeg", base64 }], effort);
+    let kit: Kit | undefined;
+    let timing = "";
+    for await (const event of streamKit([{ mediaType: "image/jpeg", base64 }], effort, (s) => {
+      const firstPart = s.firstPartMs === undefined ? "never" : `${(s.firstPartMs / 1000).toFixed(1)}s`;
+      timing = `first part ${firstPart}, done ${(s.ms / 1000).toFixed(1)}s, $${s.costUsd.toFixed(3)}`;
+    })) {
+      if (event.type === "done") kit = event.kit;
+    }
+    if (!kit) throw new Error("Kit generation ended without a kit");
     await writeFile(new URL(`${name}.json`, kitDir), `${JSON.stringify(kit, null, 2)}\n`);
-    return `${name}: "${kit.name}", ${kit.parts.length} parts, ${(ms / 1000).toFixed(1)}s, $${costUsd.toFixed(3)}`;
+    return `${name}: "${kit.name}", ${kit.parts.length} parts, ${timing}`;
   }),
 );
 

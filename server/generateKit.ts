@@ -1,6 +1,7 @@
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { type Kit, kitJsonSchema, parseKit } from "../shared/kit.ts";
+import { type KitEvent, kitJsonSchema, Part, parseKit } from "../shared/kit.ts";
+import { createKitScanner } from "./kitStream.ts";
 
 export type Photo = { mediaType: "image/jpeg" | "image/png" | "image/webp"; base64: string };
 
@@ -40,9 +41,14 @@ If the photos show several objects, build the one most centred and in focus. All
 
 export type Effort = "low" | "medium" | "high";
 
-export async function generateKit(photos: Photo[], effort: Effort = "low"): Promise<{ kit: Kit; ms: number; costUsd: number }> {
+export type KitStats = { ms: number; firstPartMs: number | undefined; costUsd: number };
+
+/** Yields the header and each part as Claude writes them, then the checked kit. `onStats` fires just before `done`. */
+export async function* streamKit(photos: Photo[], effort: Effort = "low", onStats?: (stats: KitStats) => void): AsyncGenerator<KitEvent> {
   const started = Date.now();
+  let firstPartMs: number | undefined;
   let result: { output: unknown; costUsd: number } | undefined;
+  let scanner = createKitScanner();
 
   for await (const message of query({
     prompt: userMessage(photos),
@@ -51,19 +57,41 @@ export async function generateKit(photos: Photo[], effort: Effort = "low"): Prom
       effort,
       systemPrompt: SYSTEM_PROMPT,
       outputFormat: { type: "json_schema", schema: kitJsonSchema },
+      includePartialMessages: true,
+      // Without this the API holds back a whole top-level value until it is complete, so `parts` would arrive in one burst at the end.
+      env: { ...process.env, CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING: "1" },
       tools: [],
       settingSources: [],
       persistSession: false,
       maxTurns: 5,
     },
   })) {
+    if (message.type === "stream_event") {
+      const { event } = message;
+      // A retry after a schema failure writes the output again from the start.
+      if (event.type === "content_block_start" && event.content_block.type === "tool_use") scanner = createKitScanner();
+      if (event.type !== "content_block_delta" || event.delta.type !== "input_json_delta") continue;
+      for (const scanned of scanner.push(event.delta.partial_json)) {
+        if (scanned.type === "started") {
+          yield scanned;
+          continue;
+        }
+        const part = Part.safeParse(scanned.part);
+        if (!part.success) continue;
+        firstPartMs ??= Date.now() - started;
+        yield { type: "part", part: part.data };
+      }
+      continue;
+    }
     if (message.type !== "result") continue;
     if (message.subtype !== "success") throw new Error(`Kit generation failed: ${message.subtype}`);
     result = { output: message.structured_output, costUsd: message.total_cost_usd };
   }
 
   if (!result) throw new Error("Kit generation ended without a result");
-  return { kit: parseKit(result.output), ms: Date.now() - started, costUsd: result.costUsd };
+  const kit = parseKit(result.output);
+  onStats?.({ ms: Date.now() - started, firstPartMs, costUsd: result.costUsd });
+  yield { type: "done", kit };
 }
 
 async function* userMessage(photos: Photo[]): AsyncGenerator<SDKUserMessage> {

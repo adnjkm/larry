@@ -1,9 +1,9 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { type Group, type Mesh, type OrthographicCamera, PlaneGeometry, Vector3 } from "three";
-import type { Kit } from "../../shared/kit.ts";
-import { buildKit } from "./buildKit.ts";
+import { type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
+import type { Kit, Part } from "../../shared/kit.ts";
+import { type BuiltPart, buildPart, measure } from "./buildKit.ts";
 import { createDitherMaterial, createShadowMaterial } from "./ditherMaterial.ts";
 
 /** The canvas draws this many pixels tall and is scaled up in CSS. */
@@ -11,6 +11,10 @@ const PIXEL_ROWS = 180;
 const MARGIN = 1.12;
 const SPIN_RADIANS_PER_SECOND = 0.5;
 const DRAG_RADIANS_PER_PIXEL = 0.012;
+/** Time constant of the camera easing, so a new fit is about 95% settled after 0.3 s. */
+const FIT_EASE_SECONDS = 0.1;
+
+type Fit = { zoom: number; targetY: number; distance: number };
 
 type KitViewerProps = {
   kit: Kit;
@@ -34,10 +38,36 @@ const styles = stylex.create({
   }),
 });
 
-export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, height = 360 }: KitViewerProps) {
-  const built = useMemo(() => buildKit(kit), [kit]);
-  useEffect(() => () => built.parts.forEach((p) => p.geometry.dispose()), [built]);
+/** Makes one resource per part object and keeps it across rebuilds, disposing it only once its part is gone. */
+function usePerPart<T>(parts: Part[], make: (part: Part) => T, dispose: (item: T) => void): T[] {
+  const cache = useRef(new Map<Part, T>());
+  const items = useMemo(() => parts.map((part) => cache.current.get(part) ?? make(part)), [parts, make]);
+  useEffect(() => {
+    const live = new Map(parts.map((part, i) => [part, items[i] as T]));
+    for (const [part, item] of cache.current) if (!live.has(part)) dispose(item);
+    cache.current = live;
+  }, [parts, items, dispose]);
+  useEffect(() => () => cache.current.forEach(dispose), [dispose]);
+  return items;
+}
 
+const makeMaterial = (part: Part) => createDitherMaterial(part.color, part.finish);
+const disposeMaterial = (material: ShaderMaterial) => material.dispose();
+const disposeGeometry = ({ geometry }: BuiltPart) => geometry.dispose();
+
+function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimuth: number) {
+  const el = (elevation * Math.PI) / 180;
+  const az = (azimuth * Math.PI) / 180;
+  const target = new Vector3(0, fit.targetY, 0);
+  cam.position.copy(target).add(new Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(fit.distance));
+  cam.lookAt(target);
+  cam.near = 0.1;
+  cam.far = fit.distance * 2;
+  cam.zoom = fit.zoom;
+  cam.updateProjectionMatrix();
+}
+
+export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, height = 360 }: KitViewerProps) {
   return (
     <div data-kit-viewer {...stylex.props(styles.box(height))}>
       <Canvas
@@ -49,23 +79,25 @@ export function KitViewer({ kit, spin = false, elevation = 20, azimuth = 30, hei
         camera={{ position: [0, 0, 100], near: 0.1, far: 10000 }}
       >
         <color attach="background" args={["#FFFFFF"]} />
-        <Scene built={built} spin={spin} elevation={elevation} azimuth={azimuth} />
+        <Scene parts={kit.parts} spin={spin} elevation={elevation} azimuth={azimuth} />
       </Canvas>
     </div>
   );
 }
 
-function Scene({ built, spin, elevation, azimuth }: { built: ReturnType<typeof buildKit>; spin: boolean; elevation: number; azimuth: number }) {
+function Scene({ parts, spin, elevation, azimuth }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number }) {
   const { camera, size, gl, invalidate } = useThree();
-  const { bounds } = built;
+  const built = usePerPart(parts, buildPart, disposeGeometry);
+  const bounds = useMemo(() => measure(built), [built]);
   const pivot = useRef<Group>(null);
   const shadow = useRef<Mesh>(null);
   const yaw = useRef(0);
   const dragging = useRef(false);
   const framesDrawn = useRef(0);
+  const fit = useRef<Fit>(undefined);
+  const fitGoal = useRef<Fit>(undefined);
 
-  const materials = useMemo(() => built.parts.map(({ part }) => createDitherMaterial(part.color, part.finish)), [built]);
-  useEffect(() => () => materials.forEach((m) => m.dispose()), [materials]);
+  const materials = usePerPart(parts, makeMaterial, disposeMaterial);
 
   const shadowGeometry = useMemo(() => new PlaneGeometry(2, 2).rotateX(-Math.PI / 2), []);
   const shadowMaterial = useMemo(createShadowMaterial, []);
@@ -84,21 +116,18 @@ function Scene({ built, spin, elevation, azimuth }: { built: ReturnType<typeof b
   const shadowReach = sideways + Math.max(shadowRadius.x, shadowRadius.z);
 
   useLayoutEffect(() => {
-    const cam = camera as OrthographicCamera;
     const el = (elevation * Math.PI) / 180;
-    const az = (azimuth * Math.PI) / 180;
-    const target = new Vector3(0, (bounds.minY + bounds.maxY) / 2, 0);
     const height = bounds.maxY - bounds.minY;
-    const distance = 2 * (bounds.radius + height) + 100;
-    cam.position.copy(target).add(new Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(distance));
-    cam.lookAt(target);
-    cam.near = 0.1;
-    cam.far = distance * 2;
-
     const halfWide = Math.max(bounds.radius, shadowReach * 0.85);
     const halfTall = (height / 2) * Math.cos(el) + bounds.radius * Math.sin(el);
-    cam.zoom = Math.min(size.width / (2 * halfWide * MARGIN), size.height / (2 * halfTall * MARGIN));
-    cam.updateProjectionMatrix();
+    fitGoal.current = {
+      zoom: Math.min(size.width / (2 * halfWide * MARGIN), size.height / (2 * halfTall * MARGIN)),
+      targetY: (bounds.minY + bounds.maxY) / 2,
+      distance: 2 * (bounds.radius + height) + 100,
+    };
+    // The first fit snaps so a static viewer is right on its first frame. Later fits are eased in useFrame.
+    fit.current ??= { ...fitGoal.current };
+    placeCamera(camera as OrthographicCamera, fit.current, elevation, azimuth);
     invalidate();
   }, [camera, size, bounds, shadowReach, elevation, azimuth, invalidate]);
 
@@ -135,6 +164,24 @@ function Scene({ built, spin, elevation, azimuth }: { built: ReturnType<typeof b
   }, [gl, invalidate]);
 
   useFrame((_, delta) => {
+    const current = fit.current;
+    const goal = fitGoal.current;
+    if (current && goal) {
+      const k = 1 - Math.exp(-delta / FIT_EASE_SECONDS);
+      let moving = false;
+      for (const key of ["zoom", "targetY", "distance"] as const) {
+        const gap = goal[key] - current[key];
+        if (Math.abs(gap) < 1e-3 * Math.max(1, Math.abs(goal[key]))) current[key] = goal[key];
+        else {
+          current[key] += gap * k;
+          moving = true;
+        }
+      }
+      if (moving) {
+        placeCamera(camera as OrthographicCamera, current, elevation, azimuth);
+        invalidate();
+      }
+    }
     if (spin && !dragging.current) yaw.current += delta * SPIN_RADIANS_PER_SECOND;
     if (pivot.current) pivot.current.rotation.y = yaw.current;
     if (shadow.current) shadow.current.rotation.y = yaw.current;
@@ -156,7 +203,7 @@ function Scene({ built, spin, elevation, azimuth }: { built: ReturnType<typeof b
       <mesh ref={shadow} geometry={shadowGeometry} material={shadowMaterial} position={shadowPosition} scale={[shadowRadius.x, 1, shadowRadius.z]} renderOrder={-1} />
       <group ref={pivot}>
         <group position={[-bounds.centerX, 0, -bounds.centerZ]}>
-          {built.parts.map(({ part, geometry, rotation }, i) => (
+          {built.map(({ part, geometry, rotation }, i) => (
             <mesh key={part.id} geometry={geometry} material={materials[i]} position={[part.position.x, part.position.y, part.position.z]} rotation={rotation} />
           ))}
         </group>

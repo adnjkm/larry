@@ -81,6 +81,14 @@ export const Kit = z.object({
 });
 export type Kit = z.infer<typeof Kit>;
 
+export const KitEvent = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("started"), name: z.string(), summary: z.string() }),
+  z.object({ type: z.literal("part"), part: Part }),
+  z.object({ type: z.literal("done"), kit: Kit }),
+  z.object({ type: z.literal("failed"), message: z.string() }),
+]);
+export type KitEvent = z.infer<typeof KitEvent>;
+
 const { $schema: _dialect, ...kitSchemaBody } = z.toJSONSchema(Kit);
 export const kitJsonSchema: Record<string, unknown> = kitSchemaBody;
 

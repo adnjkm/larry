@@ -1,15 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
-import type { Kit } from "../shared/kit.ts";
+import type { Kit, KitEvent, Part } from "../shared/kit.ts";
 import { CapturePicker } from "./capture/CapturePicker.tsx";
 import { preparePhoto } from "./capture/preparePhoto.ts";
 import { requestKit } from "./capture/requestKit.ts";
 import { KitViewer } from "./kit3d/KitViewer.tsx";
 import { colors, fonts } from "./tokens.stylex.ts";
 
+type Header = { name: string; summary: string };
+
+type Generating = { phase: "generating"; first: Blob; header?: Header; parts: Part[] };
+
 type State =
   | { phase: "capture" }
-  | { phase: "generating"; first: Blob }
+  | Generating
   | { phase: "viewing"; kit: Kit }
   | { phase: "failed"; message: string; retry: () => void };
 
@@ -49,41 +53,62 @@ const styles = stylex.create({
   primary: { backgroundColor: colors.orange },
 });
 
+function addEvent(state: Generating, event: Extract<KitEvent, { type: "started" | "part" }>): Generating {
+  if (event.type === "started") return { ...state, header: { name: event.name, summary: event.summary } };
+  // A schema retry on the server can send a part again, so a repeated id replaces the earlier copy.
+  const at = state.parts.findIndex((p) => p.id === event.part.id);
+  return { ...state, parts: at < 0 ? [...state.parts, event.part] : state.parts.with(at, event.part) };
+}
+
 export function App() {
   const [state, setState] = useState<State>({ phase: "capture" });
 
   async function generate(files: File[]) {
     const [first] = files;
     if (!first) return;
-    setState({ phase: "generating", first });
+    setState({ phase: "generating", first, parts: [] });
+    const fail = (message: string) => setState({ phase: "failed", message, retry: () => void generate(files) });
     try {
       const photos = await Promise.all(files.map(preparePhoto));
-      setState({ phase: "viewing", kit: await requestKit(photos) });
+      for await (const event of requestKit(photos)) {
+        if (event.type === "done") setState({ phase: "viewing", kit: event.kit });
+        else if (event.type === "failed") fail(event.message);
+        else setState((s) => (s.phase === "generating" ? addEvent(s, event) : s));
+      }
     } catch (error) {
-      setState({ phase: "failed", message: error instanceof Error ? error.message : String(error), retry: () => void generate(files) });
+      fail(error instanceof Error ? error.message : String(error));
     }
   }
 
   const restart = () => setState({ phase: "capture" });
 
+  const view =
+    state.phase === "viewing"
+      ? { header: state.kit, parts: state.kit.parts, done: true }
+      : state.phase === "generating" && state.parts.length > 0
+        ? { header: state.header, parts: state.parts, done: false }
+        : undefined;
+
   return (
     <main {...stylex.props(styles.page)}>
       {state.phase === "capture" && <CapturePicker onPick={(files) => void generate(files)} />}
-      {state.phase === "generating" && <Generating photo={state.first} />}
-      {state.phase === "viewing" && (
+      {state.phase === "generating" && !view && <Generating photo={state.first} />}
+      {view && (
         <>
-          <h1 {...stylex.props(styles.title)}>{state.kit.name}</h1>
-          <p {...stylex.props(styles.summary)}>{state.kit.summary}</p>
-          <KitViewer kit={state.kit} spin />
-          <h2 {...stylex.props(styles.heading)}>{state.kit.parts.length} parts</h2>
+          {view.header && <h1 {...stylex.props(styles.title)}>{view.header.name}</h1>}
+          {view.header && <p {...stylex.props(styles.summary)}>{view.header.summary}</p>}
+          <KitViewer kit={{ name: view.header?.name ?? "", summary: view.header?.summary ?? "", parts: view.parts }} spin />
+          <h2 {...stylex.props(styles.heading)}>{view.parts.length} parts</h2>
           <ul {...stylex.props(styles.parts)}>
-            {state.kit.parts.map((part) => (
+            {view.parts.map((part) => (
               <li key={part.id}>{part.name}</li>
             ))}
           </ul>
-          <button type="button" {...stylex.props(styles.button)} onClick={restart}>
-            Scan something else
-          </button>
+          {view.done && (
+            <button type="button" {...stylex.props(styles.button)} onClick={restart}>
+              Scan something else
+            </button>
+          )}
         </>
       )}
       {state.phase === "failed" && (

@@ -1,5 +1,5 @@
 import { type BufferGeometry, Euler, Matrix4, Quaternion, Vector3 } from "three";
-import type { Kit, Part } from "../../shared/kit.ts";
+import type { Part } from "../../shared/kit.ts";
 import { buildGeometry } from "./geometry.ts";
 
 export type BuiltPart = { part: Part; geometry: BufferGeometry; rotation: Euler };
@@ -16,20 +16,17 @@ export type KitBounds = {
   halfZ: number;
 };
 
-export type BuiltKit = { parts: BuiltPart[]; bounds: KitBounds };
-
 const DEG = Math.PI / 180;
 
-export function buildKit(kit: Kit): BuiltKit {
-  const parts = kit.parts.map((part) => ({
+export function buildPart(part: Part): BuiltPart {
+  return {
     part,
     geometry: buildGeometry(part.shape),
     rotation: new Euler(part.rotation.x * DEG, part.rotation.y * DEG, part.rotation.z * DEG, "XYZ"),
-  }));
-  return { parts, bounds: measure(parts) };
+  };
 }
 
-function measure(parts: BuiltPart[]): KitBounds {
+export function measure(parts: BuiltPart[]): KitBounds {
   const min = new Vector3(Infinity, Infinity, Infinity);
   const max = new Vector3(-Infinity, -Infinity, -Infinity);
   const world: Vector3[] = [];

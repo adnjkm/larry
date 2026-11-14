@@ -11,6 +11,7 @@
     "dev:server": "node --watch --env-file-if-exists=.env server/index.ts",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
+    "test": "node --test",
     "kits": "node --env-file-if-exists=.env scripts/generate-kits.ts",
     "compare": "node scripts/compare.ts"
   },

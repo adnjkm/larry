@@ -1,7 +1,8 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import { KitError } from "../shared/kit.ts";
-import { generateKit, type Photo } from "./generateKit.ts";
+import { stream } from "hono/streaming";
+import { KitError, type KitEvent } from "../shared/kit.ts";
+import { type Photo, streamKit } from "./generateKit.ts";
 
 const MEDIA_TYPES = new Set<Photo["mediaType"]>(["image/jpeg", "image/png", "image/webp"]);
 const MAX_PHOTOS = 4;
@@ -17,14 +18,23 @@ const app = new Hono().post("/api/kits", async (c) => {
     photos.push({ mediaType: file.type as Photo["mediaType"], base64: Buffer.from(await file.arrayBuffer()).toString("base64") });
   }
 
-  try {
-    const { kit, ms, costUsd } = await generateKit(photos);
-    console.log(`kit "${kit.name}" with ${kit.parts.length} parts in ${ms}ms, $${costUsd.toFixed(3)}`);
-    return c.json(kit);
-  } catch (error) {
-    console.error(error);
-    return c.json({ error: error instanceof KitError ? "Larry built an inconsistent kit" : "Larry couldn't build this one" }, 502);
-  }
+  c.header("Content-Type", "application/x-ndjson");
+  return stream(c, async (out) => {
+    const send = (event: KitEvent) => out.writeln(JSON.stringify(event));
+    let timing = "";
+    try {
+      for await (const event of streamKit(photos, undefined, (s) => {
+        timing = `first part ${s.firstPartMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}`;
+      })) {
+        if (out.aborted) break;
+        await send(event);
+        if (event.type === "done") console.log(`kit "${event.kit.name}" with ${event.kit.parts.length} parts, ${timing}`);
+      }
+    } catch (error) {
+      console.error(error);
+      await send({ type: "failed", message: error instanceof KitError ? "Larry built an inconsistent kit" : "Larry couldn't build this one" });
+    }
+  });
 });
 
 export type AppType = typeof app;
