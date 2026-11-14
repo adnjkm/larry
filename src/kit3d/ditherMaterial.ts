@@ -111,9 +111,11 @@ void main() {
 `;
 
 // The base tone sits at shade 0.5, but lit faces shade around 0.7. Darker colours shift further down so a black part stays black and only its highlights go grey.
+// "Dark" is the brightest channel (HSV value), not luminance: saturated pink #ff0087 has luminance 0.25 and was pushed
+// down like a dark grey, so its lit faces dithered toward maroon. For a grey the two measures are the same number.
 function toneBias(rgb: Vector3): number {
-  const luminance = 0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z;
-  return -0.06 - 0.3 * (1 - luminance);
+  const value = Math.max(rgb.x, rgb.y, rgb.z);
+  return -0.06 - 0.3 * (1 - value);
 }
 
 export function createDitherMaterial(color: string, finish: Finish): ShaderMaterial {

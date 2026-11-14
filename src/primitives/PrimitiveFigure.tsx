@@ -1,13 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
-import { type ComponentProps, useEffect, useEffectEvent, useMemo, useRef } from "react";
-import type { Part } from "../../shared/kit.ts";
-import { KitViewer } from "../kit3d/KitViewer.tsx";
+import { type ComponentProps, useEffect, useEffectEvent, useRef } from "react";
 import { chips, layout, notes, type } from "../styles.ts";
 import { colors, fonts } from "../tokens.stylex.ts";
 import { PRIMITIVE_BY_ID } from "./catalog.ts";
-import { framePrimitive } from "./framing.ts";
 import { type Primitive, type Values, formatSlider } from "./library.ts";
-import { COLOR, SYNTHWAVE } from "./parts.ts";
+import { FigureStage, type StageController } from "./stage/FigureStage.tsx";
 
 const FIGURE_HEIGHT = 270;
 
@@ -38,13 +35,6 @@ const styles = stylex.create({
   readout: { display: "flex", justifyContent: "space-between", gap: 12, fontFamily: fonts.mono, fontSize: 13 },
   readoutValue: { textAlign: "right", color: colors.ink },
 });
-
-/** A lesson draws in the app's palette, orange for the piece the step is about and blue for annotations. Synthwave is the library page's. */
-const LESSON_COLOR = new Map<string, string>([
-  [COLOR.focus, colors.accent],
-  [COLOR.accent, colors.blue],
-]);
-const inLessonColors = (parts: Part[]): Part[] => parts.map((part) => ({ ...part, color: LESSON_COLOR.get(part.color) ?? part.color }));
 
 /** The primitives this one is built from, each once. */
 export const madeOfPrimitives = (primitive: Primitive): Primitive[] => [...new Set(primitive.madeOf)].flatMap((id) => PRIMITIVE_BY_ID.get(id) ?? []);
@@ -81,9 +71,9 @@ type FigureProps = {
 };
 
 export function PrimitiveFigure({ primitive, values, onSlider, focus, onCommit, introduce = false, height = FIGURE_HEIGHT, library = false }: FigureProps) {
-  const parts = useMemo(() => (library ? primitive.build(values) : inLessonColors(primitive.build(values))), [primitive, values, library]);
   const sliders = library ? primitive.sliders : primitive.sliders.filter((s) => s.id === focus);
-  const frame = useMemo(() => framePrimitive(primitive), [primitive]);
+  // The figure is posed through its controller; React only renders the text around it.
+  const stage = useRef<StageController>(null);
   const madeOf = madeOfPrimitives(primitive);
 
   return (
@@ -106,7 +96,8 @@ export function PrimitiveFigure({ primitive, values, onSlider, focus, onCommit, 
         </div>
       )}
 
-      <KitViewer parts={parts} frame={frame} elevation={primitive.view.elevation} azimuth={primitive.view.azimuth} height={height} pixelScale={1} shadowStops={library ? SYNTHWAVE : undefined} />
+      {/* A lesson draws in the app's palette (orange for the piece the step is about, blue for annotations); the library page in Synthwave. */}
+      <FigureStage primitive={primitive} values={values} height={height} palette={library ? "library" : "lesson"} controllerRef={stage} />
 
       {onSlider && sliders.length > 0 && (
         <div {...stylex.props(styles.sliders)}>
@@ -121,7 +112,11 @@ export function PrimitiveFigure({ primitive, values, onSlider, focus, onCommit, 
                 max={s.max}
                 step={s.step}
                 value={values[s.id] ?? s.initial}
-                onChange={(e) => onSlider(s.id, Number(e.currentTarget.value))}
+                onChange={(e) => {
+                  const value = Number(e.currentTarget.value);
+                  stage.current?.set({ [s.id]: value });
+                  onSlider(s.id, value);
+                }}
                 {...stylex.props(styles.range, styles.sliderTrack, library ? styles.rangePink : styles.rangeNeutral)}
               />
             </label>
