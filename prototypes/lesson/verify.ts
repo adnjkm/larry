@@ -1,9 +1,10 @@
 // Plays every lesson through the real UI, driven only by the lesson data, and screenshots each stage.
 // Usage: node prototypes/lesson/verify.ts [run ...]
-//   run = a lesson id from lessons/index.ts (e.g. bottle), generated-<sample> for the lesson generated
-//   from that sample's joints, inspect-<sample> for the Inspect lesson derived from its kit, or
-//   templates to check every joint template's rules on every fixture kit's geometry without a browser.
-//   With no runs: all of them. Screenshots go to out/lesson/<run>-<nn>-<stage>.png.
+//   run = a sample id (e.g. bottle) for the lesson that sample opens with (hand-written, name-matched,
+//   generated or Inspect), generated-<sample> for the lesson generated from that sample's joints,
+//   inspect-<sample> for the Inspect lesson derived from its kit, or templates to check every joint
+//   template's rules on every fixture kit's geometry without a browser. With no runs: every sample's
+//   own lesson, templates, and the generated and Inspect lessons each sample does not already open with. Screenshots go to out/lesson/<run>-<nn>-<stage>.png.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -12,7 +13,7 @@ import { chromium, type Page } from "playwright-core";
 import { createServer } from "vite";
 import viteConfig from "../../vite.config.ts";
 import { type Kit, parseKit } from "../../shared/kit.ts";
-import { LESSONS } from "./lessons/index.ts";
+import { lessonFor, LESSONS } from "./lessons/index.ts";
 import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { generatedLesson, TEMPLATES } from "./templates/index.ts";
 import { fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
@@ -97,6 +98,7 @@ function decodePng(png: Buffer): { width: number; height: number; px: (x: number
   return { width, height, px: (x, y) => [out[y * stride + x * channels]!, out[y * stride + x * channels + 1]!, out[y * stride + x * channels + 2]!] };
 }
 
+type Query = "" | "?inspect" | "?generated";
 type Row = { run: string; step: string; ok: boolean; detail: string };
 const rows: Row[] = [];
 
@@ -131,7 +133,7 @@ class Run {
     this.check(`${stage}: object in the 3D viewer${stage === "learn" ? "" : " with Explode"}, no <img> or <svg>`, viewers === 1 && (stage === "learn" || explode === 1) && drawn === 0, `${viewers} viewers, ${explode} explode, ${drawn} img/svg`);
   }
 
-  async open(sample: string, query: "" | "?inspect" | "?generated", url: string) {
+  async open(sample: string, query: Query, url: string) {
     await this.page.goto(`${url}prototypes/lesson/${query}`, { waitUntil: "networkidle" });
     await this.page.waitForSelector(`[data-sample="${sample}"] canvas[data-ready]`, { timeout: READY });
     await this.shot("home");
@@ -256,7 +258,7 @@ function checkRules(r: Run, lesson: Workshop, kit: Kit) {
   r.check(`rules: every reachable tuning (${reachable.length}) passes the final tests`, failing.length === 0, JSON.stringify(failing[0] ?? {}));
 }
 
-async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: "" | "?generated", url: string) {
+async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Query, url: string) {
   const kit = KITS[sample];
   if (!kit) throw new Error(`no fixture kit for ${sample}`);
   checkRules(r, lesson, kit);
@@ -345,11 +347,11 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: "" 
   await r.shot("final-earned");
 }
 
-async function playInspect(r: Run, sample: string, url: string) {
+async function playInspect(r: Run, sample: string, query: Query, url: string) {
   const kit = KITS[sample];
   if (!kit) throw new Error(`no fixture kit ${sample}`);
   const lesson = inspectLesson(kit);
-  await r.open(sample, "?inspect", url);
+  await r.open(sample, query, url);
   if (lesson.teach.length > 0) {
     await r.stage("learn");
     const tabs = await r.page.locator("[data-tab]").count();
@@ -431,9 +433,18 @@ function checkTemplates(r: Run) {
   r.check(`every template keeps the fix rules on every kit's parts (${lessons} lessons, ${checked.length} checks)`, checked.every((row) => row.ok));
 }
 
-const GENERATED = Object.keys(KITS).filter((id) => generatedLesson(KITS[id]!) !== null).map((id) => `generated-${id}`);
+const SAMPLE_IDS = Object.keys(KITS);
+const opensWith = (id: string) => {
+  const lesson = lessonFor(KITS[id]!, id);
+  return lesson.kind === "inspect" ? "inspect" : LESSONS[id] === lesson ? "written" : "generated";
+};
 const wanted = process.argv.slice(2);
-const runs = wanted.length > 0 ? wanted : [...Object.keys(LESSONS), "templates", ...GENERATED, ...Object.keys(KITS).map((id) => `inspect-${id}`)];
+const runs = wanted.length > 0 ? wanted : [
+  ...SAMPLE_IDS,
+  "templates",
+  ...SAMPLE_IDS.filter((id) => opensWith(id) !== "generated" && generatedLesson(KITS[id]!) !== null).map((id) => `generated-${id}`),
+  ...SAMPLE_IDS.filter((id) => opensWith(id) !== "inspect").map((id) => `inspect-${id}`),
+];
 // No file watcher: an edit to any source mid-run would hot-update main.tsx and reload the page, dropping the
 // lesson mid-play. Inline config cannot set watch to null (mergeConfig skips nulls), so the project config is
 // spread in here instead of loaded from its file.
@@ -465,16 +476,16 @@ try {
     });
     const started = Date.now();
     try {
-      const lesson = LESSONS[name];
+      const own = KITS[name] ? lessonFor(KITS[name], name) : undefined;
       const generated = name.startsWith("generated-") ? KITS[name.slice("generated-".length)] : undefined;
-      if (lesson) await playWorkshop(r, lesson, name, "", url);
+      if (own) await (own.kind === "workshop" ? playWorkshop(r, own, name, "", url) : playInspect(r, name, "", url));
       else if (name === "templates") checkTemplates(r);
       else if (generated) {
         const made = generatedLesson(generated, name);
         if (!made) throw new Error(`${name}: no joint in this kit moves, so it has no generated lesson`);
         await playWorkshop(r, made, name.slice("generated-".length), "?generated", url);
-      } else if (name.startsWith("inspect-")) await playInspect(r, name.slice("inspect-".length), url);
-      else throw new Error(`unknown run ${name}: use a lesson id (${Object.keys(LESSONS).join(", ")}), generated-<sample>, inspect-<sample> or templates`);
+      } else if (name.startsWith("inspect-")) await playInspect(r, name.slice("inspect-".length), "?inspect", url);
+      else throw new Error(`unknown run ${name}: use a sample id (${SAMPLE_IDS.join(", ")}), generated-<sample>, inspect-<sample> or templates`);
     } catch (error) {
       if (!rows.some((row) => row.run === name && !row.ok)) rows.push({ run: name, step: "aborted", ok: false, detail: error instanceof Error ? error.message.split("\n")[0]! : String(error) });
       await r.shot("aborted").catch(() => {});

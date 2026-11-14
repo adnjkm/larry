@@ -8,8 +8,17 @@ const idOf = (path: string) => path.split("/").pop()!.replace(/\.\w+$/, "");
 
 export type Sample = { id: string; label: string; photo: string; kit: Kit };
 
-const ORDER = ["pen", "stapler", "bottle", "mug"];
-const LABEL: Record<string, string> = { pen: "Click pen", stapler: "Stapler", bottle: "Water bottle", mug: "Mug" };
+const ORDER = ["pen", "stapler", "bottle", "clothespeg", "jar", "flashlight", "scissors", "mug"];
+const LABEL: Record<string, string> = {
+  pen: "Click pen",
+  stapler: "Stapler",
+  bottle: "Water bottle",
+  clothespeg: "Clothes peg",
+  jar: "Mason jar",
+  flashlight: "Flashlight",
+  scissors: "Scissors",
+  mug: "Mug",
+};
 
 export const SAMPLES: Sample[] = Object.entries(photoUrls)
   .flatMap(([path, photo]) => {
