@@ -20,8 +20,8 @@ type ViewProps<T extends ProblemType> = {
 
 const styles = stylex.create({
   card: { position: "relative", display: "flex", flexDirection: "column", gap: 10, padding: 6, borderRadius: radii.tile, backgroundColor: colors.paper, boxShadow: `0 1px 0 ${colors.hairline}, 0 0 0 1px ${colors.faint}` },
-  cardFail: { backgroundColor: colors.failSoft },
-  cardOk: { backgroundColor: colors.okSoft },
+  cardFail: { boxShadow: `inset 0 0 0 1.5px ${colors.fail}` },
+  cardOk: { boxShadow: `inset 0 0 0 1.5px ${colors.ok}` },
   check: { position: "absolute", top: 8, right: 8, width: 18, height: 18, borderRadius: radii.pill, backgroundColor: colors.ink, color: colors.paper, fontSize: 11, lineHeight: "18px", textAlign: "center" },
   option: {
     boxSizing: "border-box",
@@ -39,8 +39,10 @@ const styles = stylex.create({
     textAlign: "left",
     cursor: "pointer",
     touchAction: "manipulation",
+    userSelect: "none",
+    opacity: { default: 1, ":active": 0.6 },
   },
-  optionName: { fontSize: 13, lineHeight: "16px", fontWeight: 500 },
+  optionName: { fontSize: 16, lineHeight: "22px", fontWeight: 600 },
   optionJob: { fontSize: 14, lineHeight: "19px", color: colors.graphite },
   optionDone: { cursor: "default" },
   cardBody: { display: "flex", flexDirection: "column", gap: 10, padding: "0 8px 8px" },
@@ -72,10 +74,12 @@ function RunView({ problem, state, dispatch, figure }: ViewProps<"run">) {
 
 function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
   const lastFailed = state.tried.findLast((i) => !problem.options[i]?.works);
-  const tries = state.tried.length;
   return (
     <div {...stylex.props(layout.stack)}>
-      <p {...stylex.props(layout.inset, type.story)}>{problem.question}</p>
+      <div {...stylex.props(layout.inset, layout.tight)}>
+        <p {...stylex.props(type.story)}>{problem.question}</p>
+        {state.tried.length === 0 && <p {...stylex.props(type.label)}>Tap one to try it</p>}
+      </div>
       {problem.options.map((option, i) => {
         const primitive = PRIMITIVE_BY_ID.get(option.primitive);
         const tried = state.tried.includes(i);
@@ -97,9 +101,6 @@ function PickView({ problem, state, dispatch, figure }: ViewProps<"pick">) {
           </div>
         );
       })}
-      <p data-attempts {...stylex.props(layout.inset, type.label)}>
-        {tries === 0 ? "Tap one to try it" : `${tries} ${tries === 1 ? "try" : "tries"}`}
-      </p>
       {state.solved && figure}
     </div>
   );
@@ -121,11 +122,6 @@ function TuneView({ problem, state, dispatch, figure }: ViewProps<"tune">) {
       {state.verdict === "below" && <Observation label="Too low" tone="fail">{problem.tooLow}</Observation>}
       {state.verdict === "above" && <Observation label="Too high" tone="fail">{problem.tooHigh}</Observation>}
       {state.verdict === "inside" && <Observation label="Just right" tone="ok">{problem.justRight}</Observation>}
-      {state.attempts > 0 && (
-        <p data-attempts {...stylex.props(layout.inset, type.label)}>
-          {state.attempts} {state.attempts === 1 ? "try" : "tries"}
-        </p>
-      )}
     </div>
   );
 }
