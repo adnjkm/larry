@@ -3,6 +3,7 @@
 import type { Joint, Kit, Part } from "../../../shared/kit.ts";
 import type { Primitive } from "../../../src/primitives/library.ts";
 import { type Inspect, primitiveById } from "../model.ts";
+import { readPart } from "../templates/evidence.ts";
 
 /**
  * Which library primitive a joint is an instance of, or null when it is fixed and does no job a
@@ -24,10 +25,11 @@ export const JOINT_PRIMITIVE: Readonly<Record<Joint, string | null>> = {
   molded: null,
 };
 
+/** Parts teach the primitive their template does (templates/evidence.ts reads the kit's own words before its joint label). */
 export function inspectLesson(kit: Kit): Inspect {
   const groups = new Map<Primitive, { joints: Set<string>; parts: Part[] }>();
   for (const part of kit.parts) {
-    const id = part.joint ? JOINT_PRIMITIVE[part.joint] : null;
+    const id = readPart(kit, part)?.template.primitive;
     if (!id || !part.joint) continue;
     const primitive = primitiveById(id);
     const group = groups.get(primitive) ?? { joints: new Set<string>(), parts: [] };

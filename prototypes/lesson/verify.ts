@@ -12,13 +12,13 @@ import { inflateSync } from "node:zlib";
 import { chromium, type Page } from "playwright-core";
 import { createServer } from "vite";
 import viteConfig from "../../vite.config.ts";
-import { type Kit, parseKit } from "../../shared/kit.ts";
+import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { lessonFor, LESSONS } from "./lessons/index.ts";
 import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
-import { generatedLesson, TEMPLATES } from "./templates/index.ts";
+import { EVIDENCE, generatedLesson, JOINT_TEMPLATES } from "./templates/index.ts";
 import { fixedValues, listOf, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, sliderSteps, type TestCtx, type Values, type Window, type Workshop } from "./model.ts";
 import { restCentre } from "./pose.ts";
-import { SYNTHWAVE } from "../../src/primitives/parts.ts";
+import { COLOR, SYNTHWAVE } from "../../src/primitives/parts.ts";
 
 const root = resolve(import.meta.dirname, "../..");
 const outDir = join(root, "out", "lesson");
@@ -31,6 +31,7 @@ const READY = 90_000;
 const TEST_TIMEOUT = 30_000;
 /** Long enough into a test that the object is mid-move (the flip has turned over and drops are falling). */
 const MID_TEST_MS = 1300;
+const FOCUS = [1, 3, 5].map((i) => parseInt(COLOR.focus.slice(i, i + 2), 16)).join(",");
 const SHADOW = new Set(SYNTHWAVE.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",")));
 /** The object, or the reach of its tests, fills this share of the viewer's width or height. */
 const FILL_LO = 0.75;
@@ -153,30 +154,44 @@ class Run {
    * shadow is dithered in exactly the synthwave stops, so those pixels and near-white ones are skipped;
    * a part's own shading never lands exactly on a stop except the brightest pink.
    */
-  async fill(stage: string): Promise<{ fill: number; pink: number }> {
+  async fill(stage: string): Promise<{ fill: number; pink: number; flat: number }> {
     const viewer = this.page.locator(`[data-stage="${stage}"] .viewer`).first();
     await this.page.addStyleTag({ content: ".viewer .live, .viewer .drag { visibility: hidden !important; } .viewer, .viewer::after { box-shadow: none !important; }" }).then((h) => h.evaluate((el) => (el as Element).setAttribute("data-measure", "")));
     const img = decodePng(await viewer.screenshot());
     await this.page.evaluate(() => document.querySelectorAll("[data-measure]").forEach((el) => el.remove()));
     let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
     let pink = 0;
+    let flat = 0;
     const inset = 6;
+    const edge = (x: number, y: number) => x < 2 || y < 2 || x >= img.width - 2 || y >= img.height - 2;
+    // A flat, evenly lit pink face (a lens seen head on) is drawn only in the brightest stop and grey,
+    // and the shadow uses that stop too. The shadow dithers it with its other stops and white, so a
+    // pixel of that stop with no other stop and no white within two pixels counts as flat pink. Seen
+    // through a clear part the shadow can pass that test, so flat pink only ever proves a piece is shown.
+    const NEAR = [-2, -1, 0, 1, 2];
+    const shadowy = (x: number, y: number) => {
+      const [r, g, b] = img.px(x, y);
+      const key = `${r},${g},${b}`;
+      return (key !== FOCUS && SHADOW.has(key)) || (Math.max(r, g, b) - Math.min(r, g, b) <= 10 && r > 235);
+    };
+    const flatFocus = (x: number, y: number) => img.px(x, y).join(",") === FOCUS && NEAR.every((dy) => NEAR.every((dx) => !shadowy(x + dx, y + dy)));
     for (let y = inset; y < img.height - inset; y++)
       for (let x = inset; x < img.width - inset; x++) {
         const [r, g, b] = img.px(x, y);
+        if (!edge(x, y) && flatFocus(x, y)) flat += 1;
         if ((Math.max(r, g, b) - Math.min(r, g, b) <= 10 && r > 235) || SHADOW.has(`${r},${g},${b}`)) continue;
         if (r > g + 60 && r > b + 20) pink += 1;
         [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
       }
     const fill = x1 < x0 ? 0 : Math.max((x1 - x0 + 1) / (img.width - 2 * inset), (y1 - y0 + 1) / (img.height - 2 * inset));
-    return { fill, pink };
+    return { fill, pink, flat };
   }
 
   /** Checks the object fills a sensible share of the viewer, within `lo`..`hi`. */
   async framed(stage: string, label: string, pinkShown?: boolean) {
-    const { fill: f, pink } = await this.fill(stage);
+    const { fill: f, pink, flat } = await this.fill(stage);
     rows.push({ run: this.name, step: `${label} fills ${Math.round(f * 100)}% of the viewer`, ok: f >= FILL_LO && f <= FILL_HI, detail: `want ${Math.round(FILL_LO * 100)} to ${Math.round(FILL_HI * 100)}%` });
-    if (pinkShown !== undefined) rows.push({ run: this.name, step: `${label} ${pinkShown ? "shows" : "has no"} pink piece`, ok: pinkShown ? pink >= PINK_SEEN : pink < PINK_SEEN, detail: `${pink} pink pixels` });
+    if (pinkShown !== undefined) rows.push({ run: this.name, step: `${label} ${pinkShown ? "shows" : "has no"} pink piece`, ok: pinkShown ? pink + flat >= PINK_SEEN : pink < PINK_SEEN, detail: `${pink} shaded and ${flat} flat pink pixels` });
   }
 
   async setRange(selector: string, value: number) {
@@ -233,24 +248,24 @@ function checkRules(r: Run, lesson: Workshop, kit: Kit) {
     for (const values of reachable) {
       const passing = steps.filter((v) => passesAt(m, values, v, ctx));
       const band = passBand(m, values, ctx);
-      const at = JSON.stringify(Object.fromEntries(lesson.modules.slice(0, i).map((q) => [q.fault.slider.id, values[q.fault.slider.id]])));
+      const at = JSON.stringify(Object.fromEntries(lesson.modules.slice(0, i).map((q) => [q.fault.key, values[q.fault.key]])));
       if (!band) {
         problems.push(`nothing passes at ${at}`);
         continue;
       }
       if (passing.length !== steps.filter((v) => inWindow(v, band)).length) problems.push(`the passing values have a gap at ${at}`);
       if (near(band[0], slider.min) || near(band[1], slider.max)) problems.push(`band ${band.join("..")} reaches the end of the slider at ${at}`);
-      const lines = (v: number) => m.tests.map((t) => t.run({ ...values, [slider.id]: v }, ctx).verdict).filter((x) => !x.pass).map((x) => x.line.replace(/[\d.]+/g, "#"));
+      const lines = (v: number) => m.tests.map((t) => t.run({ ...values, [m.fault.key]: v }, ctx).verdict).filter((x) => !x.pass).map((x) => x.line.replace(/[\d.]+/g, "#"));
       const low = lines(slider.min);
       const high = lines(slider.max);
       if (low.some((l) => high.includes(l))) problems.push(`the same failure on both sides at ${at}: ${low.join(" / ")}`);
-      next.push(...passing.map((v) => ({ ...values, [slider.id]: v })));
+      next.push(...passing.map((v) => ({ ...values, [m.fault.key]: v })));
     }
     const mid = fixedValues(lesson);
     const declared = passBand(m, mid, ctx);
     if (!declared || !near(declared[0], m.fix.window[0]) || !near(declared[1], m.fix.window[1]))
       problems.push(`declared window ${m.fix.window.join("..")} but ${declared?.join("..") ?? "nothing"} passes at the middle tuning`);
-    r.check(`m${i + 1} rules: ${slider.id} fails below and above its window, at ${reachable.length} reachable tunings`, problems.length === 0, problems.slice(0, 3).join("; "));
+    r.check(`m${i + 1} rules: ${m.fault.key} fails below and above its window, at ${reachable.length} reachable tunings`, problems.length === 0, problems.slice(0, 3).join("; "));
     reachable = next;
   }
   const ctx = ctxAt(lesson.modules.length - 1);
@@ -406,19 +421,36 @@ async function playInspect(r: Run, sample: string, query: Query, url: string) {
 }
 
 /**
- * Every template on every kit's geometry: each non-root part in turn gets the template's joint and
- * every other part a fixed one, and the one-module lesson that generates must keep the fix rules.
+ * Every template on every kit's geometry: each non-root part in turn gets the template's joint (or,
+ * for an evidence rule, the joint and words that rule reads) and every other part a fixed joint and
+ * plain words, and the one-module lesson that generates must keep the fix rules.
  */
 function checkTemplates(r: Run) {
-  for (const t of TEMPLATES)
+  for (const t of JOINT_TEMPLATES)
     r.check(`${t.primitive} template teaches what Inspect maps ${t.joints.join(" and ")} to`, t.joints.every((j) => JOINT_PRIMITIVE[j] === t.primitive));
+  const plain = (p: Part, i: number): Part => ({ ...p, name: `Part ${i + 1}`, role: "Part of the object.", joint: p.parentId === null ? null : "molded" });
+  type Variant = { label: string; make: (kit: Kit, child: Part) => Kit };
+  const variants: Variant[] = [
+    ...JOINT_TEMPLATES.map((t): Variant => ({ label: t.primitive, make: (kit, child) => ({ ...kit, summary: "", parts: kit.parts.map((p, i) => (p.id === child.id ? { ...plain(p, i), joint: t.joints[0]! } : plain(p, i))) }) })),
+    ...EVIDENCE.map((e): Variant => ({
+      label: `${e.template.primitive} by evidence (${e.id})`,
+      make: (kit, child) => ({
+        ...kit,
+        summary: "",
+        parts: kit.parts.map((p, i) =>
+          p.id === child.id ? { ...plain(p, i), joint: e.joints === "any" ? "glue" : e.joints[0]!, ...(e.whose === "self" ? { name: e.id === "seal" ? "Rubber seal" : "Pivot" } : {}) }
+          : e.whose === "pin" && p.id === child.parentId ? { ...plain(p, i), name: "Pivot pin" }
+          : plain(p, i)),
+      }),
+    })),
+  ];
   const start = rows.length;
   let lessons = 0;
   for (const [sample, kit] of Object.entries(KITS))
-    for (const t of TEMPLATES)
+    for (const v of variants)
       for (const child of kit.parts.filter((p) => p.parentId !== null)) {
-        const variant: Kit = { ...kit, parts: kit.parts.map((p) => (p.parentId === null ? p : { ...p, joint: p.id === child.id ? t.joints[0]! : "molded" })) };
-        const each = new Run(`templates ${sample} ${t.primitive} ${child.id}`, r.page);
+        const variant = v.make(kit, child);
+        const each = new Run(`templates ${sample} ${v.label} ${child.id}`, r.page);
         try {
           const lesson = generatedLesson(variant, each.name);
           each.check("generates one module", lesson?.modules.length === 1, String(lesson?.modules.length));

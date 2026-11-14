@@ -25,6 +25,8 @@ export type Pair = {
   axis: Axis;
   /** Unit vector along `axis`, pointing away from the parent. */
   out: Vec;
+  /** The pin the child turns on, when the kit's own words say its parent is one (see evidence.ts). */
+  pin: Part | null;
 };
 
 export type Template = {
@@ -40,11 +42,11 @@ const DEG = Math.PI / 180;
 
 export const add = (a: Vec, b: Vec): Vec => vec(a.x + b.x, a.y + b.y, a.z + b.z);
 export const scale = (a: Vec, k: number): Vec => vec(a.x * k, a.y * k, a.z * k);
-const sub = (a: Vec, b: Vec): Vec => add(a, scale(b, -1));
+export const sub = (a: Vec, b: Vec): Vec => add(a, scale(b, -1));
 const dominant = (v: Vec): Axis => AXES.reduce((best, a) => (Math.abs(v[a]) > Math.abs(v[best]) ? a : best), "y");
 
-/** A round part's own axis: its local y, turned as the part is. */
-function latheAxis(p: Part): Vec {
+/** A round part's own axis (a lathe's or a ring's local y), turned as the part is. */
+export function latheAxis(p: Part): Vec {
   const [x, y, z] = [p.rotation.x * DEG, p.rotation.y * DEG, p.rotation.z * DEG];
   // Euler XYZ applied to (0, 1, 0).
   let v = vec(-Math.sin(z), Math.cos(z), 0);
@@ -52,7 +54,7 @@ function latheAxis(p: Part): Vec {
   return vec(v.x, v.y * Math.cos(x) - v.z * Math.sin(x), v.y * Math.sin(x) + v.z * Math.cos(x));
 }
 
-export function pairOf(kit: Kit, child: Part, produces: readonly string[]): Pair {
+export function pairOf(kit: Kit, child: Part, produces: readonly string[], pin: Part | null = null): Pair {
   const parent = kit.parts.find((p) => p.id === child.parentId);
   if (!parent) throw new Error(`${child.id} has no parent part`);
   const box = extents([child]);
@@ -75,6 +77,7 @@ export function pairOf(kit: Kit, child: Part, produces: readonly string[]): Pair
     half: scale(sub(box.max, box.min), 0.5),
     axis,
     out: scale(AXIS[axis], sign),
+    pin,
   };
 }
 

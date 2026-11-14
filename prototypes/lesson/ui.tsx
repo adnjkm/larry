@@ -4,10 +4,9 @@ import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "../../src/primitives/library.ts";
 import { SYNTHWAVE } from "../../src/primitives/parts.ts";
 import { Dither } from "./dither.tsx";
+import { DEFAULT_VIEW, type View } from "./model.ts";
 import { fitFrame, reuseParts } from "./pose.ts";
 
-export type View = { elevation: number; azimuth: number };
-export const DEFAULT_VIEW: View = { elevation: 20, azimuth: 30 };
 
 /**
  * The dither viewer in a card, with a live line over it. Drag to turn it. `subject` is everything

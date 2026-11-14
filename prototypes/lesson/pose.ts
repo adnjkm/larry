@@ -50,17 +50,28 @@ export type Extents = { min: Vec; max: Vec };
 
 const RING = Array.from({ length: 16 }, (_, i) => (i / 16) * 2 * Math.PI);
 
-/** Points that hug each part, turned and placed as the part is: rings for round parts, box corners for the rest. */
+/** A part's own points, centred as the viewer centres its geometry: rings for round parts, the outline for a cut-out, box corners for a box. */
+function localPoints(shape: Shape): Vec[] {
+  const h = halfSize(shape);
+  if (shape.kind === "extrusion") {
+    const xs = shape.outline.map((p) => p.x);
+    const ys = shape.outline.map((p) => p.y);
+    const [cx, cy] = [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2];
+    return [-1, 1].flatMap((sz) => shape.outline.map((p) => vec(p.x - cx, p.y - cy, sz * h.z)));
+  }
+  const round = shape.kind === "lathe" || shape.kind === "torus";
+  const ring: [number, number][] = round ? RING.map((a) => [Math.cos(a) * h.x, Math.sin(a) * h.z]) : [[-h.x, -h.z], [-h.x, h.z], [h.x, -h.z], [h.x, h.z]];
+  return [-1, 1].flatMap((sy) => ring.map(([x, z]) => vec(x, sy * h.y, z)));
+}
+
+/** Points that hug each part, turned and placed as the part is. */
 function corners(parts: readonly Part[]): Vec[] {
   const out: Vec[] = [];
   const corner = new Vector3();
   for (const p of parts) {
-    const h = halfSize(p.shape);
     const m = matrixOf(p);
-    const round = p.shape.kind === "lathe" || p.shape.kind === "torus";
-    const local: [number, number][] = round ? RING.map((a) => [Math.cos(a) * h.x, Math.sin(a) * h.z]) : [[-h.x, -h.z], [-h.x, h.z], [h.x, -h.z], [h.x, h.z]];
-    for (const sy of [-1, 1]) for (const [x, z] of local) {
-      corner.set(x, sy * h.y, z).applyMatrix4(m);
+    for (const l of localPoints(p.shape)) {
+      corner.set(l.x, l.y, l.z).applyMatrix4(m);
       out.push(vec(corner.x, corner.y, corner.z));
     }
   }

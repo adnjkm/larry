@@ -11,7 +11,10 @@ export type Axis = "x" | "y" | "z";
 export const AXIS: Record<Axis, Vec> = { x: vec(1, 0, 0), y: vec(0, 1, 0), z: vec(0, 0, 1) };
 
 export type Window = readonly [number, number];
-/** Tuned values keyed by the fault slider's id. Every module's slider id is unique in its lesson. */
+/** Camera angles in degrees: azimuth 0 looks from +z, 90 from +x. */
+export type View = { elevation: number; azimuth: number };
+export const DEFAULT_VIEW: View = { elevation: 20, azimuth: 30 };
+/** Tuned values keyed by each module's fault key (its slider's id unless the module names another). Keys are unique in a lesson. */
 export type Values = Readonly<Record<string, number>>;
 
 /** A turn about `axis` through `pivot`, both in the kit's frame before any offset is applied. */
@@ -70,7 +73,8 @@ export type Module = {
   target: Target;
   /** Where the produced parts fly in from, relative to where they sit. */
   enter: Vec;
-  fault: { primitive: Primitive; slider: Slider; start: number };
+  /** `key` is where the tuned value lives in Values. */
+  fault: { primitive: Primitive; slider: Slider; start: number; key: string };
   /** Slider values that pass every test, with the other modules at the middle of their windows. Values on both sides of it fail. */
   fix: { window: Window };
   tests: readonly Test[];
@@ -103,6 +107,8 @@ export type Workshop = {
   rest: (ctx: Ctx) => Scene;
   /** Where each part sits when fully exploded, as an offset. Parts left out move away from the main part, further the later they come in the kit. */
   apart?: Readonly<Record<string, Vec>>;
+  /** How the object is seen while it is built and tested; DEFAULT_VIEW when unset. */
+  view?: View;
 };
 
 export type Inspect = {
@@ -120,7 +126,8 @@ export type ModuleSpec = Omit<Module, "teach" | "main" | "fault" | "enter"> & {
   primitive: string;
   /** Primitive ids taught, in order, when the module teaches more than the main primitive's own parts (it must include `primitive`). */
   teach?: readonly string[];
-  fault: { primitive: string; slider: string; start: number };
+  /** `key` defaults to the slider id; set it when two modules tune sliders with the same id (a press-fit's and a seal's squeeze). */
+  fault: { primitive: string; slider: string; start: number; key?: string };
   enter?: Vec;
 };
 export type WorkshopSpec = Omit<Workshop, "kind" | "modules" | "rest"> & { modules: ModuleSpec[]; rest?: Workshop["rest"] };
@@ -145,7 +152,7 @@ const ROOM_STEPS = 2;
 /** Resolves primitive ids and checks the rules a lesson must keep, so a broken lesson fails when it loads rather than mid-game. */
 export function defineLesson(spec: WorkshopSpec): Workshop {
   const problems: string[] = [];
-  const sliderIds = new Set<string>();
+  const keys = new Set<string>();
   const testIds = new Map<string, Test>();
   const track = (t: Test) => {
     const seen = testIds.get(t.id);
@@ -160,8 +167,9 @@ export function defineLesson(spec: WorkshopSpec): Workshop {
     const slider = primitive.sliders.find((s) => s.id === m.fault.slider);
     if (!teach.includes(primitive)) problems.push(`${m.id}: fault primitive ${primitive.id} is not taught in this module`);
     if (!slider) throw new Error(`${spec.id}/${m.id}: ${primitive.id} has no slider ${m.fault.slider}`);
-    if (sliderIds.has(slider.id)) problems.push(`${m.id}: slider id ${slider.id} is tuned by two modules`);
-    sliderIds.add(slider.id);
+    const key = m.fault.key ?? slider.id;
+    if (keys.has(key)) problems.push(`${m.id}: tuning key ${key} is used by two modules`);
+    keys.add(key);
     const [lo, hi] = m.fix.window;
     const room = ROOM_STEPS * slider.step - 1e-9;
     if (!(lo < hi && lo - slider.min >= room && slider.max - hi >= room))
@@ -169,7 +177,7 @@ export function defineLesson(spec: WorkshopSpec): Workshop {
     if (m.fault.start >= lo && m.fault.start <= hi) problems.push(`${m.id}: the fault starts inside the fix window`);
     if (m.tests.length === 0) problems.push(`${m.id}: no tests`);
     m.tests.forEach(track);
-    return { ...m, teach, main, fault: { primitive, slider, start: m.fault.start }, enter: m.enter ?? vec(0, 50, 0) };
+    return { ...m, teach, main, fault: { primitive, slider, start: m.fault.start, key }, enter: m.enter ?? vec(0, 50, 0) };
   });
   spec.final.tests.forEach(track);
   if (problems.length > 0) throw new Error(`lesson ${spec.id}:\n${problems.join("\n")}`);
@@ -197,7 +205,7 @@ export const sliderSteps = (s: Slider): number[] =>
 
 /** Whether every one of the module's tests passes with its slider at `value` and the rest of the tuning as given. */
 export const passesAt = (module: Module, values: Values, value: number, ctx: TestCtx) =>
-  module.tests.every((t) => t.run({ ...values, [module.fault.slider.id]: value }, ctx).verdict.pass);
+  module.tests.every((t) => t.run({ ...values, [module.fault.key]: value }, ctx).verdict.pass);
 
 /** The lowest and highest slider values that pass every test at this tuning, or null when none does. */
 export function passBand(module: Module, values: Values, ctx: TestCtx): Window | null {
@@ -212,6 +220,6 @@ export function passBand(module: Module, values: Values, ctx: TestCtx): Window |
 export const assembledFrom = (m: Module): Primitive[] => [m.main, ...m.teach.filter((p) => p !== m.main && !m.main.madeOf.includes(p.id))];
 
 /** The values every module starts the sandbox with: each at its fault. */
-export const faultValues = (lesson: Workshop): Values => Object.fromEntries(lesson.modules.map((m) => [m.fault.slider.id, m.fault.start]));
+export const faultValues = (lesson: Workshop): Values => Object.fromEntries(lesson.modules.map((m) => [m.fault.key, m.fault.start]));
 /** The values that pass every test: each slider in the middle of its fix window. */
-export const fixedValues = (lesson: Workshop): Values => Object.fromEntries(lesson.modules.map((m) => [m.fault.slider.id, midWindow(m.fault.slider, m.fix.window)]));
+export const fixedValues = (lesson: Workshop): Values => Object.fromEntries(lesson.modules.map((m) => [m.fault.key, midWindow(m.fault.slider, m.fix.window)]));

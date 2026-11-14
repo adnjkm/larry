@@ -127,7 +127,7 @@ export function Assemble({ lesson, kit, index, onNext }: { lesson: Workshop; kit
     <main className="page" data-stage="assemble">
       <Header kicker={`Module ${index + 1} · Build the part`} title={module.assemble.title} />
       <p className="hint">Pick up the piece floating beside the {object} and drop it on the {module.target.label.toLowerCase()}.</p>
-      <Viewer name={lesson.objectName} parts={parts} subject={subject} height={400} />
+      <Viewer name={lesson.objectName} parts={parts} subject={subject} view={lesson.view} height={400} />
       <ExplodeSlider value={explode} onChange={setExplode} disabled={flying} />
       <div className="row steps">
         <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>

@@ -128,7 +128,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
     if (!module) return;
     outcomesRef.current = {};
     setOutcomes({});
-    onTune({ ...tuning, [module.fault.slider.id]: value });
+    onTune({ ...tuning, [module.fault.key]: value });
   };
 
   const pink = new Set(tapped ? [tapped] : mode.kind === "module" && mode.earned ? module!.produces : []);
@@ -150,7 +150,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
   return (
     <main className="page" data-stage={mode.kind === "module" ? (mode.earned ? "earned" : "sandbox") : "final"}>
       <Header kicker={mode.kind === "module" ? `Module ${mode.index + 1} · Test and fix` : "Final · Piece it together"} title={module ? module.need : lesson.final.need} />
-      <Viewer name={lesson.objectName} parts={parts} subject={subject} height={420} live={anim?.live} />
+      <Viewer name={lesson.objectName} parts={parts} subject={subject} view={lesson.view} height={420} live={anim?.live} />
       <ExplodeSlider value={explode} disabled={running !== null} onChange={(v) => { token.current++; setExplode(v); }} />
       {isFinal && !earned ? (
         <button type="button" className="btn secondary" data-assemble disabled={closed || running !== null} onClick={assemble}>Assemble</button>
@@ -210,7 +210,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
       {module ? (
         <section className="card fix" data-fix data-locked={found ? undefined : ""}>
           <span className="mono">Fix · {module.fault.primitive.name}</span>
-          <SliderRow slider={module.fault.slider} value={tuning[module.fault.slider.id] ?? module.fault.start} onChange={tune} disabled={!found || earned} band={band ?? undefined} />
+          <SliderRow slider={module.fault.slider} value={tuning[module.fault.key] ?? module.fault.start} onChange={tune} disabled={!found || earned} band={band ?? undefined} />
           {found ? (
             <div className="readouts" data-readouts>
               <span className="mono">{module.fault.primitive.name}, as in Learn</span>
@@ -241,7 +241,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
       {isFinal ? (
         <div className="log">
           {lesson.modules.map((m) => (
-            <div key={m.id} className="log-row"><span>{m.title}</span><span>{m.fault.slider.label} {formatSlider(m.fault.slider, tuning[m.fault.slider.id] ?? m.fault.start)}</span></div>
+            <div key={m.id} className="log-row"><span>{m.title}</span><span>{m.fault.slider.label} {formatSlider(m.fault.slider, tuning[m.fault.key] ?? m.fault.start)}</span></div>
           ))}
         </div>
       ) : null}
@@ -285,6 +285,6 @@ function Hint({ n, latest, children }: { n: number; latest: boolean; children: R
 }
 
 function readoutValues(module: Module, tuning: Values): Values {
-  const value = tuning[module.fault.slider.id] ?? module.fault.start;
+  const value = tuning[module.fault.key] ?? module.fault.start;
   return { ...initialValues(module.fault.primitive), [module.fault.slider.id]: value, ...module.readoutWith?.(value) };
 }
