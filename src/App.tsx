@@ -1,10 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useState } from "react";
 import type { Kit, KitEvent, Part } from "../shared/kit.ts";
+import type { Lesson } from "../shared/lesson.ts";
 import { CapturePicker } from "./capture/CapturePicker.tsx";
 import { preparePhoto } from "./capture/preparePhoto.ts";
 import { requestKit } from "./capture/requestKit.ts";
 import { KitViewer } from "./kit3d/KitViewer.tsx";
+import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
+import { type LessonLoad, loadDemo, loadLesson } from "./lesson/lessonSource.ts";
+import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
 import { colors, fonts } from "./tokens.stylex.ts";
 
 type Header = { name: string; summary: string };
@@ -13,9 +17,14 @@ type Generating = { phase: "generating"; first: Blob; header?: Header; parts: Pa
 
 type State =
   | { phase: "capture" }
+  | { phase: "loading" }
   | Generating
-  | { phase: "viewing"; kit: Kit }
+  | { phase: "viewing"; kit: Kit; lesson: LessonLoad }
+  | { phase: "building"; kit: Kit; lesson: Lesson }
   | { phase: "failed"; message: string; retry: () => void };
+
+/** `?demo=<name>` loads a kit and lesson checked into fixtures/, so the app runs with no camera and no network. */
+const DEMO = new URLSearchParams(location.search).get("demo");
 
 const styles = stylex.create({
   page: {
@@ -61,7 +70,31 @@ function addEvent(state: Generating, event: Extract<KitEvent, { type: "started" 
 }
 
 export function App() {
-  const [state, setState] = useState<State>({ phase: "capture" });
+  const [state, setState] = useState<State>(DEMO ? { phase: "loading" } : { phase: "capture" });
+
+  /** The lesson is planned while the person looks at the model, so it is usually ready by the time they want it. */
+  async function planLesson(kit: Kit) {
+    const update = (lesson: LessonLoad) => setState((s) => (s.phase === "viewing" && s.kit === kit ? { ...s, lesson } : s));
+    update({ status: "loading" });
+    update(await loadLesson(kit));
+  }
+
+  function showKit(kit: Kit, lesson?: Lesson) {
+    setState({ phase: "viewing", kit, lesson: lesson ? { status: "ready", lesson } : { status: "loading" } });
+    if (!lesson) void planLesson(kit);
+  }
+
+  useEffect(() => {
+    if (!DEMO) return;
+    let live = true;
+    loadDemo(DEMO).then(
+      ({ kit, lesson }) => live && showKit(kit, lesson),
+      (error: unknown) => live && setState({ phase: "failed", message: error instanceof Error ? error.message : String(error), retry: () => location.reload() }),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
 
   async function generate(files: File[]) {
     const [first] = files;
@@ -71,7 +104,7 @@ export function App() {
     try {
       const photos = await Promise.all(files.map(preparePhoto));
       for await (const event of requestKit(photos)) {
-        if (event.type === "done") setState({ phase: "viewing", kit: event.kit });
+        if (event.type === "done") showKit(event.kit);
         else if (event.type === "failed") fail(event.message);
         else setState((s) => (s.phase === "generating" ? addEvent(s, event) : s));
       }
@@ -92,25 +125,34 @@ export function App() {
   return (
     <main {...stylex.props(styles.page)}>
       {state.phase === "capture" && <CapturePicker onPick={(files) => void generate(files)} />}
+      {state.phase === "loading" && <p {...stylex.props(styles.status)}>Loading…</p>}
       {state.phase === "generating" && !view && <Generating photo={state.first} />}
       {view && (
         <>
           {view.header && <h1 {...stylex.props(styles.title)}>{view.header.name}</h1>}
           {view.header && <p {...stylex.props(styles.summary)}>{view.header.summary}</p>}
           <KitViewer kit={{ name: view.header?.name ?? "", summary: view.header?.summary ?? "", parts: view.parts }} spin />
-          <h2 {...stylex.props(styles.heading)}>{view.parts.length} parts</h2>
-          <ul {...stylex.props(styles.parts)}>
-            {view.parts.map((part) => (
-              <li key={part.id}>{part.name}</li>
-            ))}
-          </ul>
-          {view.done && (
-            <button type="button" {...stylex.props(styles.button)} onClick={restart}>
-              Scan something else
-            </button>
+          {state.phase === "viewing" ? (
+            <NorthStarPanel
+              kit={state.kit}
+              lesson={state.lesson}
+              onStart={() => state.lesson.status === "ready" && setState({ phase: "building", kit: state.kit, lesson: state.lesson.lesson })}
+              onRetry={() => void planLesson(state.kit)}
+              onRestart={restart}
+            />
+          ) : (
+            <>
+              <h2 {...stylex.props(styles.heading)}>{view.parts.length} parts</h2>
+              <ul {...stylex.props(styles.parts)}>
+                {view.parts.map((part) => (
+                  <li key={part.id}>{part.name}</li>
+                ))}
+              </ul>
+            </>
           )}
         </>
       )}
+      {state.phase === "building" && <LessonPlayer kit={state.kit} lesson={state.lesson} onRestart={restart} />}
       {state.phase === "failed" && (
         <>
           <p {...stylex.props(styles.status)}>{state.message}</p>
