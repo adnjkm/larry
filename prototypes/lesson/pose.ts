@@ -256,15 +256,25 @@ export function drawObject({ kit, present, scene, explode, pink, centre, rigid =
   const shown = kit.parts.filter((p) => present.includes(p.id));
   const whole = rigidMatrix(centre, rigid);
   const rootCentre = centreOf(extents(kit.parts.filter((p) => p.parentId === null)));
+  // Parts centred on the main part (a cap on a bottle, a refill in a barrel) have no outward direction, so they go up.
+  const outward = shown.map((part) => {
+    const away = add(centreOf(extents([part])), neg(rootCentre));
+    const length = Math.hypot(away.x, away.y, away.z);
+    return { part, length, dir: length < 4 ? vec(0, 1, 0) : scale(away, 1 / length) };
+  });
+  // Parts leaving the same way go out in order, the nearest least, so a seal inside a joint does not
+  // land on a lens that started further out.
+  const steps = (i: number) => {
+    const me = outward[i]!;
+    if (me.part.parentId === null) return 0;
+    const behind = outward.filter((o, j) => o.part.parentId !== null && o.dir.x * me.dir.x + o.dir.y * me.dir.y + o.dir.z * me.dir.z > 0.9 && (o.length < me.length || (o.length === me.length && j < i)));
+    return behind.length + 1;
+  };
   const liftOf = (id: string) => {
     const set = apart[id];
     if (set) return scale(set, explode);
-    const part = shown.find((q) => q.id === id)!;
-    const away = add(centreOf(extents([part])), neg(rootCentre));
-    const length = Math.hypot(away.x, away.y, away.z);
-    // Parts centred on the main part (a cap on a bottle, a refill in a barrel) have no outward direction, so they go up.
-    const dir = length < 4 ? vec(0, 1, 0) : scale(away, 1 / length);
-    return scale(dir, EXPLODE_STEP * shown.indexOf(part) * explode);
+    const i = shown.findIndex((q) => q.id === id);
+    return scale(outward[i]!.dir, EXPLODE_STEP * steps(i) * explode);
   };
   const parts = shown.map((p) => {
     const out = withMatrix(p, whole.clone().multiply(moveMatrix(scene.moves[p.id], liftOf(p.id))).multiply(matrixOf(p)));

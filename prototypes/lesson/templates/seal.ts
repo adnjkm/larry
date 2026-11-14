@@ -64,7 +64,7 @@ const sphere = (r: number): Shape => ({
 });
 const splash = (r: number): Shape => ({ kind: "lathe", profile: [{ r: 0, y: 0 }, { r: 1.4 * r, y: 0 }, { r: 1.4 * r, y: 0.35 * r }, { r: 0, y: 0.35 * r }] });
 
-const FLIP_UP = 1000;
+const FLIP_UP = 800;
 const FLIP_BACK = 900;
 const DROP_GAP = 130;
 
@@ -85,7 +85,7 @@ function flip(pair: Pair, between: string): Test {
       const g = 4.2 * size;
       const held: Rigid = { dx: 0, dy: lift, angle: 180 };
       const ring = ringOf(pair.child, pair).map((p) => rigidPoint(ctx.centre, held, p)).sort((a, b) => a.y - b.y);
-      const spawns = Array.from({ length: drops }, (_, i) => FLIP_UP + 150 + i * DROP_GAP);
+      const spawns = Array.from({ length: drops }, (_, i) => FLIP_UP + 50 + i * DROP_GAP);
       const origins = spawns.map((_, i) => ring[(i * 3) % Math.min(5, ring.length)]!);
       const ground = box.min.y;
       const hold = Math.max(1000, 500 + drops * DROP_GAP + 700);
