@@ -100,7 +100,14 @@ export default function CameraMock({
   object: initialObject,
   after,
   dials = !after,
-}: { object?: string; after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode; dials?: boolean } = {}) {
+  compare = true,
+}: {
+  object?: string;
+  after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode;
+  dials?: boolean;
+  /** The still phone on the left showing the screen before. Off for a demo that is only the one live phone. */
+  compare?: boolean;
+} = {}) {
   const [settings, setSettings] = useState<MockSettings>(() =>
     defaultSettings(initialObject ?? (OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? ""))),
   );
@@ -138,22 +145,24 @@ export default function CameraMock({
   const previous: Screen = current === "model" ? "camera" : "model";
 
   return (
-    <div {...stylex.props(s.shell)}>
-      <div {...stylex.props(s.phoneSlot(frame.width * scale, frame.height * scale))}>
-        <div inert {...stylex.props(s.phone(scale))}>
-          <Flow
-            key={`still-${previous}-${object.name}-${run.id}`}
-            object={object}
-            pace={settings.pace}
-            startAt={previous === "camera" ? "live" : "done"}
-            settings={settings}
-            usableTop={usableTop}
-            usableHeight={usableHeight}
-            onRestart={() => {}}
-            still
-          />
+    <div {...stylex.props(s.shell, dials && s.roomForDials)}>
+      {compare && (
+        <div {...stylex.props(s.phoneSlot(frame.width * scale, frame.height * scale))}>
+          <div inert {...stylex.props(s.phone(scale))}>
+            <Flow
+              key={`still-${previous}-${object.name}-${run.id}`}
+              object={object}
+              pace={settings.pace}
+              startAt={previous === "camera" ? "live" : "done"}
+              settings={settings}
+              usableTop={usableTop}
+              usableHeight={usableHeight}
+              onRestart={() => {}}
+              still
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div {...stylex.props(s.phoneSlot(frame.width * scale, frame.height * scale))}>
         <div data-phone {...stylex.props(s.phone(scale))}>
@@ -433,14 +442,14 @@ const s = stylex.create({
     justifyContent: "center",
     gap: 64,
     padding: 16,
-    // Room for the DialKit panel on the right.
-    paddingRight: 320,
     boxSizing: "border-box",
     backgroundColor: "#EFEFEF",
     color: colors.ink,
     fontFamily: fonts.sans,
   },
 
+  // Room for the DialKit panel on the right, only when it is there.
+  roomForDials: { paddingRight: 320 },
   phoneSlot: (width: number, height: number) => ({ width, height, flexShrink: 0 }),
   // The frame has its own size, so it is not sized by the already-shrunk slot and then scaled a second time.
   phone: (scale: number) => ({

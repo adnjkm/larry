@@ -62,12 +62,18 @@ function Lesson({ screen, onCamera }: { screen: PhoneScreen; onCamera: () => voi
   );
 }
 
+/**
+ * The demo is one live phone that always opens on the camera. `?dials` adds Aiden's tuning view: the DialKit panels
+ * (which remember the last screen picked) and the still phone beside it for comparing.
+ */
+const TUNING = new URLSearchParams(location.search).has("dials");
+
 export function Demo() {
   return (
     <>
       <style>{LESSON_CSS}</style>
       <style>{DEMO_CSS}</style>
-      <CameraMock object="bottle" after={(props) => <Lesson {...props} />} dials />
+      <CameraMock object="bottle" after={(props) => <Lesson {...props} />} dials={TUNING} compare={TUNING} />
     </>
   );
 }
