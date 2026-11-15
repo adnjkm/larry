@@ -9,6 +9,7 @@ import { Motion } from "./controller.ts";
 import { LESSON_COLOR, type Palette, looksFor } from "./looks.ts";
 import { type Drawable, hasWebGL, register, renderTo, schedule, stageStats } from "./renderer.ts";
 import { StageScene } from "./scene.ts";
+import { markViewerReady } from "../../viewport.ts";
 
 /** CSS px per dither pixel, before rounding to whole device pixels. */
 const GRAIN_CSS_PX = 1.5;
@@ -183,13 +184,13 @@ export class StageView implements Drawable {
     if (!ok && !hasWebGL() && !this.drawn) {
       this.drawn = true;
       this.element.setAttribute("data-error", "no-webgl");
-      this.element.setAttribute("data-ready", "");
+      markViewerReady(this.element);
     }
     if (!ok) return;
     this.needsDraw = false;
     if (!this.drawn) {
       this.drawn = true;
-      this.element.setAttribute("data-ready", "");
+      markViewerReady(this.element);
     }
   }
 
@@ -373,6 +374,6 @@ export class StageView implements Drawable {
     this.ro.disconnect();
     for (const c of this.cleanups) c();
     this.scene.dispose();
-    this.element.removeAttribute("data-ready");
+    markViewerReady(this.element, false);
   }
 }

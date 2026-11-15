@@ -5,8 +5,16 @@ export const VIEWPORT_HEIGHT = 270;
 export const VIEWPORT_GRAIN = VIEWPORT_HEIGHT / 180;
 
 /**
- * Every canvas (KitViewer and the primitives' FigureStage) is wrapped in an element with `data-kit-viewer` and gets `data-ready` once it
+ * Every canvas (KitViewer and the primitives' FigureStage) is wrapped in an element with `data-kit-viewer` (viewerProps) and gets `data-ready` (markViewerReady) once it
  * has drawn a frame. The lesson's swipe ignores drags that start on a viewer, and the Playwright scripts wait on them.
  */
 export const VIEWER_SELECTOR = "[data-kit-viewer]";
 export const READY_VIEWER_SELECTOR = "[data-kit-viewer][data-ready]";
+
+/** Spread on a viewer's wrapper element. */
+export const viewerProps = { "data-kit-viewer": "" } as const;
+
+export function markViewerReady(wrapper: Element | null | undefined, ready = true) {
+  if (ready) wrapper?.setAttribute("data-ready", "");
+  else wrapper?.removeAttribute("data-ready");
+}

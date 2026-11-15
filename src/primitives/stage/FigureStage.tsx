@@ -21,6 +21,7 @@ import { type Cue, type Primitive, type Values, motionSlider } from "../../../sh
 import type { StageController } from "./controller.ts";
 import { type Palette, RING_COLOR } from "./looks.ts";
 import { type Mode, StageView } from "./view.ts";
+import { viewerProps } from "../../viewport.ts";
 
 export type { StageController } from "./controller.ts";
 
@@ -134,7 +135,7 @@ export function FigureStage({ primitive, mode = "still", palette = "library", va
   const color = RING_COLOR[palette];
 
   return (
-    <div ref={root} data-kit-viewer {...stylex.props(styles.box(height))}>
+    <div ref={root} {...viewerProps} {...stylex.props(styles.box(height))}>
       <canvas ref={canvas} {...stylex.props(styles.canvas, mode === "still" && styles.spin)} />
       {mode === "game" && (
         <div
