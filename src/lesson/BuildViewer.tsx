@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
-import { measureParts } from "../kit3d/buildKit.ts";
+import { measureParts } from "../../shared/bounds.ts";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
 
 const BUILD_HEIGHT = 270;

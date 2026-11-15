@@ -1,9 +1,10 @@
 import type { Part } from "../../../shared/kit.ts";
-import { type KitBounds, measurePoses } from "../../kit3d/buildKit.ts";
+import baked from "./framing.json" with { type: "json" };
+import { type KitBounds, measurePoses } from "../../../shared/bounds.ts";
 import type { Primitive, Slider, Values } from "../../../shared/primitives/types.ts";
 
 const FRAME_SAMPLES = 5;
-/** mm. A turning part's reach peaks between samples. The framing test checks a finer grid; 5 samples pass it with half this pad. */
+/** mm. A turning part's reach peaks between samples. framing.test.ts checks a finer grid; 5 samples pass it with half this pad. */
 const FRAME_PAD = 4;
 
 /** `count` values spread from a slider's min to its max, each on the slider's own step grid. */
@@ -58,24 +59,30 @@ function unionBounds(all: KitBounds[]): KitBounds {
   };
 }
 
-const cache = new Map<string, KitBounds>();
+export type Mode = "still" | "game";
 
 /**
  * Bounds that hold every pose the figure can show, so the camera holds still while a slider moves the parts or a run
  * plays. "still" (library pages and lessons): every pose the sliders reach. "game": those with the game's scene, and
- * every frame of its runs with their marks. Built once per primitive and mode from a grid of poses, because measuring a
- * pose builds all of its geometry.
+ * every frame of its runs with their marks. This is the sampling itself; `framePrimitive` reads its result from
+ * framing.json, which scripts/generate-framing.ts writes.
  */
-export function framePrimitive(p: Primitive, mode: "still" | "game" = "still"): KitBounds {
+export function computeFraming(p: Primitive, mode: Mode): KitBounds {
+  const grid = poses(p, FRAME_SAMPLES);
+  const still = grid.map(p.build);
+  const scene = p.game?.scene;
+  const game = mode === "game" ? [...(scene ? grid.map((v) => [...p.build(v), ...scene(v)]) : []), ...runPoses(p)] : [];
+  return unionBounds(measurePoses([...still, ...game]));
+}
+
+const fresh = new Map<string, KitBounds>();
+
+/** The framing for a primitive and mode, from framing.json; computed (and kept) only for a primitive that is not in it yet. */
+export function framePrimitive(p: Primitive, mode: Mode = "still"): KitBounds {
+  const known = (baked as Record<string, Record<Mode, KitBounds> | undefined>)[p.id]?.[mode];
+  if (known) return known;
   const key = `${p.id}:${mode}`;
-  let bounds = cache.get(key);
-  if (!bounds) {
-    const grid = poses(p, FRAME_SAMPLES);
-    const still = grid.map(p.build);
-    const scene = p.game?.scene;
-    const game = mode === "game" ? [...(scene ? grid.map((v) => [...p.build(v), ...scene(v)]) : []), ...runPoses(p)] : [];
-    bounds = unionBounds(measurePoses([...still, ...game]));
-    cache.set(key, bounds);
-  }
+  let bounds = fresh.get(key);
+  if (!bounds) fresh.set(key, (bounds = computeFraming(p, mode)));
   return bounds;
 }
