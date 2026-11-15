@@ -9,7 +9,7 @@ import type { Page } from "playwright-core";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { verdictText as shown } from "../src/primitives/game/logic.ts";
 import { type Values, startValues, steps } from "../shared/primitives/types.ts";
-import { launch, root } from "./stage-lib.ts";
+import { launch, root } from "./browser.ts";
 
 const id = process.argv[2] ?? "spring";
 const primitive = PRIMITIVES.find((p) => p.id === id) ?? assert.fail(`no primitive ${id}`);

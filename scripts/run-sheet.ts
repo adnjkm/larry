@@ -8,7 +8,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { type Frame, type Primitive, type Values, startValues, steps } from "../shared/primitives/types.ts";
-import { launch, root } from "./stage-lib.ts";
+import { launch, root } from "./browser.ts";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => {

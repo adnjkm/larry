@@ -6,11 +6,12 @@
 //   from its kit, templates to check every joint template's rules on every fixture kit's geometry
 //   without a browser, or stories to generate a story from every fixture kit and check its rules. With no runs: every sample's
 //   own lesson, templates, and the generated and Inspect lessons each sample does not already open with. Screenshots go to out/lesson/<run>-<nn>-<stage>.png.
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { homedir } from "node:os";
+import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+
 import { join, resolve } from "node:path";
 import { inflateSync } from "node:zlib";
-import { chromium, type Page } from "playwright-core";
+import type { Browser, Page } from "playwright-core";
+import { launchChromium } from "../../scripts/browser.ts";
 import { Euler, Vector3 } from "three";
 import { createServer } from "vite";
 import viteConfig from "../../vite.config.ts";
@@ -29,7 +30,6 @@ const TRACK = 1000;
 
 const root = resolve(import.meta.dirname, "../..");
 const outDir = join(root, "out", "lesson");
-const cache = join(homedir(), "Library", "Caches", "ms-playwright");
 const kitsDir = join(root, "fixtures", "kits");
 const KITS: Record<string, Kit> = Object.fromEntries(
   readdirSync(kitsDir).filter((f) => f.endsWith(".json")).map((f) => [f.replace(/\.json$/, ""), tidyKit(parseKit(JSON.parse(readFileSync(join(kitsDir, f), "utf8"))))]),
@@ -67,22 +67,6 @@ const SETTLE_MS = 1000;
 /** Every screen fits one phone screen at the main size and the small one, and still reflows at 320 wide. */
 const SCREENS = [{ width: 390, height: 844 }, { width: 375, height: 667 }] as const;
 const NARROW = { width: 320, height: 640 };
-
-function findChromium(): string {
-  for (const { dir, executable } of [
-    { dir: "chromium_headless_shell", executable: "chrome-headless-shell-mac-arm64/chrome-headless-shell" },
-    { dir: "chromium", executable: "chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium" },
-  ]) {
-    const revisions = readdirSync(cache)
-      .filter((name) => name.startsWith(`${dir}-`))
-      .sort((a, b) => Number(b.split("-").pop()) - Number(a.split("-").pop()));
-    for (const revision of revisions) {
-      const path = join(cache, revision, executable);
-      if (existsSync(path)) return path;
-    }
-  }
-  throw new Error(`No chromium or chromium_headless_shell in ${cache}`);
-}
 
 /** Decodes an 8-bit RGB or RGBA, non-interlaced PNG, which is what Chromium's screenshots are. */
 function decodePng(png: Buffer): { width: number; height: number; px: (x: number, y: number) => [number, number, number] } {
@@ -1108,16 +1092,13 @@ const server = await createServer({
   logLevel: "warn",
   server: { ...viteConfig.server, port: 0, host: "127.0.0.1", forwardConsole: false, watch: null },
 });
-let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let browser: Browser | undefined;
 
 try {
   await server.listen();
   const url = server.resolvedUrls?.local[0];
   if (!url) throw new Error("Vite did not report a URL");
-  browser = await chromium.launch({
-    executablePath: findChromium(),
-    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-webgl"],
-  });
+  browser = await launchChromium();
   mkdirSync(outDir, { recursive: true });
   for (const name of runs) {
     for (const f of readdirSync(outDir)) if (f.startsWith(`${name}-`)) rmSync(join(outDir, f));

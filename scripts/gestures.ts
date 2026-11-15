@@ -1,7 +1,7 @@
 // Real touch input through CDP, at phone size: node scripts/gestures.ts
 // Swipes between steps on the mug demo, then flicks a figure on the primitives page.
 import assert from "node:assert/strict";
-import { launch } from "./stage-lib.ts";
+import { launch } from "./browser.ts";
 
 const { url, browser, close } = await launch();
 try {

@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "playwright-core";
-import { launch, root } from "./stage-lib.ts";
+import { launch, root } from "./browser.ts";
 
 const outDir = join(root, "out", "stage");
 mkdirSync(outDir, { recursive: true });

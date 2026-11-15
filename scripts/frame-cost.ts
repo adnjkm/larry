@@ -7,7 +7,7 @@
 //   --gpu asks Chromium for the Mac's GPU (ANGLE on Metal) instead of SwiftShader, so the readback is not software rendering.
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { motionSlider } from "../shared/primitives/types.ts";
-import { launch } from "./stage-lib.ts";
+import { launch } from "./browser.ts";
 
 const gpu = process.argv.includes("--gpu");
 const frames = Number(process.argv.find((a) => a.startsWith("--frames="))?.split("=")[1] ?? 240);

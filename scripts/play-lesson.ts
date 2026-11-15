@@ -5,12 +5,12 @@
 // --photo implies --live and starts from nothing: it uploads fixtures/photos/<name>.jpg through the capture input, watches the
 // real POST /api/kits stream the kit in, and takes the kit for the rest of the run from that stream instead of from a fixture.
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { request as httpRequest, createServer as createHttpServer } from "node:http";
 import { connect } from "node:net";
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { type Locator, type Page, chromium } from "playwright-core";
+import type { Browser, Locator, Page } from "playwright-core";
+import { launchChromium } from "./browser.ts";
 import { createServer } from "vite";
 import { type Kit, KitEvent, parseKit } from "../shared/kit.ts";
 import { type Chapter, type Lesson, LessonEvent, parseLesson } from "../shared/lesson.ts";
@@ -23,29 +23,11 @@ const live = photo || process.argv.includes("--live");
 const outDir = join(root, "out", photo ? "play-photo" : live ? "play-live" : "play");
 const name = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? "pen";
 const API_PORT = Number(process.env.LARRY_API_PORT ?? 8787);
-const cache = join(homedir(), "Library", "Caches", "ms-playwright");
 const READY_TIMEOUT_MS = 90_000;
 const STEP_TIMEOUT_MS = 20_000;
 const LIVE_TIMEOUT_MS = 150_000;
 const KIT_TIMEOUT_MS = 150_000;
 
-const browserLayouts = [
-  { dir: "chromium_headless_shell", executable: "chrome-headless-shell-mac-arm64/chrome-headless-shell" },
-  { dir: "chromium", executable: "chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium" },
-];
-
-function findChromium(): string {
-  for (const { dir, executable } of browserLayouts) {
-    const revisions = readdirSync(cache)
-      .filter((n) => n.startsWith(`${dir}-`))
-      .sort((a, b) => Number(b.split("-").pop()) - Number(a.split("-").pop()));
-    for (const revision of revisions) {
-      const path = join(cache, revision, executable);
-      if (existsSync(path)) return path;
-    }
-  }
-  throw new Error(`No chromium or chromium_headless_shell in ${cache}`);
-}
 
 const photoPath = join(root, "fixtures", "photos", `${name}.jpg`);
 if (photo && !existsSync(photoPath)) throw new Error(`No photo at ${photoPath}`);
@@ -157,7 +139,7 @@ const server = await createServer({
   logLevel: "warn",
   server: { port: 0, host: "127.0.0.1", forwardConsole: false, ...(tee ? { proxy: { "/api": `http://127.0.0.1:${teePort}` } } : {}) },
 });
-let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let browser: Browser | undefined;
 let exitCode = 0;
 const pageErrors: string[] = [];
 
@@ -166,7 +148,7 @@ try {
   const url = server.resolvedUrls?.local[0];
   if (!url) throw new Error("Vite did not report a URL");
 
-  browser = await chromium.launch({ executablePath: findChromium(), args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-webgl"] });
+  browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, acceptDownloads: true });
   const page = await context.newPage();
   page.setDefaultTimeout(STEP_TIMEOUT_MS);

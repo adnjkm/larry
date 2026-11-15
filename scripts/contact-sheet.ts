@@ -6,7 +6,7 @@ import type { Page } from "playwright-core";
 import { parseKit } from "../shared/kit.ts";
 import { parseLesson } from "../shared/lesson.ts";
 import { CATALOG, PRIMITIVE_BY_ID } from "../shared/primitives/catalog.ts";
-import { launch, root } from "./stage-lib.ts";
+import { launch, root } from "./browser.ts";
 
 const name = process.argv[2] ?? "pen";
 const outDir = join(root, "out", "contact-sheet");
