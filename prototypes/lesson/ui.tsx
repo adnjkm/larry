@@ -4,7 +4,7 @@ import { type KitBounds, measureParts } from "../../shared/bounds.ts";
 import { DEFAULT_LOOK, type DitherLook } from "../../src/kit3d/ditherLook.ts";
 import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "./primitives/library.ts";
-import { SYNTHWAVE } from "./primitives/parts.ts";
+import { SYNTHWAVE } from "../../shared/primitives/parts.ts";
 import { DitherRange, TRACK, Wheel } from "./controls.tsx";
 import { Beam } from "./Beam.tsx";
 import { Dither } from "./dither.tsx";

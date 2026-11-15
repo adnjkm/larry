@@ -3,7 +3,8 @@
 // The splat is painted frame by frame: a ragged front sweeps it in pixel by pixel, the card and its
 // letters ride in behind the front, and on the way out the dither thins it back to scattered dots.
 import { useEffect, useRef, useState } from "react";
-import { SYNTHWAVE } from "./primitives/parts.ts";
+import { SYNTHWAVE } from "../../shared/primitives/parts.ts";
+import { hexRgb, threshold } from "../../src/surface/dither.ts";
 
 /** Whole life of one pop, in ms. Keep in step with the `cheer-*` timings in lesson.css. */
 export const CHEER_MS = 1700;
@@ -12,9 +13,8 @@ const IN_MS = 680;
 /** Starts with the card's wipe out (cheer-card-out in lesson.css) and runs a little ahead of it. */
 const OUT_AT = 1180;
 
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 /** Hot to cool along the wash: gold → orange → pink → purple → indigo → night. */
-const STOPS = [...SYNTHWAVE].reverse().map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number]);
+const STOPS = [...SYNTHWAVE].reverse().map(hexRgb);
 /** CSS px the splat may reach past the card, and how far it drops down and right of it. */
 const SPREAD = 34;
 const OFFSET = { x: 9, y: 11 };
@@ -75,7 +75,7 @@ function paint(ctx: CanvasRenderingContext2D, img: ImageData, f: Field, t: numbe
     for (let x = 0; x < f.w; x++) {
       const i = y * f.w + x;
       const o = i * 4;
-      const b = (BAYER[(y % 4) * 4 + (x % 4)]! + 0.5) / 16;
+      const b = threshold(x, y);
       // Behind the front the splat is there; right at the front it is still thin, like a wave edge.
       const ahead = sweep * 1.15 - f.front[i]!;
       const arrived = ahead <= 0 ? 0 : Math.min(1, ahead * 4);

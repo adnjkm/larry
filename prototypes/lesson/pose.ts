@@ -2,6 +2,7 @@
 // explode amount into the Part list the viewer draws. Everything here is a pure function of its inputs.
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import type { Kit, Part, Shape } from "../../shared/kit.ts";
+import { hexRgb } from "../../src/surface/dither.ts";
 import { COLOR } from "./primitives/parts.ts";
 import { DEFAULT_VIEW, type ExplodePlan, familyOf, type Leave, type PartMove, type Rigid, type Scene, type Shares, STILL, type Vec, vec, type View } from "./model.ts";
 
@@ -238,8 +239,8 @@ const pinkOf = (p: Part): Part => ({ ...p, color: COLOR.focus, finish: "matte" }
 
 /** A scanned part's photo colour as the grey of the same lightness, so only the taught piece carries colour. */
 function greyOf(hex: string): string {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  const y = Math.round(0.2126 * r! + 0.7152 * g! + 0.0722 * b!);
+  const [r, g, b] = hexRgb(hex);
+  const y = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
   const h = y.toString(16).padStart(2, "0");
   return `#${h}${h}${h}`;
 }

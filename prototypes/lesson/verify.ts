@@ -23,7 +23,9 @@ import { generatedStory } from "./stories/index.ts";
 import { aim, idsOf, resting, sharesOf, SPRING, springsAt, type Springs, step } from "./explode.ts";
 import { bindStory, familyOf, faultValues, fixedValues, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, type Run as TestRun, type Shares, sliderSteps, type Story, type TestCtx, type Values, type Window, type Workshop, zoneAt } from "./model.ts";
 import { corners, drawObject, extents, restCentre } from "./pose.ts";
-import { COLOR, SYNTHWAVE } from "./primitives/parts.ts";
+import { SYNTHWAVE } from "../../shared/primitives/parts.ts";
+import { hexRgb } from "../../src/surface/dither.ts";
+import { COLOR } from "./primitives/parts.ts";
 
 /** Steps along a lesson control's track (TRACK in controls.tsx, which node cannot import). */
 const TRACK = 1000;
@@ -40,8 +42,8 @@ const TEST_TIMEOUT = 30_000;
 const MID_TEST_MS = 1300;
 /** A second look at a story's failing run, once the drops have fallen and the cap has landed. */
 const LATER_MS = 900;
-const FOCUS = [1, 3, 5].map((i) => parseInt(COLOR.focus.slice(i, i + 2), 16)).join(",");
-const SHADOW = new Set(SYNTHWAVE.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",")));
+const FOCUS = hexRgb(COLOR.focus).join(",");
+const SHADOW = new Set(SYNTHWAVE.map((hex) => hexRgb(hex).join(",")));
 /** The object, or the reach of its tests, fills this share of the viewer's width or height. */
 const FILL_LO = 0.75;
 /**
