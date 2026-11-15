@@ -1,0 +1,5 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 160,
+  "ignorePatterns": ["dist", "out", "fixtures", "public", "pnpm-lock.yaml", "**/*.md", "**/*.json", "**/*.html", "**/*.css", "shared/primitives/models/ratchetTable.ts"]
+}
