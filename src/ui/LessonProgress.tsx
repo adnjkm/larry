@@ -11,6 +11,12 @@ import { fonts } from "../tokens.stylex.ts";
 const GAP = 6;
 const RADIUS = 10;
 
+/** The view-transition name the results screen's bar and the lesson's header bar share, so Build It flies one into the other. */
+export const PROGRESS_TRANSITION = "lesson-progress";
+
+/** The view-transition type of the hand-over from the results screen to the lesson, for CSS to time it by. */
+export const HANDOVER = "handover";
+
 /**
  * The lesson's progress, one key per step across `width`, under an optional caption. Each key is a sculpted keycap (see
  * feature.keycap). Before the lesson starts every key is grey. Once it starts, the steps reached so far are pink. Any
@@ -26,6 +32,7 @@ export function LessonProgress({
   width,
   height = 34,
   caption,
+  transitionName,
 }: {
   count: number;
   /** The furthest step reached, -1 before the lesson starts, `count` once it's finished. */
@@ -37,6 +44,11 @@ export function LessonProgress({
   height?: number;
   /** A line over the keys, such as how many mechanisms there are. */
   caption?: string;
+  /**
+   * A view-transition name for the row of keys (not the caption), so a screen change can carry the bar from one place
+   * to another. Give it to one bar on the page at a time: two with the same name and the browser skips the transition.
+   */
+  transitionName?: string;
 }) {
   const key = even((width - GAP * (count - 1)) / count);
   const started = reached >= 0;
@@ -47,7 +59,7 @@ export function LessonProgress({
         aria-label="Lesson steps"
         value={started ? String(step) : null}
         onValueChange={(next) => next !== null && onStep(Number(next))}
-        {...stylex.props(s.steps)}
+        {...stylex.props(s.steps, transitionName !== undefined && s.named(transitionName))}
       >
         {Array.from({ length: count }, (_, i) => {
           const open = started && i <= reached;
@@ -71,6 +83,7 @@ export function LessonProgress({
 }
 
 const s = stylex.create({
+  named: (name: string) => ({ viewTransitionName: name }),
   progress: (width: number) => ({ width, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }),
   count: { fontFamily: fonts.mono, fontSize: 12, lineHeight: "16px", letterSpacing: "0.08em", textTransform: "uppercase", color: screen.muted },
   // The keys together span the width. Each is positioned, so its Surface sits under it.

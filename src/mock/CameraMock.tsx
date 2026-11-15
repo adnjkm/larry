@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { camera } from "../camera/camera.stylex.ts";
 import { Button } from "@ui-sdk/react/button";
+import { flushSync } from "react-dom";
 import { lazy, type ReactNode, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { Camera } from "../camera/Camera.tsx";
@@ -12,7 +13,7 @@ import { pill } from "../surface/relief.ts";
 import { PillLabel } from "../ui/PillSurface.tsx";
 import { Surface } from "../surface/Surface.tsx";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
-import { LessonProgress } from "../ui/LessonProgress.tsx";
+import { HANDOVER, LessonProgress, PROGRESS_TRANSITION } from "../ui/LessonProgress.tsx";
 import { defaultSettings, type MockSettings, type Pace, type Screen } from "./settings.ts";
 
 /*
@@ -59,6 +60,11 @@ const MODEL_SCREEN = { gap: 24, lift: 48, pill: 56, link: 16, count: 16 };
 /** The model's dithered shadow in the accent too. */
 const LOOK: DitherLook = { ...DEFAULT_LOOK, colors: { ...DEFAULT_LOOK.colors, accent: ACCENT.toLowerCase() } };
 
+/** How long the result's model takes to swipe off to the left as the lesson arrives. */
+const SWIPE_MS = 520;
+/** The whole hand-over: by then the lesson's rows have landed, and the result under it can go. */
+const HANDOVER_MS = 760;
+
 type Phase = "live" | "reading" | "building" | "done";
 type StartAt = "live" | "done";
 
@@ -92,6 +98,22 @@ const colorFade = "color 600ms ease, background-color 600ms ease";
 export type PhoneScreen = { top: number; height: number; width: number };
 
 /**
+ * Swaps the results screen for the lesson as one view transition, so the progress bar, named the same on both, flies
+ * from under the caption to the lesson's header while the rest crossfades. The demo's stylesheet times it. Without the
+ * API it just swaps.
+ */
+function handOver(swap: () => void) {
+  if (!document.startViewTransition) return swap();
+  const update = () => flushSync(swap);
+  try {
+    document.startViewTransition({ update, types: [HANDOVER] });
+  } catch {
+    // Browsers with view transitions but not their types take the update alone.
+    document.startViewTransition(update);
+  }
+}
+
+/**
  * The camera in a phone, with the fake flow round it. Given `after`, it is a demo: the result's "Build It" hands the
  * phone over to whatever `after` draws, until `onCamera`. `dials` shows the DialKit panel (dev only); on by default
  * without `after`.
@@ -105,7 +127,8 @@ export default function CameraMock({
   kit,
 }: {
   object?: string;
-  after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode;
+  /** `shown` is false while the lesson waits, built but unseen, under the result, and true from the moment Build It hands over. */
+  after?: (props: { screen: PhoneScreen; onCamera: () => void; shown: boolean }) => ReactNode;
   dials?: boolean;
   /** The still phone on the left showing the screen before. Off for a demo that is only the one live phone. */
   compare?: boolean;
@@ -119,9 +142,24 @@ export default function CameraMock({
   );
   const [run, setRun] = useState<{ id: number; startAt: StartAt }>({ id: 0, startAt: "live" });
   const [built, setBuilt] = useState(false);
+  // Build It hands the phone over in one move: the lesson, already drawn under the result, shows through as the model
+  // swipes off to the left, and its demo comes in from the right. `handing` is that move; `built` is after it.
+  const [handing, setHanding] = useState(false);
+  const handover = useRef<number>(undefined);
   const restart = (startAt: StartAt) => {
+    clearTimeout(handover.current);
+    setHanding(false);
     setBuilt(false);
     setRun((r) => ({ id: r.id + 1, startAt }));
+  };
+  useEffect(() => () => clearTimeout(handover.current), []);
+  const build = () => {
+    if (handing || built) return;
+    handOver(() => setHanding(true));
+    handover.current = window.setTimeout(() => {
+      setBuilt(true);
+      setHanding(false);
+    }, HANDOVER_MS);
   };
 
   // Which screen is on the phone: the camera until it lifts off the model, the model, then the lesson once Build It
@@ -174,16 +212,7 @@ export default function CameraMock({
 
       <div {...stylex.props(s.phoneSlot(frame.width * scale, frame.height * scale))}>
         <div data-phone {...stylex.props(s.phone(scale))}>
-          {current === "lesson" && after ? (
-            <div data-after {...stylex.props(s.screen, light)}>
-              <div {...stylex.props(light, s.page)}>
-                <div {...stylex.props(s.viewport(usableTop, usableHeight))}>
-                  {after({ screen: { top: usableTop, height: usableHeight, width: DEVICE.width }, onCamera: () => restart("live") })}
-                </div>
-              </div>
-              <SystemBars tab={settings.tab} />
-            </div>
-          ) : (
+          {current === "lesson" && after ? null : (
             <Flow
               key={`${run.id}-${object.name}-${settings.pace}`}
               object={object}
@@ -194,10 +223,27 @@ export default function CameraMock({
               usableTop={usableTop}
               usableHeight={usableHeight}
               onRestart={() => restart("live")}
-              onBuild={after && (() => setBuilt(true))}
+              onBuild={after && build}
               onCamera={setOnCamera}
+              leaving={handing}
             />
           )}
+          {/* The lesson, drawn as soon as the result is up so its 3D is ready, and unseen until Build It. */}
+          {after && (built || !onCamera) ? (
+            <div
+              data-after
+              data-waiting={built || handing ? undefined : ""}
+              inert={!built && !handing}
+              {...stylex.props(s.screen, light, s.over, !built && s.clear, !built && !handing && s.waiting)}
+            >
+              <div {...stylex.props(light, s.page, !built && s.clear)}>
+                <div {...stylex.props(s.viewport(usableTop, usableHeight))}>
+                  {after({ screen: { top: usableTop, height: usableHeight, width: DEVICE.width }, onCamera: () => restart("live"), shown: built || handing })}
+                </div>
+              </div>
+              {built ? <SystemBars tab={settings.tab} /> : null}
+            </div>
+          ) : null}
         </div>
       </div>
       {Dials && dials && (
@@ -240,6 +286,7 @@ function Flow({
   onCamera,
   still = false,
   mechanisms,
+  leaving = false,
 }: {
   object: MockObject;
   pace: Pace;
@@ -254,6 +301,8 @@ function Flow({
   /** A still copy for comparing against: nothing turns, and the keyboard doesn't work it. */
   still?: boolean;
   mechanisms?: number;
+  /** Build It was pressed: the model swipes off to the left and the rest fades, while the lesson arrives over it. */
+  leaving?: boolean;
 }) {
   const atEnd = startAt === "done";
   const { kit } = object;
@@ -323,24 +372,28 @@ function Flow({
             {/* The progress bar, the model and the pill are one group, evenly spaced, so the bar sits as far above the
                 model as the pill sits below it. Nothing else: no header, counts or parts list. */}
             <div {...stylex.props(s.reveal)}>
-              <LessonProgress
-                count={steps}
-                reached={reached}
-                step={step}
-                onStep={setStep}
-                width={cardWidth}
-                height={model.keyHeight}
-                caption={`${steps} ${steps === 1 ? "mechanism" : "mechanisms"}`}
-              />
+              {/* Handing over, the bar is the lesson's header bar from that moment (it flies there), so this one goes. */}
+              <div {...stylex.props(s.bar, leaving && s.gone)}>
+                <LessonProgress
+                  count={steps}
+                  reached={reached}
+                  step={step}
+                  onStep={setStep}
+                  width={cardWidth}
+                  height={model.keyHeight}
+                  caption={`${steps} ${steps === 1 ? "mechanism" : "mechanisms"}`}
+                  transitionName={still || leaving ? undefined : PROGRESS_TRANSITION}
+                />
+              </div>
               <div {...stylex.props(s.stage)}>
                 {parts.length > 0 && (
-                  <div {...stylex.props(s.model)}>
+                  <div {...stylex.props(s.model, leaving && s.swipedOut(DEVICE.width))}>
                     {/* Covered by the camera until it lifts, so it holds still until then. */}
                     <KitViewer parts={parts} spin={!still && sheet !== "up"} roll={model.tilt} height={modelHeight} look={LOOK} />
                   </div>
                 )}
               </div>
-              <div {...stylex.props(s.actions(cardWidth))}>
+              <div {...stylex.props(s.actions(cardWidth), leaving && s.fadedOut)}>
                 <Button disabled={!done || finished} data-build onClick={build} {...stylex.props(s.build)}>
                   <Surface
                     shape={pill(cardWidth, MODEL_SCREEN.pill)}
@@ -540,6 +593,11 @@ const s = stylex.create({
   },
   viewport: (top: number, height: number) => ({ position: "absolute", top, left: 0, width: DEVICE.width, height, display: "flex", flexDirection: "column" }),
 
+  // The lesson's layer: over the result while it waits and while it arrives, then alone.
+  over: { position: "absolute", top: DEVICE.bezel, left: DEVICE.bezel },
+  clear: { backgroundColor: "transparent" },
+  waiting: { opacity: 0, pointerEvents: "none" },
+
   // The two screens: the result underneath, the camera over it as a sheet that lifts away.
   page: { position: "absolute", top: 0, left: 0, width: DEVICE.width, height: DEVICE.height, backgroundColor: screen.bg, color: screen.fg },
   sheet: {
@@ -574,6 +632,18 @@ const s = stylex.create({
   },
   stage: { alignSelf: "stretch", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" },
   model: { width: "100%", animationName: fadeIn, animationDuration: "600ms", animationDelay: "200ms", animationFillMode: "both" },
+  bar: { flexShrink: 0 },
+  gone: { opacity: 0 },
+  fadedOut: { opacity: 0, transitionProperty: "opacity", transitionDuration: "180ms", transitionTimingFunction: "ease-out", pointerEvents: "none" },
+  // Off to the left by one screen, which clips it. The lesson's demo comes in from the right by the same distance, on
+  // the same curve (prototypes/demo/Demo.tsx), so the two read as one push.
+  swipedOut: (by: number) => ({
+    transform: `translateX(${-by}px)`,
+    transitionProperty: "transform",
+    transitionDuration: `${SWIPE_MS}ms`,
+    transitionTimingFunction: "cubic-bezier(0.6, 0, 0.2, 1)",
+    "@media (prefers-reduced-motion: reduce)": { transitionDuration: "0ms" },
+  }),
   actions: (width: number) => ({ width, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }),
   // The pill is a raised dark key: its look is the Surface under the label. Pressing sinks it a touch.
   build: {

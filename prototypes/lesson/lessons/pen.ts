@@ -401,6 +401,40 @@ const again: Test = {
   },
 };
 
+/** Retraction, working: a click sends the tip out and it stays; the next click tucks it away. Played on the finished pen. */
+const clicking: Test = {
+  id: "clicking",
+  label: "Click",
+  run: (_, ctx) => {
+    const inside: Pose = { out: 0, press: 0, sag: 0 };
+    const down: Pose = { out: T, press: T, sag: 0 };
+    const held: Pose = { out: T, press: 0, sag: 0 };
+    const [wait, push, hold, up, stay, again, back, rest] = [500, 420, 220, 320, 1300, 420, 420, 700];
+    const steps: [number, Pose, Pose, string][] = [
+      [wait, inside, inside, ""],
+      [push, inside, down, "Click"],
+      [hold, down, down, "Click"],
+      [up, down, held, "The tip stays out"],
+      [stay, held, held, "The tip stays out"],
+      [again, held, down, "Click again"],
+      [back, down, inside, "The tip tucks away"],
+      [rest, inside, inside, "The tip tucks away"],
+    ];
+    return {
+      verdict: { pass: true, line: "" },
+      durationMs: steps.reduce((sum, [ms]) => sum + ms, 0),
+      at: (ms) => {
+        let from = 0;
+        for (const [length, a, b, live] of steps) {
+          if (ms <= from + length) return frame(ctx, mixPose(a, b, seg(ms, from, from + length)), live);
+          from += length;
+        }
+        return frame(ctx, inside, "");
+      },
+    };
+  },
+};
+
 const squeeze: Control = {
   key: SQUEEZE,
   verb: "Squeeze",
@@ -474,6 +508,10 @@ const SPRING_MID = (PEN.springBottom + PEN.springTop) / 2;
 const frameOf = (x0: number, x1: number, y0: number, y1: number): Frame => ({ min: vec(x0, y0, -22), max: vec(x1, y1, 22) });
 const FRAMES = {
   tip: frameOf(-30, 66, -4, 96),
+  /** The tip coming out and going back, with the spring that sends it back, filling a tall view. */
+  click: frameOf(-34, 34, -22, 76),
+  /** Close in on the ball, with room for the line it writes. */
+  ball: frameOf(-16, 52, -22, 74),
   low: frameOf(-42, 42, -4, 156),
   top: frameOf(-38, 38, PEN.barrelTop - 100, PEN.top + 14),
   /** Closer in on the button and the latch under it, with the barrel off. */
@@ -665,5 +703,7 @@ export const PEN_RIG = {
   keys: { squeeze: SQUEEZE, stiffness: STIFFNESS, press: PRESS, pressure: PRESSURE, notch: NOTCH },
   controls: { squeeze, stiffness, pressing, pressure, notch },
   tests: { write, wait, lift, press, letgo, again },
+  /** Each mechanism working, to watch before building it. */
+  demos: { writing: write, clicking },
   frames: FRAMES,
 } as const;

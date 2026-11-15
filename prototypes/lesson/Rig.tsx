@@ -28,6 +28,8 @@ export type RigProps = {
   locked?: boolean;
   /** The stretch of the object this question is about. The camera fits it and never moves; left off, it fits the whole object. */
   frame?: Frame;
+  /** A run played over and over with a pause between, nothing to press: a demo of the thing working. Give it a `frame`. */
+  loop?: { test: Test; values: Values; pauseMs?: number };
   /** Runs this test once on arrival, so a question about a behaviour opens with the behaviour. */
   opening?: Test;
   /** Each finished run, with every result since the controls last moved. */
@@ -36,7 +38,7 @@ export type RigProps = {
 
 type Status = "idle" | "pass" | "fail";
 
-export function Rig({ story, kit, present, pink = [], controls = [], values, onValues, tests, locked = false, frame, opening, onResult }: RigProps) {
+export function Rig({ story, kit, present, pink = [], controls = [], values, onValues, tests, locked = false, frame, loop, opening, onResult }: RigProps) {
   const alive = useAlive();
   const lead = controls[0];
   const valueOf = (c: Control) => values[c.key] ?? c.start;
@@ -89,6 +91,24 @@ export function Rig({ story, kit, present, pink = [], controls = [], values, onV
     const id = window.setTimeout(() => runOpening.current?.(), 500);
     return () => clearTimeout(id);
   }, [opening]);
+
+  useEffect(() => {
+    if (!loop) return;
+    let live = true;
+    const going = () => live && alive();
+    void (async () => {
+      await play(500, () => {}, going);
+      while (going()) {
+        const run = loop.test.run(loop.values, world.ctx);
+        // The last frame stays up through the pause, so a line just written is seen before the next run clears it.
+        await play(run.durationMs, (ms) => setAnim(run.at(ms)), going);
+        await play(loop.pauseMs ?? 900, () => {}, going);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [loop, world]);
 
   const turn = (control: Control, v: number) => {
     outcomesRef.current = {};

@@ -1,6 +1,6 @@
 // A mechanism lesson, played: see course.ts for the shape. One screen at a time, in order; the header has a key per
 // mechanism, and the bubble under it names the one in hand.
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import { PRIMITIVES } from "../../shared/primitives/library.ts";
 import { type Course, FORMAT, type Screen } from "./course.ts";
@@ -20,18 +20,24 @@ const primitive = (id: string) => {
 type Bench = { story: Story; kit: Kit };
 type Of<K extends Screen["kind"]> = Extract<Screen, { kind: K }>;
 
+/** True while the lesson is drawn but not yet on show (the demo keeps it ready under the result screen). */
+const Waiting = createContext(false);
+
 export function CourseFlow({
   course,
   kit: scanned,
   photo,
   onHome,
   onRestart,
+  waiting = false,
 }: {
   course: Course;
   kit: Kit;
   photo: string;
   onHome: () => void;
   onRestart: () => void;
+  /** Drawn but not yet shown: nothing plays and no key steps it, so it begins when it arrives. */
+  waiting?: boolean;
 }) {
   const { story, kit } = useMemo(() => bindStory(course.story, scanned), [course, scanned]);
   const screens = useMemo(() => course.mechanisms.flatMap((m, mechanism) => m.screens.map((screen) => ({ screen, mechanism }))), [course]);
@@ -52,7 +58,7 @@ export function CourseFlow({
 
   // "]" and "[" step through the screens without doing them, for rehearsing a demo. The arrow keys belong to the sliders.
   const skip = useRef<(by: number) => void>(undefined);
-  skip.current = (by) => go(Math.min(screens.length - 1, Math.max(0, at + by)));
+  skip.current = (by) => !waiting && go(Math.min(screens.length - 1, Math.max(0, at + by)));
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -88,7 +94,8 @@ export function CourseFlow({
     body = <Place key={at} story={story} kit={kit} index={screen.module} next="Continue" onNext={next} header={<Mechanism name={name} step={mechanism} />} />;
   else {
     const page = { name, step: mechanism, onNext: next };
-    if (screen.kind === "gap") body = <Gap key={at} {...bench} {...page} screen={screen} />;
+    if (screen.kind === "demo") body = <Demo key={at} {...bench} {...page} screen={screen} />;
+    else if (screen.kind === "gap") body = <Gap key={at} {...bench} {...page} screen={screen} />;
     else if (screen.kind === "who") body = <Who key={at} {...bench} {...page} screen={screen} options={learned} jobs={course.jobs} />;
     else if (screen.kind === "much") body = <Much key={at} {...bench} {...page} screen={screen} values={values} onValues={setValues} />;
     else if (screen.kind === "broke") body = <Broke key={at} {...bench} {...page} screen={screen} values={values} onValues={setValues} jobs={course.jobs} />;
@@ -98,9 +105,11 @@ export function CourseFlow({
 
   return (
     <Plain.Provider value>
-      <Shell objectName={story.objectName} photo={photo} steps={steps} onHome={back}>
-        {body}
-      </Shell>
+      <Waiting.Provider value={waiting}>
+        <Shell objectName={story.objectName} photo={photo} steps={steps} onHome={back}>
+          {body}
+        </Shell>
+      </Waiting.Provider>
     </Plain.Provider>
   );
 }
@@ -152,6 +161,20 @@ function useParts(story: Story, kit: Kit, after: number, adds: readonly string[]
     const hidden = new Set(hide.flatMap((id) => familyOf(kit, id)));
     return { present: [...presentAfter(story, kit, after), ...adds].filter((id) => !hidden.has(id)), pink: after < 0 ? [] : story.modules[after]!.produces };
   }, [story, kit, after, adds, hide]);
+}
+
+/** The mechanism working, over and over, before any of it is built: the thing to aim for. */
+function Demo({ story, kit, screen, ...page }: Bench & PageProps & { screen: Of<"demo"> }) {
+  const { present, pink } = useParts(story, kit, screen.after);
+  const loop = useMemo(() => ({ test: screen.run, values: screen.values }), [screen]);
+  // A screen's own pink list names parts as the lesson does; the kit may hold each as several pieces.
+  const coloured = useMemo(() => screen.pink?.flatMap((id) => familyOf(kit, id)) ?? pink, [screen, kit, pink]);
+  const waiting = useContext(Waiting);
+  return (
+    <Page kind="demo" {...page} say={screen.does} done next="Start Building">
+      <Rig story={story} kit={kit} present={present} pink={coloured} frame={screen.frame} values={screen.values} tests={NO_TESTS} loop={waiting ? undefined : loop} />
+    </Page>
+  );
 }
 
 function Gap({ story, kit, screen, ...page }: Bench & PageProps & { screen: Of<"gap"> }) {

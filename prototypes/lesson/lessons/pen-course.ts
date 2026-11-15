@@ -9,7 +9,7 @@ import type { KnownMechanism } from "../../../shared/mechanisms/types.ts";
 import type { Course, Mechanism, Screen } from "../course.ts";
 import pen, { PEN_RIG } from "./pen.ts";
 
-const { controls, tests, keys, frames } = PEN_RIG;
+const { controls, tests, keys, frames, demos } = PEN_RIG;
 
 /** The pen story's modules, by what each one's piece is: the bench shows the pen built up to one of them. */
 const BALL = 0;
@@ -23,7 +23,7 @@ type Facts = { does: string; primitive: string; why: string; need: string };
 type Bound = { screen: Screen; place?: number };
 
 /** One library entry as a run of screens: the gap, its primitives in the order its steps meet them, then its questions. */
-function mechanismOf(entry: KnownMechanism, name: string, bind: (step: Step, facts: (sub: string) => Facts) => Bound, gap?: Screen): Mechanism {
+function mechanismOf(entry: KnownMechanism, name: string, bind: (step: Step, facts: (sub: string) => Facts) => Bound, opening: readonly Screen[]): Mechanism {
   const words = wordsFor(entry, []);
   const lesson = lessonOf(entry, entry.id, words);
   const subs = subfunctionsOf(entry, entry.id, words);
@@ -41,7 +41,7 @@ function mechanismOf(entry: KnownMechanism, name: string, bind: (step: Step, fac
     return [{ kind: "place", module: place }, screen];
   });
   const primitives = [...new Set(subs.map((s) => s.primitive))];
-  return { id: entry.id, name, screens: [...(gap ? [gap] : []), ...primitives.map((id): Screen => ({ kind: "primitive", id })), ...questions] };
+  return { id: entry.id, name, screens: [...opening, ...primitives.map((id): Screen => ({ kind: "primitive", id })), ...questions] };
 }
 
 const unbound = (step: Step): never => {
@@ -60,7 +60,16 @@ const tip = mechanismOf(ballTip, "Ball tip", (step, facts) => {
   if (step.format === "break")
     return { place: BALL, screen: { kind: "break", after: BALL, frame: frames.tip, failure: step.failure, outcome: "skip", controls: [controls.squeeze, controls.pressure], test: tests.write, set: { [keys.squeeze]: SNUG } } };
   return unbound(step);
-});
+}, [
+  {
+    kind: "demo",
+    after: BALL,
+    frame: frames.ball,
+    does: "A ball that rolls a thin, even line of ink.",
+    run: demos.writing,
+    values: { [keys.squeeze]: SNUG },
+  },
+]);
 
 const click = mechanismOf(
   clickLatch,
@@ -96,15 +105,26 @@ const click = mechanismOf(
     }
     return unbound(step);
   },
-  {
-    kind: "gap",
-    after: BALL,
-    frame: frames.low,
-    test: tests.lift,
-    values: { [keys.stiffness]: 0 },
-    try: "Pick the pen up to pocket it.",
-    fails: "The inky tip is still out, ready to mark the cloth.",
-  },
+  [
+    {
+      kind: "gap",
+      after: BALL,
+      frame: frames.low,
+      test: tests.lift,
+      values: { [keys.stiffness]: 0 },
+      try: "Pick the pen up to pocket it.",
+      fails: "The inky tip is still out, ready to mark the cloth.",
+    },
+    {
+      kind: "demo",
+      after: LATCH,
+      frame: frames.click,
+      does: "A click that sends the tip out, and another that tucks it away.",
+      run: demos.clicking,
+      values: {},
+      pink: ["spring"],
+    },
+  ],
 );
 
 export default {

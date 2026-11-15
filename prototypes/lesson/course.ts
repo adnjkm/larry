@@ -10,6 +10,8 @@ import type { Control, Frame, Story, Test, Values } from "./model.ts";
  * framed on `frame` when the whole object is too tall to read.
  */
 export type Screen =
+  /** The mechanism working, on a loop, before anything is built: what this stretch of the lesson is for. */
+  | { kind: "demo"; after: number; frame?: Frame; does: string; run: Test; values: Values; pink?: readonly string[] }
   /** What the build so far cannot do: `try` is done on the bench, and `fails` is what is seen. */
   | { kind: "gap"; after: number; frame?: Frame; test: Test; values: Values; try: string; fails: string }
   /** One primitive, on the primitive template, by library id. */
@@ -51,7 +53,8 @@ export type Course = {
   jobs: Readonly<Record<string, string>>;
 };
 
-export const FORMAT: Readonly<Record<"gap" | "who" | "much" | "broke" | "break" | "final", string>> = {
+export const FORMAT: Readonly<Record<"demo" | "gap" | "who" | "much" | "broke" | "break" | "final", string>> = {
+  demo: "You will build",
   gap: "What it cannot do yet",
   who: "Who does this?",
   much: "How much?",

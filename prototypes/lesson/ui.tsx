@@ -14,7 +14,7 @@ import { Beam } from "./Beam.tsx";
 import { FunkyFrame } from "./FunkyFrame.tsx";
 import { DEFAULT_VIEW, type View, type Zone, zoneAt as zoneOf } from "./model.ts";
 import { fitFrame, reuseParts } from "./pose.ts";
-import { LessonProgress } from "../../src/ui/LessonProgress.tsx";
+import { LessonProgress, PROGRESS_TRANSITION } from "../../src/ui/LessonProgress.tsx";
 
 /** The default dither with a Synthwave gradient for the shadow. */
 const LOOK: DitherLook = { ...DEFAULT_LOOK, shadow: { ...DEFAULT_LOOK.shadow, stops: SYNTHWAVE } };
@@ -381,7 +381,16 @@ function StepBar({ steps, label }: { steps: Step[]; label: string }) {
   const now = steps.findIndex((s) => s.state === "now");
   return (
     <div ref={box} className="step-bar" aria-label={`${label}: progress`}>
-      {width > 0 && <LessonProgress count={steps.length} reached={reached} step={now < 0 ? reached : now} onStep={(i) => steps[i]?.go()} width={width} />}
+      {width > 0 && (
+        <LessonProgress
+          count={steps.length}
+          reached={reached}
+          step={now < 0 ? reached : now}
+          onStep={(i) => steps[i]?.go()}
+          width={width}
+          transitionName={PROGRESS_TRANSITION}
+        />
+      )}
     </div>
   );
 }
