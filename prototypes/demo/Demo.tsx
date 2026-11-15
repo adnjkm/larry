@@ -62,18 +62,12 @@ function Lesson({ screen, onCamera }: { screen: PhoneScreen; onCamera: () => voi
   );
 }
 
-const INTRO = {
-  eyebrow: "Larry · demo",
-  heading: "Photo to lesson",
-  blurb: "Tap the shutter one to three times, then Use. When the model is ready, Build it starts the lesson.",
-};
-
 export function Demo() {
   return (
     <>
       <style>{LESSON_CSS}</style>
       <style>{DEMO_CSS}</style>
-      <CameraMock object="bottle" intro={INTRO} after={(props) => <Lesson {...props} />} />
+      <CameraMock object="bottle" after={(props) => <Lesson {...props} />} dials />
     </>
   );
 }

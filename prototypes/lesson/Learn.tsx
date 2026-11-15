@@ -4,6 +4,7 @@ import { initialValues, type Primitive, type Readout, type Values } from "./prim
 import type { Built, Builds, View } from "./model.ts";
 import { drawObject, enclosed, restCentre } from "./pose.ts";
 import { Actions, Inset, Say, SliderRow, Strip, Viewer, Why } from "./ui.tsx";
+import { PillSurface } from "../../src/ui/PillSurface.tsx";
 
 /** Parts at every combination of slider extremes. The camera fits these once, so it holds still while a slider moves the parts. */
 export function framingParts(p: Primitive): Part[] {
@@ -174,7 +175,7 @@ export function Learn({ list, words, kicker, next, own, inObject, view, onNext }
       </div>
       <Actions>
         <button type="button" className="btn" data-next onClick={onNext}>
-          {next}
+          <PillSurface>{next}</PillSurface>
         </button>
       </Actions>
     </main>

@@ -9,10 +9,11 @@ import { screen } from "../camera/screen.stylex.ts";
 import { DEFAULT_LOOK, type DitherLook } from "../kit3d/ditherLook.ts";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
 import { pill } from "../surface/relief.ts";
+import { PillLabel } from "../ui/PillSurface.tsx";
 import { Surface } from "../surface/Surface.tsx";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
-import { LessonProgress } from "./LessonProgress.tsx";
-import { defaultSettings, type MockSettings, type Pace, type StartScreen } from "./settings.ts";
+import { LessonProgress } from "../ui/LessonProgress.tsx";
+import { defaultSettings, type MockSettings, type Pace, type Screen } from "./settings.ts";
 
 /*
  * Mockup of the camera and the move from photo to model, in a phone frame. Nothing here talks to the server: the
@@ -60,7 +61,6 @@ const LOOK: DitherLook = { ...DEFAULT_LOOK, colors: { ...DEFAULT_LOOK.colors, ac
 
 type Phase = "live" | "reading" | "building" | "done";
 type StartAt = "live" | "done";
-const startFor = (screen: StartScreen): StartAt => (screen === "model" ? "done" : "live");
 
 /** Milliseconds after the photos are sent. "real" follows a low-effort run: header at 5 s, first part at 6.7 s, done at about 12 s. */
 const PACES: Record<Pace, { started: number; first: number; gap: number; tail: number }> = {
@@ -91,39 +91,40 @@ const colorFade = "color 600ms ease, background-color 600ms ease";
 /** Where a screen after the camera sits inside the phone: below the status bar, above the gesture bar, in CSS px. */
 export type PhoneScreen = { top: number; height: number; width: number };
 
-type Intro = { eyebrow: string; heading: string; blurb: string };
-
-const MOCK_INTRO: Intro = {
-  eyebrow: "Larry · mockup",
-  heading: "Photo to model",
-  blurb:
-    "Pixel 8a screen, 412 × 915. The status bar, gesture bar and handle are measured from the Android emulator. The camera is a still photo; tap the shutter one to three times, then Use. Everything else is in the dials.",
-};
-
 /**
- * The camera in a phone, with the fake flow round it. On its own (camera.html) it has dials. Given `after`, it is a
- * demo: no dials, and the result's "Build it" hands the phone over to whatever `after` draws, until `onCamera`.
+ * The camera in a phone, with the fake flow round it. Given `after`, it is a demo: the result's "Build It" hands the
+ * phone over to whatever `after` draws, until `onCamera`. `dials` shows the DialKit panel (dev only); on by default
+ * without `after`.
  */
 export default function CameraMock({
   object: initialObject,
-  intro = MOCK_INTRO,
   after,
-}: { object?: string; intro?: Intro; after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode } = {}) {
+  dials = !after,
+}: { object?: string; after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode; dials?: boolean } = {}) {
   const [settings, setSettings] = useState<MockSettings>(() =>
     defaultSettings(initialObject ?? (OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? ""))),
   );
   const [run, setRun] = useState<{ id: number; startAt: StartAt }>({ id: 0, startAt: "live" });
   const [built, setBuilt] = useState(false);
-  const [log, setLog] = useState<string[]>([]);
   const restart = (startAt: StartAt) => {
-    setLog([]);
     setBuilt(false);
     setRun((r) => ({ id: r.id + 1, startAt }));
   };
 
-  // Picking a screen starts a run there, and so does opening the page with it picked.
+  // Which screen is on the phone: the camera until it lifts off the model, the model, then the lesson once Build It
+  // hands over.
+  const [onCamera, setOnCamera] = useState(true);
+  const current: Screen = built && after ? "lesson" : onCamera ? "camera" : "model";
+  const screens: Screen[] = after ? ["camera", "model", "lesson"] : ["camera", "model"];
+  /** Starts a run on `screen`: the camera, the finished model, or the lesson straight after it. */
+  const jump = (screen: Screen) => {
+    restart(screen === "camera" ? "live" : "done");
+    if (screen === "lesson" && after) setBuilt(true);
+  };
+  // Picking a screen in the dials goes there, and so does opening the page with one picked. Moving on by using the
+  // flow changes the picked screen too, but then it's already there.
   useEffect(() => {
-    if (!after) restart(startFor(settings.screen));
+    if (dials && settings.screen !== current) jump(settings.screen);
   }, [settings.screen]);
 
   const usableTop = STATUS_BAR + (settings.tab ? CHROME_TOOLBAR : 0);
@@ -132,35 +133,31 @@ export default function CameraMock({
   const scale = useFitScale(frame.height + 32);
   const object = OBJECTS.find((o) => o.name === settings.object) ?? OBJECTS[0];
   if (!object) return null;
+  // The phone on the left holds still on the screen before this one, to compare against: the camera beside the model,
+  // the model beside the lesson. The camera has nothing before it, so the model stands beside it.
+  const previous: Screen = current === "model" ? "camera" : "model";
 
   return (
     <div {...stylex.props(s.shell)}>
-      <div {...stylex.props(s.panel)}>
-        <div {...stylex.props(s.group)}>
-          <p {...stylex.props(s.eyebrow)}>{intro.eyebrow}</p>
-          <h1 {...stylex.props(s.heading)}>{intro.heading}</h1>
-          <p {...stylex.props(s.blurb)}>{intro.blurb}</p>
-          {!after && (
-            <p {...stylex.props(s.blurb)}>
-              Usable height: {usableHeight}px {settings.tab ? "in a Chrome tab" : "as an installed app"}.
-            </p>
-          )}
-        </div>
-        <div {...stylex.props(s.group)}>
-          <p {...stylex.props(s.eyebrow)}>Stream</p>
-          <ul {...stylex.props(s.log)}>
-            {log.length === 0 && <li {...stylex.props(s.logEmpty)}>Nothing sent yet</li>}
-            {log.map((line, i) => (
-              <li key={i}>{line}</li>
-            ))}
-          </ul>
-          <p {...stylex.props(s.eyebrow)}>Space takes a photo · Enter uses them</p>
+      <div {...stylex.props(s.phoneSlot(frame.width * scale, frame.height * scale))}>
+        <div inert {...stylex.props(s.phone(scale))}>
+          <Flow
+            key={`still-${previous}-${object.name}-${run.id}`}
+            object={object}
+            pace={settings.pace}
+            startAt={previous === "camera" ? "live" : "done"}
+            settings={settings}
+            usableTop={usableTop}
+            usableHeight={usableHeight}
+            onRestart={() => {}}
+            still
+          />
         </div>
       </div>
 
       <div {...stylex.props(s.phoneSlot(frame.width * scale, frame.height * scale))}>
         <div data-phone {...stylex.props(s.phone(scale))}>
-          {built && after ? (
+          {current === "lesson" && after ? (
             <div data-after {...stylex.props(s.screen, light)}>
               <div {...stylex.props(light, s.page)}>
                 <div {...stylex.props(s.viewport(usableTop, usableHeight))}>
@@ -178,16 +175,23 @@ export default function CameraMock({
               settings={settings}
               usableTop={usableTop}
               usableHeight={usableHeight}
-              onLog={(line) => setLog((l) => [...l, line])}
               onRestart={() => restart("live")}
               onBuild={after && (() => setBuilt(true))}
+              onCamera={setOnCamera}
             />
           )}
         </div>
       </div>
-      {Dials && !after && (
+      {Dials && dials && (
         <Suspense>
-          <Dials objects={OBJECT_NAMES} initial={settings} onChange={setSettings} onAction={() => restart(startFor(settings.screen))} />
+          <Dials
+            objects={OBJECT_NAMES}
+            screens={screens}
+            current={current}
+            initial={settings}
+            onChange={(patch) => setSettings((s) => ({ ...s, ...patch }))}
+            onReplay={() => jump(current)}
+          />
         </Suspense>
       )}
     </div>
@@ -213,9 +217,10 @@ function Flow({
   settings,
   usableTop,
   usableHeight,
-  onLog,
   onRestart,
   onBuild,
+  onCamera,
+  still = false,
 }: {
   object: MockObject;
   pace: Pace;
@@ -223,9 +228,12 @@ function Flow({
   settings: MockSettings;
   usableTop: number;
   usableHeight: number;
-  onLog: (line: string) => void;
   onRestart: () => void;
   onBuild?: () => void;
+  /** Whether the camera is still over the model, until it has lifted away. */
+  onCamera?: (up: boolean) => void;
+  /** A still copy for comparing against: nothing turns, and the keyboard doesn't work it. */
+  still?: boolean;
 }) {
   const atEnd = startAt === "done";
   const { kit } = object;
@@ -239,6 +247,7 @@ function Flow({
   const [parts, setParts] = useState<Part[]>(atEnd ? kit.parts : []);
   // The camera is a sheet over the result. Once the model is ready it slides up and away, revealing the result.
   const [sheet, setSheet] = useState<"up" | "leaving" | "gone">(atEnd ? "gone" : "up");
+  useEffect(() => onCamera?.(sheet !== "gone"), [sheet]);
 
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
@@ -247,20 +256,14 @@ function Flow({
   function read() {
     setPhase("reading");
     const pacing = PACES[pace];
-    const t0 = performance.now();
-    const stamp = (what: string) => onLog(`${((performance.now() - t0) / 1000).toFixed(1).padStart(4)} s  ${what}`);
-    stamp("photos sent");
-    later(pacing.started, () => stamp(`found ${kit.name}`));
     kit.parts.forEach((part, i) =>
       later(pacing.first + i * pacing.gap, () => {
         if (i === 0) setPhase("building");
         setParts((p) => [...p, part]);
-        stamp(`part ${i + 1} · ${part.name}`);
       }),
     );
     later(pacing.first + (kit.parts.length - 1) * pacing.gap + pacing.tail, () => {
       setPhase("done");
-      stamp("kit checked");
     });
   }
 
@@ -298,12 +301,20 @@ function Flow({
             {/* The progress bar, the model and the pill are one group, evenly spaced, so the bar sits as far above the
                 model as the pill sits below it. Nothing else: no header, counts or parts list. */}
             <div {...stylex.props(s.reveal)}>
-              <LessonProgress count={steps} reached={reached} step={step} onStep={setStep} width={cardWidth} height={model.keyHeight} />
+              <LessonProgress
+                count={steps}
+                reached={reached}
+                step={step}
+                onStep={setStep}
+                width={cardWidth}
+                height={model.keyHeight}
+                caption={`${steps} ${steps === 1 ? "mechanism" : "mechanisms"}`}
+              />
               <div {...stylex.props(s.stage)}>
                 {parts.length > 0 && (
                   <div {...stylex.props(s.model)}>
                     {/* Covered by the camera until it lifts, so it holds still until then. */}
-                    <KitViewer parts={parts} spin={sheet !== "up"} roll={model.tilt} height={modelHeight} look={LOOK} />
+                    <KitViewer parts={parts} spin={!still && sheet !== "up"} roll={model.tilt} height={modelHeight} look={LOOK} />
                   </div>
                 )}
               </div>
@@ -318,7 +329,7 @@ function Flow({
                     depth={CAMERA.relief}
                     drift={CAMERA.idleDither}
                   />
-                  <span {...stylex.props(s.buildLabel)}>{label}</span>
+                  <PillLabel>{label}</PillLabel>
                 </Button>
                 <Button {...stylex.props(s.link)} onClick={onRestart}>
                   Scan something else
@@ -342,6 +353,7 @@ function Flow({
               busy={phase === "reading" || phase === "building"}
               tuning={settings.tuning}
               onCapture={read}
+              keys={!still}
             />
           </div>
         </div>
@@ -428,24 +440,6 @@ const s = stylex.create({
     color: colors.ink,
     fontFamily: fonts.sans,
   },
-  panel: { width: 280, display: "flex", flexDirection: "column", gap: 24 },
-  group: { display: "flex", flexDirection: "column", gap: 8 },
-  eyebrow: { margin: 0, fontFamily: fonts.mono, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: colors.graphite },
-  heading: { margin: 0, fontSize: 32, lineHeight: "36px", fontWeight: 600, letterSpacing: "-0.02em" },
-  blurb: { margin: 0, fontSize: 14, lineHeight: "20px", color: colors.graphite },
-  log: {
-    margin: 0,
-    padding: 0,
-    listStyle: "none",
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    lineHeight: "16px",
-    minHeight: 120,
-  },
-  logEmpty: { color: colors.graphite },
 
   phoneSlot: (width: number, height: number) => ({ width, height, flexShrink: 0 }),
   // The frame has its own size, so it is not sized by the already-shrunk slot and then scaled a second time.
@@ -575,16 +569,7 @@ const s = stylex.create({
     transform: { default: "none", ":active:not(:disabled)": "scale(0.98)" },
     transition: `transform 160ms ${camera.easeOut}, opacity 300ms ease`,
   },
-  // Above the Surface's canvas, which is positioned.
-  buildLabel: {
-    position: "relative",
-    color: colors.paper,
-    fontFamily: fonts.sans,
-    fontSize: 17,
-    lineHeight: "22px",
-    fontWeight: 600,
-    letterSpacing: "-0.01em",
-  },
+
   link: {
     padding: 0,
     borderWidth: 0,

@@ -11,6 +11,7 @@ import { framingParts, type InObject } from "./Learn.tsx";
 import { type Rig as RigSpec, type StoryModule, type View, zoneAt } from "./model.ts";
 import { initialValues, PRIMITIVES as FIRST_PASS, type Values } from "./primitives/library.ts";
 import { Actions, Inset, Need, Say, Strip, TURNS, Viewer, Why } from "./ui.tsx";
+import { PillSurface } from "../../src/ui/PillSurface.tsx";
 
 /**
  * Primitives Learn still draws from the first-pass copy in ./primitives: the seal's old rig (a ring squeezed between
@@ -238,10 +239,12 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
         </Rig>
       )}
       <Actions>
-        {/* Where the primitive can be tuned to meet the requirement, it has to be met before moving on. */}
-        <button type="button" className="btn" data-next disabled={rig.goal !== undefined && !met} onClick={onNext}>
-          {next}
-        </button>
+        {/* Where the primitive can be tuned to meet the requirement, it has to be met before moving on, and Next only shows then. */}
+        {rig.goal === undefined || met ? (
+          <button type="button" className="btn" data-next onClick={onNext}>
+            <PillSurface>{next}</PillSurface>
+          </button>
+        ) : null}
       </Actions>
     </main>
   );

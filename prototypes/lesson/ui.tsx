@@ -12,9 +12,9 @@ import { pill, rrect } from "../../src/surface/relief.ts";
 import { Surface } from "../../src/surface/Surface.tsx";
 import { Beam } from "./Beam.tsx";
 import { FunkyFrame } from "./FunkyFrame.tsx";
-import { Dither } from "./dither.tsx";
 import { DEFAULT_VIEW, type View, type Zone, zoneAt as zoneOf } from "./model.ts";
 import { fitFrame, reuseParts } from "./pose.ts";
+import { LessonProgress } from "../../src/ui/LessonProgress.tsx";
 
 /** The default dither with a Synthwave gradient for the shadow. */
 const LOOK: DitherLook = { ...DEFAULT_LOOK, shadow: { ...DEFAULT_LOOK.shadow, stops: SYNTHWAVE } };
@@ -63,9 +63,6 @@ export function Viewer(props: { parts: Part[]; subject: readonly Part[]; view?: 
         </span>
       ) : null}
       {props.children}
-      <span className="drag" aria-hidden="true">
-        Drag to turn
-      </span>
     </div>
   );
 }
@@ -211,8 +208,7 @@ export function SliderRow(props: { slider: Slider; value: number; onChange: (v: 
 export function Say({ kicker, children, why, note, found }: { kicker: string; children: ReactNode; why?: ReactNode; note?: boolean; found?: boolean }) {
   return (
     <div className="say">
-      <div className="say-text">
-        <span className="mono">{kicker}</span>
+      <div className="say-text" data-kicker={kicker}>
         <h1 className="do" data-note={note || found ? "" : undefined} data-found={found ? "" : undefined} aria-live="polite">
           {children}
         </h1>
@@ -359,50 +355,55 @@ export function Actions({ children }: { children: ReactNode }) {
 
 export type Step = { key: string; title: string; state: "done" | "now" | "todo"; enabled: boolean; go: () => void };
 
-const STATE: Record<Step["state"], string> = { done: "done", now: "you are here", todo: "to do" };
+/** The lesson's top bar: back to the photos, and the lesson's progress. */
+/**
+ * The lesson's steps as the progress bar the model screen showed: one key per step across the header, pink for the
+ * steps reached, grey for the ones ahead, which can't be opened yet. It sizes its keys to the room the header leaves.
+ */
+function StepBar({ steps, label }: { steps: Step[]; label: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => setWidth(Math.floor(el.clientWidth));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  let reached = -1;
+  steps.forEach((s, i) => {
+    if (s.enabled) reached = i;
+  });
+  const now = steps.findIndex((s) => s.state === "now");
+  return (
+    <div ref={box} className="step-bar" aria-label={`${label}: progress`}>
+      {width > 0 && <LessonProgress count={steps.length} reached={reached} step={now < 0 ? reached : now} onStep={(i) => steps[i]?.go()} width={width} />}
+    </div>
+  );
+}
 
-/** The lesson's top bar: back to the photos, the object, a dot per step, and the scanned photo as the goal. */
 export function Shell({
   objectName,
-  photo,
   steps,
   onHome,
   children,
 }: {
   objectName: string;
-  photo: string;
+  /** The scanned photo. The header no longer shows it; kept so callers needn't change. */
+  photo?: string;
   steps: Step[];
   onHome: () => void;
   children: ReactNode;
 }) {
-  const plain = useContext(Plain);
   return (
     <div className="screen">
       <header className="top">
         <button type="button" className="back" data-home aria-label="Back to photos" onClick={onHome}>
           ←
         </button>
-        <strong className="top-name">{objectName}</strong>
-        <nav className="dots-nav" aria-label="Progress">
-          {steps.map((s, i) => (
-            <button
-              key={s.key}
-              type="button"
-              className="step-dot"
-              data-state={s.state}
-              data-pill={s.key}
-              disabled={!s.enabled}
-              aria-label={`${i + 1}. ${s.title}, ${STATE[s.state]}`}
-              aria-current={s.state === "now" ? "step" : undefined}
-              onClick={s.go}
-            >
-              <span aria-hidden="true">{s.state === "done" ? "✓" : plain ? "" : i + 1}</span>
-            </button>
-          ))}
-        </nav>
-        <figure className="north" title="The scanned photo: what you are building">
-          <Dither src={photo} aspect={1} className="thumb" />
-        </figure>
+        <StepBar steps={steps} label={objectName} />
       </header>
       {children}
     </div>

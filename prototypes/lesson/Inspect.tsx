@@ -7,6 +7,7 @@ import { JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { EMPTY_SCENE, type Inspect, listOf } from "./model.ts";
 import { drawObject, restCentre } from "./pose.ts";
 import { Actions, ExplodeSlider, Say, Shell, type Step, Viewer, Why } from "./ui.tsx";
+import { PillSurface } from "../../src/ui/PillSurface.tsx";
 
 type Route = "learn" | "apart" | "jobs" | "final";
 const FIXED: ReadonlySet<Joint> = new Set(["rivet", "glue", "weld", "molded"]);
@@ -183,7 +184,7 @@ function Apart({ lesson, kit, note, slide, onNext }: { lesson: Inspect; kit: Kit
       </div>
       <Actions>
         <button type="button" className="btn" data-next disabled={!all} onClick={onNext}>
-          Next: name the jobs
+          <PillSurface>Next: name the jobs</PillSurface>
         </button>
       </Actions>
     </main>
@@ -227,7 +228,7 @@ function Jobs({ lesson, kit, onNext }: { lesson: Inspect; kit: Kit; onNext: () =
       </p>
       <Actions>
         <button type="button" className="btn" data-next disabled={!right} onClick={() => (last ? onNext() : (setAt(at + 1), setTapped(null)))}>
-          {last ? "Next: piece it together" : "Next job"}
+          <PillSurface>{last ? "Next: piece it together" : "Next job"}</PillSurface>
         </button>
       </Actions>
     </main>
@@ -304,7 +305,7 @@ function Together({
           Start over
         </button>
         <button type="button" className="btn" data-next disabled={!done} onClick={onHome}>
-          Another object
+          <PillSurface>Another object</PillSurface>
         </button>
       </Actions>
     </main>

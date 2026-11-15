@@ -9,6 +9,7 @@ import { outline } from "./outline.ts";
 import { AXIS, type Builds, listOf, presentAfter, rootOf, type Scene, type Shares, vec, type Vec } from "./model.ts";
 import { centreOf, compose, drawObject, enclosed, type Extents, extents, restCentre } from "./pose.ts";
 import { Actions, ExplodeSlider, Say, Viewer, Why } from "./ui.tsx";
+import { PillSurface } from "../../src/ui/PillSurface.tsx";
 
 /**
  * The piece rests beside the object until it is picked up, follows the finger while held, springs
@@ -392,7 +393,7 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
       <ExplodeSlider value={explode.target} onChange={explode.set} disabled={phase.kind === "held" || phase.kind === "landing"} />
       <Actions>
         <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>
-          {next}
+          <PillSurface>{next}</PillSurface>
         </button>
       </Actions>
     </main>

@@ -18,7 +18,7 @@ html, body { height: 100%; }
 .north { flex: none; margin: 0; }
 .north .thumb { width: 32px; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 1px var(--rule); }
 
-.say { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.say { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .say-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .do { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
 .do[data-note]:not([data-found]) { font-size: 16px; line-height: 1.35; font-weight: 500; text-wrap: pretty; }
@@ -44,7 +44,6 @@ html, body { height: 100%; }
 .viewer::after { content: ""; position: absolute; inset: 0; border-radius: 16px; box-shadow: 0 0 0 1px var(--rule) inset; pointer-events: none; }
 .viewer > [data-kit-viewer] { position: absolute; inset: 0; }
 .live { position: absolute; left: 10px; top: 10px; padding: 5px 9px; border-radius: 8px; background: var(--ink); color: #fff; font-family: "Geist Mono", monospace; font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; }
-.drag { position: absolute; right: 12px; bottom: 10px; font-family: "Geist Mono", monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--graphite); pointer-events: none; }
 .play { position: absolute; left: 8px; bottom: 8px; min-height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px var(--ink) inset; font-size: 13px; font-weight: 600; cursor: pointer; }
 
 .tabs { flex: none; display: flex; gap: 6px; }
@@ -116,9 +115,6 @@ html, body { height: 100%; }
 .test { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 4px 10px; border: 0; border-radius: 999px; background: var(--ink); color: #fff; font-size: 14px; line-height: 1.15; font-weight: 600; cursor: pointer; transition: transform 150ms ease-out, opacity 150ms ease-out; }
 .test:active:not(:disabled) { transform: scale(0.96); }
 .test:disabled { opacity: 0.35; cursor: default; }
-.test .dot { flex: none; width: 10px; height: 10px; background: transparent; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.6) inset; }
-.test[data-status="pass"] .dot { background: #fff; box-shadow: none; }
-.test[data-status="fail"] .dot { background: var(--pink); box-shadow: none; }
 .result { flex: none; margin: 0; min-height: 36px; font-size: 13px; line-height: 18px; color: var(--graphite); }
 .result[data-bad] { color: var(--ink); font-weight: 500; }
 .result[data-found] { color: var(--ink); font-weight: 600; }
@@ -131,7 +127,7 @@ html, body { height: 100%; }
 .pchip:disabled { cursor: default; }
 .fix { flex: none; }
 
-.actions { flex: none; margin-top: auto; display: flex; gap: 8px; padding: 6px 0 calc(12px + env(safe-area-inset-bottom, 0px)); }
+.actions { flex: none; display: flex; gap: 8px; padding: 6px 0 calc(12px + env(safe-area-inset-bottom, 0px)); }
 .actions .btn { flex: 1; width: auto; }
 .btn:active:not(:disabled) { transform: scale(0.96); }
 
@@ -217,3 +213,8 @@ html, body { height: 100%; }
   .cheer-letter { animation: none; }
   @keyframes cheer-fade { 0% { opacity: 0; } 12%, 78% { opacity: 1; } 100% { opacity: 0; } }
 }
+
+/* The dark raised pill (src/ui/PillSurface.tsx) draws these buttons' face, under the label. */
+.btn:not(.secondary), .test { position: relative; isolation: isolate; background: transparent; }
+/* The header is the back arrow and the progress bar. */
+.step-bar { flex: 1 1 auto; min-width: 0; display: flex; }

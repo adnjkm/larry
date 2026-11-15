@@ -1,8 +1,8 @@
 import { type Tuning, TUNING } from "../camera/look.ts";
 
 export type Pace = "demo" | "real";
-/** Which screen a run opens on: the camera, or straight to the finished model. */
-export type StartScreen = "camera" | "model";
+/** The mockup's screens, in the order the flow goes through them. The lesson is only there when a demo gives one. */
+export type Screen = "camera" | "model" | "lesson";
 
 /** The model screen, still being tuned. Sizes in CSS px, the tilt in degrees. */
 export type ModelLook = {
@@ -19,7 +19,7 @@ export type ModelLook = {
 export const MODEL: ModelLook = { height: 464, tilt: -9, steps: 4, keyHeight: 34 };
 
 /** What the mockup's dials set. */
-export type MockSettings = { object: string; pace: Pace; screen: StartScreen; tab: boolean; showUsable: boolean; tuning: Tuning; model: ModelLook };
+export type MockSettings = { object: string; pace: Pace; screen: Screen; tab: boolean; showUsable: boolean; tuning: Tuning; model: ModelLook };
 
 export const defaultSettings = (object: string): MockSettings => ({
   object,

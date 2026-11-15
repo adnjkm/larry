@@ -8,6 +8,7 @@ import { assembledFrom, type Built, type Builds, listOf, type PartMove, presentA
 import { DragBuild } from "./DragBuild.tsx";
 import { compose, drawObject, enclosed, extents, placeParts, restCentre } from "./pose.ts";
 import { Actions, ExplodeSlider, Plain, Say, Viewer, Why } from "./ui.tsx";
+import { PillSurface } from "../../src/ui/PillSurface.tsx";
 
 const FLIGHT_MS = 650;
 /** The piece is spent on the way in; the part appears for the last quarter of the flight and settles. */
@@ -205,9 +206,11 @@ function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: str
         </div>
       )}
       <Actions>
-        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>
-          {next}
-        </button>
+        {placed ? (
+          <button type="button" className="btn" data-next onClick={onNext}>
+            <PillSurface>{next}</PillSurface>
+          </button>
+        ) : null}
       </Actions>
     </main>
   );

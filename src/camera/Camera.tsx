@@ -23,6 +23,7 @@ export function Camera({
   busy,
   tuning,
   onCapture,
+  keys: listens = true,
 }: {
   photo: string;
   width: number;
@@ -30,6 +31,8 @@ export function Camera({
   busy: boolean;
   tuning: Tuning;
   onCapture: (shots: number) => void;
+  /** Whether Space and Enter work it. Off for a still copy beside the live one. */
+  keys?: boolean;
 }) {
   const box = { width: width - 2 * CAMERA.sideInset, height: Math.max(160, height - 2 * CAMERA.barHeight) };
   const [shots, setShots] = useState(0);
@@ -77,6 +80,7 @@ export function Camera({
   const keys = useRef({ shoot, use });
   keys.current = { shoot, use };
   useEffect(() => {
+    if (!listens) return;
     const down = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select, [contenteditable]")) return;
       if (e.code === "Space") {
@@ -92,7 +96,7 @@ export function Camera({
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, []);
+  }, [listens]);
 
   const live = !captured;
   return (

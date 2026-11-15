@@ -237,9 +237,10 @@ class Run {
     if (plain) await this.noDigits("scan");
     await this.shot("scan");
     await this.page.click("[data-start]");
-    const thumb = await this.page.locator(".north canvas[data-dither]").count();
+    // The header is the back arrow and the progress bar now; the scanned photo isn't shown in the lesson at all.
     const photos = await this.page.locator("img").count();
-    this.check("no raw photo, goal is dithered", thumb === 1 && photos === 0, `${thumb} dithered goal, ${photos} <img>`);
+    const bar = await this.page.locator(".step-bar [aria-label='Lesson steps']").count();
+    this.check("no raw photo, progress bar in the header", photos === 0 && bar === 1, `${photos} <img>, ${bar} progress bar`);
   }
 
   /**
@@ -1000,10 +1001,7 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
     await r.stage("problem");
     await r.noDigits(`${tag} problem`);
     await r.framed("problem", `${tag} problem`, false);
-    r.check(
-      `${tag} opens on "${m.without.say}" with Next locked`,
-      (await said()) === m.without.say && (await r.page.locator("[data-next]:disabled").count()) === 1,
-    );
+    r.check(`${tag} opens on "${m.without.say}" with no Next yet`, (await said()) === m.without.say && (await r.page.locator("[data-next]").count()) === 0);
     if (m.need) r.check(`${tag} problem states the requirement "${m.need}"`, ((await r.page.textContent("[data-need] .need-text")) ?? "").trim() === m.need);
     const opener = await r.runTests([m.without.test.id], `${tag}-without`, true, LATER_MS);
     r.check(

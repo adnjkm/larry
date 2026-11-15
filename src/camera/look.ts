@@ -45,7 +45,7 @@ export type DevelopLook = {
 };
 
 export const TUNING: Tuning = {
-  sweep: { ms: 1200, curve: 0.12, grain: 1.5 },
+  sweep: { ms: 1400, curve: 0.12, grain: 1.5 },
   develop: { wave: 4, light: 0.35, speed: 1, glow: 0.8, reach: 18 },
 };
 

@@ -6,6 +6,7 @@ import { lerp, smooth } from "../../shared/primitives/motion/ease.ts";
 import { listOf, type Module, type Overlay, passBand, presentAfter, type Run, type Test, type Values, type Verdict, type Workshop } from "./model.ts";
 import { compose, drawObject, enclosed, restCentre } from "./pose.ts";
 import { Actions, ExplodeSlider, Say, SliderRow, Viewer, Why } from "./ui.tsx";
+import { PillSurface } from "../../src/ui/PillSurface.tsx";
 
 const CLOSE_MS = 350;
 const ASSEMBLE_MS = 800;
@@ -308,8 +309,7 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
             disabled={running !== null || blocked}
             onClick={() => void runTest(t)}
           >
-            <span className="dot" aria-hidden="true" />
-            {t.label}
+            <PillSurface>{t.label}</PillSurface>
             {status(t) === "idle" ? null : <span className="sr">{status(t) === "pass" ? ", passed" : ", failed"}</span>}
           </button>
         ))}
@@ -349,12 +349,12 @@ export function Sandbox({ lesson, kit, mode, tuning, onTune, onEarned, onNext, o
               Start over
             </button>
             <button type="button" className="btn" data-next disabled={!earned} onClick={onHome}>
-              Another object
+              <PillSurface>Another object</PillSurface>
             </button>
           </>
         ) : (
           <button type="button" className="btn" data-next disabled={!earned} onClick={onNext}>
-            Next: {nextTitle}
+            <PillSurface>Next: {nextTitle}</PillSurface>
           </button>
         )}
       </Actions>

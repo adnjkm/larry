@@ -3,6 +3,7 @@ import { Dither } from "./dither.tsx";
 import type { Lesson } from "./model.ts";
 import type { Sample } from "./samples.ts";
 import { Actions, Say } from "./ui.tsx";
+import { PillSurface } from "../../src/ui/PillSurface.tsx";
 
 const count = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
 /** A story lesson shows no digits, so its counts are spelled out. */
@@ -73,7 +74,7 @@ export function Scan({ sample, lesson, onStart }: { sample: Sample; lesson: Less
       </ul>
       <Actions>
         <button type="button" className="btn" data-start disabled={!finished} onClick={onStart}>
-          Start
+          <PillSurface>Start</PillSurface>
         </button>
       </Actions>
     </main>

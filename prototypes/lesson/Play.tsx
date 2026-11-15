@@ -6,6 +6,7 @@ import { type Overlay, presentAfter, type Run, type Shares, STILL, type Story, t
 import { compose, drawObject, restCentre } from "./pose.ts";
 import { Cheer } from "./Cheer.tsx";
 import { Actions, ExplodeSlider, Need, Say, Strip, TURNS, Viewer, Why } from "./ui.tsx";
+import { PillSurface } from "../../src/ui/PillSurface.tsx";
 
 const FRAME_SAMPLES = 48;
 const CAMERA_MS = 300;
@@ -76,7 +77,6 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
   const [arming, setArming] = useState(false);
   const [outcomes, setOutcomes] = useState<Readonly<Record<string, Verdict>>>({});
   const outcomesRef = useRef(outcomes);
-  const [last, setLast] = useState<string | null>(null);
   const [fails, setFails] = useState(0);
   const [readAhead, setReadAhead] = useState(0);
   const token = useRef(0);
@@ -111,7 +111,6 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
     const next = { ...outcomesRef.current, [test.id]: run.verdict };
     outcomesRef.current = next;
     setOutcomes(next);
-    setLast(test.id);
     if (!run.verdict.pass) setFails((n) => n + 1);
     if (mode.kind === "problem" || tests.every((t) => next[t.id]?.pass)) onDone();
   };
@@ -119,7 +118,6 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
   const turn = (v: number) => {
     outcomesRef.current = {};
     setOutcomes({});
-    setLast(null);
     onValues({ ...values, [control.key]: v });
   };
 
@@ -129,7 +127,6 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
   };
   const closed = explode.target === 0;
   const blocked = mode.kind === "final" && !closed;
-  const latest = (last ? outcomes[last] : undefined) ?? Object.values(outcomes).find((o) => !o.pass);
   const parts = world.draw(anim ?? world.held(value), explode.shown);
   // The camera, and the shadow sized from the same box, hold still while Explode or the grip moves:
   // the box already holds the object together and fully apart, at both ends of the grip.
@@ -234,12 +231,12 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
             disabled={running !== null || blocked}
             onClick={() => void runTest(t)}
           >
-            <span className="dot" aria-hidden="true" />
-            {t.label}
+            <PillSurface>{t.label}</PillSurface>
             {status(t) === "idle" ? null : <span className="sr">{status(t) === "pass" ? ", passed" : ", failed"}</span>}
           </button>
         ))}
       </div>
+      {/* No result line under the tests: the instruction above already changes to say what happened. */}
       {mode.kind === "final" && done ? (
         <ul className="payoff" data-payoff>
           {story.final.payoff.map((p) => (
@@ -248,11 +245,7 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="result" data-result-line data-bad={latest && !latest.pass ? "" : undefined}>
-          {latest ? latest.line : " "}
-        </p>
-      )}
+      ) : null}
       {mode.kind === "final" && !done ? (
         <button type="button" className="btn secondary" data-assemble disabled={closed || running !== null} onClick={() => !running && explode.set(0)}>
           Assemble
@@ -265,14 +258,15 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
               Start over
             </button>
             <button type="button" className="btn" data-next disabled={!done} onClick={onHome}>
-              Another object
+              <PillSurface>Another object</PillSurface>
             </button>
           </>
-        ) : (
-          <button type="button" className="btn" data-next disabled={!done} onClick={onNext}>
-            {nextLabel}
+        ) : done ? (
+          // Only once the task is done: until then there's nothing to move on to.
+          <button type="button" className="btn" data-next onClick={onNext}>
+            <PillSurface>{nextLabel}</PillSurface>
           </button>
-        )}
+        ) : null}
       </Actions>
     </main>
   );

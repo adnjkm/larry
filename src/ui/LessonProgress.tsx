@@ -12,7 +12,7 @@ const GAP = 6;
 const RADIUS = 10;
 
 /**
- * The lesson's progress, one key per mechanism across `width`, under a count. Each key is a sculpted keycap (see
+ * The lesson's progress, one key per step across `width`, under an optional caption. Each key is a sculpted keycap (see
  * feature.keycap). Before the lesson starts every key is grey. Once it starts, the steps reached so far are pink. Any
  * step reached can be opened again; the ones ahead can't, as their parts
  * aren't built yet and each step builds on the last. It's a segmented control, so it's one tab stop and the arrow keys
@@ -24,7 +24,8 @@ export function LessonProgress({
   step,
   onStep,
   width,
-  height,
+  height = 34,
+  caption,
 }: {
   count: number;
   /** The furthest step reached, -1 before the lesson starts, `count` once it's finished. */
@@ -33,15 +34,15 @@ export function LessonProgress({
   onStep: (step: number) => void;
   width: number;
   /** The keys' height in CSS px. */
-  height: number;
+  height?: number;
+  /** A line over the keys, such as how many mechanisms there are. */
+  caption?: string;
 }) {
   const key = even((width - GAP * (count - 1)) / count);
   const started = reached >= 0;
   return (
     <div {...stylex.props(s.progress(width))}>
-      <span {...stylex.props(s.count)}>
-        {count} {count === 1 ? "mechanism" : "mechanisms"}
-      </span>
+      {caption && <span {...stylex.props(s.count)}>{caption}</span>}
       <SegmentedControl
         aria-label="Lesson steps"
         value={started ? String(step) : null}
