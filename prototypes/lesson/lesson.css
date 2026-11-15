@@ -333,3 +333,9 @@ html, body { height: 100%; }
 .question { flex: none; display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .question .mono { color: var(--pink); }
 .choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Short phones (an iPhone SE): a Learn screen with tabs, a goal card and a two-line requirement still fits on one screen. */
+@media (max-height: 700px) {
+  .tab { min-height: 30px; }
+  .viewer { min-height: 124px; }
+}

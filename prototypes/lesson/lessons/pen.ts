@@ -601,7 +601,9 @@ export default defineStory({
       id: "write",
       title: "Make it write",
       need: "Ink must come out thin and even.",
-      primitive: "valve",
+      // The ballpoint is two jobs at once: the ball sits snug in its socket to seal the ink in, and lets it past as it rolls.
+      primitive: "seal",
+      teach: ["seal", "valve"],
       place: {
         say: "Where does the ball go? Drag it on.",
         piece: [BALL],
@@ -622,15 +624,22 @@ export default defineStory({
       produces: [BALL, NOSE],
       without: { say: "Write with it. Watch the ink.", line: "No ball. The ink blots and smears.", test: write, adds: [NOSE], values: { [SQUEEZE]: 0 } },
       learn: {
-        say: "Press it. The ball lets ink past.",
+        say: "Seal the ink in. Then let it out.",
         rigs: {
+          seal: {
+            controls: { squeeze: "Squeeze" },
+            why: ["A seal is a snug fit that closes a gap.", "The ball sits tight in its socket.", "So the ink stays in until you write."],
+          },
           valve: {
             controls: { pressure: "Press" },
             why: ["A valve is a gate for liquid.", "A ball sits in the opening and plugs it.", "Push on it and the liquid slips past. Let go and it shuts."],
           },
         },
       },
-      uses: { valve: "The ball lets ink out only while it rolls on paper." },
+      uses: {
+        seal: "The ball sits snug in its socket, sealing the ink in.",
+        valve: "The ball lets ink out only while it rolls on paper.",
+      },
       assemble: { piece: "Nose cone", title: "The nose cone guides the tip.", built: "The nose cone now covers the tip." },
       target: { label: "Tip", at: vec(0, 10, 0), ring: { radius: 14, axis: "y" } },
       play: { say: "Squeeze the socket. Then write.", control: squeeze, tests: [write, wait] },

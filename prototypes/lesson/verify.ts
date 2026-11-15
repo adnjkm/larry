@@ -1044,61 +1044,73 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
     await r.noDigits(`${tag} learn`);
     const row = '[data-stage="learn"] [data-rig] .grip';
     if (story.freePlay) {
-      // Free play: Next waits; a finger on the figure's handle moves the machine and brings in its sliders; trying one opens Next.
-      const lockedAtFirst = (await r.page.locator('[data-stage="learn"] [data-next]:disabled').count()) === 1;
-      const handle = '[data-stage="learn"] [data-handle]';
-      let moved = false;
-      for (const [dx, dy] of [
-        [60, 0],
-        [0, 60],
-        [-60, 0],
-        [0, -60],
-      ] as const) {
-        const at = await r.centreOf(handle);
-        await r.page.mouse.move(at.x, at.y);
-        await r.page.mouse.down();
-        await r.page.mouse.move(at.x + dx, at.y + dy, { steps: 10 });
-        moved = (await r.page.locator('[data-stage="learn"] [data-figure][data-moved]').count()) > 0;
-        await r.page.mouse.up();
-        await r.page.waitForTimeout(600);
-        if (moved) break;
-      }
-      r.check(`${tag} learn: free play starts with Next locked, and the handle moves the machine`, lockedAtFirst && moved);
-      const tune = '[data-stage="learn"] .tuning[data-shown] input[type="range"]';
-      const open = async () => (await r.page.locator('[data-stage="learn"] [data-next]:not([disabled])').count()) === 1;
-      if ((await r.page.locator('[data-stage="learn"] .goal-card').count()) > 0) {
-        // Free play with goals (the spring's weight and green line): the first arrives on let-go, and each is met by the
-        // slider alone, with Next reading Continue until the last.
-        r.check(
-          `${tag} learn: the first goal arrives on let-go, Next locked`,
-          (await r.page.locator('[data-stage="learn"] .goal-card[data-shown]').count()) === 1 && !(await open()),
-        );
-        for (let goal = 0; goal < 5; goal++) {
-          const words = (await r.page.locator('[data-stage="learn"] .goal-card').textContent())?.trim();
-          // A goal with a button (the valve's Pump) is tried with a few presses at each setting; a motor (the cam) needs a moment.
-          const action = r.page.locator('[data-stage="learn"] [data-action]');
-          const pumps = (await action.count()) > 0 ? 8 : 0;
-          const steps = Array.from({ length: 21 }, (_, i) => i * 50);
-          const order = pumps ? [500, 400, 600, 300, 700, 200, 800, 100, 900] : [...steps, ...[...steps].reverse()];
-          for (const v of order) {
-            if (await open()) break;
-            await r.setRange(tune, v);
-            await r.page.waitForTimeout(pumps ? 300 : 400);
-            for (let k = 0; k < pumps && !(await open()); k++) {
-              await action.click();
-              await r.page.waitForTimeout(700);
-            }
-          }
+      // Each taught primitive is a tab; Next goes from one played-through tab to the next, then out of Learn.
+      for (let tab = 0; tab < 4; tab++) {
+        // Free play: Next waits; a finger on the figure's handle moves the machine and brings in its sliders; trying one opens Next.
+        const lockedAtFirst = (await r.page.locator('[data-stage="learn"] [data-next]:disabled').count()) === 1;
+        const handle = '[data-stage="learn"] [data-handle]';
+        let moved = false;
+        for (const [dx, dy] of [
+          [60, 0],
+          [0, 60],
+          [-60, 0],
+          [0, -60],
+        ] as const) {
+          const at = await r.centreOf(handle);
+          await r.page.mouse.move(at.x, at.y);
+          await r.page.mouse.down();
+          await r.page.mouse.move(at.x + dx, at.y + dy, { steps: 10 });
+          moved = (await r.page.locator('[data-stage="learn"] [data-figure][data-moved]').count()) > 0;
+          await r.page.mouse.up();
           await r.page.waitForTimeout(600);
-          r.check(`${tag} learn: "${words}" is met by its slider`, await open());
-          if ((await r.page.locator('[data-stage="learn"] [data-next]').textContent())?.trim() !== "Continue") break;
-          await r.page.click('[data-stage="learn"] [data-next]');
-          await r.page.waitForTimeout(1500);
+          if (moved) break;
         }
-      } else {
-        if ((await r.page.locator(tune).count()) > 0) await r.setRange(tune, 150);
-        await r.page.waitForTimeout(300);
-        r.check(`${tag} learn: once moved and tuned, Next opens`, await open());
+        r.check(`${tag} learn: free play starts with Next locked, and the handle moves the machine`, lockedAtFirst && moved);
+        const tune = '[data-stage="learn"] .tuning[data-shown] input[type="range"]';
+        const open = async () => (await r.page.locator('[data-stage="learn"] [data-next]:not([disabled])').count()) === 1;
+        if ((await r.page.locator('[data-stage="learn"] .goal-card').count()) > 0) {
+          // Free play with goals (the spring's weight and green line): the first arrives on let-go, and each is met by the
+          // slider alone, with Next reading Continue until the last.
+          r.check(
+            `${tag} learn: the first goal arrives on let-go, Next locked`,
+            (await r.page.locator('[data-stage="learn"] .goal-card[data-shown]').count()) === 1 && !(await open()),
+          );
+          for (let goal = 0; goal < 5; goal++) {
+            const words = (await r.page.locator('[data-stage="learn"] .goal-card').textContent())?.trim();
+            // A goal with a button (the valve's Pump) is tried with a few presses at each setting; a motor (the cam) needs a moment.
+            const action = r.page.locator('[data-stage="learn"] [data-action]');
+            const pumps = (await action.count()) > 0 ? 8 : 0;
+            const steps = Array.from({ length: 21 }, (_, i) => i * 50);
+            const order = pumps ? [500, 400, 600, 300, 700, 200, 800, 100, 900] : [...steps, ...[...steps].reverse()];
+            for (const v of order) {
+              if (await open()) break;
+              await r.setRange(tune, v);
+              await r.page.waitForTimeout(pumps ? 300 : 400);
+              for (let k = 0; k < pumps && !(await open()); k++) {
+                await action.click();
+                await r.page.waitForTimeout(700);
+              }
+            }
+            await r.page.waitForTimeout(600);
+            r.check(`${tag} learn: "${words}" is met by its slider`, await open());
+            if ((await r.page.locator('[data-stage="learn"] [data-next]').textContent())?.trim() !== "Continue") break;
+            await r.page.click('[data-stage="learn"] [data-next]');
+            await r.page.waitForTimeout(1500);
+          }
+        } else {
+          if ((await r.page.locator(tune).count()) > 0) await r.setRange(tune, 150);
+          await r.page.waitForTimeout(300);
+          r.check(`${tag} learn: once moved and tuned, Next opens`, await open());
+        }
+        const unplayed = await r.page.locator('[data-stage="learn"] [data-tab]:not([data-done])').count();
+        if (unplayed === 0) break;
+        r.check(
+          `${tag} learn: with a tab still to play, the requirement waits and Next goes to it`,
+          (await r.page.getAttribute('[data-stage="learn"] [data-need]', "data-met")) !== "yes" &&
+            ((await r.page.locator('[data-stage="learn"] [data-next]').textContent()) ?? "").trim().startsWith("Next: "),
+        );
+        await r.page.click('[data-stage="learn"] [data-next]');
+        await r.page.waitForTimeout(800);
       }
     } else {
       // The figure moves only by the control under it (no drag handle on the figure): a wheel by its keys, a bar by its range.

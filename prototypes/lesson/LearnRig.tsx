@@ -322,10 +322,22 @@ export function LearnRig({ module, kicker, next, inObject, view, freePlay = fals
   // LearnRig is keyed per module, so `inObject` answers the same for a primitive for as long as this screen lives.
   const here = useMemo(() => inObject(p), [p]);
   const [met, setMet] = useState(false);
-  const [played, setPlayed] = useState<PlayState>({ ready: false, more: false });
+  // Free play's state, from the tab that sent it (a new tab's rig reports in after it mounts), and the tabs played through.
+  const [report, setReport] = useState<PlayState & { id?: string }>({ ready: false, more: false });
+  const played: PlayState = report.id === p.id ? report : { ready: false, more: false };
+  const [done, setDone] = useState<ReadonlySet<string>>(new Set());
+  const onState = (id: string) => (s: PlayState) => {
+    setReport({ ...s, id });
+    if (s.ready && !s.more) setDone((d) => (d.has(id) ? d : new Set(d).add(id)));
+  };
   const advance = useRef<(() => boolean) | null>(null);
   const library = libraryOf(p);
   const playing = freePlay && library.play !== undefined;
+  // With more than one primitive taught, Next goes on to the next tab not yet played through, then out of Learn.
+  const freeTab = (q: { id: string }) => freePlay && libraryOf(q).play !== undefined;
+  const allDone = taught.every((q) => !freeTab(q) || done.has(q.id));
+  const nextTab = taught.findIndex((q, i) => i !== tab && freeTab(q) && !done.has(q.id));
+  const tabReady = played.ready || done.has(p.id);
 
   const use = (
     <section className="use" data-use={p.id}>
@@ -338,9 +350,7 @@ export function LearnRig({ module, kicker, next, inObject, view, freePlay = fals
 
   return (
     <main className="page" data-stage="learn">
-      {module.need ? (
-        <Need text={module.need} met={rig.goal ? met : playing && library.play?.tasks?.length ? played.ready && !played.more : undefined} />
-      ) : null}
+      {module.need ? <Need text={module.need} met={rig.goal ? met : playing && library.play?.tasks?.length ? allDone : undefined} /> : null}
       <Say
         kicker={kicker}
         why={
@@ -358,14 +368,23 @@ export function LearnRig({ module, kicker, next, inObject, view, freePlay = fals
       {taught.length > 1 ? (
         <div className="tabs" role="tablist">
           {taught.map((q, i) => (
-            <button key={q.id} type="button" role="tab" aria-selected={i === tab} className="tab" data-tab={q.id} onClick={() => setTab(i)}>
+            <button
+              key={q.id}
+              type="button"
+              role="tab"
+              aria-selected={i === tab}
+              className="tab"
+              data-tab={q.id}
+              data-done={done.has(q.id) ? "" : undefined}
+              onClick={() => setTab(i)}
+            >
               {q.name}
             </button>
           ))}
         </div>
       ) : null}
       {playing ? (
-        <PlayRig key={p.id} primitive={library} onState={setPlayed} advance={advance}>
+        <PlayRig key={p.id} primitive={library} onState={onState(p.id)} advance={advance}>
           {use}
         </PlayRig>
       ) : FIRST_PASS_FIGURE.has(p.id) ? (
@@ -388,10 +407,14 @@ export function LearnRig({ module, kicker, next, inObject, view, freePlay = fals
           type="button"
           className="btn"
           data-next
-          disabled={(rig.goal !== undefined && !met) || (playing && !played.ready)}
-          onClick={() => (playing && advance.current?.()) || onNext()}
+          disabled={(rig.goal !== undefined && !met) || (playing && !tabReady)}
+          onClick={() => {
+            if (playing && advance.current?.()) return;
+            if (playing && nextTab >= 0) setTab(nextTab);
+            else onNext();
+          }}
         >
-          <PillSurface>{playing && played.more ? "Continue" : next}</PillSurface>
+          <PillSurface>{playing && played.more ? "Continue" : playing && nextTab >= 0 ? `Next: ${taught[nextTab]!.name}` : next}</PillSurface>
         </button>
       </Actions>
     </main>
