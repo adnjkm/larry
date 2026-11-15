@@ -18,6 +18,8 @@ import { LessonProgress } from "../../src/ui/LessonProgress.tsx";
 
 /** The default dither with a Synthwave gradient for the shadow. */
 const LOOK: DitherLook = { ...DEFAULT_LOOK, shadow: { ...DEFAULT_LOOK.shadow, stops: SYNTHWAVE } };
+const LOOK_NO_SHADOW: DitherLook = { ...LOOK, shadow: { ...LOOK.shadow, show: false } };
+const lookFor = (view: View) => (view.shadow === false ? LOOK_NO_SHADOW : LOOK);
 
 /** The camera frame for `subject` in a box, kept as the same object while it does not change, so the camera holds still. */
 function useFrame(subject: readonly Part[], view: View, width: number, height: number): KitBounds | null {
@@ -55,7 +57,7 @@ export function Viewer(props: { parts: Part[]; subject: readonly Part[]; view?: 
   return (
     <div className="viewer" ref={box}>
       {frame ? (
-        <KitViewer parts={parts} frame={frame} elevation={view.elevation} azimuth={view.azimuth} height={size.height} pixelScale={1} look={LOOK} />
+        <KitViewer parts={parts} frame={frame} elevation={view.elevation} azimuth={view.azimuth} height={size.height} pixelScale={1} look={lookFor(view)} />
       ) : null}
       {props.live ? (
         <span className="live" aria-live="polite">
@@ -75,7 +77,7 @@ export function Inset({ parts, view }: { parts: Part[]; view?: View }) {
   const frame = useFrame(parts, v, INSET, INSET);
   return (
     <div className="inset" data-inset aria-hidden="true">
-      {frame ? <KitViewer parts={parts} frame={frame} elevation={v.elevation} azimuth={v.azimuth} height={INSET} pixelScale={1} look={LOOK} /> : null}
+      {frame ? <KitViewer parts={parts} frame={frame} elevation={v.elevation} azimuth={v.azimuth} height={INSET} pixelScale={1} look={lookFor(v)} /> : null}
     </div>
   );
 }

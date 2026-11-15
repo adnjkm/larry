@@ -14,7 +14,8 @@ export const AXIS: Record<Axis, Vec> = { x: vec(1, 0, 0), y: vec(0, 1, 0), z: ve
 
 export type Window = readonly [number, number];
 /** Camera angles in degrees: azimuth 0 looks from +z, 90 from +x. */
-export type View = { elevation: number; azimuth: number };
+/** `shadow: false` leaves the ground shadow off, for an object whose working end sits on the ground (a pen's tip) and would be hidden by it. */
+export type View = { elevation: number; azimuth: number; shadow?: false };
 export const DEFAULT_VIEW: View = { elevation: 20, azimuth: 30 };
 /** Tuned values keyed by each module's fault key (its slider's id unless the module names another). Keys are unique in a lesson. */
 export type Values = Readonly<Record<string, number>>;
