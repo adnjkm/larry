@@ -578,8 +578,8 @@ function Works({ story, kit, screen, values, onValues, extras, ...page }: Bench 
       {...page}
       say={screen.say}
       done={done}
-      line={done ? screen.success : last?.line}
-      bad={!done && last !== undefined && !last.pass}
+      line={done ? undefined : last?.line}
+      bad={last !== undefined && !last.pass}
       next={screen.last ? "Start Over" : "Continue"}
       need={extras?.need}
       why={extras ? <HintSheet title={page.name} hints={done ? [] : extras.hints} fails={fails} why={extras.why} /> : undefined}
