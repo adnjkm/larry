@@ -21,7 +21,27 @@ import { inspectLesson, JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { EVIDENCE, generatedLesson, JOINT_TEMPLATES, standOf } from "./templates/index.ts";
 import { generatedStory } from "./stories/index.ts";
 import { aim, idsOf, resting, sharesOf, SPRING, springsAt, type Springs, step } from "./explode.ts";
-import { bindStory, familyOf, faultValues, fixedValues, midWindow, tidyKit, type Module, passBand, passesAt, presentAfter, type Run as TestRun, type Shares, sliderSteps, type Story, type TestCtx, type Values, type Window, type Workshop, zoneAt } from "./model.ts";
+import {
+  bindStory,
+  familyOf,
+  faultValues,
+  fixedValues,
+  midWindow,
+  tidyKit,
+  type Module,
+  passBand,
+  passesAt,
+  presentAfter,
+  type Run as TestRun,
+  type Shares,
+  sliderSteps,
+  type Story,
+  type TestCtx,
+  type Values,
+  type Window,
+  type Workshop,
+  zoneAt,
+} from "./model.ts";
 import { corners, drawObject, extents, restCentre } from "./pose.ts";
 import { SYNTHWAVE } from "../../shared/primitives/parts.ts";
 import { hexRgb } from "../../src/surface/dither.ts";
@@ -34,7 +54,9 @@ const root = resolve(import.meta.dirname, "../..");
 const outDir = join(root, "out", "lesson");
 const kitsDir = join(root, "fixtures", "kits");
 const KITS: Record<string, Kit> = Object.fromEntries(
-  readdirSync(kitsDir).filter((f) => f.endsWith(".json")).map((f) => [f.replace(/\.json$/, ""), tidyKit(parseKit(JSON.parse(readFileSync(join(kitsDir, f), "utf8"))))]),
+  readdirSync(kitsDir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => [f.replace(/\.json$/, ""), tidyKit(parseKit(JSON.parse(readFileSync(join(kitsDir, f), "utf8"))))]),
 );
 const READY = 90_000;
 const TEST_TIMEOUT = 30_000;
@@ -67,7 +89,10 @@ const shareOf = (kit: Kit, ids: readonly string[]) => {
 /** Long enough for an explode tween and the camera's ease to settle. */
 const SETTLE_MS = 1000;
 /** Every screen fits one phone screen at the main size and the small one, and still reflows at 320 wide. */
-const SCREENS = [{ width: 390, height: 844 }, { width: 375, height: 667 }] as const;
+const SCREENS = [
+  { width: 390, height: 844 },
+  { width: 375, height: 667 },
+] as const;
 const NARROW = { width: 320, height: 640 };
 
 /** Decodes an 8-bit RGB or RGBA, non-interlaced PNG, which is what Chromium's screenshots are. */
@@ -143,11 +168,18 @@ class Run {
    * main size afterwards.
    */
   async fits(label: string) {
-    const measure = () => this.page.evaluate(() => {
-      const el = document.scrollingElement!;
-      const bar = document.querySelector("[data-actions]")?.getBoundingClientRect();
-      return { tall: el.scrollHeight, wide: el.scrollWidth, h: innerHeight, w: innerWidth, bar: bar ? bar.top >= 0 && bar.bottom <= innerHeight + 0.5 && bar.height > 0 : null };
-    });
+    const measure = () =>
+      this.page.evaluate(() => {
+        const el = document.scrollingElement!;
+        const bar = document.querySelector("[data-actions]")?.getBoundingClientRect();
+        return {
+          tall: el.scrollHeight,
+          wide: el.scrollWidth,
+          h: innerHeight,
+          w: innerWidth,
+          bar: bar ? bar.top >= 0 && bar.bottom <= innerHeight + 0.5 && bar.height > 0 : null,
+        };
+      });
     const problems: string[] = [];
     for (const size of [...SCREENS, NARROW]) {
       await this.page.setViewportSize(size);
@@ -172,7 +204,11 @@ class Run {
     const explode = await this.page.locator(`[data-stage="${stage}"] [data-explode]`).count();
     const drawn = await this.page.locator("img, svg").count();
     // Learn shows a primitive, not the object, so only it may go without Explode.
-    this.check(`${stage}: object in the 3D viewer${stage === "learn" ? "" : " with Explode"}, no <img> or <svg>`, viewers === 1 && (stage === "learn" || explode === 1) && drawn === 0, `${viewers} viewers, ${explode} explode, ${drawn} img/svg`);
+    this.check(
+      `${stage}: object in the 3D viewer${stage === "learn" ? "" : " with Explode"}, no <img> or <svg>`,
+      viewers === 1 && (stage === "learn" || explode === 1) && drawn === 0,
+      `${viewers} viewers, ${explode} explode, ${drawn} img/svg`,
+    );
     await this.fits(stage);
   }
 
@@ -212,7 +248,11 @@ class Run {
    */
   async fill(stage: string): Promise<{ fill: number; pink: number; flat: number }> {
     const viewer = this.page.locator(`[data-stage="${stage}"] .viewer`).first();
-    await this.page.addStyleTag({ content: ".viewer .live, .viewer .drag, .viewer .play { visibility: hidden !important; } .viewer, .viewer::after { box-shadow: none !important; }" }).then((h) => h.evaluate((el) => (el as Element).setAttribute("data-measure", "")));
+    await this.page
+      .addStyleTag({
+        content: ".viewer .live, .viewer .drag, .viewer .play { visibility: hidden !important; } .viewer, .viewer::after { box-shadow: none !important; }",
+      })
+      .then((h) => h.evaluate((el) => (el as Element).setAttribute("data-measure", "")));
     const img = decodePng(await viewer.screenshot());
     await this.page.evaluate(() => document.querySelectorAll("[data-measure]").forEach((el) => el.remove()));
     let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
@@ -251,8 +291,19 @@ class Run {
   async framed(stage: string, label: string, pinkShown?: boolean, share = 1) {
     const { fill: f, pink, flat } = await this.fill(stage);
     const seen = Math.round(PINK_SEEN * Math.min(1, share / PINK_SHARE) ** 2);
-    rows.push({ run: this.name, step: `${label} fills ${Math.round(f * 100)}% of the viewer`, ok: f >= this.fillLo && f <= FILL_HI, detail: `want ${Math.round(this.fillLo * 100)} to ${Math.round(FILL_HI * 100)}%` });
-    if (pinkShown !== undefined) rows.push({ run: this.name, step: `${label} ${pinkShown ? "shows" : "has no"} pink piece`, ok: pinkShown ? pink + flat >= seen : pink < PINK_SEEN, detail: `${pink} shaded and ${flat} flat pink pixels, want ${pinkShown ? `${seen} or more` : `under ${PINK_SEEN}`}` });
+    rows.push({
+      run: this.name,
+      step: `${label} fills ${Math.round(f * 100)}% of the viewer`,
+      ok: f >= this.fillLo && f <= FILL_HI,
+      detail: `want ${Math.round(this.fillLo * 100)} to ${Math.round(FILL_HI * 100)}%`,
+    });
+    if (pinkShown !== undefined)
+      rows.push({
+        run: this.name,
+        step: `${label} ${pinkShown ? "shows" : "has no"} pink piece`,
+        ok: pinkShown ? pink + flat >= seen : pink < PINK_SEEN,
+        detail: `${pink} shaded and ${flat} flat pink pixels, want ${pinkShown ? `${seen} or more` : `under ${PINK_SEEN}`}`,
+      });
   }
 
   /**
@@ -291,7 +342,10 @@ class Run {
    */
   async learnNumbers(tag: string, m: Module, tuning: Values) {
     if (m.teach.length > 1) await this.page.click(`[data-tab="${m.fault.primitive.id}"]`);
-    const shown = () => this.page.locator('[data-stage="learn"] [data-own] [data-number]').evaluateAll((els) => els.map((e) => [...e.children].map((c) => c.textContent).join(": ")));
+    const shown = () =>
+      this.page
+        .locator('[data-stage="learn"] [data-own] [data-number]')
+        .evaluateAll((els) => els.map((e) => [...e.children].map((c) => c.textContent).join(": ")));
     const want = (v: number) => m.numbers({ ...tuning, [m.fault.key]: v }).map((x) => `${x.label}: ${x.value}`);
     const input = `[data-stage="learn"] input[data-slider="${m.fault.slider.id}"]`;
     const at = Number(await this.page.locator(input).inputValue());
@@ -303,7 +357,10 @@ class Run {
     const generic = await this.page.locator('[data-stage="learn"] [data-generic]').count();
     this.check(
       `${tag} learn shows the ${m.fault.primitive.id}'s numbers in the object at ${at} and ${mid}${m.hideLearnReadouts ? ", not the primitive's own" : ""}`,
-      at === m.fault.slider.initial && JSON.stringify(first) === JSON.stringify(want(at)) && JSON.stringify(moved) === JSON.stringify(want(mid)) && generic === (m.hideLearnReadouts ? 0 : 1),
+      at === m.fault.slider.initial &&
+        JSON.stringify(first) === JSON.stringify(want(at)) &&
+        JSON.stringify(moved) === JSON.stringify(want(mid)) &&
+        generic === (m.hideLearnReadouts ? 0 : 1),
       `${JSON.stringify(first)} | ${JSON.stringify(moved)} | ${generic} generic`,
     );
     await this.shot(`${tag}-learn-numbers`);
@@ -351,17 +408,30 @@ class Run {
     const spot = await this.centreOf(ghost);
     await mouse.move(home.x, home.y);
     await mouse.down();
-    const corners = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([s, t]) => ({ x: viewer.x + 40 + s! * (viewer.width - 80), y: viewer.y + 60 + t! * (viewer.height - 120) }));
+    const corners = [
+      [0, 0],
+      [1, 0],
+      [0, 1],
+      [1, 1],
+    ].map(([s, t]) => ({ x: viewer.x + 40 + s! * (viewer.width - 80), y: viewer.y + 60 + t! * (viewer.height - 120) }));
     const wide = corners.reduce((a, b) => (apart(b, spot) > apart(a, spot) ? b : a));
     await mouse.move(wide.x, wide.y, { steps: 12 });
     const held = await this.centreOf(piece);
     const spotHeld = await this.centreOf(ghost);
-    this.check(`${tag} the piece follows the mouse and the view holds still`, apart(held, wide) < 0.2 * apart(home, wide) && apart(spot, spotHeld) < 2, `piece ${apart(held, wide).toFixed(0)} px from the mouse; ghost moved ${apart(spot, spotHeld).toFixed(1)} px`);
+    this.check(
+      `${tag} the piece follows the mouse and the view holds still`,
+      apart(held, wide) < 0.2 * apart(home, wide) && apart(spot, spotHeld) < 2,
+      `piece ${apart(held, wide).toFixed(0)} px from the mouse; ghost moved ${apart(spot, spotHeld).toFixed(1)} px`,
+    );
     await mouse.up();
     const missed = await said();
     await this.page.waitForTimeout(1000);
     const back = await this.centreOf(piece);
-    this.check(`${tag} a drop far away springs the piece home`, missed.startsWith("Not there") && apart(back, home) < 4, `"${missed}", ${apart(back, home).toFixed(1)} px from home`);
+    this.check(
+      `${tag} a drop far away springs the piece home`,
+      missed.startsWith("Not there") && apart(back, home) < 4,
+      `"${missed}", ${apart(back, home).toFixed(1)} px from home`,
+    );
     await this.noDigits(`${tag} build missed`);
 
     if (turn) {
@@ -387,7 +457,11 @@ class Run {
     await mouse.down();
     await mouse.move(to.x + 6, to.y - 4, { steps: 16 });
     await this.page.waitForTimeout(150);
-    this.check(`${tag} the ghost lights up with the piece over it`, (await this.page.locator(`${piece}[data-near]`).count()) === 1 && (await said()) === "Let go.", await said());
+    this.check(
+      `${tag} the ghost lights up with the piece over it`,
+      (await this.page.locator(`${piece}[data-near]`).count()) === 1 && (await said()) === "Let go.",
+      await said(),
+    );
     await this.noDigits(`${tag} build near`);
     await this.shot(`${tag}-build-near`);
     await mouse.up();
@@ -411,7 +485,10 @@ class Run {
 
   /** Where a control stands: a range's value, or a wheel's aria-valuenow. */
   async gripAt(selector: string) {
-    return this.page.locator(selector).first().evaluate((el) => (el instanceof HTMLInputElement ? el.value : (el.getAttribute("aria-valuenow") ?? "")));
+    return this.page
+      .locator(selector)
+      .first()
+      .evaluate((el) => (el instanceof HTMLInputElement ? el.value : (el.getAttribute("aria-valuenow") ?? "")));
   }
 
   /** Runs each test, screenshotting it mid-move (and again `later` ms on), and returns the statuses. `plain` also checks no number shows mid-test. */
@@ -426,7 +503,9 @@ class Run {
         await this.page.waitForTimeout(later);
         await this.shot(`${label}-${id}-later`);
       }
-      const done = await this.page.waitForSelector(`[data-test="${id}"]:not([disabled]):is([data-status="pass"], [data-status="fail"])`, { timeout: TEST_TIMEOUT });
+      const done = await this.page.waitForSelector(`[data-test="${id}"]:not([disabled]):is([data-status="pass"], [data-status="fail"])`, {
+        timeout: TEST_TIMEOUT,
+      });
       out[id] = (await done.getAttribute("data-status")) ?? "?";
     }
     return out;
@@ -472,7 +551,11 @@ function checkRules(r: Run, lesson: Workshop, kit: Kit) {
       }
       if (passing.length !== steps.filter((v) => inWindow(v, band)).length) problems.push(`the passing values have a gap at ${at}`);
       if (near(band[0], slider.min) || near(band[1], slider.max)) problems.push(`band ${band.join("..")} reaches the end of the slider at ${at}`);
-      const lines = (v: number) => m.tests.map((t) => t.run({ ...values, [m.fault.key]: v }, ctx).verdict).filter((x) => !x.pass).map((x) => x.line.replace(/[\d.]+/g, "#"));
+      const lines = (v: number) =>
+        m.tests
+          .map((t) => t.run({ ...values, [m.fault.key]: v }, ctx).verdict)
+          .filter((x) => !x.pass)
+          .map((x) => x.line.replace(/[\d.]+/g, "#"));
       const low = lines(slider.min);
       const high = lines(slider.max);
       if (low.some((l) => high.includes(l))) problems.push(`the same failure on both sides at ${at}: ${low.join(" / ")}`);
@@ -482,7 +565,11 @@ function checkRules(r: Run, lesson: Workshop, kit: Kit) {
     const declared = passBand(m, mid, ctx);
     if (!declared || !near(declared[0], m.fix.window[0]) || !near(declared[1], m.fix.window[1]))
       problems.push(`declared window ${m.fix.window.join("..")} but ${declared?.join("..") ?? "nothing"} passes at the middle tuning`);
-    r.check(`m${i + 1} rules: ${m.fault.key} fails below and above its window, at ${reachable.length} reachable tunings`, problems.length === 0, problems.slice(0, 3).join("; "));
+    r.check(
+      `m${i + 1} rules: ${m.fault.key} fails below and above its window, at ${reachable.length} reachable tunings`,
+      problems.length === 0,
+      problems.slice(0, 3).join("; "),
+    );
     reachable = next;
   }
   const ctx = ctxAt(lesson.modules.length - 1);
@@ -528,7 +615,10 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
     await r.inSheet(async () => {
       for (let i = auto; i < 3; i++) await r.page.click("[data-next-hint]");
     });
-    r.check(`${tag} Next hint reads ahead to hint 3 after ${failing.length} failures`, (await r.page.locator('[data-hint="3"] .side').count()) === 2 && (await r.page.locator("[data-next-hint]").count()) === 0);
+    r.check(
+      `${tag} Next hint reads ahead to hint 3 after ${failing.length} failures`,
+      (await r.page.locator('[data-hint="3"] .side').count()) === 2 && (await r.page.locator("[data-next-hint]").count()) === 0,
+    );
 
     const chips = await r.page.locator("[data-guide] [data-part]").evaluateAll((els) => els.map((e) => e.getAttribute("data-part") ?? ""));
     const wrong = chips.find((id) => id !== m.suspect);
@@ -539,14 +629,19 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
       r.check(`${tag} wrong part (${wrong}) is turned away`, said === expected && (await r.page.locator("[data-note][data-found]").count()) === 0, said);
     }
     await r.page.click(`[data-guide] [data-part="${m.suspect}"]`);
-    r.check(`${tag} suspect (${m.suspect}) unlocks the fix`, (await r.page.locator("[data-note][data-found]").count()) === 1 && (await r.page.locator(`[data-fix] input[data-slider="${m.fault.slider.id}"]:not([disabled])`).count()) === 1);
+    r.check(
+      `${tag} suspect (${m.suspect}) unlocks the fix`,
+      (await r.page.locator("[data-note][data-found]").count()) === 1 &&
+        (await r.page.locator(`[data-fix] input[data-slider="${m.fault.slider.id}"]:not([disabled])`).count()) === 1,
+    );
     await r.fits(`${tag} diagnosed`);
     await r.shot(`${tag}-diagnosed`);
     const note = r.page.locator("[data-sheet] [data-game-note]");
     await r.inSheet(async () => {
       const closed = (await note.getAttribute("open")) === null && !(await note.locator(".note").isVisible());
       await note.locator("summary").click();
-      const shown = (await note.getAttribute("open")) !== null && (await note.locator(".note").isVisible()) && (await note.locator(".note").textContent()) === m.gameNote;
+      const shown =
+        (await note.getAttribute("open")) !== null && (await note.locator(".note").isVisible()) && (await note.locator(".note").textContent()) === m.gameNote;
       r.check(`${tag} game numbers in the Why sheet start closed and open to the module's note`, closed && shown);
       await r.shot(`${tag}-why`);
       await note.locator("summary").click();
@@ -559,7 +654,11 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
       const got = await r.runTests(testIds, `${tag}-${side}`);
       const bad = testIds.filter((id) => got[id] === "fail");
       failed[side] = (await r.page.locator(`[data-log] [data-result] .bad`).allTextContents()).join(" / ");
-      r.check(`${tag} ${m.fault.slider.id} = ${v} (${side === "low" ? "below" : "above"} the window) fails ${bad.join("+") || "nothing"}`, bad.length > 0, JSON.stringify(got));
+      r.check(
+        `${tag} ${m.fault.slider.id} = ${v} (${side === "low" ? "below" : "above"} the window) fails ${bad.join("+") || "nothing"}`,
+        bad.length > 0,
+        JSON.stringify(got),
+      );
     }
     r.check(`${tag} the two sides fail differently`, failed.low !== failed.high, `${failed.low} | ${failed.high}`);
     r.check(`${tag} third hint names both sides`, (await r.page.locator('[data-hint="3"] .side').count()) === 2);
@@ -570,7 +669,11 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
     tuning[m.fault.key] = mid;
     const after = await r.runTests(testIds, `${tag}-fixed`);
     await r.stage("earned");
-    r.check(`${tag} ${m.fault.slider.id} = ${mid} passes every test`, testIds.every((id) => after[id] === "pass"), JSON.stringify(after));
+    r.check(
+      `${tag} ${m.fault.slider.id} = ${mid} passes every test`,
+      testIds.every((id) => after[id] === "pass"),
+      JSON.stringify(after),
+    );
     await r.page.waitForTimeout(SETTLE_MS);
     await r.framed("earned", `${tag} earned`, true, shareOf(kit, m.produces));
     await r.shot(`${tag}-earned`);
@@ -586,7 +689,11 @@ async function playWorkshop(r: Run, lesson: Workshop, sample: string, query: Que
   const statuses = await r.runTests(finalIds, "final");
   await r.page.waitForSelector('[data-stage="final"] [data-next]:not([disabled])', { timeout: 5_000 });
   await r.fits("final earned");
-  r.check("final tests pass and the object is earned", finalIds.every((id) => statuses[id] === "pass"), JSON.stringify(statuses));
+  r.check(
+    "final tests pass and the object is earned",
+    finalIds.every((id) => statuses[id] === "pass"),
+    JSON.stringify(statuses),
+  );
   await r.shot("final-earned");
 }
 
@@ -617,7 +724,10 @@ function checkStory(r: Run, story: Story, kit: Kit): Grip[] {
   let tuning: Values = {};
   for (const [i, m] of story.modules.entries()) {
     const tag = `m${i + 1}`;
-    const opener = words(`${tag} without`, m.without.test.run({ ...tuning, ...m.without.values }, ctxOf([...presentAfter(story, kit, i - 1), ...m.without.adds])));
+    const opener = words(
+      `${tag} without`,
+      m.without.test.run({ ...tuning, ...m.without.values }, ctxOf([...presentAfter(story, kit, i - 1), ...m.without.adds])),
+    );
     r.check(`${tag} rules: without the ${m.produces.join(" and ")}, ${m.without.test.id} fails`, !opener.verdict.pass, opener.verdict.line);
     const ctx = ctxOf(presentAfter(story, kit, i));
     const c = m.play.control;
@@ -626,19 +736,35 @@ function checkStory(r: Run, story: Story, kit: Kit): Grip[] {
     const runs = (v: number) => m.play.tests.map((t) => words(`${tag} ${t.id}`, t.run({ ...tuning, [c.key]: v }, ctx)).verdict);
     const passing = values.filter((v) => runs(v).every((x) => x.pass));
     const truthful = zones.find((z) => passing.length > 0 && values.every((v) => passing.includes(v) === (zoneAt(zones, v).id === z.id)));
-    const fromStart = runs(c.start).filter((x) => !x.pass).map((x) => x.line);
-    r.check(`${tag} rules: fails at the start and passes exactly where the grip reads ${truthful?.word ?? "?"}`, fromStart.length > 0 && truthful !== undefined, `${passing.length} passing of ${values.length}`);
+    const fromStart = runs(c.start)
+      .filter((x) => !x.pass)
+      .map((x) => x.line);
+    r.check(
+      `${tag} rules: fails at the start and passes exactly where the grip reads ${truthful?.word ?? "?"}`,
+      fromStart.length > 0 && truthful !== undefined,
+      `${passing.length} passing of ${values.length}`,
+    );
     const past = zones.indexOf(truthful!) < zones.length - 1;
     grips.push({ start: zoneAt(zones, c.start).word, works: truthful!.word, over: past ? zones[zones.length - 1]!.word : null });
     if (past) {
-      const fromEnd = runs(zones[zones.length - 1]!.until).filter((x) => !x.pass).map((x) => x.line);
-      r.check(`${tag} rules: too little and too much fail differently`, fromEnd.length > 0 && !fromEnd.some((l) => fromStart.includes(l)), `${fromStart.join(" / ")} | ${fromEnd.join(" / ")}`);
+      const fromEnd = runs(zones[zones.length - 1]!.until)
+        .filter((x) => !x.pass)
+        .map((x) => x.line);
+      r.check(
+        `${tag} rules: too little and too much fail differently`,
+        fromEnd.length > 0 && !fromEnd.some((l) => fromStart.includes(l)),
+        `${fromStart.join(" / ")} | ${fromEnd.join(" / ")}`,
+      );
     }
     tuning = { ...tuning, [c.key]: passing[Math.floor(passing.length / 2)]! };
   }
   const all = ctxOf(kit.parts.map((p) => p.id));
   const final = story.final.tests.map((t) => words(`final ${t.id}`, t.run(tuning, all)).verdict);
-  r.check(`rules: the final passes at the modules' tuning ${JSON.stringify(tuning)}`, final.every((v) => v.pass), final.map((v) => v.line).join(" / "));
+  r.check(
+    `rules: the final passes at the modules' tuning ${JSON.stringify(tuning)}`,
+    final.every((v) => v.pass),
+    final.map((v) => v.line).join(" / "),
+  );
   r.check("rules: every verdict and live line is words only", numbered.size === 0, [...numbered].slice(0, 3).join(" | "));
   return grips;
 }
@@ -650,7 +776,9 @@ type Section = { pts: Rz[]; closed: boolean };
 const FLUSH = 0.05;
 
 /** Whether a part still stands as it was drawn, turned only about the vertical (a turn past a right angle reads back as 180, θ, 180). */
-const upright = (p: Part) => new Vector3(0, 1, 0).applyEuler(new Euler((p.rotation.x * Math.PI) / 180, (p.rotation.y * Math.PI) / 180, (p.rotation.z * Math.PI) / 180, "XYZ")).y > 1 - 1e-6;
+const upright = (p: Part) =>
+  new Vector3(0, 1, 0).applyEuler(new Euler((p.rotation.x * Math.PI) / 180, (p.rotation.y * Math.PI) / 180, (p.rotation.z * Math.PI) / 180, "XYZ")).y >
+  1 - 1e-6;
 /** Shortest distance from the axis to a closed outline in the floor plane, or 0 when the outline goes round it. */
 function reachIn(foot: readonly { x: number; z: number }[]): number {
   let inside = false;
@@ -682,36 +810,75 @@ function sectionOf(p: Part): Section {
   }
   if (s.kind === "helix" && upright(p)) {
     const [r0, r1, y0, y1] = [s.radius - s.tube, s.radius + s.tube, p.position.y - s.length / 2, p.position.y + s.length / 2];
-    return { pts: [{ r: r0, y: y0 }, { r: r1, y: y0 }, { r: r1, y: y1 }, { r: r0, y: y1 }], closed: true };
+    return {
+      pts: [
+        { r: r0, y: y0 },
+        { r: r1, y: y0 },
+        { r: r1, y: y1 },
+        { r: r0, y: y1 },
+      ],
+      closed: true,
+    };
   }
   if (s.kind === "torus" && upright(p) && s.arcDegrees >= 360) {
-    return { pts: Array.from({ length: 16 }, (_, i) => ({ r: s.radius + s.tube * Math.cos((i / 16) * 2 * Math.PI), y: p.position.y + s.tube * Math.sin((i / 16) * 2 * Math.PI) })), closed: true };
+    return {
+      pts: Array.from({ length: 16 }, (_, i) => ({
+        r: s.radius + s.tube * Math.cos((i / 16) * 2 * Math.PI),
+        y: p.position.y + s.tube * Math.sin((i / 16) * 2 * Math.PI),
+      })),
+      closed: true,
+    };
   }
   const pts = corners([p]);
   const ys = pts.map((q) => q.y);
   const plan = s.kind === "extrusion" || s.kind === "box" ? pts.slice(0, pts.length / 2).map((q) => ({ x: q.x, z: q.z })) : [];
   const flat = plan.length > 0 && new Set(pts.slice(0, pts.length / 2).map((q) => q.y.toFixed(3))).size === 1;
   const near = flat ? reachIn(plan) : Math.min(...pts.map((q) => Math.hypot(q.x, q.z)));
-  const wraps = !flat && Math.min(...pts.map((q) => q.x)) < 0 && Math.max(...pts.map((q) => q.x)) > 0 && Math.min(...pts.map((q) => q.z)) < 0 && Math.max(...pts.map((q) => q.z)) > 0;
+  const wraps =
+    !flat &&
+    Math.min(...pts.map((q) => q.x)) < 0 &&
+    Math.max(...pts.map((q) => q.x)) > 0 &&
+    Math.min(...pts.map((q) => q.z)) < 0 &&
+    Math.max(...pts.map((q) => q.z)) > 0;
   const [r0, r1, y0, y1] = [wraps ? 0 : near, Math.max(...pts.map((q) => Math.hypot(q.x, q.z))), Math.min(...ys), Math.max(...ys)];
-  return { pts: [{ r: r0, y: y0 }, { r: r1, y: y0 }, { r: r1, y: y1 }, { r: r0, y: y1 }], closed: true };
+  return {
+    pts: [
+      { r: r0, y: y0 },
+      { r: r1, y: y0 },
+      { r: r1, y: y1 },
+      { r: r0, y: y1 },
+    ],
+    closed: true,
+  };
 }
 
 const edges = (s: Section) => s.pts.flatMap((a, i) => (i + 1 < s.pts.length ? [[a, s.pts[i + 1]!] as const] : s.closed ? [[a, s.pts[0]!] as const] : []));
 /** How far `p` is from the line through `a` and `b`, signed by side. */
 const side = (a: Rz, b: Rz, p: Rz) => ((b.r - a.r) * (p.y - a.y) - (b.y - a.y) * (p.r - a.r)) / (Math.hypot(b.r - a.r, b.y - a.y) || 1);
 const nearEdge = (s: Section, p: Rz) =>
-  Math.min(...edges(s).map(([a, b]) => {
-    const [dr, dy] = [b.r - a.r, b.y - a.y];
-    const t = Math.max(0, Math.min(1, ((p.r - a.r) * dr + (p.y - a.y) * dy) / (dr * dr + dy * dy || 1)));
-    return Math.hypot(p.r - a.r - t * dr, p.y - a.y - t * dy);
-  }));
-const inside = (s: Section, p: Rz) => s.closed && edges(s).reduce((n, [a, b]) => (a.y > p.y !== b.y > p.y && p.r < a.r + ((b.r - a.r) * (p.y - a.y)) / (b.y - a.y) ? !n : n), false) && nearEdge(s, p) > FLUSH;
+  Math.min(
+    ...edges(s).map(([a, b]) => {
+      const [dr, dy] = [b.r - a.r, b.y - a.y];
+      const t = Math.max(0, Math.min(1, ((p.r - a.r) * dr + (p.y - a.y) * dy) / (dr * dr + dy * dy || 1)));
+      return Math.hypot(p.r - a.r - t * dr, p.y - a.y - t * dy);
+    }),
+  );
+const inside = (s: Section, p: Rz) =>
+  s.closed &&
+  edges(s).reduce((n, [a, b]) => (a.y > p.y !== b.y > p.y && p.r < a.r + ((b.r - a.r) * (p.y - a.y)) / (b.y - a.y) ? !n : n), false) &&
+  nearEdge(s, p) > FLUSH;
 
 /** Whether two cuts pass into each other by more than FLUSH: their edges cross, or a corner of one sits inside the other. */
 function interpenetrate(a: Section, b: Section): boolean {
   for (const [p, q] of edges(a))
-    for (const [u, v] of edges(b)) if (side(u, v, p) * side(u, v, q) < 0 && Math.min(Math.abs(side(u, v, p)), Math.abs(side(u, v, q))) > FLUSH && side(p, q, u) * side(p, q, v) < 0 && Math.min(Math.abs(side(p, q, u)), Math.abs(side(p, q, v))) > FLUSH) return true;
+    for (const [u, v] of edges(b))
+      if (
+        side(u, v, p) * side(u, v, q) < 0 &&
+        Math.min(Math.abs(side(u, v, p)), Math.abs(side(u, v, q))) > FLUSH &&
+        side(p, q, u) * side(p, q, v) < 0 &&
+        Math.min(Math.abs(side(p, q, u)), Math.abs(side(p, q, v))) > FLUSH
+      )
+        return true;
   return a.pts.some((p) => inside(b, p)) || b.pts.some((p) => inside(a, p));
 }
 
@@ -731,14 +898,25 @@ function checkExplode(r: Run, story: Story, kit: Kit) {
   // The cuts below are taken through the y axis, so they hold only for an object round about it whose
   // assemblies lift along it. Anything else is checked fully apart: no two assemblies' boxes meet.
   const main = kit.parts.find((p) => p.parentId === null)!;
-  const alongAxis = main.shape.kind === "lathe" && upright(main) && plan.order.every((l) => {
-    const o = l.at(1).offset ?? { x: 0, y: 0, z: 0 };
-    return Math.abs(o.x) < 1e-6 && Math.abs(o.z) < 1e-6;
-  });
+  const alongAxis =
+    main.shape.kind === "lathe" &&
+    upright(main) &&
+    plan.order.every((l) => {
+      const o = l.at(1).offset ?? { x: 0, y: 0, z: 0 };
+      return Math.abs(o.x) < 1e-6 && Math.abs(o.z) < 1e-6;
+    });
   if (!alongAxis) {
     const apart = drawObject({ kit, present, scene, explode: Object.fromEntries(ids.map((id) => [id, 1])), plan, pink: new Set(), centre });
-    const groups = [...new Set(present.map((id) => owner.get(id) ?? "body"))].map((id) => ({ id, box: extents(apart.filter((p) => (owner.get(p.id) ?? "body") === id)) }));
-    const meet = groups.flatMap((a, i) => groups.slice(i + 1).filter((b) => (["x", "y", "z"] as const).every((k) => a.box.min[k] < b.box.max[k] - 0.5 && b.box.min[k] < a.box.max[k] - 0.5)).map((b) => `${a.id} and ${b.id}`));
+    const groups = [...new Set(present.map((id) => owner.get(id) ?? "body"))].map((id) => ({
+      id,
+      box: extents(apart.filter((p) => (owner.get(p.id) ?? "body") === id)),
+    }));
+    const meet = groups.flatMap((a, i) =>
+      groups
+        .slice(i + 1)
+        .filter((b) => (["x", "y", "z"] as const).every((k) => a.box.min[k] < b.box.max[k] - 0.5 && b.box.min[k] < a.box.max[k] - 0.5))
+        .map((b) => `${a.id} and ${b.id}`),
+    );
     r.check(`explode: fully apart, no two assemblies' boxes meet (${groups.length} groups)`, meet.length === 0, meet.join(", "));
     return;
   }
@@ -760,26 +938,50 @@ function checkExplode(r: Run, story: Story, kit: Kit) {
     play(`opened then reversed at ${t} ms,`, 0, 1, t);
     play(`closed then reversed at ${t} ms,`, 1, 0, t);
   }
-  ids.forEach((id, k) => [0.25, 0.5, 0.75, 1].forEach((x) => frames.push({ label: `prefix ${id} at ${x}`, shares: Object.fromEntries(ids.map((other, j) => [other, j < k ? 1 : j === k ? x : 0])) })));
+  ids.forEach((id, k) =>
+    [0.25, 0.5, 0.75, 1].forEach((x) =>
+      frames.push({ label: `prefix ${id} at ${x}`, shares: Object.fromEntries(ids.map((other, j) => [other, j < k ? 1 : j === k ? x : 0])) }),
+    ),
+  );
   // A scanned kit's parts can already overlap at rest (a seal sunk into its rim); only new overlaps count.
-  const cutsAt = (shares: Shares) => drawObject({ kit, present, scene, explode: shares, plan, pink: new Set(), centre }).filter((p) => present.includes(p.id)).map((p) => ({ id: p.id, owner: owner.get(p.id) ?? "body", section: sectionOf(p) }));
+  const cutsAt = (shares: Shares) =>
+    drawObject({ kit, present, scene, explode: shares, plan, pink: new Set(), centre })
+      .filter((p) => present.includes(p.id))
+      .map((p) => ({ id: p.id, owner: owner.get(p.id) ?? "body", section: sectionOf(p) }));
   const home = cutsAt(Object.fromEntries(ids.map((id) => [id, 0])));
-  const atRest = new Set(home.flatMap((a, i) => home.slice(i + 1).filter((b) => a.owner !== b.owner && interpenetrate(a.section, b.section)).map((b) => `${a.id}|${b.id}`)));
+  const atRest = new Set(
+    home.flatMap((a, i) =>
+      home
+        .slice(i + 1)
+        .filter((b) => a.owner !== b.owner && interpenetrate(a.section, b.section))
+        .map((b) => `${a.id}|${b.id}`),
+    ),
+  );
   const clashes: string[] = [];
   for (const f of frames) {
     const cut = cutsAt(f.shares);
     for (const [i, a] of cut.entries())
-      for (const b of cut.slice(i + 1)) if (a.owner !== b.owner && !atRest.has(`${a.id}|${b.id}`) && interpenetrate(a.section, b.section)) clashes.push(`${f.label}: ${a.id} into ${b.id}`);
+      for (const b of cut.slice(i + 1))
+        if (a.owner !== b.owner && !atRest.has(`${a.id}|${b.id}`) && interpenetrate(a.section, b.section)) clashes.push(`${f.label}: ${a.id} into ${b.id}`);
     if (clashes.length > 0) break;
   }
-  r.check(`explode: no assembly passes into another in ${frames.length} replayed frames${atRest.size > 0 ? ` (${atRest.size} overlaps already at rest left out)` : ""} (opening, closing, ${reversals.length} reversals each way, prefix states)`, clashes.length === 0, clashes.slice(0, 3).join(" | "));
-  const apart = drawObject({ kit, present, scene, explode: Object.fromEntries(ids.map((id) => [id, 1])), plan, pink: new Set(), centre }).filter((p) => present.includes(p.id));
+  r.check(
+    `explode: no assembly passes into another in ${frames.length} replayed frames${atRest.size > 0 ? ` (${atRest.size} overlaps already at rest left out)` : ""} (opening, closing, ${reversals.length} reversals each way, prefix states)`,
+    clashes.length === 0,
+    clashes.slice(0, 3).join(" | "),
+  );
+  const apart = drawObject({ kit, present, scene, explode: Object.fromEntries(ids.map((id) => [id, 1])), plan, pink: new Set(), centre }).filter((p) =>
+    present.includes(p.id),
+  );
   const boxOf = (id: string) => extents(apart.filter((p) => (owner.get(p.id) ?? "body") === id));
   const gaps = ids.map((id, k) => {
     const below = k + 1 < ids.length ? boxOf(ids[k + 1]!) : boxOf("body");
     return boxOf(id).min.y - below.max.y;
   });
-  r.check(`explode: apart, each assembly clears the next one out, and the last clears the body (${gaps.map((g) => g.toFixed(0)).join(", ")} mm)`, gaps.every((g) => g > 5));
+  r.check(
+    `explode: apart, each assembly clears the next one out, and the last clears the body (${gaps.map((g) => g.toFixed(0)).join(", ")} mm)`,
+    gaps.every((g) => g > 5),
+  );
 }
 
 /** Plays a story lesson: each module's failure, Learn in words, Build, then twisting the cap by hand until it works. No number may show on any screen. */
@@ -797,14 +999,24 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
     await r.stage("problem");
     await r.noDigits(`${tag} problem`);
     await r.framed("problem", `${tag} problem`, false);
-    r.check(`${tag} opens on "${m.without.say}" with Next locked`, (await said()) === m.without.say && (await r.page.locator("[data-next]:disabled").count()) === 1);
+    r.check(
+      `${tag} opens on "${m.without.say}" with Next locked`,
+      (await said()) === m.without.say && (await r.page.locator("[data-next]:disabled").count()) === 1,
+    );
     const opener = await r.runTests([m.without.test.id], `${tag}-without`, true, LATER_MS);
-    r.check(`${tag} without the part, ${m.without.test.id} fails and says why`, opener[m.without.test.id] === "fail" && (await said()) === m.without.line, `${JSON.stringify(opener)} "${await said()}"`);
+    r.check(
+      `${tag} without the part, ${m.without.test.id} fails and says why`,
+      opener[m.without.test.id] === "fail" && (await said()) === m.without.line,
+      `${JSON.stringify(opener)} "${await said()}"`,
+    );
     await r.shot(`${tag}-problem`);
     await r.inSheet(async () => {
       await r.noDigits(`${tag} problem Why`);
       const text = await r.page.locator("[data-sheet][open] [data-why-text]").innerText();
-      r.check(`${tag} problem Why says what breaks without it`, m.why.every((l) => text.includes(l)));
+      r.check(
+        `${tag} problem Why says what breaks without it`,
+        m.why.every((l) => text.includes(l)),
+      );
       await r.shot(`${tag}-problem-why`);
     });
     await r.page.click("[data-next]");
@@ -821,7 +1033,11 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
     } else await r.setRange(row, Number(before) > 500 ? 100 : 900);
     await r.page.waitForTimeout(200);
     const after = await r.gripAt(row);
-    r.check(`${tag} learn: "${(await r.page.textContent('[data-stage="learn"] [data-rig] .mono')) ?? ""}" moves the figure`, before !== after, `${before} → ${after}`);
+    r.check(
+      `${tag} learn: "${(await r.page.textContent('[data-stage="learn"] [data-rig] .mono')) ?? ""}" moves the figure`,
+      before !== after,
+      `${before} → ${after}`,
+    );
     await r.noDigits(`${tag} learn after a drag`);
     await r.shot(`${tag}-learn`);
     await r.inSheet(async () => {
@@ -864,13 +1080,21 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
       await r.page.keyboard.press("End");
       await r.shot(`${tag}-over`);
       const tight = await r.runTests(ids, `${tag}-over`, true, LATER_MS);
-      r.check(`${tag} ${want.over} fails differently from ${want.start}`, ids.some((id) => tight[id] === "fail") && ids.some((id) => tight[id] !== loose[id]), `${JSON.stringify(loose)} | ${JSON.stringify(tight)} (grip ends at ${end})`);
+      r.check(
+        `${tag} ${want.over} fails differently from ${want.start}`,
+        ids.some((id) => tight[id] === "fail") && ids.some((id) => tight[id] !== loose[id]),
+        `${JSON.stringify(loose)} | ${JSON.stringify(tight)} (grip ends at ${end})`,
+      );
       await r.twistTo(want.works, -1);
     } else await r.twistTo(want.works, 1);
     await r.shot(`${tag}-works`);
     const snug = await r.runTests(ids, `${tag}-works`, true);
     await r.stage("earned");
-    r.check(`${tag} ${want.works} passes every test and says the part's job`, ids.every((id) => snug[id] === "pass") && (await said()) === m.job, `${JSON.stringify(snug)} "${await said()}"`);
+    r.check(
+      `${tag} ${want.works} passes every test and says the part's job`,
+      ids.every((id) => snug[id] === "pass") && (await said()) === m.job,
+      `${JSON.stringify(snug)} "${await said()}"`,
+    );
     await r.page.waitForTimeout(SETTLE_MS);
     await r.framed("earned", `${tag} earned`, true, shareOf(kit, m.produces));
     await r.noDigits(`${tag} earned`);
@@ -889,7 +1113,11 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
   const statuses = await r.runTests(ids, "final", true);
   await r.page.waitForSelector('[data-stage="final"] [data-next]:not([disabled])', { timeout: 5_000 });
   const payoff = await r.page.locator("[data-payoff] li").count();
-  r.check("final tests pass and each part's job is named", ids.every((id) => statuses[id] === "pass") && payoff === story.final.payoff.length, `${JSON.stringify(statuses)}, ${payoff} jobs`);
+  r.check(
+    "final tests pass and each part's job is named",
+    ids.every((id) => statuses[id] === "pass") && payoff === story.final.payoff.length,
+    `${JSON.stringify(statuses)}, ${payoff} jobs`,
+  );
   await r.noDigits("final earned");
   await r.fits("final earned");
   await r.inSheet(() => r.noDigits("final Why"));
@@ -904,14 +1132,21 @@ async function playInspect(r: Run, sample: string, query: Query, url: string) {
   if (lesson.teach.length > 0) {
     await r.stage("learn");
     const tabs = await r.page.locator("[data-tab]").count();
-    r.check(`learn teaches ${lesson.teach.map((t) => t.primitive.id).join("+")}`, lesson.teach.length === 1 ? tabs === 0 : tabs === lesson.teach.length, `${tabs} tabs`);
+    r.check(
+      `learn teaches ${lesson.teach.map((t) => t.primitive.id).join("+")}`,
+      lesson.teach.length === 1 ? tabs === 0 : tabs === lesson.teach.length,
+      `${tabs} tabs`,
+    );
     await r.shot("learn");
     await r.page.click("[data-next]");
   }
 
   await r.stage("apart");
   const plain = await r.page.locator("[data-structure]").count();
-  r.check(lesson.teach.length === 0 ? "says plainly it has no mechanism" : "no structure note when it has mechanisms", plain === (lesson.teach.length === 0 ? 1 : 0));
+  r.check(
+    lesson.teach.length === 0 ? "says plainly it has no mechanism" : "no structure note when it has mechanisms",
+    plain === (lesson.teach.length === 0 ? 1 : 0),
+  );
   await r.framed("apart", "apart");
   await r.shot("apart");
   await r.setRange("[data-explode] input", TRACK);
@@ -963,12 +1198,24 @@ async function playInspect(r: Run, sample: string, query: Query, url: string) {
  */
 function checkTemplates(r: Run) {
   for (const t of JOINT_TEMPLATES)
-    r.check(`${t.primitive} template teaches what Inspect maps ${t.joints.join(" and ")} to`, t.joints.every((j) => JOINT_PRIMITIVE[j] === t.primitive));
+    r.check(
+      `${t.primitive} template teaches what Inspect maps ${t.joints.join(" and ")} to`,
+      t.joints.every((j) => JOINT_PRIMITIVE[j] === t.primitive),
+    );
   const plain = (p: Part, i: number): Part => ({ ...p, name: `Part ${i + 1}`, role: "Part of the object.", joint: p.parentId === null ? null : "molded" });
   /** `declines`: the template may judge the part unfit (a clamp with nothing turning on it) and generate nothing. */
   type Variant = { label: string; primitive: string; declines: boolean; make: (kit: Kit, child: Part) => Kit };
   const variants: Variant[] = [
-    ...JOINT_TEMPLATES.map((t): Variant => ({ label: t.primitive, primitive: t.primitive, declines: t.applies !== undefined, make: (kit, child) => ({ ...kit, summary: "", parts: kit.parts.map((p, i) => (p.id === child.id ? { ...plain(p, i), joint: t.joints[0]! } : plain(p, i))) }) })),
+    ...JOINT_TEMPLATES.map((t): Variant => ({
+      label: t.primitive,
+      primitive: t.primitive,
+      declines: t.applies !== undefined,
+      make: (kit, child) => ({
+        ...kit,
+        summary: "",
+        parts: kit.parts.map((p, i) => (p.id === child.id ? { ...plain(p, i), joint: t.joints[0]! } : plain(p, i))),
+      }),
+    })),
     ...EVIDENCE.map((e): Variant => ({
       label: `${e.template.primitive} by evidence (${e.id})`,
       primitive: e.template.primitive,
@@ -977,9 +1224,16 @@ function checkTemplates(r: Run) {
         ...kit,
         summary: "",
         parts: kit.parts.map((p, i) =>
-          p.id === child.id ? { ...plain(p, i), joint: e.joints === "any" ? "glue" : e.joints[0]!, ...(e.whose === "self" ? { name: e.id === "seal" ? "Rubber seal" : "Pivot" } : {}) }
-          : e.whose === "pin" && p.id === child.parentId ? { ...plain(p, i), name: "Pivot pin" }
-          : plain(p, i)),
+          p.id === child.id
+            ? {
+                ...plain(p, i),
+                joint: e.joints === "any" ? "glue" : e.joints[0]!,
+                ...(e.whose === "self" ? { name: e.id === "seal" ? "Rubber seal" : "Pivot" } : {}),
+              }
+            : e.whose === "pin" && p.id === child.parentId
+              ? { ...plain(p, i), name: "Pivot pin" }
+              : plain(p, i),
+        ),
       }),
     })),
   ];
@@ -1001,7 +1255,8 @@ function checkTemplates(r: Run) {
           checkRules(each, lesson!, variant);
           lessons += 1;
         } catch (error) {
-          if (!rows.slice(start).some((row) => row.run === each.name && !row.ok)) rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n")[0]! });
+          if (!rows.slice(start).some((row) => row.run === each.name && !row.ok))
+            rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n")[0]! });
         }
       }
   // The stand: every kit with plain words (geometry alone decides), then each part in turn named as its
@@ -1011,8 +1266,14 @@ function checkTemplates(r: Run) {
     const bare = kit.parts.map(plain);
     return [
       { label: "plain", kit: { ...kit, summary: "", parts: bare } },
-      ...kit.parts.map((p, i) => ({ label: `base ${p.id}`, kit: { ...kit, summary: "", parts: bare.map((q, j) => (j === i ? { ...q, name: "Base", role: "The flat base it stands on." } : q)) } })),
-      ...kit.parts.map((p, i) => ({ label: `handle ${p.id}`, kit: { ...kit, summary: "", parts: bare.map((q, j) => (j === i ? { ...q, name: "Handle", role: "You lift it by this." } : q)) } })),
+      ...kit.parts.map((p, i) => ({
+        label: `base ${p.id}`,
+        kit: { ...kit, summary: "", parts: bare.map((q, j) => (j === i ? { ...q, name: "Base", role: "The flat base it stands on." } : q)) },
+      })),
+      ...kit.parts.map((p, i) => ({
+        label: `handle ${p.id}`,
+        kit: { ...kit, summary: "", parts: bare.map((q, j) => (j === i ? { ...q, name: "Handle", role: "You lift it by this." } : q)) },
+      })),
     ];
   };
   for (const [sample, kit] of Object.entries(KITS))
@@ -1026,16 +1287,23 @@ function checkTemplates(r: Run) {
         stands.push(`${sample} ${v.label}`);
         lessons += 1;
       } catch (error) {
-        if (!rows.slice(start).some((row) => row.run === each.name && !row.ok)) rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n")[0]! });
+        if (!rows.slice(start).some((row) => row.run === each.name && !row.ok))
+          rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n")[0]! });
       }
     }
   const checked = rows.splice(start);
   rows.push(...checked.filter((row) => !row.ok));
-  r.check(`every template keeps the fix rules on every kit's parts (${lessons} lessons, ${checked.length} checks)`, checked.every((row) => row.ok));
+  r.check(
+    `every template keeps the fix rules on every kit's parts (${lessons} lessons, ${checked.length} checks)`,
+    checked.every((row) => row.ok),
+  );
   const never = variants.filter((v) => !made.get(v.label)).map((v) => v.label);
   r.check(`every template generates on some kit's parts`, never.length === 0, never.join(", "));
   const plainStands = Object.keys(KITS).filter((id) => stands.includes(`${id} plain`));
-  r.check(`the stand template reads upright roots from geometry alone (${plainStands.join(", ")}) and the stapler's rubber foot from its name`, plainStands.join() === "bottle,jar,mug" && standOf(KITS.stapler!)?.footing.part.id === "rubber-pad");
+  r.check(
+    `the stand template reads upright roots from geometry alone (${plainStands.join(", ")}) and the stapler's rubber foot from its name`,
+    plainStands.join() === "bottle,jar,mug" && standOf(KITS.stapler!)?.footing.part.id === "rubber-pad",
+  );
 }
 
 /**
@@ -1048,8 +1316,14 @@ function checkStories(r: Run) {
   const start = rows.length;
   const odd = (kit: Kit): { label: string; kit: Kit }[] => [
     { label: "as scanned", kit },
-    { label: "numbered names", kit: { ...kit, name: `${kit.name} 2000`, parts: kit.parts.map((p, i) => ({ ...p, name: `${p.name} ${i + 1}mm`, role: `${p.role} Fits a 12 mm hole.` })) } },
-    { label: "long names", kit: { ...kit, name: "Very large heavy duty kitchen thing", parts: kit.parts.map((p) => ({ ...p, name: `Big round shiny ${p.name}` })) } },
+    {
+      label: "numbered names",
+      kit: { ...kit, name: `${kit.name} 2000`, parts: kit.parts.map((p, i) => ({ ...p, name: `${p.name} ${i + 1}mm`, role: `${p.role} Fits a 12 mm hole.` })) },
+    },
+    {
+      label: "long names",
+      kit: { ...kit, name: "Very large heavy duty kitchen thing", parts: kit.parts.map((p) => ({ ...p, name: `Big round shiny ${p.name}` })) },
+    },
     { label: "all press-fit", kit: { ...kit, parts: kit.parts.map((p) => ({ ...p, joint: p.parentId === null ? null : "press-fit" })) } },
     { label: "all thread", kit: { ...kit, parts: kit.parts.map((p) => ({ ...p, joint: p.parentId === null ? null : "thread" })) } },
   ];
@@ -1063,12 +1337,16 @@ function checkStories(r: Run) {
         made += 1;
         checkStory(each, story, v.kit);
       } catch (error) {
-        if (!rows.slice(start).some((row) => row.run === each.name && !row.ok)) rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n").slice(0, 2).join(" ") });
+        if (!rows.slice(start).some((row) => row.run === each.name && !row.ok))
+          rows.push({ run: each.name, step: "aborted", ok: false, detail: String(error).split("\n").slice(0, 2).join(" ") });
       }
     }
   const checked = rows.splice(start);
   rows.push(...checked.filter((row) => !row.ok));
-  r.check(`every generated story loads and keeps the story rules (${made} stories, ${checked.length} checks)`, checked.every((row) => row.ok));
+  r.check(
+    `every generated story loads and keeps the story rules (${made} stories, ${checked.length} checks)`,
+    checked.every((row) => row.ok),
+  );
 }
 
 const SAMPLE_IDS = Object.keys(KITS);
@@ -1077,13 +1355,16 @@ const opensWith = (id: string) => {
   return lesson.kind === "inspect" ? "inspect" : LESSONS[id] === lesson ? "written" : "generated";
 };
 const wanted = process.argv.slice(2);
-const runs = wanted.length > 0 ? wanted : [
-  ...SAMPLE_IDS,
-  "templates",
-  "stories",
-  ...SAMPLE_IDS.filter((id) => opensWith(id) !== "generated" && generatedLesson(KITS[id]!) !== null).map((id) => `generated-${id}`),
-  ...SAMPLE_IDS.filter((id) => opensWith(id) !== "inspect").map((id) => `inspect-${id}`),
-];
+const runs =
+  wanted.length > 0
+    ? wanted
+    : [
+        ...SAMPLE_IDS,
+        "templates",
+        "stories",
+        ...SAMPLE_IDS.filter((id) => opensWith(id) !== "generated" && generatedLesson(KITS[id]!) !== null).map((id) => `generated-${id}`),
+        ...SAMPLE_IDS.filter((id) => opensWith(id) !== "inspect").map((id) => `inspect-${id}`),
+      ];
 // No file watcher: an edit to any source mid-run would hot-update main.tsx and reload the page, dropping the
 // lesson mid-play. Inline config cannot set watch to null (mergeConfig skips nulls), so the project config is
 // spread in here instead of loaded from its file.
@@ -1115,22 +1396,30 @@ try {
       const own = KITS[name] ? lessonFor(KITS[name], name) : undefined;
       const generated = name.startsWith("generated-") ? KITS[name.slice("generated-".length)] : undefined;
       const storied = name.startsWith("story-") ? name.slice("story-".length) : undefined;
-      if (own) await (own.kind === "workshop" ? playWorkshop(r, own, name, "", url) : own.kind === "story" ? playStory(r, own, name, url) : playInspect(r, name, "", url));
+      if (own)
+        await (own.kind === "workshop"
+          ? playWorkshop(r, own, name, "", url)
+          : own.kind === "story"
+            ? playStory(r, own, name, url)
+            : playInspect(r, name, "", url));
       else if (name === "templates") checkTemplates(r);
       else if (name === "stories") checkStories(r);
       else if (storied && KITS[storied]) {
         const made = generatedStory(KITS[storied], name, true);
         if (!made) throw new Error(`${name}: no story template applies to this kit`);
         await playStory(r, made, storied, url, "?story");
-      }
-      else if (generated) {
+      } else if (generated) {
         const made = generatedLesson(generated, name);
         if (!made) throw new Error(`${name}: no joint in this kit moves, so it has no generated lesson`);
         await playWorkshop(r, made, name.slice("generated-".length), "?generated", url);
       } else if (name.startsWith("inspect-")) await playInspect(r, name.slice("inspect-".length), "?inspect", url);
-      else throw new Error(`unknown run ${name}: use a sample id (${SAMPLE_IDS.join(", ")}), generated-<sample>, inspect-<sample>, story-<sample>, templates or stories`);
+      else
+        throw new Error(
+          `unknown run ${name}: use a sample id (${SAMPLE_IDS.join(", ")}), generated-<sample>, inspect-<sample>, story-<sample>, templates or stories`,
+        );
     } catch (error) {
-      if (!rows.some((row) => row.run === name && !row.ok)) rows.push({ run: name, step: "aborted", ok: false, detail: error instanceof Error ? error.message.split("\n")[0]! : String(error) });
+      if (!rows.some((row) => row.run === name && !row.ok))
+        rows.push({ run: name, step: "aborted", ok: false, detail: error instanceof Error ? error.message.split("\n")[0]! : String(error) });
       await r.shot("aborted").catch(() => {});
     }
     rows.push({ run: name, step: "no console or page errors", ok: r.errors.length === 0, detail: r.errors.slice(0, 3).join(" | ") });

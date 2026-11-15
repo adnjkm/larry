@@ -79,7 +79,14 @@ export function leverOf(pair: Pair): Lever {
   const open = Math.sign((turned[thin] - free[thin]) * away) || 1;
   const closing = scale(AXIS[thin], -away);
   return {
-    pivot, turn: AXIS[turnAxis], hand: free, handPart: child, work: unit(sub(free, pivot)), arm: 2 * pair.half[long], open, middle: false,
+    pivot,
+    turn: AXIS[turnAxis],
+    hand: free,
+    handPart: child,
+    work: unit(sub(free, pivot)),
+    arm: 2 * pair.half[long],
+    open,
+    middle: false,
     push: { at: sub(free, scale(closing, pair.half[thin])), dir: closing },
   };
 }
@@ -99,7 +106,12 @@ export const hingeTemplate: Template = {
     const swung = (present: readonly string[], deg: number) => carry(pair, present, { turns: [{ axis: h.turn, pivot: h.pivot, deg: h.open * deg }] });
     const hand = arrowMark("hand", h.push.at, h.push.dir, h.handPart.id);
     const workAt = (r: number) => add(h.pivot, scale(h.work, h.arm / r));
-    const work = (r: number): Mark => ({ id: "work-point", shape: { kind: "box", width: 5, height: 5, depth: 5, cornerRadius: 1 }, at: workAt(r), ride: pair.child.id });
+    const work = (r: number): Mark => ({
+      id: "work-point",
+      shape: { kind: "box", width: 5, height: 5, depth: 5, cornerRadius: 1 },
+      at: workAt(r),
+      ride: pair.child.id,
+    });
     const arm = Math.round(h.arm);
     const handName = h.handPart.name.toLowerCase();
     // Where the hand pushes and where the work is done, in the sentence's own words.
@@ -141,8 +153,14 @@ export const hingeTemplate: Template = {
             const start = ARM + 200;
             return {
               verdict: ok
-                ? { pass: true, line: `Your ${HAND_N} N on ${yours} became ${HAND_N} × ${r} = ${force} N at ${there}, enough for the ${JOB_N} N it has to press.` }
-                : { pass: false, line: `Your ${HAND_N} N on ${yours} became ${HAND_N} × ${r} = ${force} N at ${there}. It has to press ${JOB_N} N, so it stopped partway.` },
+                ? {
+                    pass: true,
+                    line: `Your ${HAND_N} N on ${yours} became ${HAND_N} × ${r} = ${force} N at ${there}, enough for the ${JOB_N} N it has to press.`,
+                  }
+                : {
+                    pass: false,
+                    line: `Your ${HAND_N} N on ${yours} became ${HAND_N} × ${r} = ${force} N at ${there}. It has to press ${JOB_N} N, so it stopped partway.`,
+                  },
               durationMs: start + PUSH + HOLD + BACK,
               at: (ms) => {
                 if (ms < start) return overlay("Opening it", swung(ctx.present, OPEN_DEG * smooth(clamp01(ms / ARM))), [work(r)]);
@@ -166,7 +184,10 @@ export const hingeTemplate: Template = {
             return {
               verdict: ok
                 ? { pass: true, line: `Your ${HAND_MM} mm became ${HAND_MM} ÷ ${r} = ${travel} mm at ${there}, enough for the ${JOB_MM} mm it has to move.` }
-                : { pass: false, line: `Your ${HAND_MM} mm became ${HAND_MM} ÷ ${r} = ${travel} mm at ${there}. It has to move ${JOB_MM} mm, so it stopped short.` },
+                : {
+                    pass: false,
+                    line: `Your ${HAND_MM} mm became ${HAND_MM} ÷ ${r} = ${travel} mm at ${there}. It has to move ${JOB_MM} mm, so it stopped short.`,
+                  },
               durationMs: PUSH + HOLD + BACK,
               at: (ms) => {
                 const q = smooth(clamp01(ms / PUSH));
@@ -189,7 +210,9 @@ export const hingeTemplate: Template = {
       },
       suspect: pair.child.id,
       misses: {
-        [pair.parent.id]: pin ? `The ${pin} is the point the ${child} turns about. It does not set how hard it presses.` : `The ${parent} holds still. Watch the part that swings during ${push}.`,
+        [pair.parent.id]: pin
+          ? `The ${pin} is the point the ${child} turns about. It does not set how hard it presses.`
+          : `The ${parent} holds still. Watch the part that swings during ${push}.`,
         ...(against ? { [against.id]: `The ${against.name.toLowerCase()} holds still. Watch the part that turns during ${push}.` } : {}),
       },
       missDefault: `That part does not decide the force. Watch which part turns during ${push}.`,

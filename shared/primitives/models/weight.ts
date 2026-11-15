@@ -114,7 +114,14 @@ export function settle(v: Values) {
   return { mass, swing, angle, a, rb, snap, weight, along, bob, lean, bead, held, rise: STRING_MM * (1 - Math.cos(a)) };
 }
 
-const BEAD_PROFILE: Pt[] = [[0, 0], [3.6, 0], [5, 1.6], [5, BEAD_LEN - 1.6], [3.6, BEAD_LEN], [0, BEAD_LEN]];
+const BEAD_PROFILE: Pt[] = [
+  [0, 0],
+  [3.6, 0],
+  [5, 1.6],
+  [5, BEAD_LEN - 1.6],
+  [3.6, BEAD_LEN],
+  [0, BEAD_LEN],
+];
 const SPHERE_STEPS = 12;
 const sphere = (r: number) =>
   lathe(
@@ -134,8 +141,23 @@ function stand(): Part {
   const top = PIVOT_Y + ARM_T;
   const cx = (x0 + x1) / 2;
   const cy = (PLATE_TOP + top) / 2;
-  const outline = [[x0, PIVOT_Y], [x1 - POST_W, PIVOT_Y], [x1 - POST_W, PLATE_TOP], [x1, PLATE_TOP], [x1, top], [x0, top]].map(([x, y]) => ({ x: x! - cx, y: y! - cy }));
-  return part("stand", "Stand", "Holds the string up: a post at the right and an arm that reaches out over the bob and the crate.", { kind: "extrusion", outline, depth: 8 }, v3(cx, cy, 0), look.structure, on("plate", "weld"));
+  const outline = [
+    [x0, PIVOT_Y],
+    [x1 - POST_W, PIVOT_Y],
+    [x1 - POST_W, PLATE_TOP],
+    [x1, PLATE_TOP],
+    [x1, top],
+    [x0, top],
+  ].map(([x, y]) => ({ x: x! - cx, y: y! - cy }));
+  return part(
+    "stand",
+    "Stand",
+    "Holds the string up: a post at the right and an arm that reaches out over the bob and the crate.",
+    { kind: "extrusion", outline, depth: 8 },
+    v3(cx, cy, 0),
+    look.structure,
+    on("plate", "weld"),
+  );
 }
 
 /** The hand's pull on the bead, along the swing and away from the bottom: it balances the part of the weight that would swing the bob back. */
@@ -143,7 +165,11 @@ function holdArrow(id: string, s: ReturnType<typeof settle>, parent: string): Pa
   if (s.a < 1e-9) return [];
   const t = s.angle > 0 ? 1 : -1;
   const at = v3(s.bead.x + 6 * t * Math.cos(s.angle * DEG_TO_RAD), s.bead.y + 6 * t * Math.sin(s.angle * DEG_TO_RAD), 0);
-  return arrow(id, at, s.angle > 0 ? s.angle : 180 + s.angle, arrowLength(s.along, FORCE_MAX, ARROW_LONG), "pull", { name: "Hand arrow", role: "Your hand's pull along the swing: it holds the bob out.", on: on(parent, "glue") });
+  return arrow(id, at, s.angle > 0 ? s.angle : 180 + s.angle, arrowLength(s.along, FORCE_MAX, ARROW_LONG), "pull", {
+    name: "Hand arrow",
+    role: "Your hand's pull along the swing: it holds the bob out.",
+    on: on(parent, "glue"),
+  });
 }
 
 function build(v: Values): Part[] {
@@ -159,7 +185,13 @@ function build(v: Values): Part[] {
     part("bob", "Bob", "The mass: pulled down by gravity, slow to change speed.", bob.shape, s.bob, look.focus, on("string", "glue")),
     part("bead", "Grip bead", "Where your hand holds the bob out.", bead.shape, s.bead, look.light, on("string", "glue"), v3(0, 0, s.lean)),
     // A bob resting on the plate has the plate under it: the arrow would run through it, so it is not drawn.
-    ...(s.bob.y - s.rb - ARROW_GAP - weightLen < PLATE_TOP ? [] : arrow("weight-arrow", v3(s.bob.x, s.bob.y - s.rb, 0), -90, weightLen, "pull", { name: "Weight arrow", role: "Gravity's pull on the bob, straight down.", on: on("bob", "glue") })),
+    ...(s.bob.y - s.rb - ARROW_GAP - weightLen < PLATE_TOP
+      ? []
+      : arrow("weight-arrow", v3(s.bob.x, s.bob.y - s.rb, 0), -90, weightLen, "pull", {
+          name: "Weight arrow",
+          role: "Gravity's pull on the bob, straight down.",
+          on: on("bob", "glue"),
+        })),
     // Held out, nothing but a hand keeps the bob there: the arrow is drawn whenever the hand is on, not only in a run.
     ...(s.held ? holdArrow("hold-arrow", s, "bead") : []),
   ];
@@ -170,8 +202,18 @@ function readouts(v: Values) {
   const deg = fmt(Math.abs(s.angle));
   return [
     { label: "Weight", value: `W = m × g = ${fmt(s.mass, 1)} kg × 9.8 = ${fmt(s.weight, 1)} N` },
-    { label: "Travel", value: s.a < 1e-9 ? "hanging straight down: bob up 0 mm" : `${deg}° out, bob up ${fmt(s.rise, 1)} mm; the hand holds W × sin ${deg}° = ${fmt(s.along, 1)} N` },
-    { label: "State", value: s.a < 1e-9 ? `hanging still: the string's ${fmt(s.weight, 1)} N pull cancels the weight` : `let go: down in ¼ × 2π√(${fmt(L, 2)} ÷ 9.8) = ${fmt(QUARTER, 2)} s, at any mass` },
+    {
+      label: "Travel",
+      value:
+        s.a < 1e-9 ? "hanging straight down: bob up 0 mm" : `${deg}° out, bob up ${fmt(s.rise, 1)} mm; the hand holds W × sin ${deg}° = ${fmt(s.along, 1)} N`,
+    },
+    {
+      label: "State",
+      value:
+        s.a < 1e-9
+          ? `hanging still: the string's ${fmt(s.weight, 1)} N pull cancels the weight`
+          : `let go: down in ¼ × 2π√(${fmt(L, 2)} ÷ 9.8) = ${fmt(QUARTER, 2)} s, at any mass`,
+    },
   ];
 }
 
@@ -268,7 +310,12 @@ function judge(v: Values): Verdict {
     case "light":
       return { pass: false, outcome: "too-light", headline: "Crate only rocked", detail: "Too light: the ball hits too softly to knock the crate off." };
     case "snap":
-      return { pass: false, outcome: "string-snapped", headline: "The string snapped", detail: "Too heavy: the string cannot take the pull, so the ball drops short." };
+      return {
+        pass: false,
+        outcome: "string-snapped",
+        headline: "The string snapped",
+        detail: "Too heavy: the string cannot take the pull, so the ball drops short.",
+      };
     case "pass":
       return { pass: true, outcome: "knocked-off", headline: "Crate knocked off", detail: "Hard enough to knock the crate off, and the string held." };
   }
@@ -391,7 +438,10 @@ function play(v: Values): Run {
         case "hold": {
           if (fl) return frame(values({ ...bobAt(-r.breakAt * RAD_TO_DEG), snap: 1, fx: fl.hit.x, fy: fl.yRest }), "String snapped");
           const end = crateAfter(afterMs).crate;
-          return frame(values({ ...bobAt(bobAfter(afterMs + ms - tl.start("hold"))), ...cratePose(end) }), r.kind === "pass" ? "Crate knocked off" : "Crate stayed put");
+          return frame(
+            values({ ...bobAt(bobAfter(afterMs + ms - tl.start("hold"))), ...cratePose(end) }),
+            r.kind === "pass" ? "Crate knocked off" : "Crate stayed put",
+          );
         }
         default: {
           const q = smooth(tl.t("reset", ms));
@@ -412,8 +462,25 @@ function scene(v: Values): Part[] {
   const s = settle(v);
   const at = (away: number) => nearFace(s.mass) + away;
   return [
-    part(`${SCENE}pedestal`, "Pedestal", "What the crate stands on.", box(PED_FAR - PED_NEAR, LEDGE_Y - PLATE_TOP, 20, 1), v3(at((PED_NEAR + PED_FAR) / 2), (PLATE_TOP + LEDGE_Y) / 2, 0), look.structure, on("plate", "weld")),
-    part(`${SCENE}crate`, "Crate", "The load the bob has to knock off its pedestal.", box(CRATE, CRATE, CRATE, 1.5), v3(at(CRATE / 2 + (v.crateAway ?? 0)), LEDGE_Y + CRATE / 2 - (v.crateDown ?? 0), 0), look.stone, on(`${SCENE}pedestal`, "glue"), v3(0, 0, -(v.crateTilt ?? 0))),
+    part(
+      `${SCENE}pedestal`,
+      "Pedestal",
+      "What the crate stands on.",
+      box(PED_FAR - PED_NEAR, LEDGE_Y - PLATE_TOP, 20, 1),
+      v3(at((PED_NEAR + PED_FAR) / 2), (PLATE_TOP + LEDGE_Y) / 2, 0),
+      look.structure,
+      on("plate", "weld"),
+    ),
+    part(
+      `${SCENE}crate`,
+      "Crate",
+      "The load the bob has to knock off its pedestal.",
+      box(CRATE, CRATE, CRATE, 1.5),
+      v3(at(CRATE / 2 + (v.crateAway ?? 0)), LEDGE_Y + CRATE / 2 - (v.crateDown ?? 0), 0),
+      look.stone,
+      on(`${SCENE}pedestal`, "glue"),
+      v3(0, 0, -(v.crateTilt ?? 0)),
+    ),
   ];
 }
 
@@ -469,4 +536,25 @@ export const weight: Primitive = {
 };
 
 /** Exposed for tests: the layout the parts are placed by. */
-export const geometry = { BOB_Y, PIVOT_Y, LEDGE_Y, CONTACT_X, CONTACT_Y, PED_NEAR, PED_FAR, CRATE, POST_X, POST_W, SLIDE, DROP, STUB, SLOW, LAND_X, nearFace, obstacles, gap, SWING_MIN, SWING_MAX };
+export const geometry = {
+  BOB_Y,
+  PIVOT_Y,
+  LEDGE_Y,
+  CONTACT_X,
+  CONTACT_Y,
+  PED_NEAR,
+  PED_FAR,
+  CRATE,
+  POST_X,
+  POST_W,
+  SLIDE,
+  DROP,
+  STUB,
+  SLOW,
+  LAND_X,
+  nearFace,
+  obstacles,
+  gap,
+  SWING_MIN,
+  SWING_MAX,
+};

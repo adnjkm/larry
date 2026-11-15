@@ -207,26 +207,26 @@ export function drawSwell(r: Raster, swell: Swell, look: DevelopLook, seconds: n
     // The swell's height and slope along the row, wave by wave: sin(a + b) and cos(a + b) of the column's a and the
     // row's b, in flat loops over the columns. Its shortest wave is ~170 CSS px, so every other row serves two.
     if ((y & 1) === 0) {
-    h.fill(0);
-    sx.fill(0);
-    sy.fill(0);
-    for (let k = 0; k < WAVES; k++) {
-      const wave = SWELL[k]!;
-      const b = (wave.ky * y * cell) / dpr / 100 - wave.w * t + wave.p;
-      const rs = Math.sin(b);
-      const rc = Math.cos(b);
-      const akx = wave.a * wave.kx;
-      const aky = wave.a * wave.ky;
-      const o = k * cols;
-      for (let x = 0; x < cols; x++) {
-        const cs = colSin[o + x]!;
-        const cc = colCos[o + x]!;
-        const cos = cc * rc - cs * rs;
-        h[x]! += wave.a * (cs * rc + cc * rs);
-        sx[x]! += akx * cos;
-        sy[x]! += aky * cos;
+      h.fill(0);
+      sx.fill(0);
+      sy.fill(0);
+      for (let k = 0; k < WAVES; k++) {
+        const wave = SWELL[k]!;
+        const b = (wave.ky * y * cell) / dpr / 100 - wave.w * t + wave.p;
+        const rs = Math.sin(b);
+        const rc = Math.cos(b);
+        const akx = wave.a * wave.kx;
+        const aky = wave.a * wave.ky;
+        const o = k * cols;
+        for (let x = 0; x < cols; x++) {
+          const cs = colSin[o + x]!;
+          const cc = colCos[o + x]!;
+          const cos = cc * rc - cs * rs;
+          h[x]! += wave.a * (cs * rc + cc * rs);
+          sx[x]! += akx * cos;
+          sy[x]! += aky * cos;
+        }
       }
-    }
     }
     const rowBase = rowAlong[y]! + bob;
     for (let x = 0; x < cols; x++) {

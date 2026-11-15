@@ -96,7 +96,17 @@ function hand<T>(ref: Ref<T | null> | undefined, value: T | null) {
   else if (ref) ref.current = value;
 }
 
-export function FigureStage({ primitive, mode = "still", handle = true, palette = "library", values, height = VIEWPORT_HEIGHT, controllerRef, onLive, onCue }: FigureStageProps) {
+export function FigureStage({
+  primitive,
+  mode = "still",
+  handle = true,
+  palette = "library",
+  values,
+  height = VIEWPORT_HEIGHT,
+  controllerRef,
+  onLive,
+  onCue,
+}: FigureStageProps) {
   const root = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const ring = useRef<HTMLDivElement>(null);
@@ -111,14 +121,10 @@ export function FigureStage({ primitive, mode = "still", handle = true, palette 
   latestRef.current = controllerRef;
 
   useLayoutEffect(() => {
-    const v = new StageView(
-      { root: root.current!, canvas: canvas.current!, ring: ring.current },
-      primitive,
-      mode,
-      palette,
-      latestValues.current ?? {},
-      { onLive: (t) => callbacks.current.onLive?.(t), onCue: (c) => callbacks.current.onCue?.(c) },
-    );
+    const v = new StageView({ root: root.current!, canvas: canvas.current!, ring: ring.current }, primitive, mode, palette, latestValues.current ?? {}, {
+      onLive: (t) => callbacks.current.onLive?.(t),
+      onCue: (c) => callbacks.current.onCue?.(c),
+    });
     view.current = v;
     const ref = latestRef.current;
     hand(ref, v.controller);

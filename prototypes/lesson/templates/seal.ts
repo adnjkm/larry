@@ -42,7 +42,8 @@ export function closerOf(kit: Kit, seal: Part): Part {
 /** Points round the seal's ring, in the kit's frame. */
 export function ringOf(seal: Part, pair: Pair): Vec[] {
   const axis = seal.shape.kind === "torus" || seal.shape.kind === "lathe" ? latheAxis(seal) : AXIS[pair.axis];
-  const radius = seal.shape.kind === "torus" ? seal.shape.radius : Math.max(...(["x", "y", "z"] as const).filter((a) => Math.abs(axis[a]) < 0.9).map((a) => pair.half[a]));
+  const radius =
+    seal.shape.kind === "torus" ? seal.shape.radius : Math.max(...(["x", "y", "z"] as const).filter((a) => Math.abs(axis[a]) < 0.9).map((a) => pair.half[a]));
   const helper = Math.abs(axis.y) < 0.9 ? vec(0, 1, 0) : vec(1, 0, 0);
   const cross = (a: Vec, b: Vec) => vec(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
   const u = cross(axis, helper);
@@ -62,7 +63,15 @@ const sphere = (r: number): Shape => ({
     return { r: i === 0 || i === 6 ? 0 : r * Math.cos(a), y: r * Math.sin(a) };
   }),
 });
-const splash = (r: number): Shape => ({ kind: "lathe", profile: [{ r: 0, y: 0 }, { r: 1.4 * r, y: 0 }, { r: 1.4 * r, y: 0.35 * r }, { r: 0, y: 0.35 * r }] });
+const splash = (r: number): Shape => ({
+  kind: "lathe",
+  profile: [
+    { r: 0, y: 0 },
+    { r: 1.4 * r, y: 0 },
+    { r: 1.4 * r, y: 0.35 * r },
+    { r: 0, y: 0.35 * r },
+  ],
+});
 
 /** How far up an object is held while it turns over: clear of the ground, with room for drops to fall. */
 export function flipFrame(ctx: TestCtx) {
@@ -70,7 +79,14 @@ export function flipFrame(ctx: TestCtx) {
   const box = extents(parts);
   const height = box.max.y - box.min.y;
   const size = Math.max(height, box.max.x - box.min.x, box.max.z - box.min.z);
-  const reach = Math.max(...parts.flatMap((p) => { const b = extents([p]); return [b.min, b.max]; }).map((c) => Math.hypot(c.x - ctx.centre.x, c.y - ctx.centre.y)));
+  const reach = Math.max(
+    ...parts
+      .flatMap((p) => {
+        const b = extents([p]);
+        return [b.min, b.max];
+      })
+      .map((c) => Math.hypot(c.x - ctx.centre.x, c.y - ctx.centre.y)),
+  );
   return { box, size, lift: Math.max(0, reach - (ctx.centre.y - box.min.y)) + 0.3 * height + 10 };
 }
 
@@ -88,30 +104,37 @@ function flip(pair: Pair, between: string): Test {
       const r = Math.min(6, Math.max(1.5, 0.03 * size));
       const g = 4.2 * size;
       const held: Rigid = { dx: 0, dy: lift, angle: 180 };
-      const ring = ringOf(pair.child, pair).map((p) => rigidPoint(ctx.centre, held, p)).sort((a, b) => a.y - b.y);
+      const ring = ringOf(pair.child, pair)
+        .map((p) => rigidPoint(ctx.centre, held, p))
+        .sort((a, b) => a.y - b.y);
       const spawns = Array.from({ length: drops }, (_, i) => FLIP_UP + 50 + i * DROP_GAP);
       const origins = spawns.map((_, i) => ring[(i * 3) % Math.min(5, ring.length)]!);
       const ground = box.min.y;
       const hold = Math.max(1000, 500 + drops * DROP_GAP + 700);
       return {
-        verdict: drops === 0
-          ? { pass: true, line: `Dry. Nothing got through the joint between ${between}.` }
-          : { pass: false, line: `${drops} drops got through the joint between ${between}.` },
+        verdict:
+          drops === 0
+            ? { pass: true, line: `Dry. Nothing got through the joint between ${between}.` }
+            : { pass: false, line: `${drops} drops got through the joint between ${between}.` },
         durationMs: FLIP_UP + hold + FLIP_BACK,
         at: (ms) => {
           const back = smooth(clamp01((ms - FLIP_UP - hold) / FLIP_BACK));
           const rigid: Rigid =
-            ms < FLIP_UP ? { dx: 0, dy: lift * smooth(ms / FLIP_UP), angle: 180 * smooth(ms / FLIP_UP) }
-            : ms < FLIP_UP + hold ? held
-            : { dx: 0, dy: lift * (1 - back), angle: 180 + 180 * back };
+            ms < FLIP_UP
+              ? { dx: 0, dy: lift * smooth(ms / FLIP_UP), angle: 180 * smooth(ms / FLIP_UP) }
+              : ms < FLIP_UP + hold
+                ? held
+                : { dx: 0, dy: lift * (1 - back), angle: 180 + 180 * back };
           const marks = spawns.flatMap((spawn, i): Mark[] => {
             const tau = (ms - spawn) / 1000;
             if (tau < 0) return [];
             const o = origins[i]!;
             const y = o.y - 0.5 * g * tau * tau;
-            return [y > ground + r
-              ? { id: `drop-${i}`, shape: sphere(r), at: vec(o.x, y, o.z), ride: null }
-              : { id: `splash-${i}`, shape: splash(r), at: vec(o.x, ground + 0.2, o.z), ride: null }];
+            return [
+              y > ground + r
+                ? { id: `drop-${i}`, shape: sphere(r), at: vec(o.x, y, o.z), ride: null }
+                : { id: `splash-${i}`, shape: splash(r), at: vec(o.x, ground + 0.2, o.z), ride: null },
+            ];
           });
           const falling = marks.length;
           return overlay(falling > 0 ? `Drops: ${falling}` : "Upside down", {}, marks, rigid);
@@ -143,7 +166,11 @@ function open(closer: Pair): Test {
       const at = (d: number, deg: number) => carry(closer, ctx.present, move(d, deg));
       if (!opens(s)) {
         return {
-          verdict: { pass: false, line: `It would not open. It needs ${need(s)} ${law.unit} and a hand gives about ${law.hand} ${law.unit}.`, nudge: `The squeezed seal grips the ${closer.childName} far too hard.` },
+          verdict: {
+            pass: false,
+            line: `It would not open. It needs ${need(s)} ${law.unit} and a hand gives about ${law.hand} ${law.unit}.`,
+            nudge: `The squeezed seal grips the ${closer.childName} far too hard.`,
+          },
           durationMs: REFUSE_MS,
           at: (ms) => {
             const w = shudder(clamp01(ms / REFUSE_MS));
@@ -202,14 +229,17 @@ export const sealTemplate: Template = {
       tests: [flipTest, openTest],
       hints: {
         observe: `Run ${flipTest.label} and watch where the drops start. They come out at the joint between ${between}.`,
-        principle: "A seal works by being squeezed. Two hard faces never fit perfectly, and a squeezed gasket is pressed into the gaps between them. Squeeze it too little and the gaps stay open.",
+        principle:
+          "A seal works by being squeezed. Two hard faces never fit perfectly, and a squeezed gasket is pressed into the gaps between them. Squeeze it too little and the gaps stay open.",
         direction: `Squeeze more, but not too far: a crushed seal grips the ${closer.childName}. Check ${flipTest.label} and ${openTest.label} together.`,
         low: `The gaps stay open, and ${flipTest.label} leaks.`,
         high: `The crushed seal grips the ${closer.childName} so hard that it takes more than a hand to ${doing} it open.`,
       },
       suspect: pair.child.id,
       misses: {
-        ...(closerPart.id !== pair.child.id ? { [closerPart.id]: `The ${closer.childName} closes the joint, but the drops get past something inside it. Watch where they start.` } : {}),
+        ...(closerPart.id !== pair.child.id
+          ? { [closerPart.id]: `The ${closer.childName} closes the joint, but the drops get past something inside it. Watch where they start.` }
+          : {}),
         [closer.parent.id]: `The ${base} holds still. The drops start at the joint between ${between}.`,
       },
       missDefault: `That is not where it leaks. Run ${flipTest.label} and watch where the drops start.`,
@@ -223,7 +253,10 @@ export const sealTemplate: Template = {
         const drops = dropsAt(s);
         return [
           { label: "Upside down", value: drops > 0 ? `${drops} drops get through (dry from ${pct(WINDOW[0])}%)` : "dry" },
-          { label: "To open", value: `${law.base} + ${law.per} × ${s.toFixed(2)} = ${tenth(law.base + law.per * s)} ${law.unit} (a hand gives ${law.hand} ${law.unit})` },
+          {
+            label: "To open",
+            value: `${law.base} + ${law.per} × ${s.toFixed(2)} = ${tenth(law.base + law.per * s)} ${law.unit} (a hand gives ${law.hand} ${law.unit})`,
+          },
         ];
       },
     };

@@ -7,7 +7,15 @@ const styles = stylex.create({
   segment: { width: 26, height: 4, borderRadius: 2, backgroundColor: colors.segmentTodo },
   done: { backgroundColor: colors.ink },
   current: { overflow: "hidden" },
-  fill: (share: number) => ({ display: "block", height: "100%", width: `${share * 100}%`, backgroundColor: colors.accent, transitionProperty: "width", transitionDuration: "240ms", transitionTimingFunction: "ease-out" }),
+  fill: (share: number) => ({
+    display: "block",
+    height: "100%",
+    width: `${share * 100}%`,
+    backgroundColor: colors.accent,
+    transitionProperty: "width",
+    transitionDuration: "240ms",
+    transitionTimingFunction: "ease-out",
+  }),
 });
 
 /**
@@ -24,11 +32,24 @@ export function Roadmap({ state }: { state: LessonState }) {
   const steps = inChapter.length > 1 ? `, step ${index + 1} of ${inChapter.length}` : "";
   const text = finished ? `All ${total} chapters done` : `Chapter ${current + 1}${state.done ? ` of ${total}` : ""}${steps}`;
   return (
-    <div role="progressbar" aria-label={text} aria-valuemin={1} aria-valuemax={total} aria-valuenow={finished ? total : current + 1} data-roadmap {...stylex.props(styles.segments)}>
+    <div
+      role="progressbar"
+      aria-label={text}
+      aria-valuemin={1}
+      aria-valuemax={total}
+      aria-valuenow={finished ? total : current + 1}
+      data-roadmap
+      {...stylex.props(styles.segments)}
+    >
       {state.chapters.map((chapter, i) => {
         const status = chapterStatus(state, i);
         return (
-          <span key={chapter.id} data-chapter={chapter.id} data-status={status} {...stylex.props(styles.segment, status === "done" && styles.done, status === "current" && styles.current)}>
+          <span
+            key={chapter.id}
+            data-chapter={chapter.id}
+            data-status={status}
+            {...stylex.props(styles.segment, status === "done" && styles.done, status === "current" && styles.current)}
+          >
             {status === "current" && <span {...stylex.props(styles.fill(share))} />}
           </span>
         );

@@ -83,13 +83,27 @@ export const dome = (half: number): Relief => [feature.raise(half * 0.45, half)]
  * bottom. `turn` is the drum's angle in radians; the pattern repeats every `2π / ridges`.
  */
 export const drum =
-  ({ ridges, groove = 0.34, cut = 5, rim = 3, bulge = 0.5, turn = 0 }: { ridges: number; groove?: number; cut?: number; rim?: number; bulge?: number; turn?: number }): Feature =>
+  ({
+    ridges,
+    groove = 0.34,
+    cut = 5,
+    rim = 3,
+    bulge = 0.5,
+    turn = 0,
+  }: {
+    ridges: number;
+    groove?: number;
+    cut?: number;
+    rim?: number;
+    bulge?: number;
+    turn?: number;
+  }): Feature =>
   ({ x, y, w, h }) => {
     const R = w / 2;
     const s = Math.max(-0.999, Math.min(0.999, (x - R) / R));
     const body = bulge * R * Math.sqrt(1 - s * s);
     if (y < rim || y > h - rim) return body - cut * 0.6;
-    const t = ((((Math.asin(s) + turn) * ridges) / (Math.PI * 2)) % 1 + 1) % 1;
+    const t = (((((Math.asin(s) + turn) * ridges) / (Math.PI * 2)) % 1) + 1) % 1;
     const v = t < groove ? 1 - Math.abs(t / groove - 0.5) * 2 : 0;
     return body - cut * v * Math.sqrt(1 - s * s);
   };

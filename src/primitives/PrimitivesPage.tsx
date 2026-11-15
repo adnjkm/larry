@@ -14,7 +14,16 @@ const styles = stylex.create({
   link: { cursor: "pointer" },
   // Where the back button scrolls to: just above the element and mechanism lists.
   listTop: { height: 0, marginTop: -20, scrollMarginTop: 20 },
-  list: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: colors.rule },
+  list: {
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+    display: "flex",
+    flexDirection: "column",
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: colors.rule,
+  },
   row: {
     width: "100%",
     display: "grid",

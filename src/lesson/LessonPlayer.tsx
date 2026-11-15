@@ -93,7 +93,19 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
   );
 }
 
-function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; earned: ReadonlySet<string>; state: LessonState; dispatch: Dispatch; enterFrom: number }) {
+function StepScreen({
+  kit,
+  earned,
+  state,
+  dispatch,
+  enterFrom,
+}: {
+  kit: Kit;
+  earned: ReadonlySet<string>;
+  state: LessonState;
+  dispatch: Dispatch;
+  enterFrom: number;
+}) {
   const article = useRef<HTMLElement>(null);
   const flat = state.flat[state.at];
   const current = state.steps[state.at];
@@ -122,7 +134,11 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
       <article ref={article} data-step={step.id} data-chapter={chapter?.id} data-complete={complete || undefined} {...stylex.props(styles.step)}>
         {flat.index === 0 && chapter && (
           <header data-chapter-header {...stylex.props(layout.inset, styles.header)}>
-            {flat.chapter > 0 && <p {...stylex.props(type.label, type.labelAccent)}>{chapter.kind === "module" ? "The next requirement" : chapter.kind === "join" ? "Putting it together" : "The last piece"}</p>}
+            {flat.chapter > 0 && (
+              <p {...stylex.props(type.label, type.labelAccent)}>
+                {chapter.kind === "module" ? "The next requirement" : chapter.kind === "join" ? "Putting it together" : "The last piece"}
+              </p>
+            )}
             <h2 tabIndex={-1} {...stylex.props(type.title)}>
               {chapter.kind === "module" ? chapter.need : chapter.title}
             </h2>
@@ -156,7 +172,9 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
           ))}
         </GlowCard>
 
-        {step.problem && current.problem && <ProblemView key={step.id} problem={step.problem} state={current.problem} dispatch={(action) => dispatch({ type: "problem", action })} />}
+        {step.problem && current.problem && (
+          <ProblemView key={step.id} problem={step.problem} state={current.problem} dispatch={(action) => dispatch({ type: "problem", action })} />
+        )}
 
         {complete && (
           <div data-payoff {...stylex.props(layout.inset, layout.stack)}>
@@ -209,7 +227,10 @@ function Stage({ kit, earned, showBuild, children }: { kit: Kit; earned: Readonl
  * A direction that isn't open rubber-bands. On release the flick's projected landing decides, and the step leaves at the finger's speed.
  * Mouse drags are left alone so text stays selectable on a desktop.
  */
-function useStepSwipe(ref: RefObject<HTMLElement | null>, { stepKey, enterFrom, onNext, onBack }: { stepKey: string | undefined; enterFrom: number; onNext?: () => void; onBack?: () => void }) {
+function useStepSwipe(
+  ref: RefObject<HTMLElement | null>,
+  { stepKey, enterFrom, onNext, onBack }: { stepKey: string | undefined; enterFrom: number; onNext?: () => void; onBack?: () => void },
+) {
   const next = useEffectEvent(() => onNext?.());
   const back = useEffectEvent(() => onBack?.());
   const can = useEffectEvent((direction: number) => (direction < 0 ? onNext : onBack) !== undefined);

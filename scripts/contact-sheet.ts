@@ -19,7 +19,9 @@ const shots: { label: string; file: string }[] = [];
 const { browser, close, url } = await launch();
 
 async function shoot(page: Page, label: string) {
-  await page.waitForFunction(() => [...document.querySelectorAll("[data-kit-viewer]")].every((v) => v.hasAttribute("data-ready")), undefined, { timeout: 90_000 });
+  await page.waitForFunction(() => [...document.querySelectorAll("[data-kit-viewer]")].every((v) => v.hasAttribute("data-ready")), undefined, {
+    timeout: 90_000,
+  });
   await page.waitForTimeout(400);
   const file = `${String(shots.length + 1).padStart(2, "0")}.png`;
   await page.screenshot({ path: join(outDir, file) });
@@ -110,8 +112,15 @@ try {
   const sheet = await context.newPage();
   const order = ["Capture", "Generating", "North star", "Run", "Pick", "Tune", "Payoff", "Finish"];
   shots.sort((a, b) => order.findIndex((o) => a.label.startsWith(o)) - order.findIndex((o) => b.label.startsWith(o)));
-  const cells = shots.map(({ label, file }) => `<figure><img src="data:image/png;base64,${readFileSync(join(outDir, file)).toString("base64")}" width="390"><figcaption>${label}</figcaption></figure>`).join("");
-  await sheet.setContent(`<body style="margin:0;padding:24px;background:#e9e9e9;display:flex;gap:16px;font:600 13px Helvetica,Arial,sans-serif;width:max-content"><style>figure{margin:0}img{display:block;border-radius:12px;box-shadow:0 1px 6px #0003}figcaption{margin-top:8px;text-align:center}</style>${cells}</body>`);
+  const cells = shots
+    .map(
+      ({ label, file }) =>
+        `<figure><img src="data:image/png;base64,${readFileSync(join(outDir, file)).toString("base64")}" width="390"><figcaption>${label}</figcaption></figure>`,
+    )
+    .join("");
+  await sheet.setContent(
+    `<body style="margin:0;padding:24px;background:#e9e9e9;display:flex;gap:16px;font:600 13px Helvetica,Arial,sans-serif;width:max-content"><style>figure{margin:0}img{display:block;border-radius:12px;box-shadow:0 1px 6px #0003}figcaption{margin-top:8px;text-align:center}</style>${cells}</body>`,
+  );
   await sheet.waitForFunction(() => [...document.images].every((i) => i.complete));
   await sheet.screenshot({ path: join(outDir, "sheet.png"), fullPage: true });
   console.log(`${join(outDir, "sheet.png")}: ${shots.map((s) => s.label).join(", ")}`);

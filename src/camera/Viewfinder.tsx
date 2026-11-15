@@ -31,7 +31,23 @@ const SWEEP_FPS = 60;
 const SETTLE = 0.15;
 
 /** The viewfinder card: the feed, the sweep after each shot, the developing grey photo and its glow. */
-export function Viewfinder({ ref, photo, box, view, live, frozen, tuning }: { ref: Ref<ViewfinderHandle>; photo: string; box: Box; view: View; live: boolean; frozen: boolean; tuning: Tuning }) {
+export function Viewfinder({
+  ref,
+  photo,
+  box,
+  view,
+  live,
+  frozen,
+  tuning,
+}: {
+  ref: Ref<ViewfinderHandle>;
+  photo: string;
+  box: Box;
+  view: View;
+  live: boolean;
+  frozen: boolean;
+  tuning: Tuning;
+}) {
   const feed = useRef<HTMLDivElement>(null);
   const old = useRef<HTMLDivElement>(null);
   const band = useRef<HTMLCanvasElement>(null);
@@ -122,7 +138,11 @@ export function Viewfinder({ ref, photo, box, view, live, frozen, tuning }: { re
   const pad = glowPad(tuning.develop.reach);
   return (
     <div {...stylex.props(s.wrap)}>
-      <canvas ref={develop.glow} aria-hidden {...stylex.props(s.glow(box.width + 2 * pad, box.height + 2 * pad, pad), !live && s.glowOn(tuning.develop.glow))} />
+      <canvas
+        ref={develop.glow}
+        aria-hidden
+        {...stylex.props(s.glow(box.width + 2 * pad, box.height + 2 * pad, pad), !live && s.glowOn(tuning.develop.glow))}
+      />
       <div {...stylex.props(s.card(box.width, box.height))}>
         <div ref={feed} {...stylex.props(s.feed, s.drift, (frozen || !live) && s.frozen)}>
           <Scene photo={photo} box={box} view={view} grey={develop.grey} />

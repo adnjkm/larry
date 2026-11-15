@@ -131,7 +131,10 @@ function along(poly: Pt[], spacing: number): Pt[] {
 export function contact(a: Pt[], b: Pt[], spacing: number): { depth: number; gap: number } {
   let depth = 0;
   let gap = Infinity;
-  for (const [from, into] of [[a, b], [b, a]] as const) {
+  for (const [from, into] of [
+    [a, b],
+    [b, a],
+  ] as const) {
     const box = boxOf(into);
     for (const p of along(from, spacing)) {
       if (p[0] < box.x0 - CONTACT_REACH || p[0] > box.x1 + CONTACT_REACH || p[1] < box.y0 - CONTACT_REACH || p[1] > box.y1 + CONTACT_REACH) continue;
@@ -157,7 +160,10 @@ function checkTwoSided(p: Primitive): void {
   assert.ok(first >= 0, fail(p, "judge never passes along the number slider"));
   assert.ok(pass.slice(first, last + 1).every(Boolean), fail(p, `the passing settings are not one window: ${pass.map((x) => (x ? "o" : ".")).join("")}`));
   assert.ok(first >= 2, fail(p, `the window starts ${first} steps from the slider's minimum; keep at least 2 failing steps below it`));
-  assert.ok(last <= pass.length - 3, fail(p, `the window ends ${pass.length - 1 - last} steps from the slider's maximum; keep at least 2 failing steps above it`));
+  assert.ok(
+    last <= pass.length - 3,
+    fail(p, `the window ends ${pass.length - 1 - last} steps from the slider's maximum; keep at least 2 failing steps above it`),
+  );
   assert.equal(g.judge(startValues(p)).pass, false, fail(p, "the start values pass, so there is nothing to solve", startValues(p)));
 }
 
@@ -234,7 +240,11 @@ function checkScene(p: Primitive): void {
       assert.ok(!ids.has(q.id), fail(p, `scene part "${q.id}" clashes with a built part`, v));
       assert.ok(palette.has(q.color), fail(p, `scene part "${q.id}" colour ${q.color} is not a COLOR role`, v));
     }
-    assert.deepEqual(kitProblems(Kit.parse({ name: p.name, summary: p.job, parts: [...built, ...parts] })), [], fail(p, "build plus scene is not a valid kit", v));
+    assert.deepEqual(
+      kitProblems(Kit.parse({ name: p.name, summary: p.job, parts: [...built, ...parts] })),
+      [],
+      fail(p, "build plus scene is not a valid kit", v),
+    );
   }
 }
 
@@ -245,8 +255,16 @@ function checkContinuity(p: Primitive): void {
   for (const v of numberSweep(p)) {
     const { run, frames } = played(p, v);
     const first = frames[0]!.frame.values;
-    for (const s of p.sliders) assert.ok(Math.abs((first[s.id] ?? s.initial) - (v[s.id] ?? s.initial)) < 1e-9, fail(p, `at(0) has ${s.id} = ${first[s.id]}, not the start's ${v[s.id]}`, v));
-    for (const s of g.poses ?? []) assert.ok(Math.abs((first[s.id] ?? s.initial) - s.initial) < 1e-9, fail(p, `at(0) has run-only ${s.id} = ${first[s.id]}, not its initial ${s.initial}`, v));
+    for (const s of p.sliders)
+      assert.ok(
+        Math.abs((first[s.id] ?? s.initial) - (v[s.id] ?? s.initial)) < 1e-9,
+        fail(p, `at(0) has ${s.id} = ${first[s.id]}, not the start's ${v[s.id]}`, v),
+      );
+    for (const s of g.poses ?? [])
+      assert.ok(
+        Math.abs((first[s.id] ?? s.initial) - s.initial) < 1e-9,
+        fail(p, `at(0) has run-only ${s.id} = ${first[s.id]}, not its initial ${s.initial}`, v),
+      );
     const cues = (run.cues ?? []).map((c) => c.ms);
     for (let i = 1; i < frames.length; i++) {
       const a = frames[i - 1]!;
@@ -255,7 +273,10 @@ function checkContinuity(p: Primitive): void {
       for (const [id, s] of known) {
         const before = a.frame.values[id] ?? s.initial;
         const after = b.frame.values[id] ?? s.initial;
-        assert.ok(Math.abs(after - before) <= MAX_STEP * (s.max - s.min) + 1e-9, fail(p, `${id} jumps ${before} → ${after} between ${a.ms} and ${b.ms} ms with no cue`, v));
+        assert.ok(
+          Math.abs(after - before) <= MAX_STEP * (s.max - s.min) + 1e-9,
+          fail(p, `${id} jumps ${before} → ${after} between ${a.ms} and ${b.ms} ms with no cue`, v),
+        );
       }
     }
   }
@@ -288,7 +309,10 @@ function checkReach(p: Primitive): void {
       const lo = bounds[0];
       const hi = bounds[1];
       const x: number = b.frame.values[s.id] ?? s.initial;
-      assert.ok(x >= Math.min(lo, start) - 1e-6 && x <= Math.max(hi, start) + 1e-6, fail(p, `${b.ms} ms of the run moves ${s.id} to ${x}, outside the reach [${lo}, ${hi}] of the frame before`, v));
+      assert.ok(
+        x >= Math.min(lo, start) - 1e-6 && x <= Math.max(hi, start) + 1e-6,
+        fail(p, `${b.ms} ms of the run moves ${s.id} to ${x}, outside the reach [${lo}, ${hi}] of the frame before`, v),
+      );
     }
   }
 }
@@ -310,7 +334,8 @@ function shownPoses(p: Primitive): { label: string; values: Values; parts: Part[
 const PALETTE = new Set<string>(Object.values(COLOR));
 
 /** Width of an arrow extrusion's outline: its length. */
-const extent = (part: Part) => (part.shape.kind === "extrusion" ? Math.max(...part.shape.outline.map((q) => q.x)) - Math.min(...part.shape.outline.map((q) => q.x)) : 0);
+const extent = (part: Part) =>
+  part.shape.kind === "extrusion" ? Math.max(...part.shape.outline.map((q) => q.x)) - Math.min(...part.shape.outline.map((q) => q.x)) : 0;
 
 /** The checkable rules of design-language.md, on every pose the figure shows. */
 export function checkDesign(p: Primitive): void {
@@ -327,7 +352,10 @@ export function checkDesign(p: Primitive): void {
     if (base.shape.kind === "box") {
       assert.equal(base.parentId, null, `${at}: the plate is not the root part`);
       assert.equal(base.color, COLOR.structure, `${at}: the plate is not structure black`);
-      assert.ok(Math.abs(base.shape.height - PLATE_T) < 1e-9 && Math.abs(base.position.y + base.shape.height / 2 - PLATE_TOP) < 1e-9, `${at}: the plate's top is not at y = ${PLATE_TOP}`);
+      assert.ok(
+        Math.abs(base.shape.height - PLATE_T) < 1e-9 && Math.abs(base.position.y + base.shape.height / 2 - PLATE_TOP) < 1e-9,
+        `${at}: the plate's top is not at y = ${PLATE_TOP}`,
+      );
       assert.ok(Math.abs(base.position.x) < 1e-9 && Math.abs(base.position.z) < 1e-9, `${at}: the plate is not centred on x = 0, z = 0`);
       assert.equal(base.shape.cornerRadius, 2, `${at}: the plate's corner radius is not 2`);
     }
@@ -336,7 +364,10 @@ export function checkDesign(p: Primitive): void {
     assert.equal(light.length, 1, `${at}: ${light.length} light parts; the handle is the one light part`);
     const h = p.handle.at(values);
     const q = light[0]!.position;
-    assert.ok(Math.hypot(q.x - h.x, q.y - h.y, q.z - h.z) < 1, `${at}: the light part ${light[0]!.id} is at ${JSON.stringify(q)}, not at handle.at ${JSON.stringify(h)}`);
+    assert.ok(
+      Math.hypot(q.x - h.x, q.y - h.y, q.z - h.z) < 1,
+      `${at}: the light part ${light[0]!.id} is at ${JSON.stringify(q)}, not at handle.at ${JSON.stringify(h)}`,
+    );
 
     for (const q of parts) {
       assert.ok(PALETTE.has(q.color), `${at}: ${q.id} colour ${q.color} is not a COLOR role`);
@@ -358,15 +389,24 @@ export function checkDesign(p: Primitive): void {
   const lo = (k: "X" | "Z") => Math.min(...rig.map((b) => b[`center${k}`] - b[`half${k}`]));
   const hi = (k: "X" | "Z") => Math.max(...rig.map((b) => b[`center${k}`] + b[`half${k}`]));
   for (const k of ["X", "Z"] as const) {
-    assert.ok(Math.abs(lo(k) + hi(k)) / 2 <= 3, fail(p, `the rig's poses span ${lo(k).toFixed(1)}..${hi(k).toFixed(1)} in ${k.toLowerCase()}, not centred on 0`));
+    assert.ok(
+      Math.abs(lo(k) + hi(k)) / 2 <= 3,
+      fail(p, `the rig's poses span ${lo(k).toFixed(1)}..${hi(k).toFixed(1)} in ${k.toLowerCase()}, not centred on 0`),
+    );
     const base = grid[0]!.find((q) => q.id === "plate")!;
     const size = base.shape.kind === "box" ? (k === "X" ? base.shape.width : base.shape.depth) : 0;
     const want = hi(k) - lo(k) + 2 * PLATE_MARGIN;
-    assert.ok(Math.abs(size - want) <= 4, fail(p, `the plate is ${size.toFixed(1)} in ${k.toLowerCase()}; the rig plus ${PLATE_MARGIN} each side is ${want.toFixed(1)}`));
+    assert.ok(
+      Math.abs(size - want) <= 4,
+      fail(p, `the plate is ${size.toFixed(1)} in ${k.toLowerCase()}; the rig plus ${PLATE_MARGIN} each side is ${want.toFixed(1)}`),
+    );
   }
   const width = Math.max(...all.map((b) => b.centerX + b.halfX)) - Math.min(...all.map((b) => b.centerX - b.halfX));
   const height = Math.max(...all.map((b) => b.maxY)) - Math.min(...all.map((b) => b.minY));
-  assert.ok(width / height >= 0.7 && width / height <= 1.4, fail(p, `width : height of every pose together is ${(width / height).toFixed(2)}, outside 0.7..1.4`));
+  assert.ok(
+    width / height >= 0.7 && width / height <= 1.4,
+    fail(p, `width : height of every pose together is ${(width / height).toFixed(2)}, outside 0.7..1.4`),
+  );
 }
 
 /** Distinct kinds of part (by name; copies such as teeth or links count once) an Element or a Mechanism may show at rest. */

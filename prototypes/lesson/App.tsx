@@ -23,10 +23,13 @@ const lessonOf = (s: Sample): Lesson => {
  * the story generated from the kit, so each can be compared with a hand-written lesson.
  */
 const pick = (s: Sample): Lesson =>
-  QUERY.has("inspect") ? inspectLesson(s.kit)
-  : QUERY.has("generated") ? (generatedLesson(s.kit, `generated-${s.id}`) ?? inspectLesson(s.kit))
-  : QUERY.has("story") ? (generatedStory(s.kit, `story-${s.id}`) ?? lessonFor(s.kit, s.id))
-  : lessonFor(s.kit, s.id);
+  QUERY.has("inspect")
+    ? inspectLesson(s.kit)
+    : QUERY.has("generated")
+      ? (generatedLesson(s.kit, `generated-${s.id}`) ?? inspectLesson(s.kit))
+      : QUERY.has("story")
+        ? (generatedStory(s.kit, `story-${s.id}`) ?? lessonFor(s.kit, s.id))
+        : lessonFor(s.kit, s.id);
 
 type Screen = { at: "home" } | { at: "scan"; sample: Sample } | { at: "lesson"; sample: Sample; run: number };
 

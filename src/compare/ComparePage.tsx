@@ -6,7 +6,11 @@ import { colors, fonts } from "../tokens.stylex.ts";
 const photoUrls = import.meta.glob<string>("../../fixtures/photos/*.jpg", { eager: true, query: "?url", import: "default" });
 const kitJson = import.meta.glob<unknown>("../../fixtures/kits/*.json", { eager: true, import: "default" });
 
-const nameOf = (path: string) => path.split("/").pop()?.replace(/\.\w+$/, "") ?? path;
+const nameOf = (path: string) =>
+  path
+    .split("/")
+    .pop()
+    ?.replace(/\.\w+$/, "") ?? path;
 
 const rows: { name: string; photo: string; kit: Kit }[] = [];
 for (const [path, photo] of Object.entries(photoUrls)) {

@@ -58,7 +58,12 @@ export default function PlayPage() {
   return (
     <main {...stylex.props(layout.page)}>
       {/* Keyed so a new game, or "start over", is a new screen: its own controller, phase and verdict. */}
-      <GameScreen key={`${primitive.id}:${round}`} primitive={primitive} kicker={`${primitive.level} · game ${index + 1} of ${PRIMITIVES.length}`} onBack={() => step.current?.(-1)} />
+      <GameScreen
+        key={`${primitive.id}:${round}`}
+        primitive={primitive}
+        kicker={`${primitive.level} · game ${index + 1} of ${PRIMITIVES.length}`}
+        onBack={() => step.current?.(-1)}
+      />
       <DialRoot defaultOpen position="top-right" />
     </main>
   );

@@ -16,9 +16,6 @@ import { REST_LIFT } from "./ratchetTable.ts";
 type Pt = [number, number];
 const game = ratchet.game;
 
-
-
-
 const outlines = (v: Values) => {
   const parts = ratchet.build(v);
   return { wheel: worldOutline(find(parts, "wheel")), pawl: worldOutline(find(parts, "pawl")), parts };
@@ -27,7 +24,10 @@ const pawlAngle = (v: Values) => find(ratchet.build(v), "pawl").rotation.z;
 
 const TEETH = [8, 11, 12, 13, 16, 20, 24];
 /** Fine turns plus every landing and a hair either side of it. */
-const turnsFor = (n: number) => [...new Set([...Array.from({ length: 161 }, (_, i) => i / 160), ...Array.from({ length: n + 1 }, (_, k) => [k / n, k / n + 1e-4, k / n - 1e-4]).flat()])].filter((t) => t >= 0 && t <= 1);
+const turnsFor = (n: number) =>
+  [
+    ...new Set([...Array.from({ length: 161 }, (_, i) => i / 160), ...Array.from({ length: n + 1 }, (_, k) => [k / n, k / n + 1e-4, k / n - 1e-4]).flat()]),
+  ].filter((t) => t >= 0 && t <= 1);
 
 describe("ratchet", () => {
   it("never lets the wheel and pawl cut into each other, and keeps them touching", () => {
@@ -51,7 +51,12 @@ describe("ratchet", () => {
         const now = pawlAngle({ teeth: n, turn });
         if (before - now > 1) drops.push(turn);
         before = now;
-        const clicks = Number(/(\d+) clicks|landing (\d+)/.exec(ratchet.readouts({ teeth: n, turn })[2]!.value)?.slice(1).find(Boolean));
+        const clicks = Number(
+          /(\d+) clicks|landing (\d+)/
+            .exec(ratchet.readouts({ teeth: n, turn })[2]!.value)
+            ?.slice(1)
+            .find(Boolean),
+        );
         assert.equal(clicks, Math.floor(turn * n + 1e-9), `n ${n}, turn ${turn}: click count`);
       }
       assert.equal(drops.length, n, `n ${n}: ${drops.length} clicks in a turn`);
@@ -94,7 +99,13 @@ describe("ratchet", () => {
     assert.ok(!parts.some((p) => /arrow/.test(p.id)), "the bucket carries no arrow");
     assert.ok(!parts.some((p) => p.id === "seat"), "the spring has no block to sit in");
     // Black is the plate and one stand piece with its pivot stub: nothing else.
-    assert.deepEqual(parts.filter((p) => p.color === "#2e2e30").map((p) => p.id).sort(), ["pivot", "plate", "stand"]);
+    assert.deepEqual(
+      parts
+        .filter((p) => p.color === "#2e2e30")
+        .map((p) => p.id)
+        .sort(),
+      ["pivot", "plate", "stand"],
+    );
     const scene = game.scene!(start);
     assert.deepEqual(scene.map((p) => p.name).sort(), ["Mark", "Post"]);
     checkGame(ratchet);
@@ -112,10 +123,20 @@ describe("ratchet", () => {
       return { spring, pivot, pawl, stand: find(parts, "stand") };
     };
     const first = at({ teeth: 12, turn: 0 });
-    const poses: Values[] = [{ teeth: 12, turn: 0.02 }, { teeth: 12, turn: 0.05 }, { teeth: 12, turn: 0.71 }, { teeth: 24, turn: 0.3 }, { teeth: 12, turn: 0.1, lift: 1 }];
+    const poses: Values[] = [
+      { teeth: 12, turn: 0.02 },
+      { teeth: 12, turn: 0.05 },
+      { teeth: 12, turn: 0.71 },
+      { teeth: 24, turn: 0.3 },
+      { teeth: 12, turn: 0.1, lift: 1 },
+    ];
     for (const v of poses) {
       const { spring, pivot } = at(v);
-      assert.ok(Math.hypot(spring.position.x - first.spring.position.x, spring.position.y - first.spring.position.y, spring.position.z - first.spring.position.z) < 1e-9, "the coil stays where it is");
+      assert.ok(
+        Math.hypot(spring.position.x - first.spring.position.x, spring.position.y - first.spring.position.y, spring.position.z - first.spring.position.z) <
+          1e-9,
+        "the coil stays where it is",
+      );
       // It is centred on the pivot stub's axis (x, y), lies along z, and is wider than the stub.
       assert.ok(Math.hypot(spring.position.x - pivot.position.x, spring.position.y - pivot.position.y) < 1e-9);
       assert.equal(spring.rotation.x, 90);
@@ -141,7 +162,10 @@ describe("ratchet", () => {
     // The tick's end sits on the post's face, and the tick stands at the mark's height, level with the bucket's top there.
     assert.ok(Math.abs(tick.position.x + tick.shape.width / 2 - (post.position.x - post.shape.width / 2)) < 1e-9, "the tick's far end touches the post");
     assert.ok(Math.abs(tick.position.y - rig.bucketTop(MARK / LIFT_PER_TURN)) < 1e-9, "the tick is level with the bucket's top at the mark");
-    assert.ok(post.position.y + post.shape.height / 2 >= tick.position.y + 1.5 - 1e-9 && post.position.y - post.shape.height / 2 <= PLATE_TOP + 1e-9, "the post stands from the plate to the tick");
+    assert.ok(
+      post.position.y + post.shape.height / 2 >= tick.position.y + 1.5 - 1e-9 && post.position.y - post.shape.height / 2 <= PLATE_TOP + 1e-9,
+      "the post stands from the plate to the tick",
+    );
     // Across every run (and a fine scan of the whole turn) the bucket stays out of the tick.
     const tickBox = { x0: tick.position.x - tick.shape.width / 2, y0: tick.position.y - 1.5, y1: tick.position.y + 1.5 };
     const clear = (v: Values) => {
@@ -151,7 +175,8 @@ describe("ratchet", () => {
       const bottom = bucket.position.y - bucket.shape.height / 2;
       return right <= tickBox.x0 + 1e-9 || bottom >= tickBox.y1 || top <= tickBox.y0 + 1e-9;
     };
-    for (const v of numberSweep(ratchet)) for (const { frame } of sample(game.play(v)).filter((_, i) => i % 3 === 0)) assert.ok(clear(frame.values), `n ${v.teeth}: the bucket is in the tick`);
+    for (const v of numberSweep(ratchet))
+      for (const { frame } of sample(game.play(v)).filter((_, i) => i % 3 === 0)) assert.ok(clear(frame.values), `n ${v.teeth}: the bucket is in the tick`);
     // Only a drag past the mark with the scene showing could push it in, and the bucket's side is clear of the tick all the same.
     const bucket = find(ratchet.build({ teeth: 12, turn: MARK / LIFT_PER_TURN }), "bucket");
     assert.ok(bucket.shape.kind === "box" && tickBox.x0 - (bucket.position.x + bucket.shape.width / 2) > 0.5, "the tick stops short of the bucket's side");
@@ -169,7 +194,10 @@ describe("ratchet", () => {
       const cord = find(parts, "cord");
       assert.ok(bucket.shape.kind === "box" && cord.shape.kind === "box");
       assert.ok(Math.abs(bucket.position.y - bucket.shape.height / 2 - (6 + LIFT_PER_TURN * turn)) < 1e-9);
-      assert.ok(Math.abs(cord.position.y - (cord.shape.width - 3.2 * 0.8) / 2 - (bucket.position.y + bucket.shape.height / 2)) < 1e-6, "the cord ends on the bucket");
+      assert.ok(
+        Math.abs(cord.position.y - (cord.shape.width - 3.2 * 0.8) / 2 - (bucket.position.y + bucket.shape.height / 2)) < 1e-6,
+        "the cord ends on the bucket",
+      );
     }
   });
 
@@ -227,8 +255,12 @@ describe("ratchet", () => {
       const { drop, lift } = REST_LIFT[n]!;
       assert.equal(lift.length, 129);
       // Fresh: the table is the solver's own answer at every eighth sample, so it is rebuilt when the geometry changes (node scripts/ratchet-table.ts).
-      for (let i = 0; i < lift.length - 1; i += 8) assert.ok(Math.abs(lift[i]! - restingLift(wheel, (3 + (drop * i) / 128) / n)) < 1e-4, `n ${n}: the table is out of date`);
-      assert.ok(restingLift(wheel, (3 + drop + 1e-6) / n) < 1e-6 && restingLift(wheel, (3 + drop - 1e-6) / n) > 1, `n ${n}: the drop is not where the nose falls in`);
+      for (let i = 0; i < lift.length - 1; i += 8)
+        assert.ok(Math.abs(lift[i]! - restingLift(wheel, (3 + (drop * i) / 128) / n)) < 1e-4, `n ${n}: the table is out of date`);
+      assert.ok(
+        restingLift(wheel, (3 + drop + 1e-6) / n) < 1e-6 && restingLift(wheel, (3 + drop - 1e-6) / n) > 1,
+        `n ${n}: the drop is not where the nose falls in`,
+      );
     }
     // Between the samples it interpolates to within a hundredth of a degree of the nose.
     for (const n of [8, 13, 24]) {

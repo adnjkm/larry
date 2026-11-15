@@ -26,7 +26,12 @@ const CORD = 4;
 const R_C = WHEEL_R + CORD / 2;
 /** Gap between neighbouring strands, and between neighbouring wheels. */
 const S = 2 * R_C;
-const SHEAVE = lathe([[0, -WHEEL_T], [WHEEL_R, -WHEEL_T], [WHEEL_R, WHEEL_T], [0, WHEEL_T]]);
+const SHEAVE = lathe([
+  [0, -WHEEL_T],
+  [WHEEL_R, -WHEEL_T],
+  [WHEEL_R, WHEEL_T],
+  [0, WHEEL_T],
+]);
 /** The block holds the cord's loops too, so the load can sit right under it. */
 const BLOCK_H = 2 * (R_C + CORD / 2);
 const BLOCK_Z = -(WHEEL_T + 2.5 + 0.2);
@@ -104,8 +109,23 @@ function stand(beamEnd: number): Part {
   const top = Y_BEAM + BEAM_T / 2;
   const cx = (x0 + beamEnd) / 2;
   const cy = (PLATE_TOP + top) / 2;
-  const outline = [[x0, PLATE_TOP], [x0 + POST_W, PLATE_TOP], [x0 + POST_W, Y_BEAM - BEAM_T / 2], [beamEnd, Y_BEAM - BEAM_T / 2], [beamEnd, top], [x0, top]].map(([x, y]) => ({ x: x! - cx, y: y! - cy }));
-  return part("stand", "Stand", "Holds the fixed wheels up: a post and a beam they hang under.", { kind: "extrusion", outline, depth: 8 }, v3(cx, cy, POST_Z), look.structure, on("plate", "weld"));
+  const outline = [
+    [x0, PLATE_TOP],
+    [x0 + POST_W, PLATE_TOP],
+    [x0 + POST_W, Y_BEAM - BEAM_T / 2],
+    [beamEnd, Y_BEAM - BEAM_T / 2],
+    [beamEnd, top],
+    [x0, top],
+  ].map(([x, y]) => ({ x: x! - cx, y: y! - cy }));
+  return part(
+    "stand",
+    "Stand",
+    "Holds the fixed wheels up: a post and a beam they hang under.",
+    { kind: "extrusion", outline, depth: 8 },
+    v3(cx, cy, POST_Z),
+    look.structure,
+    on("plate", "weld"),
+  );
 }
 
 function build(v: Values): Part[] {
@@ -117,19 +137,74 @@ function build(v: Values): Part[] {
   const parts: Part[] = [
     plate(RIG_W, RIG_D),
     stand(beamEnd),
-    part("block", "Moving block", "Carries the moving wheels and the load.", box(s.hi - s.lo, BLOCK_H, 5, 1.5), v3(s.cx, s.yM, BLOCK_Z), look.steel, on("plate", "slide")),
-    part("load", "Load", "The weight being lifted: it hangs from the moving block and rests on the plate at no pull.", box(EDGE, EDGE, EDGE, 1.5), v3(s.cx, PLATE_TOP + s.rise + EDGE / 2, 0), look.stone, on("block", "glue")),
+    part(
+      "block",
+      "Moving block",
+      "Carries the moving wheels and the load.",
+      box(s.hi - s.lo, BLOCK_H, 5, 1.5),
+      v3(s.cx, s.yM, BLOCK_Z),
+      look.steel,
+      on("plate", "slide"),
+    ),
+    part(
+      "load",
+      "Load",
+      "The weight being lifted: it hangs from the moving block and rests on the plate at no pull.",
+      box(EDGE, EDGE, EDGE, 1.5),
+      v3(s.cx, PLATE_TOP + s.rise + EDGE / 2, 0),
+      look.stone,
+      on("block", "glue"),
+    ),
     // The same scale for both: the pull is the weight over the strands, so its arrow is that fraction of the weight's.
-    ...arrow("weight-arrow", v3(s.cx, loadTop, ARROW_Z), -90, LOAD * ARROW_PER_N, "push", { name: "Weight arrow", role: "The load's weight, pulling down.", on: on("load", "glue") }),
-    ...arrow("pull-arrow", v3(s.handX + PULL_ARROW_DX, s.handY + 6, 0), -90, s.need * ARROW_PER_N, "push", { name: "Pull arrow", role: "The pull on the hauling end: the weight divided by the strands.", on: on("handle", "glue") }),
+    ...arrow("weight-arrow", v3(s.cx, loadTop, ARROW_Z), -90, LOAD * ARROW_PER_N, "push", {
+      name: "Weight arrow",
+      role: "The load's weight, pulling down.",
+      on: on("load", "glue"),
+    }),
+    ...arrow("pull-arrow", v3(s.handX + PULL_ARROW_DX, s.handY + 6, 0), -90, s.need * ARROW_PER_N, "push", {
+      name: "Pull arrow",
+      role: "The pull on the hauling end: the weight divided by the strands.",
+      on: on("handle", "glue"),
+    }),
   ];
   s.xs.forEach((x, i) => {
-    parts.push(part(`wheel-${i + 1}`, "Wheel", "A grooved wheel the cord runs round.", SHEAVE.shape, v3(x, yOf(i), 0), look.steel, on(s.fixed(i) ? "stand" : "block", "hinge"), v3(90, 0, 0)));
-    parts.push(part(`wrap-${i + 1}`, "Cord", "The cord bending half a turn round a wheel.", ring(R_C, CORD / 2, 180), v3(x, yOf(i), 0), look.focus, on("plate", "glue"), v3(90, s.fixed(i) ? 90 : -90, 0)));
+    parts.push(
+      part(
+        `wheel-${i + 1}`,
+        "Wheel",
+        "A grooved wheel the cord runs round.",
+        SHEAVE.shape,
+        v3(x, yOf(i), 0),
+        look.steel,
+        on(s.fixed(i) ? "stand" : "block", "hinge"),
+        v3(90, 0, 0),
+      ),
+    );
+    parts.push(
+      part(
+        `wrap-${i + 1}`,
+        "Cord",
+        "The cord bending half a turn round a wheel.",
+        ring(R_C, CORD / 2, 180),
+        v3(x, yOf(i), 0),
+        look.focus,
+        on("plate", "glue"),
+        v3(90, s.fixed(i) ? 90 : -90, 0),
+      ),
+    );
   });
   runs(s).forEach((r, k) => {
     const seg = bar([r.x, r.a], [r.x, r.b], CORD, CORD, 0);
-    parts.push(shaped(`cord-${k}`, "Cord", k < s.n ? "One of the strands that hold the load up." : "The hauling end, running down the open side.", seg, look.focus, on("plate", "glue")));
+    parts.push(
+      shaped(
+        `cord-${k}`,
+        "Cord",
+        k < s.n ? "One of the strands that hold the load up." : "The hauling end, running down the open side.",
+        seg,
+        look.focus,
+        on("plate", "glue"),
+      ),
+    );
   });
   parts.push(pullRing("handle", v3(s.handX, s.handY, 0), { name: "Pull ring", role: "Where you pull the cord down.", on: on("plate", "glue") }));
   return parts;
@@ -163,11 +238,26 @@ function judge(v: Values): Verdict {
   const r = hoist(v);
   switch (r.kind) {
     case "heavy":
-      return { pass: false, outcome: "too-heavy", headline: "Too heavy to lift", detail: "Too few strands: each one still carries more than you can pull, so the crate stays put." };
+      return {
+        pass: false,
+        outcome: "too-heavy",
+        headline: "Too heavy to lift",
+        detail: "Too few strands: each one still carries more than you can pull, so the crate stays put.",
+      };
     case "short":
-      return { pass: false, outcome: "out-of-cord", headline: "Ran out of cord", detail: "Too many strands: they eat all your cord before the crate reaches the mark." };
+      return {
+        pass: false,
+        outcome: "out-of-cord",
+        headline: "Ran out of cord",
+        detail: "Too many strands: they eat all your cord before the crate reaches the mark.",
+      };
     case "pass":
-      return { pass: true, outcome: "crate-raised", headline: "Crate hoisted", detail: "Enough strands to lift it easily, and few enough that the cord lasts." };
+      return {
+        pass: true,
+        outcome: "crate-raised",
+        headline: "Crate hoisted",
+        detail: "Enough strands to lift it easily, and few enough that the cord lasts.",
+      };
   }
 }
 
@@ -223,7 +313,13 @@ const MARK_LEN = 10;
 
 /** The game's standing prop: a tick on the stand's post, level with where the load's top will be once it has risen RISE mm. It is held by the post, so it floats in nothing. */
 function scene(): Part[] {
-  return [tick(`${SCENE}mark`, v3(POST_X + POST_W / 2 + MARK_LEN / 2, PLATE_TOP + EDGE + RISE - 1.5, POST_Z), MARK_LEN, "x", { name: "Mark", role: "The load's top has to come up to this level.", on: on("stand", "weld") })];
+  return [
+    tick(`${SCENE}mark`, v3(POST_X + POST_W / 2 + MARK_LEN / 2, PLATE_TOP + EDGE + RISE - 1.5, POST_Z), MARK_LEN, "x", {
+      name: "Mark",
+      role: "The load's top has to come up to this level.",
+      on: on("stand", "weld"),
+    }),
+  ];
 }
 
 const STRANDS: Slider = { id: "strands", label: "Strands", min: 1, max: MAX_STRANDS, step: 1, initial: 2 };

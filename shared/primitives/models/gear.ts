@@ -62,7 +62,8 @@ export function settle(v: Values) {
 }
 
 const knobAngle = (theta1: number) => KNOB_AT_0 + theta1;
-const knobPoint = (x1: number, theta1: number): Vec => v3(x1 + KNOB_R * Math.cos(knobAngle(theta1) * DEG_TO_RAD), AXLE_Y + KNOB_R * Math.sin(knobAngle(theta1) * DEG_TO_RAD), Z0 + GEAR_T / 2 + 10);
+const knobPoint = (x1: number, theta1: number): Vec =>
+  v3(x1 + KNOB_R * Math.cos(knobAngle(theta1) * DEG_TO_RAD), AXLE_Y + KNOB_R * Math.sin(knobAngle(theta1) * DEG_TO_RAD), Z0 + GEAR_T / 2 + 10);
 
 /**
  * A curved arrow in the x-y plane, one flat part: a band of `radius` about `centre` from `fromDeg` round to `toDeg`,
@@ -74,11 +75,12 @@ function curvedArrow(id: string, centre: Vec, radius: number, from: number, to: 
   const fromDeg = from - turnBy;
   const toDeg = to - turnBy;
   const dir = Math.sign(toDeg - fromDeg) || 1;
-  const headDeg = ((12 / radius) * RAD_TO_DEG) * dir;
+  const headDeg = (12 / radius) * RAD_TO_DEG * dir;
   const bodyEnd = toDeg - headDeg;
   const at = (r: number, deg: number): Pt => [r * Math.cos(deg * DEG_TO_RAD), r * Math.sin(deg * DEG_TO_RAD)];
   const steps = Math.max(2, Math.ceil(Math.abs(bodyEnd - fromDeg) / 8));
-  const along = (r: number, reverse: boolean) => Array.from({ length: steps + 1 }, (_, i) => at(r, fromDeg + ((bodyEnd - fromDeg) * (reverse ? steps - i : i)) / steps));
+  const along = (r: number, reverse: boolean) =>
+    Array.from({ length: steps + 1 }, (_, i) => at(r, fromDeg + ((bodyEnd - fromDeg) * (reverse ? steps - i : i)) / steps));
   // Going the way the arrow points, the outer edge is on the left for anticlockwise (dir +1) and on the right for clockwise; the outline just needs to be a simple loop.
   const outline: Pt[] = [...along(radius + 2, false), at(radius + 5.5, bodyEnd), at(radius, toDeg), at(radius - 5.5, bodyEnd), ...along(radius - 2, true)];
   const a = pivoted(outline, 4, [0, 0], centre, turnBy);
@@ -101,9 +103,22 @@ function build(v: Values): Part[] {
     gearAt("gear-driver", "The gear you turn.", DRIVER_TEETH, s.x1, s.theta1, "pin-1"),
     gearAt("gear-driven", "Turned by the teeth of the driving gear; its tooth count sets the speed.", s.z2, s.x2, s.theta2, "pin-2"),
     knob("knob", knobPoint(s.x1, s.theta1), "z", { name: "Knob", role: "Where your hand turns the driving gear.", on: on("gear-driver", "press-fit") }),
-    turnMark("mark-driven", v3(s.x2, AXLE_Y, front), s.r2, s.hand, { name: "Turn mark", role: "Shows how far the driven gear has turned.", on: on("gear-driven", "glue") }),
+    turnMark("mark-driven", v3(s.x2, AXLE_Y, front), s.r2, s.hand, {
+      name: "Turn mark",
+      role: "Shows how far the driven gear has turned.",
+      on: on("gear-driven", "glue"),
+    }),
     // Direction: the driver turns anticlockwise and one mesh turns the output the other way round.
-    curvedArrow("arrow-driven", v3(s.x2, AXLE_Y, Z0), tipR(s.z2) + ARROW_R, 90, 30, "Turn direction", "Which way the driven gear turns: the other way from the driving gear.", "gear-driven"),
+    curvedArrow(
+      "arrow-driven",
+      v3(s.x2, AXLE_Y, Z0),
+      tipR(s.z2) + ARROW_R,
+      90,
+      30,
+      "Turn direction",
+      "Which way the driven gear turns: the other way from the driving gear.",
+      "gear-driven",
+    ),
   ];
 }
 
@@ -135,9 +150,19 @@ function judge(v: Values): Verdict {
   const r = shadow(v);
   switch (r.kind) {
     case "fast":
-      return { pass: false, outcome: "too-fast", headline: "Output too fast", detail: "The driven gear has too few teeth, so the output spins past the ghost." };
+      return {
+        pass: false,
+        outcome: "too-fast",
+        headline: "Output too fast",
+        detail: "The driven gear has too few teeth, so the output spins past the ghost.",
+      };
     case "slow":
-      return { pass: false, outcome: "too-slow", headline: "Output too slow", detail: "The driven gear has too many teeth, so the output lags behind the ghost." };
+      return {
+        pass: false,
+        outcome: "too-slow",
+        headline: "Output too slow",
+        detail: "The driven gear has too many teeth, so the output lags behind the ghost.",
+      };
     case "pass":
       return { pass: true, outcome: "on-the-ghost", headline: "Mark on the ghost", detail: "The teeth match the ghost, so the output turns just right." };
   }
@@ -234,7 +259,8 @@ export const gear: Primitive = {
   game: {
     name: "Shadow the ghost",
     goal: "Turn the driver once and keep the output's mark on the ghost arrow.",
-    rules: "The ghost shows where the output mark should end up. More teeth on the driven gear turn it slower, fewer turn it faster. Without gears, speed could not change.",
+    rules:
+      "The ghost shows where the output mark should end up. More teeth on the driven gear turn it slower, fewer turn it faster. Without gears, speed could not change.",
     number: "ratio",
     action: "Turn once",
     meters,

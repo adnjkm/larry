@@ -77,7 +77,19 @@ export function settle(v: Values) {
   const limit = Math.min(LENGTH, Math.max(reachOpen / t, ELASTIC));
   const push = clamp(v.push ?? 24, 0, limit);
   const open = push * t;
-  return { slope, t, side, reachOpen, limit, push, open, grip: gripAt(open), stalled: push >= limit - 1e-9 && limit < LENGTH - 1e-9 && reachOpen > 0, through: push >= LENGTH - 1e-9, tipY: TOP_Y - push };
+  return {
+    slope,
+    t,
+    side,
+    reachOpen,
+    limit,
+    push,
+    open,
+    grip: gripAt(open),
+    stalled: push >= limit - 1e-9 && limit < LENGTH - 1e-9 && reachOpen > 0,
+    through: push >= LENGTH - 1e-9,
+    tipY: TOP_Y - push,
+  };
 }
 
 const topOf = (tipY: number) => tipY + WEDGE_L;
@@ -87,8 +99,24 @@ function build(v: Values): Part[] {
   const half = (sign: 1 | -1): Part[] => {
     const side = sign === 1 ? "right" : "left";
     return [
-      part(`block-${side}`, "Log half", "Half of the log, pushed out by the wedge.", box(BLOCK_W, BLOCK_H, DEPTH, 1), v3(sign * (s.open + BLOCK_W / 2), PLATE_TOP + BLOCK_H / 2, 0), look.stone, on("plate", "slide")),
-      part(`pad-${side}`, "Pad", "The log's grip: it squeezes as the half is pushed out and pushes back.", box(PAD_L - s.open, PAD_H, PAD_H, 1.5), v3(sign * (BLOCK_W + (PAD_L + s.open) / 2), PLATE_TOP + PAD_H / 2, 0), look.slate, on(`post-${side}`, "glue")),
+      part(
+        `block-${side}`,
+        "Log half",
+        "Half of the log, pushed out by the wedge.",
+        box(BLOCK_W, BLOCK_H, DEPTH, 1),
+        v3(sign * (s.open + BLOCK_W / 2), PLATE_TOP + BLOCK_H / 2, 0),
+        look.stone,
+        on("plate", "slide"),
+      ),
+      part(
+        `pad-${side}`,
+        "Pad",
+        "The log's grip: it squeezes as the half is pushed out and pushes back.",
+        box(PAD_L - s.open, PAD_H, PAD_H, 1.5),
+        v3(sign * (BLOCK_W + (PAD_L + s.open) / 2), PLATE_TOP + PAD_H / 2, 0),
+        look.slate,
+        on(`post-${side}`, "glue"),
+      ),
       post(`post-${side}`, sign * POST_X, 0, PLATE_TOP + POST_H, { name: "Post", role: "Holds the pad: the half has something to push against." }),
     ];
   };
@@ -98,16 +126,47 @@ function build(v: Values): Part[] {
     plate(2 * POST_X + 10, DEPTH + 6),
     ...half(-1),
     ...half(1),
-    part("wedge", "Wedge", "Slides point-down between the log halves and pushes them apart.", { kind: "extrusion", outline: [{ x: 0, y: 0 }, { x: WEDGE_L * t, y: WEDGE_L }, { x: -WEDGE_L * t, y: WEDGE_L }], depth: DEPTH }, v3(0, s.tipY + WEDGE_L / 2, 0), look.focus, on("plate", "slide")),
+    part(
+      "wedge",
+      "Wedge",
+      "Slides point-down between the log halves and pushes them apart.",
+      {
+        kind: "extrusion",
+        outline: [
+          { x: 0, y: 0 },
+          { x: WEDGE_L * t, y: WEDGE_L },
+          { x: -WEDGE_L * t, y: WEDGE_L },
+        ],
+        depth: DEPTH,
+      },
+      v3(0, s.tipY + WEDGE_L / 2, 0),
+      look.focus,
+      on("plate", "slide"),
+    ),
     pushDisc("disc", v3(0, top + DISC_T / 2, 0), "y", { name: "Tap pad", role: "Where the hammer's blow lands.", on: on("wedge", "glue") }),
   ];
   // Forces appear once the wedge is in: the push on it, and what it makes on each half, drawn on that half's face.
   if (s.push > 1e-9) {
-    parts.push(...arrow("push-arrow", v3(0, top + DISC_T, 0), -90, arrowLength(BLOW, SIDE_MAX, ARROW_LONG), "push", { name: "Arrow", role: "The push on the wedge, to scale.", on: on("disc", "glue") }));
+    parts.push(
+      ...arrow("push-arrow", v3(0, top + DISC_T, 0), -90, arrowLength(BLOW, SIDE_MAX, ARROW_LONG), "push", {
+        name: "Arrow",
+        role: "The push on the wedge, to scale.",
+        on: on("disc", "glue"),
+      }),
+    );
     for (const sign of [-1, 1] as const) {
       const side = sign === 1 ? "right" : "left";
       // The tail is ARROW_IN inside the half's inner edge; a pull arrow stands ARROW_GAP (4) clear of the point it is given.
-      parts.push(...arrow(`out-arrow-${side}`, v3(sign * (s.open + ARROW_IN - 4), PLATE_TOP + BLOCK_H / 2, DEPTH / 2 + ARROW_OUT), sign === 1 ? 0 : 180, arrowLength(s.side, SIDE_MAX, ARROW_LONG), "pull", { name: "Arrow", role: "What the wedge pushes the half out with, drawn on the half.", on: on(`block-${side}`, "glue") }));
+      parts.push(
+        ...arrow(
+          `out-arrow-${side}`,
+          v3(sign * (s.open + ARROW_IN - 4), PLATE_TOP + BLOCK_H / 2, DEPTH / 2 + ARROW_OUT),
+          sign === 1 ? 0 : 180,
+          arrowLength(s.side, SIDE_MAX, ARROW_LONG),
+          "pull",
+          { name: "Arrow", role: "What the wedge pushes the half out with, drawn on the half.", on: on(`block-${side}`, "glue") },
+        ),
+      );
     }
   }
   return parts;
@@ -116,11 +175,15 @@ function build(v: Values): Part[] {
 function readouts(v: Values) {
   const s = settle(v);
   const state =
-    s.side < GRIP ? `${fmt(s.side)} N a side < ${GRIP} N grip: the wedge won't go in`
-    : s.push < 1e-9 ? "resting on the seam: nothing pushed apart yet"
-    : s.stalled ? `stalled: ${fmt(s.side)} N a side = ${fmt(s.grip)} N grip`
-    : s.through ? `tip on the plate, right through: ${fmt(s.side)} N a side against ${fmt(s.grip)} N`
-    : `driving: ${fmt(s.side)} N a side against ${fmt(s.grip)} N grip`;
+    s.side < GRIP
+      ? `${fmt(s.side)} N a side < ${GRIP} N grip: the wedge won't go in`
+      : s.push < 1e-9
+        ? "resting on the seam: nothing pushed apart yet"
+        : s.stalled
+          ? `stalled: ${fmt(s.side)} N a side = ${fmt(s.grip)} N grip`
+          : s.through
+            ? `tip on the plate, right through: ${fmt(s.side)} N a side against ${fmt(s.grip)} N`
+            : `driving: ${fmt(s.side)} N a side against ${fmt(s.grip)} N grip`;
   return [
     { label: "Each side", value: `F ÷ (2 tan ${s.slope}°) = ${BLOW} ÷ (2 × ${fmt(s.t, 2)}) = ${fmt(s.side)} N` },
     { label: "Travel", value: `wedge in ${fmt(s.push, 1)} mm, each half out ${fmt(s.push, 1)} × ${fmt(s.t, 2)} = ${fmt(s.open, 1)} mm` },
@@ -148,11 +211,26 @@ function judge(v: Values): Verdict {
   const r = split(v);
   switch (r.kind) {
     case "fat":
-      return { pass: false, outcome: "too-fat", headline: "Wedge too fat", detail: "Too blunt: the wedge pushes the wood apart too weakly, so it stalls and springs back." };
+      return {
+        pass: false,
+        outcome: "too-fat",
+        headline: "Wedge too fat",
+        detail: "Too blunt: the wedge pushes the wood apart too weakly, so it stalls and springs back.",
+      };
     case "thin":
-      return { pass: false, outcome: "too-thin", headline: "Wedge too thin", detail: "Too sharp: even fully in, the wedge never opens the log wide enough. It needs a blunter angle." };
+      return {
+        pass: false,
+        outcome: "too-thin",
+        headline: "Wedge too thin",
+        detail: "Too sharp: even fully in, the wedge never opens the log wide enough. It needs a blunter angle.",
+      };
     case "pass":
-      return { pass: true, outcome: "log-split", headline: "Log split", detail: "The wedge turns each blow into a strong sideways push, and goes in far enough to split." };
+      return {
+        pass: true,
+        outcome: "log-split",
+        headline: "Log split",
+        detail: "The wedge turns each blow into a strong sideways push, and goes in far enough to split.",
+      };
   }
 }
 
@@ -179,7 +257,10 @@ function play(v: Values): Run {
   const after = (k: number) => Math.min(Math.max(home, k * STEP), Math.max(home, r.depth));
   const before = (k: number) => (k === 1 ? home : after(k - 1));
   // A split log ends the blows: the first blow that takes it to the depth is the last. Otherwise all of them are struck.
-  const blows = r.kind === "pass" ? Math.min(BLOWS, Math.max(1, Array.from({ length: BLOWS }, (_, i) => i + 1).find((k) => after(k) >= Math.max(home, r.depth) - 1e-9) ?? BLOWS)) : BLOWS;
+  const blows =
+    r.kind === "pass"
+      ? Math.min(BLOWS, Math.max(1, Array.from({ length: BLOWS }, (_, i) => i + 1).find((k) => after(k) >= Math.max(home, r.depth) - 1e-9) ?? BLOWS))
+      : BLOWS;
   const fat = r.kind === "fat";
   const tl = phases({ lead: LEAD, blows: blows * BLOW_MS, pop: fat ? POP_MS : 0, hold: HOLD, reset: RESET });
   const blowStart = (k: number) => tl.start("blows") + (k - 1) * BLOW_MS;
@@ -234,7 +315,11 @@ function scene(): Part[] {
   const line = BLOCK_W + OPEN;
   return [
     post(`${SCENE}mark-post`, line + 5, MARK_Z, PLATE_TOP + MARK_POST_H, { name: "Mark post", role: "Its inner face is the line each half has to reach." }),
-    tick(`${SCENE}mark`, v3(line - TICK_LEN / 2, MARK_TICK_Y, MARK_Z), TICK_LEN, "x", { name: "Mark", role: "How far each half has to open for the log to split.", on: on(`${SCENE}mark-post`, "weld") }),
+    tick(`${SCENE}mark`, v3(line - TICK_LEN / 2, MARK_TICK_Y, MARK_Z), TICK_LEN, "x", {
+      name: "Mark",
+      role: "How far each half has to open for the log to split.",
+      on: on(`${SCENE}mark-post`, "weld"),
+    }),
   ];
 }
 

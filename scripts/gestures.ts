@@ -14,7 +14,10 @@ try {
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from[0], y: from[1] }] });
     for (let i = 1; i <= steps; i++) {
       await new Promise((r) => setTimeout(r, ms / steps));
-      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: from[0] + ((to[0] - from[0]) * i) / steps, y: from[1] + ((to[1] - from[1]) * i) / steps }] });
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: from[0] + ((to[0] - from[0]) * i) / steps, y: from[1] + ((to[1] - from[1]) * i) / steps }],
+      });
     }
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await page.waitForTimeout(900);
@@ -57,7 +60,11 @@ try {
   await page.evaluate(() => {
     const w = window as unknown as { samples: string[] };
     w.samples = [];
-    new MutationObserver(() => w.samples.push(document.querySelector<HTMLElement>("[data-step]")?.style.transform ?? "")).observe(document.body, { attributes: true, subtree: true, attributeFilter: ["style"] });
+    new MutationObserver(() => w.samples.push(document.querySelector<HTMLElement>("[data-step]")?.style.transform ?? "")).observe(document.body, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ["style"],
+    });
   });
   await page.locator("[data-action=next]").click();
   await page.waitForTimeout(150);

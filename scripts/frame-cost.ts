@@ -68,7 +68,10 @@ for (const p of PRIMITIVES.filter((q) => wanted.length === 0 || wanted.includes(
 }
 
 // The stage alone (?stage=<id>, game mode): the play sweep, and the game's run where there is one. No React per frame.
-type Hook = { __stage: { sweep(): void; stop(): void; play(r: unknown): Promise<boolean>; get(): unknown }; __stageStats: { reset(): void; summary(): unknown; frames: number } };
+type Hook = {
+  __stage: { sweep(): void; stop(): void; play(r: unknown): Promise<boolean>; get(): unknown };
+  __stageStats: { reset(): void; summary(): unknown; frames: number };
+};
 const stageIds = wanted.length > 0 ? wanted : PRIMITIVES.map((p) => p.id);
 for (const id of stageIds) {
   await page.goto(`${url}?stage=${id}`, { waitUntil: "networkidle" });
@@ -99,7 +102,9 @@ for (const id of stageIds) {
     };
     await measure();
     const { script, drawn, stats } = await measure();
-    console.log(`${id.padEnd(15)} ${kind.padEnd(5)}: script ${(script / Math.max(1, drawn)).toFixed(2)} ms/frame over ${drawn} frames  stage ${JSON.stringify(stats)}`);
+    console.log(
+      `${id.padEnd(15)} ${kind.padEnd(5)}: script ${(script / Math.max(1, drawn)).toFixed(2)} ms/frame over ${drawn} frames  stage ${JSON.stringify(stats)}`,
+    );
   }
 }
 await close();

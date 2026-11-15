@@ -34,10 +34,14 @@ async function check(name: string, body: () => Promise<void>) {
 }
 
 const ready = (page: Page, count = 1) =>
-  page.waitForFunction((n) => {
-    const all = [...document.querySelectorAll("[data-kit-viewer]")];
-    return all.length >= n && all.every((v) => v.hasAttribute("data-ready"));
-  }, count, { timeout: 90_000 });
+  page.waitForFunction(
+    (n) => {
+      const all = [...document.querySelectorAll("[data-kit-viewer]")];
+      return all.length >= n && all.every((v) => v.hasAttribute("data-ready"));
+    },
+    count,
+    { timeout: 90_000 },
+  );
 
 type Hooks = {
   __stage: { get(): Record<string, number>; set(v: Record<string, number>): void; state(): string };
@@ -65,14 +69,21 @@ await check("grain", async () => {
       const el = document.querySelector<HTMLElement>("[data-kit-viewer]")!;
       const cv = el.querySelector("canvas")!;
       const r = cv.getBoundingClientRect();
-      return { grain: Number(el.dataset.grain), backing: [cv.width, cv.height], rect: { x: r.left, y: r.top + scrollY, w: r.width, h: r.height }, dpr: devicePixelRatio };
+      return {
+        grain: Number(el.dataset.grain),
+        backing: [cv.width, cv.height],
+        rect: { x: r.left, y: r.top + scrollY, w: r.width, h: r.height },
+        dpr: devicePixelRatio,
+      };
     });
     const n = Math.max(1, Math.round(1.5 * c.dpr));
     assert.equal(info.grain, n, `${c.name}: grain`);
     assert.equal(info.backing[0], Math.round(info.rect.w * c.dpr), `${c.name}: backing width is the box's device width`);
     assert.equal(info.backing[1], Math.round(info.rect.h * c.dpr), `${c.name}: backing height is the box's device height`);
     // Measure the canvas alone: the handle ring, its label and any page controls laid over the figure are smooth DOM.
-    const overlays = await page.addStyleTag({ content: "body * { visibility: hidden !important } [data-kit-viewer] canvas { visibility: visible !important }" });
+    const overlays = await page.addStyleTag({
+      content: "body * { visibility: hidden !important } [data-kit-viewer] canvas { visibility: visible !important }",
+    });
     const shot = await page.screenshot({ clip: { x: info.rect.x, y: info.rect.y, width: info.rect.w, height: info.rect.h } });
     await overlays.evaluate((el) => (el as Element).remove());
     // Decode in a browser (no PNG library here) and measure runs of identical pixels along every row.
@@ -112,17 +123,24 @@ await check("grain", async () => {
             start = y;
           }
         }
-        const common = [...lengths].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([l, k]) => `${l}:${k}`);
+        const common = [...lengths]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([l, k]) => `${l}:${k}`);
         return { total, whole, common, size: [img.width, img.height] };
       },
       { b64: shot.toString("base64"), n },
     );
     const share = runs.whole / runs.total;
-    console.log(`  ${c.name} dpr ${c.dpr}: ${n} device px per dither px; ${runs.total} runs, ${(share * 100).toFixed(2)}% whole multiples of ${n}; commonest lengths ${runs.common.join(" ")}`);
+    console.log(
+      `  ${c.name} dpr ${c.dpr}: ${n} device px per dither px; ${runs.total} runs, ${(share * 100).toFixed(2)}% whole multiples of ${n}; commonest lengths ${runs.common.join(" ")}`,
+    );
     assert.equal(runs.whole, runs.total, `${c.name}: every run of identical pixels is a whole number of dither pixels`);
     // A 60 x 60 CSS px patch over the coil for the sheet.
     const patch = await page.screenshot({ clip: { x: info.rect.x + info.rect.w * 0.42, y: info.rect.y + info.rect.h * 0.35, width: 60, height: 60 } });
-    cells.push(`<figure><img src="data:image/png;base64,${patch.toString("base64")}"><figcaption>${c.name} · DPR ${c.dpr}<br>${n} device px per dither px · ${(share * 100).toFixed(1)}% of runs whole</figcaption></figure>`);
+    cells.push(
+      `<figure><img src="data:image/png;base64,${patch.toString("base64")}"><figcaption>${c.name} · DPR ${c.dpr}<br>${n} device px per dither px · ${(share * 100).toFixed(1)}% of runs whole</figcaption></figure>`,
+    );
     await page.close();
   }
   await decoder.setViewportSize({ width: 1280, height: 420 });
@@ -210,7 +228,10 @@ await check("loss", async () => {
   await page.waitForTimeout(200);
   const back = await canvasHash(page);
   // Not bit-identical: a coil stretched in place and the same coil rebuilt after the loss differ by a vertex or two.
-  assert.ok(Math.abs(back.ink - before.ink) < before.ink * 0.01, `and the same pose draws the same picture as before the loss (${back.ink} vs ${before.ink} ink pixels)`);
+  assert.ok(
+    Math.abs(back.ink - before.ink) < before.ink * 0.01,
+    `and the same pose draws the same picture as before the loss (${back.ink} vs ${before.ink} ink pixels)`,
+  );
   console.log(`  lost: picture kept; restored: redrawn (${back.ink} ink pixels, ${before.ink} before)`);
   await page.close();
 });

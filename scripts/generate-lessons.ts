@@ -30,7 +30,9 @@ const results = await Promise.allSettled(
       if (event.type === "failed") throw new Error(event.message);
       if (event.type !== "done") continue;
       await writeFile(new URL(`${name}.json`, outDir), `${JSON.stringify(event.lesson, null, 2)}\n`);
-      const types = allSteps(event.lesson).map((s) => s.problem?.type ?? "-").join(" ");
+      const types = allSteps(event.lesson)
+        .map((s) => s.problem?.type ?? "-")
+        .join(" ");
       const s = stats!;
       return `${name}: ${event.lesson.chapters.length} chapters, ${allSteps(event.lesson).length} steps [${types}], first chapter ${((s.firstChapterMs ?? NaN) / 1000).toFixed(0)}s, done ${(s.ms / 1000).toFixed(0)}s, $${s.costUsd.toFixed(3)}, ${s.attempts} attempt(s)`;
     }

@@ -45,10 +45,15 @@ export const pressFitTemplate: Template = {
           run: (values, ctx) => {
             const s = squeezeOf(values);
             const ok = holds(s);
-            return pullOff(pair, ctx, ok
-              ? { pass: true, line: `The ${child} held under a ${PULL} N pull. The grip holds up to ${limitOf(s)} N.` }
-              : { pass: false, line: `The ${child} slid off under a ${PULL} N pull. The grip let go at ${limitOf(s)} N.` },
-            ok, { pulling: `Pulling ${PULL} N`, held: "Held", off: "Slid off" });
+            return pullOff(
+              pair,
+              ctx,
+              ok
+                ? { pass: true, line: `The ${child} held under a ${PULL} N pull. The grip holds up to ${limitOf(s)} N.` }
+                : { pass: false, line: `The ${child} slid off under a ${PULL} N pull. The grip let go at ${limitOf(s)} N.` },
+              ok,
+              { pulling: `Pulling ${PULL} N`, held: "Held", off: "Slid off" },
+            );
           },
         },
         {
@@ -57,10 +62,19 @@ export const pressFitTemplate: Template = {
           run: (values, ctx) => {
             const s = squeezeOf(values);
             const ok = fits(s);
-            return pushOn(pair, ctx, ok
-              ? { pass: true, line: `It pushed on with ${limitOf(s)} N, under the ${HAND} N a hand gives.` }
-              : { pass: false, line: `It would not go on. It takes ${limitOf(s)} N and a hand pushes about ${HAND} N.`, nudge: "The grip is far too tight for a hand." },
-            ok, { pushing: `Pushing on`, seated: "Seated", stuck: `Needs ${limitOf(s)} N` });
+            return pushOn(
+              pair,
+              ctx,
+              ok
+                ? { pass: true, line: `It pushed on with ${limitOf(s)} N, under the ${HAND} N a hand gives.` }
+                : {
+                    pass: false,
+                    line: `It would not go on. It takes ${limitOf(s)} N and a hand pushes about ${HAND} N.`,
+                    nudge: "The grip is far too tight for a hand.",
+                  },
+              ok,
+              { pushing: `Pushing on`, seated: "Seated", stuck: `Needs ${limitOf(s)} N` },
+            );
           },
         },
       ],

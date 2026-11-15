@@ -35,7 +35,6 @@ export const look = {
   light: { color: COLOR.light, finish: "matte" },
 } satisfies Record<string, Look>;
 
-
 export type Vec = { x: number; y: number; z: number };
 export const v3 = (x: number, y: number, z = 0): Vec => ({ x, y, z });
 const ZERO = v3(0, 0, 0);
@@ -65,7 +64,13 @@ export function lathe(points: Pt[]): { shape: Shape; midY: number } {
 }
 
 /** A solid cylinder from y = 0 to h; place it at midY + base. Rotate x = 90 to lay it along z, z = 90 along x. */
-export const cylinder = (r: number, h: number) => lathe([[0, 0], [r, 0], [r, h], [0, h]]);
+export const cylinder = (r: number, h: number) =>
+  lathe([
+    [0, 0],
+    [r, 0],
+    [r, h],
+    [0, h],
+  ]);
 
 export const box = (width: number, height: number, depth: number, cornerRadius = 0): Shape => ({ kind: "box", width, height, depth, cornerRadius });
 
@@ -168,7 +173,15 @@ const ground = (opts: PartOpts): Attach | null => (opts.on === undefined ? on("p
 /** A post standing on the plate: 10 wide (x) by 8 deep (z), from `bottom` up to `top`. */
 export function post(id: string, x: number, z: number, top: number, opts: PartOpts & { bottom?: number } = {}): Part {
   const bottom = opts.bottom ?? PLATE_TOP;
-  return part(id, opts.name ?? "Post", opts.role ?? "Holds the rig up.", box(10, top - bottom, 8, 1), v3(x, (top + bottom) / 2, z), look.structure, ground(opts));
+  return part(
+    id,
+    opts.name ?? "Post",
+    opts.role ?? "Holds the rig up.",
+    box(10, top - bottom, 8, 1),
+    v3(x, (top + bottom) / 2, z),
+    look.structure,
+    ground(opts),
+  );
 }
 
 /**
@@ -198,7 +211,16 @@ export function beam(id: string, a: Vec, b: Vec, opts: PartOpts = {}): Part {
 /** A pin or axle lying along z, centred on `at`: radius 3, or 4 when it carries the load. */
 export function pin(id: string, at: Vec, length: number, opts: PartOpts & { load?: boolean; look?: Look } = {}): Part {
   const r = opts.load ? 4 : 3;
-  return part(id, opts.name ?? "Pin", opts.role ?? "The part turns on it.", cylinder(r, length).shape, at, opts.look ?? look.structure, ground(opts), v3(90, 0, 0));
+  return part(
+    id,
+    opts.name ?? "Pin",
+    opts.role ?? "The part turns on it.",
+    cylinder(r, length).shape,
+    at,
+    opts.look ?? look.structure,
+    ground(opts),
+    v3(90, 0, 0),
+  );
 }
 
 /** Euler rotation that lays a lathe (built along y) along `axis`. */
@@ -206,7 +228,14 @@ const along = (axis: "x" | "y" | "z"): Vec => (axis === "x" ? v3(0, 0, 90) : axi
 
 /** The turning handle: a light knob, radius 5.5 and 20 long, centred on `centre` (the point `handle.at` returns), its axis along `axis`. */
 export function knob(id: string, centre: Vec, axis: "x" | "y" | "z" = "z", opts: PartOpts = {}): Part {
-  const k = lathe([[0, 0], [4.7, 0], [5.5, 0.8], [5.5, 19.2], [4.7, 20], [0, 20]]);
+  const k = lathe([
+    [0, 0],
+    [4.7, 0],
+    [5.5, 0.8],
+    [5.5, 19.2],
+    [4.7, 20],
+    [0, 20],
+  ]);
   return part(id, opts.name ?? "Knob", opts.role ?? "Where your hand turns it.", k.shape, centre, look.light, ground(opts), along(axis));
 }
 
@@ -235,7 +264,15 @@ export const arrowLength = (force: number, largest: number, longest = ARROW_LONG
 /** Arrow outline along +x, tail at the origin: shaft 4 wide, head 10 long and 10 wide. */
 function arrowOutline(length: number): Pt[] {
   const head = 10;
-  return [[0, -2], [length - head, -2], [length - head, -5], [length, 0], [length - head, 5], [length - head, 2], [0, 2]];
+  return [
+    [0, -2],
+    [length - head, -2],
+    [length - head, -5],
+    [length, 0],
+    [length - head, 5],
+    [length - head, 2],
+    [0, 2],
+  ];
 }
 
 /**
@@ -274,12 +311,24 @@ export function loadBlock(
   opts: PartOpts & { arrowSide?: "above" | "left" | "right" } = {},
 ): { parts: Part[]; edge: number; top: number } {
   const edge = loadEdge(weight);
-  const cube = part(id, opts.name ?? "Load", opts.role ?? "The weight being moved.", box(edge, edge, edge, 1.5), v3(bottom.x, bottom.y + edge / 2, bottom.z), look.stone, ground(opts));
+  const cube = part(
+    id,
+    opts.name ?? "Load",
+    opts.role ?? "The weight being moved.",
+    box(edge, edge, edge, 1.5),
+    v3(bottom.x, bottom.y + edge / 2, bottom.z),
+    look.stone,
+    ground(opts),
+  );
   const len = Math.max(ARROW_MIN, weight * mmPerN);
   const side = opts.arrowSide ?? "above";
   const arrows =
     side === "above"
-      ? arrow(`${id}-arrow`, v3(bottom.x, bottom.y + edge, bottom.z), -90, len, "push", { name: "Weight arrow", role: "The load's weight, pulling down.", on: on(id, "glue") })
+      ? arrow(`${id}-arrow`, v3(bottom.x, bottom.y + edge, bottom.z), -90, len, "push", {
+          name: "Weight arrow",
+          role: "The load's weight, pulling down.",
+          on: on(id, "glue"),
+        })
       : arrow(
           `${id}-arrow`,
           // A push arrow stops ARROW_GAP short of `at`, so aiming at the underside's height puts the tip ARROW_GAP above it.
@@ -311,7 +360,16 @@ export function travelArc(id: string, centre: Vec, radius: number, fromDeg: numb
   if (span < 1) return null;
   // A flat torus arc is centred on +x; turning it by (90, mid, 0) stands it up in x-y centred on `mid` degrees.
   const mid = (fromDeg + toDeg) / 2;
-  return part(id, opts.name ?? "Travel arc", opts.role ?? "Shows how far it can turn.", ring(radius, 1.5, span), centre, look.structure, ground(opts), v3(90, mid, 0));
+  return part(
+    id,
+    opts.name ?? "Travel arc",
+    opts.role ?? "Shows how far it can turn.",
+    ring(radius, 1.5, span),
+    centre,
+    look.structure,
+    ground(opts),
+    v3(90, mid, 0),
+  );
 }
 
 /** A chain of strands through `points`, one part per segment, ids `${prefix}-1`, `${prefix}-2`, ... */
@@ -323,12 +381,31 @@ export function chain(prefix: string, name: string, role: string, points: Vec[],
 }
 
 /** part() for a shape that comes with its own position and rotation, such as bar(), pivoted() or strand(). */
-export function shaped(id: string, name: string, role: string, s: { shape: Shape; position: Vec; rotation: Vec }, appearance: Look, attach: Attach | null): Part {
+export function shaped(
+  id: string,
+  name: string,
+  role: string,
+  s: { shape: Shape; position: Vec; rotation: Vec },
+  appearance: Look,
+  attach: Attach | null,
+): Part {
   return part(id, name, role, s.shape, s.position, appearance, attach, s.rotation);
 }
 
 /** A coil spring whose axis runs from a to b in the plane z, `radius` to the wire's centre, wire `tube` in radius. */
-export function coilSpring(id: string, name: string, role: string, a: Pt, b: Pt, z: number, radius: number, tube: number, turns: number, appearance: Look, attach: Attach): Part {
+export function coilSpring(
+  id: string,
+  name: string,
+  role: string,
+  a: Pt,
+  b: Pt,
+  z: number,
+  radius: number,
+  tube: number,
+  turns: number,
+  appearance: Look,
+  attach: Attach,
+): Part {
   const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const lean = Math.atan2(-(b[0] - a[0]), b[1] - a[1]) * RAD_TO_DEG;
   return part(id, name, role, coil(radius, tube, len, turns), v3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, z), appearance, attach, v3(0, 0, lean));

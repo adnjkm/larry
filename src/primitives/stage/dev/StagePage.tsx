@@ -55,7 +55,9 @@ export default function StagePage() {
       const s = stageStats;
       const poses = Math.max(1, s.poses - last.poses);
       const drawn = Math.max(1, s.frames - last.frames);
-      setPerf(`${frames * 2} fps · pose ${((s.poseMs - last.poseMs) / poses).toFixed(3)} ms · draw ${((s.drawMs - last.drawMs) / drawn).toFixed(3)} ms · ${s.contexts} WebGL context`);
+      setPerf(
+        `${frames * 2} fps · pose ${((s.poseMs - last.poseMs) / poses).toFixed(3)} ms · draw ${((s.drawMs - last.drawMs) / drawn).toFixed(3)} ms · ${s.contexts} WebGL context`,
+      );
       frames = 0;
       last = { poseMs: s.poseMs, drawMs: s.drawMs, poses: s.poses, frames: s.frames };
     }, 500);

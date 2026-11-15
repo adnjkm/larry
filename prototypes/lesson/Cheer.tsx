@@ -26,11 +26,18 @@ function hash(x: number, y: number, seed: number) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
 }
 function noise(x: number, y: number, cell: number, seed: number) {
-  const gx = x / cell, gy = y / cell;
-  const x0 = Math.floor(gx), y0 = Math.floor(gy);
-  const fx = gx - x0, fy = gy - y0;
-  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-  const a = hash(x0, y0, seed), b = hash(x0 + 1, y0, seed), c = hash(x0, y0 + 1, seed), d = hash(x0 + 1, y0 + 1, seed);
+  const gx = x / cell,
+    gy = y / cell;
+  const x0 = Math.floor(gx),
+    y0 = Math.floor(gy);
+  const fx = gx - x0,
+    fy = gy - y0;
+  const sx = fx * fx * (3 - 2 * fx),
+    sy = fy * fy * (3 - 2 * fy);
+  const a = hash(x0, y0, seed),
+    b = hash(x0 + 1, y0, seed),
+    c = hash(x0, y0 + 1, seed),
+    d = hash(x0 + 1, y0 + 1, seed);
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
 
@@ -42,7 +49,9 @@ type Field = { w: number; h: number; cover: Float32Array; tone: Float32Array; fr
  * reaches it (`front`, 0..1, left to right with a wobbly edge).
  */
 function fieldOf(w: number, h: number, seed: number): Field {
-  const cover = new Float32Array(w * h), tone = new Float32Array(w * h), front = new Float32Array(w * h);
+  const cover = new Float32Array(w * h),
+    tone = new Float32Array(w * h),
+    front = new Float32Array(w * h);
   // The splat's core is the card's box dropped by OFFSET (the canvas is placed so that box sits
   // SPREAD in from every side); it bulges out past the core wherever the noise says.
   for (let y = 0; y < h; y++)
@@ -116,7 +125,8 @@ export function Cheer({ text, show }: { text: string; show: number }) {
   useEffect(() => {
     const c = canvas.current;
     if (live === 0 || !c) return;
-    const w = Math.round(c.clientWidth), h = Math.round(c.clientHeight);
+    const w = Math.round(c.clientWidth),
+      h = Math.round(c.clientHeight);
     if (w === 0 || h === 0) return;
     c.width = w;
     c.height = h;
@@ -143,7 +153,12 @@ export function Cheer({ text, show }: { text: string; show: number }) {
   if (live === 0) return null;
   return (
     <div key={live} className="cheer" role="status" aria-live="polite" aria-label={text}>
-      <canvas ref={canvas} className="cheer-splat" aria-hidden style={{ left: OFFSET.x - SPREAD, top: OFFSET.y - SPREAD, width: `calc(100% + ${2 * SPREAD}px)`, height: `calc(100% + ${2 * SPREAD}px)` }} />
+      <canvas
+        ref={canvas}
+        className="cheer-splat"
+        aria-hidden
+        style={{ left: OFFSET.x - SPREAD, top: OFFSET.y - SPREAD, width: `calc(100% + ${2 * SPREAD}px)`, height: `calc(100% + ${2 * SPREAD}px)` }}
+      />
       <span className="cheer-card" aria-hidden>
         {[...text].map((ch, i) => (
           <span key={i} className="cheer-letter" style={{ animationDelay: `${260 + i * 30}ms` }}>

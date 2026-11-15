@@ -30,9 +30,7 @@ const Torus = z
     kind: z.literal("torus"),
     radius: z.number().describe("From the ring's centre to the middle of the tube."),
     tube: z.number().describe("Radius of the tube itself."),
-    arcDegrees: z
-      .number()
-      .describe("360 for a closed ring. Less for an open arc, centred on +x when unrotated, so 200 is a C that opens toward -x."),
+    arcDegrees: z.number().describe("360 for a closed ring. Less for an open arc, centred on +x when unrotated, so 200 is a C that opens toward -x."),
   })
   .describe("A ring lying flat in the x-z plane before rotation: seals, O-rings, loops, handles (rotate a handle to stand it up).");
 
@@ -49,9 +47,7 @@ const Helix = z
 const Extrusion = z
   .object({
     kind: z.literal("extrusion"),
-    outline: z
-      .array(Vec2)
-      .describe("A closed outline drawn as seen from the front, x right and y up. At least 3 points, no self-crossing."),
+    outline: z.array(Vec2).describe("A closed outline drawn as seen from the front, x right and y up. At least 3 points, no self-crossing."),
     depth: z.number().describe("How far the outline is pushed back along z."),
   })
   .describe("A flat cut-out with thickness: stapler arms, clips, blades, brackets, anything with an irregular side view.");
@@ -70,10 +66,7 @@ export const Part = z.object({
   id: z.string().describe("Short kebab-case id, unique in the kit."),
   name: z.string().describe("Its everyday name, 1 to 3 words."),
   role: z.string().describe("One plain sentence on what the part does for the object."),
-  parentId: z
-    .string()
-    .nullable()
-    .describe("The part this one attaches to. null only for the single main part everything else hangs off."),
+  parentId: z.string().nullable().describe("The part this one attaches to. null only for the single main part everything else hangs off."),
   joint: Joint.nullable().describe("How this part is held to its parent. null only when parentId is null."),
   shape: Shape,
   position: Vec3.describe("Centre of the part's bounding box in the object frame, in mm. A torus is the exception: its position is the ring's centre."),
@@ -129,7 +122,9 @@ function shapeProblems(id: string, shape: Shape): string[] {
   const positive = (label: string, n: number) => (n > 0 ? [] : [`${id} ${label} must be > 0`]);
   switch (shape.kind) {
     case "lathe":
-      return shape.profile.length >= 2 ? shape.profile.flatMap((p) => (p.r >= 0 ? [] : [`${id} profile r must be >= 0`])) : [`${id} lathe profile needs 2+ points`];
+      return shape.profile.length >= 2
+        ? shape.profile.flatMap((p) => (p.r >= 0 ? [] : [`${id} profile r must be >= 0`]))
+        : [`${id} lathe profile needs 2+ points`];
     case "box":
       return [...positive("width", shape.width), ...positive("height", shape.height), ...positive("depth", shape.depth)];
     case "torus":

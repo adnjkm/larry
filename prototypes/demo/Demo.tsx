@@ -21,7 +21,10 @@ const KEYFRAMES = /@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g;
 const css = baseCss + "\n" + lessonCss;
 const LESSON_CSS = `${(css.match(KEYFRAMES) ?? []).join("\n")}
 @scope (.demo-lesson) {
-${css.replace(KEYFRAMES, "").replace(/html,\s*body\s*\{[^}]*\}/g, "").replace(/:root/g, ":scope")}
+${css
+  .replace(KEYFRAMES, "")
+  .replace(/html,\s*body\s*\{[^}]*\}/g, "")
+  .replace(/:root/g, ":scope")}
 }`;
 
 /** The lesson in the phone: it fills the screen between the status bar and the gesture bar. */

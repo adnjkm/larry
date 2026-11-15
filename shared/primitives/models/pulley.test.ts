@@ -12,7 +12,12 @@ const [strands, pull] = pulley.sliders as [NonNullable<(typeof pulley.sliders)[0
 /** A box part's extent in x and y (the parts here are unrotated except the cord bars and rings, which are handled apart). */
 const boxOf = (p: Part) => {
   assert.ok(p.shape.kind === "box");
-  return { x0: p.position.x - p.shape.width / 2, x1: p.position.x + p.shape.width / 2, y0: p.position.y - p.shape.height / 2, y1: p.position.y + p.shape.height / 2 };
+  return {
+    x0: p.position.x - p.shape.width / 2,
+    x1: p.position.x + p.shape.width / 2,
+    y0: p.position.y - p.shape.height / 2,
+    y1: p.position.y + p.shape.height / 2,
+  };
 };
 
 describe("pulley", () => {
@@ -52,7 +57,10 @@ describe("pulley", () => {
       }
     }
     const lens = steps(strands).map((n) => arrowOf(pulley.build({ strands: n, pull: 0 }), "pull-arrow").len);
-    assert.ok(lens.every((l, i) => i === 0 || l < lens[i - 1]! - 1), `the pull arrow shrinks as strands go up: ${lens}`);
+    assert.ok(
+      lens.every((l, i) => i === 0 || l < lens[i - 1]! - 1),
+      `the pull arrow shrinks as strands go up: ${lens}`,
+    );
     assert.ok(Math.abs(lens.at(-1)! - 12) < 1e-9, "and is exactly the shortest arrow at 5 strands, so none is stretched");
   });
 
@@ -87,10 +95,11 @@ describe("pulley", () => {
       assert.ok(Math.abs(m.x0 - postRight) < 1e-9, "starting at the post's face");
       assert.ok(Math.abs(m.y1 - (6 + geometry.EDGE + RISE)) < 1e-9, "its top is where the load's top must come");
       // Clear of the moving block and the load wherever they are.
-      for (const p of steps(pull)) for (const id of ["block", "load"]) {
-        const b = boxOf(find(pulley.build({ strands: n, pull: p }), id));
-        assert.ok(m.x1 <= b.x0 + 1e-9 || m.x0 >= b.x1 || m.y1 <= b.y0 || m.y0 >= b.y1, `${n} strands, pull ${p}: the tick meets the ${id}`);
-      }
+      for (const p of steps(pull))
+        for (const id of ["block", "load"]) {
+          const b = boxOf(find(pulley.build({ strands: n, pull: p }), id));
+          assert.ok(m.x1 <= b.x0 + 1e-9 || m.x0 >= b.x1 || m.y1 <= b.y0 || m.y0 >= b.y1, `${n} strands, pull ${p}: the tick meets the ${id}`);
+        }
     }
   });
 
@@ -101,7 +110,10 @@ describe("pulley", () => {
       assert.equal(runs.length, n + 1, `${n} supporting strands and the hauling end`);
       for (const c of runs) assert.equal(c.color, "#ff0087");
       assert.equal(parts.filter((p) => p.id.startsWith("wheel-")).length, n);
-      assert.ok(parts.filter((p) => p.id.startsWith("wheel-")).every((p) => p.color === "#a9adb3"), "wheels are steel");
+      assert.ok(
+        parts.filter((p) => p.id.startsWith("wheel-")).every((p) => p.color === "#a9adb3"),
+        "wheels are steel",
+      );
     }
   });
 
@@ -150,12 +162,13 @@ describe("pulley", () => {
   });
 
   it("keeps the moving block clear of the fixed wheels at every pose", () => {
-    for (const n of steps(strands)) for (const p of steps(pull)) {
-      const parts = pulley.build({ strands: n, pull: p });
-      const block = boxOf(find(parts, "block"));
-      assert.ok(block.y1 + 2 <= geometry.Y_FIXED - geometry.WHEEL_R + 40, "room above the block");
-      assert.ok(block.y1 < geometry.Y_FIXED - geometry.WHEEL_R, `${n} strands, pull ${p}: the block reaches the fixed wheels`);
-    }
+    for (const n of steps(strands))
+      for (const p of steps(pull)) {
+        const parts = pulley.build({ strands: n, pull: p });
+        const block = boxOf(find(parts, "block"));
+        assert.ok(block.y1 + 2 <= geometry.Y_FIXED - geometry.WHEEL_R + 40, "room above the block");
+        assert.ok(block.y1 < geometry.Y_FIXED - geometry.WHEEL_R, `${n} strands, pull ${p}: the block reaches the fixed wheels`);
+      }
   });
 
   it("reads its numbers from the pose it draws", () => {

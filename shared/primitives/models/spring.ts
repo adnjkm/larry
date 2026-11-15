@@ -96,8 +96,22 @@ function ell(id: string, name: string, role: string, postX: number, top: number,
   const cx = left ? (x1 + x0 + SLIM) / 2 : (x0 + x1) / 2;
   const cy = (PLATE_TOP + top) / 2;
   const pts: [number, number][] = left
-    ? [[x0, PLATE_TOP], [x0 + SLIM, PLATE_TOP], [x0 + SLIM, top], [x1, top], [x1, y - arm / 2], [x0, y - arm / 2]]
-    : [[x0, PLATE_TOP], [x0 + SLIM, PLATE_TOP], [x0 + SLIM, y - arm / 2], [x1, y - arm / 2], [x1, top], [x0, top]];
+    ? [
+        [x0, PLATE_TOP],
+        [x0 + SLIM, PLATE_TOP],
+        [x0 + SLIM, top],
+        [x1, top],
+        [x1, y - arm / 2],
+        [x0, y - arm / 2],
+      ]
+    : [
+        [x0, PLATE_TOP],
+        [x0 + SLIM, PLATE_TOP],
+        [x0 + SLIM, y - arm / 2],
+        [x1, y - arm / 2],
+        [x1, top],
+        [x0, top],
+      ];
   const outline = pts.map(([x, py]) => ({ x: x - cx, y: py - cy }));
   return part(id, name, role, { kind: "extrusion", outline, depth }, v3(cx, cy, 0), look.structure, on("plate", joint));
 }
@@ -105,7 +119,18 @@ function ell(id: string, name: string, role: string, postX: number, top: number,
 /** The free-length mark: its arm's middle is level with the plate's underside at free length. */
 function freeMark(): Part {
   const y = PLATE_TOP + FREE;
-  return ell("tick-free", "Free-length mark", "Where the plate's underside sits with no push: the squeeze is measured from here.", MARK_POST_X, y + 1.5, TICK_END, y, 3, SLIM, "weld");
+  return ell(
+    "tick-free",
+    "Free-length mark",
+    "Where the plate's underside sits with no push: the squeeze is measured from here.",
+    MARK_POST_X,
+    y + 1.5,
+    TICK_END,
+    y,
+    3,
+    SLIM,
+    "weld",
+  );
 }
 
 function build(v: Values): Part[] {
@@ -113,10 +138,22 @@ function build(v: Values): Part[] {
   const pushLen = arrowLength(s.force, FORCE_MAX, ARROW_LONG);
   return [
     plate(48, 30),
-    part("coil", "Coil", "The spring's wire, wound into a helix. It pushes back in step with the squeeze.", coil(COIL_R, s.wire / 2, s.length, s.turns), v3(CX, PLATE_TOP + s.length / 2, 0), look.focusMetal, on("plate", "spring")),
+    part(
+      "coil",
+      "Coil",
+      "The spring's wire, wound into a helix. It pushes back in step with the squeeze.",
+      coil(COIL_R, s.wire / 2, s.length, s.turns),
+      v3(CX, PLATE_TOP + s.length / 2, 0),
+      look.focusMetal,
+      on("plate", "spring"),
+    ),
     pushDisc("disc", v3(CX, discCentreY(s.length), 0), "y", { name: "Push plate", role: "Takes the push and squeezes the coil.", on: on("coil", "weld") }),
     freeMark(),
-    ...arrow("push-arrow", v3(CX, discTop(s.length), ARROW_Z), -90, pushLen, "push", { name: "Push arrow", role: "The push on the plate, to scale.", on: on("disc", "glue") }),
+    ...arrow("push-arrow", v3(CX, discTop(s.length), ARROW_Z), -90, pushLen, "push", {
+      name: "Push arrow",
+      role: "The push on the plate, to scale.",
+      on: on("disc", "glue"),
+    }),
   ];
 }
 
@@ -126,9 +163,11 @@ function readouts(v: Values) {
     ? `F ÷ k = ${fmt(s.force)} ÷ ${fmt(s.k, 1)} = ${fmt(s.wanted)} > ${BIND}, so x = ${BIND} mm`
     : `x = F ÷ k = ${fmt(s.force)} ÷ ${fmt(s.k, 1)} = ${fmt(s.squeeze, 1)} mm`;
   const state =
-    s.force === 0 ? `free: ${FREE} mm long, storing nothing`
-    : s.bound ? `coils touching: ½ × ${fmt(s.k, 1)} × ${BIND}² = ${fmt(s.energy, 2)} J`
-    : `storing ½ × ${fmt(s.k, 1)} × ${fmt(s.squeeze, 1)}² = ${fmt(s.energy, 2)} J`;
+    s.force === 0
+      ? `free: ${FREE} mm long, storing nothing`
+      : s.bound
+        ? `coils touching: ½ × ${fmt(s.k, 1)} × ${BIND}² = ${fmt(s.energy, 2)} J`
+        : `storing ½ × ${fmt(s.k, 1)} × ${fmt(s.squeeze, 1)}² = ${fmt(s.energy, 2)} J`;
   return [
     { label: "Squeeze", value: law },
     { label: "Travel", value: `plate down ${fmt(s.squeeze, 1)} of ${BIND} mm` },
@@ -156,7 +195,12 @@ function judge(v: Values): Verdict {
     case "stiff":
       return { pass: false, outcome: "too-stiff", headline: "Too stiff", detail: "Too stiff: your pull barely squashes it, so it stores too little energy." };
     case "soft":
-      return { pass: false, outcome: "too-soft", headline: "Coils bottomed out", detail: "Too soft: the coils touch and stop it squashing, so it can never store enough." };
+      return {
+        pass: false,
+        outcome: "too-soft",
+        headline: "Coils bottomed out",
+        detail: "Too soft: the coils touch and stop it squashing, so it can never store enough.",
+      };
     case "pass":
       return { pass: true, outcome: "rings-the-bell", headline: "Rang the bell", detail: "It squashed far enough to store the energy that rings the bell." };
   }
@@ -243,21 +287,14 @@ function play(v: Values): Run {
         const force = pullTo(tl.t("pull", ms));
         const sinceBind = ms - bindMs;
         const bounce = sinceBind > 0 && sinceBind < REBOUND_MS ? REBOUND * rockBack(sinceBind / REBOUND_MS, 1) : 0;
-        const live =
-          r.kind === "soft" && sinceBind >= 0 ? "Coils touching"
-          : phase === "pull" ? "Pulling down"
-          : "Holding down";
+        const live = r.kind === "soft" && sinceBind >= 0 ? "Coils touching" : phase === "pull" ? "Pulling down" : "Holding down";
         return withPuck(values(force, bounce), live);
       }
       if (phase === "fly") {
         const t = ms - release;
         const bounce = t < RING_MS ? -r.squeeze * ring(t / RING_MS, f.cycles) : 0;
         const h = f.height(t);
-        const live =
-          t < f.quarter ? "Let go"
-          : f.hits && t >= f.contact ? "Rang the bell"
-          : !f.hits && t >= f.top ? "Fell short"
-          : "Puck rising";
+        const live = t < f.quarter ? "Let go" : f.hits && t >= f.contact ? "Rang the bell" : !f.hits && t >= f.top ? "Fell short" : "Puck rising";
         return withPuck(values(0, bounce), live, LAUNCH_Y + h);
       }
       if (phase === "hold") return withPuck(values(0, 0), f.hits ? "Rang the bell" : "Fell short");
@@ -275,16 +312,44 @@ const BELL_H = 13;
 function scene(): Part[] {
   const bellTop = BELL_MOUTH + BELL_H;
   const arm = SLIM;
-  const b = lathe([[0, 0], [9, 0], [8.6, 1.5], [7.2, 5], [6.2, 9], [4.6, 11.8], [2, BELL_H], [0, BELL_H]]);
+  const b = lathe([
+    [0, 0],
+    [9, 0],
+    [8.6, 1.5],
+    [7.2, 5],
+    [6.2, 9],
+    [4.6, 11.8],
+    [2, BELL_H],
+    [0, BELL_H],
+  ]);
   return [
-    ell(`${SCENE}bell-stand`, "Bell stand", "Holds the bell over the spring: a slim post and an arm.", BELL_POST_X, bellTop + arm, CX - 4, bellTop + arm / 2, arm, SLIM, "weld"),
+    ell(
+      `${SCENE}bell-stand`,
+      "Bell stand",
+      "Holds the bell over the spring: a slim post and an arm.",
+      BELL_POST_X,
+      bellTop + arm,
+      CX - 4,
+      bellTop + arm / 2,
+      arm,
+      SLIM,
+      "weld",
+    ),
     part(`${SCENE}bell`, "Bell", "Rings when the puck reaches it.", b.shape, v3(CX, BELL_MOUTH + b.midY, 0), look.structure, on(`${SCENE}bell-stand`, "screw")),
   ];
 }
 
 /** The puck, a prop of the run: it sits on the plate, flies, lands. */
 function puck(bottom: number): Part {
-  return part(`${MARK}puck`, "Puck", "The load the spring throws.", cylinder(PUCK_R, PUCK_H).shape, v3(CX, bottom + PUCK_H / 2, 0), look.stone, on("disc", "glue"));
+  return part(
+    `${MARK}puck`,
+    "Puck",
+    "The load the spring throws.",
+    cylinder(PUCK_R, PUCK_H).shape,
+    v3(CX, bottom + PUCK_H / 2, 0),
+    look.stone,
+    on("disc", "glue"),
+  );
 }
 
 const STIFFNESS: Slider = { id: "stiffness", label: "Stiffness", min: 1, max: 4, step: 0.1, initial: 2, unit: " N/mm" };
@@ -298,10 +363,7 @@ export const spring: Primitive = {
     "Squeezing a coil spring twists its wire, and the wire pushes back. Within its working range the push grows in step with the squeeze: F = k·x (Hooke's law). The work you put in is stored as ½·k·x², and it all comes back when you let go. A stiffer spring has thicker wire or fewer turns. Squeeze far enough and the coils touch: from then on it is solid, and pushing harder stores nothing more. The spring's own mass and the energy lost as it rings are left out.",
   madeOf: [],
   seenIn: ["Pen", "Stapler", "Clothes peg"],
-  sliders: [
-    STIFFNESS,
-    { id: "force", label: "Push", min: 0, max: 50, step: 1, initial: 30, unit: " N" },
-  ],
+  sliders: [STIFFNESS, { id: "force", label: "Push", min: 0, max: 50, step: 1, initial: 30, unit: " N" }],
   view: VIEW.coaxial,
   build,
   readouts,
@@ -324,9 +386,7 @@ export const spring: Primitive = {
     judge,
     play,
     start: { stiffness: 3.5, force: 0 },
-    poses: [
-      { id: "bounce", label: "Bounce", min: -BIND, max: BIND, step: 0.1, initial: 0, unit: " mm" },
-    ],
+    poses: [{ id: "bounce", label: "Bounce", min: -BIND, max: BIND, step: 0.1, initial: 0, unit: " mm" }],
     scene,
   },
 };

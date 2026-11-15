@@ -25,7 +25,13 @@ const MAX_MODULES = 4;
 type Kind = "twist" | "press" | "seal" | "spring" | "hinge" | "stand";
 type Spec = StoryModuleSpec & { payoff: { part: string; job: string } };
 /** A module the kit could have: the part it is about, the parts it is built around, and how to make it. */
-type Candidate = { kind: Kind; part: Part; anchors: readonly string[]; last: boolean; build: (earns: (ids: readonly string[]) => string[], closures: (p: Part) => Closure) => Spec };
+type Candidate = {
+  kind: Kind;
+  part: Part;
+  anchors: readonly string[];
+  last: boolean;
+  build: (earns: (ids: readonly string[]) => string[], closures: (p: Part) => Closure) => Spec;
+};
 
 const volume = (p: Part) => {
   const { min, max } = extents([p]);
@@ -35,7 +41,8 @@ const volume = (p: Part) => {
 /** A tight fit is only a fair lesson when the part can come off: nothing of its parent sits beyond it the way it leaves. */
 function comesOff(kit: Kit, part: Part): boolean {
   const piece = pieceOf(kit, part);
-  const far = (b: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }) => Math.max(b.min[piece.axis] * piece.out[piece.axis], b.max[piece.axis] * piece.out[piece.axis]);
+  const far = (b: { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }) =>
+    Math.max(b.min[piece.axis] * piece.out[piece.axis], b.max[piece.axis] * piece.out[piece.axis]);
   const own = extents([part]);
   const parent = extents([piece.parent]);
   const across = (["x", "y", "z"] as const).filter((a) => a !== piece.axis).every((a) => own.min[a] < parent.max[a] && parent.min[a] < own.max[a]);
@@ -50,33 +57,64 @@ function candidatesOf(kit: Kit): Candidate[] {
     const primitive = reading.template.primitive;
     if (primitive === "thread" || (primitive === "grip" && reading.evidence === null && comesOff(kit, part))) {
       const kind = primitive === "thread" ? "twist" : "press";
-      out.push({ kind, part, anchors: [part.id], last: false, build: (earns, closures) => {
-        const produces = earns([part.id]);
-        return closerModule(closures(part), produces, produces);
-      } });
+      out.push({
+        kind,
+        part,
+        anchors: [part.id],
+        last: false,
+        build: (earns, closures) => {
+          const produces = earns([part.id]);
+          return closerModule(closures(part), produces, produces);
+        },
+      });
     } else if (primitive === "seal") {
-      out.push({ kind: "seal", part, anchors: [part.id], last: true, build: (earns, closures) => sealModule(pieceOf(kit, part), closures(closerOf(kit, part)), earns([part.id])) });
+      out.push({
+        kind: "seal",
+        part,
+        anchors: [part.id],
+        last: true,
+        build: (earns, closures) => sealModule(pieceOf(kit, part), closures(closerOf(kit, part)), earns([part.id])),
+      });
     } else if (primitive === "spring") {
       const springs = springPartsOf(kit, part);
-      out.push({ kind: "spring", part, anchors: [part.id, ...springs], last: false, build: (earns) => {
-        const adds = earns([part.id]);
-        return springModule(pieceOf(kit, part), springs, [...adds, ...earns(springs)], adds);
-      } });
+      out.push({
+        kind: "spring",
+        part,
+        anchors: [part.id, ...springs],
+        last: false,
+        build: (earns) => {
+          const adds = earns([part.id]);
+          return springModule(pieceOf(kit, part), springs, [...adds, ...earns(springs)], adds);
+        },
+      });
     } else if (primitive === "lever") {
       const pin = reading.pin && reading.pin.parentId !== null ? reading.pin : null;
-      out.push({ kind: "hinge", part, anchors: pin ? [pin.id, part.id] : [part.id], last: false, build: (earns) => {
-        const adds = earns([part.id]);
-        return hingeModule(pieceOf(kit, part, [], reading.pin), pin ? [...new Set([...earns([pin.id]), ...adds])] : adds, adds);
-      } });
+      out.push({
+        kind: "hinge",
+        part,
+        anchors: pin ? [pin.id, part.id] : [part.id],
+        last: false,
+        build: (earns) => {
+          const adds = earns([part.id]);
+          return hingeModule(pieceOf(kit, part, [], reading.pin), pin ? [...new Set([...earns([pin.id]), ...adds])] : adds, adds);
+        },
+      });
     }
   }
   // Standing is taught only when nothing else is: its module builds the main part, so with any other
   // module the first Build would drag the whole object onto its own outline.
   const stand = out.length === 0 ? standOf(kit) : null;
-  if (stand) out.push({ kind: "stand", part: stand.root, anchors: [stand.root.id], last: false, build: (earns) => {
-    const produces = earns([stand.root.id]);
-    return storyStand(stand, produces, produces);
-  } });
+  if (stand)
+    out.push({
+      kind: "stand",
+      part: stand.root,
+      anchors: [stand.root.id],
+      last: false,
+      build: (earns) => {
+        const produces = earns([stand.root.id]);
+        return storyStand(stand, produces, produces);
+      },
+    });
   return out;
 }
 
@@ -109,7 +147,13 @@ export function generatedStory(kit: Kit, id = "story", strict = false): Story | 
   const seals = chosen.filter((c) => c.kind === "seal").map((c) => c.part);
   const closures = new Map<string, Closure>();
   const closureFor = (p: Part) => {
-    const known = closures.get(p.id) ?? closureOf(kit, p, seals.filter((s) => closerOf(kit, s).id === p.id).map((s) => s.id));
+    const known =
+      closures.get(p.id) ??
+      closureOf(
+        kit,
+        p,
+        seals.filter((s) => closerOf(kit, s).id === p.id).map((s) => s.id),
+      );
     closures.set(p.id, known);
     return known;
   };
@@ -147,8 +191,14 @@ export function generatedStory(kit: Kit, id = "story", strict = false): Story | 
       match: /(?!)/,
       build: "drag",
       explode: explodePlanOf(kit),
-      view: facingView(kit, modules.flatMap((m) => m.produces)),
-      rest: (ctx): Scene => ({ moves: {}, marks: twisted.filter((c) => ctx.present.includes(c.piece.child.id)).map((c) => ({ ...turnMarkOf(c), id: `turn-${c.piece.child.id}` })) }),
+      view: facingView(
+        kit,
+        modules.flatMap((m) => m.produces),
+      ),
+      rest: (ctx): Scene => ({
+        moves: {},
+        marks: twisted.filter((c) => ctx.present.includes(c.piece.child.id)).map((c) => ({ ...turnMarkOf(c), id: `turn-${c.piece.child.id}` })),
+      }),
       modules: modules.map(({ payoff: _, ...m }) => m),
       final: {
         title: "Put it together",

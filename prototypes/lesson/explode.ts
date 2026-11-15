@@ -17,7 +17,11 @@ type Axle = { x: number; v: number; target: number; pending: { value: number; at
 /** Every assembly's spring, in the plan's leaving order, and the springs' own clock in ms. */
 export type Springs = { ms: number; ids: readonly string[]; axles: readonly Axle[] };
 
-export const springsAt = (ids: readonly string[], value: number): Springs => ({ ms: 0, ids, axles: ids.map(() => ({ x: value, v: 0, target: value, pending: null })) });
+export const springsAt = (ids: readonly string[], value: number): Springs => ({
+  ms: 0,
+  ids,
+  axles: ids.map(() => ({ x: value, v: 0, target: value, pending: null })),
+});
 export const idsOf = (plan: ExplodePlan | undefined): string[] => (plan ? plan.order.map((l) => l.id) : [WHOLE]);
 
 /**

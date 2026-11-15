@@ -92,13 +92,17 @@ describe("seal", () => {
     };
     assert.equal(sprayAt(0.4), 4);
     assert.equal(sprayAt(0.2), 0);
-    for (const { frame } of sample(game.play({ squeeze: 0.4 }))) for (const m of frame.marks ?? []) assert.ok(m.position.y - geometry.DROP_R >= PLATE_TOP - 1e-9, "spray stays above the plate");
+    for (const { frame } of sample(game.play({ squeeze: 0.4 })))
+      for (const m of frame.marks ?? []) assert.ok(m.position.y - geometry.DROP_R >= PLATE_TOP - 1e-9, "spray stays above the plate");
   });
 
   it("keeps drops slate and the lid a mid grey: only the handle is light", () => {
     for (const s of steps(squeeze)) {
       const parts = seal.build({ squeeze: s });
-      assert.deepEqual(parts.filter((p) => p.color === COLOR.light).map((p) => p.id), ["handle"]);
+      assert.deepEqual(
+        parts.filter((p) => p.color === COLOR.light).map((p) => p.id),
+        ["handle"],
+      );
       const lid = find(parts, "lid");
       assert.ok(lid.finish !== "metal" && lid.color !== COLOR.light, "the lid is not the metal finish that renders near-white");
       for (const d of parts.filter((p) => p.id.startsWith("drop-"))) assert.equal(d.color, COLOR.slate);
@@ -127,7 +131,8 @@ describe("seal", () => {
         for (let i = low + 1; i <= top; i++) assert.ok(sq[i]! >= sq[i - 1]! - 1e-9, `twisting at ${frames[i]!.ms} ms`);
         for (let i = top; i < sq.length; i++) assert.ok(Math.abs(sq[i]! - s) < 1e-9, `squeeze holds from ${frames[top]!.ms} ms`);
         // The gasket the picture shows is the thickness the number implies, in every frame.
-        for (const { frame } of frames) assert.ok(Math.abs(thick(frame.values) - T0 * (1 - Math.round(frame.values.squeeze! * 100) / 100)) < 1e-9, `gasket at ${frame.live}`);
+        for (const { frame } of frames)
+          assert.ok(Math.abs(thick(frame.values) - T0 * (1 - Math.round(frame.values.squeeze! * 100) / 100)) < 1e-9, `gasket at ${frame.live}`);
         assert.ok(Math.abs(thick(run.at(run.durationMs).values) - T0 * (1 - s)) < 1e-9, "ends at the squeeze that was set");
       }
     });
@@ -143,7 +148,11 @@ describe("seal", () => {
         // (The lead frames show the joint as it was set, with whatever drops it had at rest.)
         const back = frames.findIndex(({ frame }) => frame.live.startsWith("Backing"));
         for (const { ms, frame } of frames.slice(back, last + 1)) {
-          assert.equal(seal.build(frame.values).filter((q) => q.id.startsWith("drop-")).length, 0, `drops at ${ms} ms, before the pressure is up (frame ${first})`);
+          assert.equal(
+            seal.build(frame.values).filter((q) => q.id.startsWith("drop-")).length,
+            0,
+            `drops at ${ms} ms, before the pressure is up (frame ${first})`,
+          );
           assert.equal((frame.marks ?? []).length, 0);
         }
       }
@@ -152,12 +161,24 @@ describe("seal", () => {
     it("then drops escape (weeping), the rubber sprays (split), or nothing does and the hold is confirmed (dry)", () => {
       const after = (s: number) => caption(s).filter(({ frame }) => !/^(Squeez|Backing|Pressure)/.test(frame.live));
       const drops = (f: { frame: { values: Record<string, number> } }) => seal.build(f.frame.values).filter((q) => q.id.startsWith("drop-")).length;
-      assert.ok(after(0.05).some((f) => drops(f) >= 1), "drops escape when it weeps");
+      assert.ok(
+        after(0.05).some((f) => drops(f) >= 1),
+        "drops escape when it weeps",
+      );
       assert.ok(after(0.05).at(-1)!.frame.live.startsWith("Leaking"));
-      assert.ok(after(0.4).some((f) => (f.frame.marks ?? []).length === 4), "spray when it splits");
-      assert.ok(after(0.2).every((f) => drops(f) === 0 && (f.frame.marks ?? []).length === 0), "nothing escapes when it holds");
+      assert.ok(
+        after(0.4).some((f) => (f.frame.marks ?? []).length === 4),
+        "spray when it splits",
+      );
+      assert.ok(
+        after(0.2).every((f) => drops(f) === 0 && (f.frame.marks ?? []).length === 0),
+        "nothing escapes when it holds",
+      );
       assert.equal(after(0.2).at(-1)!.frame.live, "Dry joint");
-      assert.deepEqual((game.play({ squeeze: 0.2 }).cues ?? []).map((c) => c.kind), ["click"]);
+      assert.deepEqual(
+        (game.play({ squeeze: 0.2 }).cues ?? []).map((c) => c.kind),
+        ["click"],
+      );
     });
   });
 

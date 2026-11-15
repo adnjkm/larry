@@ -81,7 +81,9 @@ export function pairOf(kit: Kit, child: Part, produces: readonly string[], pin: 
   const sign = Math.abs(away[axis]) < 1e-6 ? 1 : Math.sign(away[axis]);
   const below = (id: string): string[] => [id, ...kit.parts.filter((p) => p.parentId === id).flatMap((p) => below(p.id))];
   return {
-    kit, child, parent,
+    kit,
+    child,
+    parent,
     childName: child.name.toLowerCase(),
     noun: child.name.toLowerCase().split(/\s+/).pop()!,
     parentName: parent.name.toLowerCase(),
@@ -117,7 +119,15 @@ export const targetOf = (pair: Pair) => {
 
 const arrowShape = (length: number): Shape => {
   const h = length / 2;
-  const pts = [[-2.5, -h], [2.5, -h], [2.5, h - 8], [6, h - 8], [0, h], [-6, h - 8], [-2.5, h - 8]];
+  const pts = [
+    [-2.5, -h],
+    [2.5, -h],
+    [2.5, h - 8],
+    [6, h - 8],
+    [0, h],
+    [-6, h - 8],
+    [-2.5, h - 8],
+  ];
   return { kind: "extrusion", outline: pts.map(([x, y]) => ({ x: x!, y: y! })), depth: 3 };
 };
 const ARROW = arrowShape(18);

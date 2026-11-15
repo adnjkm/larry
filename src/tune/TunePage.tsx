@@ -9,7 +9,13 @@ import { colors, fonts } from "../tokens.stylex.ts";
 
 const kitJson = import.meta.glob<unknown>("../../fixtures/kits/*.json", { eager: true, import: "default" });
 const models: Record<string, Kit> = Object.fromEntries(
-  Object.entries(kitJson).map(([path, raw]) => [path.split("/").pop()?.replace(/\.json$/, "") ?? path, parseKit(raw)]),
+  Object.entries(kitJson).map(([path, raw]) => [
+    path
+      .split("/")
+      .pop()
+      ?.replace(/\.json$/, "") ?? path,
+    parseKit(raw),
+  ]),
 );
 const modelNames = Object.keys(models);
 
@@ -25,7 +31,19 @@ function toHex(css: string): string {
 }
 
 const styles = stylex.create({
-  page: { minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, boxSizing: "border-box", fontFamily: fonts.mono, fontSize: 13, color: colors.graphite },
+  page: {
+    minHeight: "100dvh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    padding: 24,
+    boxSizing: "border-box",
+    fontFamily: fonts.mono,
+    fontSize: 13,
+    color: colors.graphite,
+  },
   paper: (color: string) => ({ backgroundColor: color }),
   stage: (width: number) => ({ width, maxWidth: "100%", display: "flex", justifyContent: "center" }),
 });

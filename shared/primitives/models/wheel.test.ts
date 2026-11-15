@@ -104,7 +104,10 @@ describe("wheel", () => {
     }
     // The verdict's arithmetic uses it too: a pass holds with the arm's 15 N at the knob's own radius.
     for (const r of [32, 35, 38]) {
-      const hand = Math.hypot(find(wheel.build({ radius: r, turn: 0 }), "knob").position.x, find(wheel.build({ radius: r, turn: 0 }), "knob").position.y - rig.AXLE_Y);
+      const hand = Math.hypot(
+        find(wheel.build({ radius: r, turn: 0 }), "knob").position.x,
+        find(wheel.build({ radius: r, turn: 0 }), "knob").position.y - rig.AXLE_Y,
+      );
       assert.ok((LOAD * R_EFF) / hand <= ARM + 1e-9, `radius ${r}: a pass the hand could not hold`);
     }
     assert.ok((LOAD * R_EFF) / 31 > ARM, "31 is too small to pass");
@@ -127,7 +130,10 @@ describe("wheel", () => {
         for (const q of rects) {
           const dx = Math.max(q.x0 - k.x, 0, k.x - q.x1);
           const dy = Math.max(q.y0 - k.y, 0, k.y - q.y1);
-          assert.ok(Math.hypot(dx, dy) > 5.5 + 1, `radius ${r}, turn ${t}: the knob is ${Math.hypot(dx, dy).toFixed(1)} mm from the bucket or cord in the front view`);
+          assert.ok(
+            Math.hypot(dx, dy) > 5.5 + 1,
+            `radius ${r}, turn ${t}: the knob is ${Math.hypot(dx, dy).toFixed(1)} mm from the bucket or cord in the front view`,
+          );
         }
         assert.ok(k.z + 10 < bucket.position.z - e / 2, "the knob's tip reaches the bucket's z");
       }
@@ -231,7 +237,8 @@ describe("wheel", () => {
     }
     assert.ok(post.position.x + post.shape.width / 2 < bucket.position.x - box(bucket).width / 2);
     // The knob stays in front of the wheel's face and behind the bucket's plane, so the post (in the bucket's plane) never meets it.
-    for (const r of steps(radius)) for (const t of [0, 0.5]) assert.ok(find(wheel.build({ radius: r, turn: t }), "knob").position.z + 10 < post.position.z - post.shape.depth / 2);
+    for (const r of steps(radius))
+      for (const t of [0, 0.5]) assert.ok(find(wheel.build({ radius: r, turn: t }), "knob").position.z + 10 < post.position.z - post.shape.depth / 2);
     assert.equal(new Set(scene.map((p) => p.name)).size, 2);
   });
 

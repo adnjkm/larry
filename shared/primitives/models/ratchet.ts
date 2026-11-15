@@ -14,7 +14,28 @@
 import type { Part } from "../../kit.ts";
 import { clamp, clamp01, fall, shudder, smooth } from "../motion/ease.ts";
 import { frame, HOLD, LEAD, MARK as MARK_ID, phases, SCENE, whenReaches } from "../motion/run.ts";
-import { arrow, coil, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, pin, pivoted, plate, PLATE_TOP, post, shaped, strand, tick, v3, type Pt } from "../parts.ts";
+import {
+  arrow,
+  coil,
+  cylinder,
+  fmt,
+  knob,
+  loadBlock,
+  loadEdge,
+  look,
+  on,
+  part,
+  pin,
+  pivoted,
+  plate,
+  PLATE_TOP,
+  post,
+  shaped,
+  strand,
+  tick,
+  v3,
+  type Pt,
+} from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { REST_LIFT } from "./ratchetTable.ts";
 import { LIFT_CLEAR, PAWL, PIVOT, ROOT, STUMP, type Stripped, toothHeight, turnAbout, Wheel, restingLift, wheelDeg } from "./ratchetGeometry.ts";
@@ -48,7 +69,16 @@ const KNOB_AT_0 = 150;
  */
 const STAND: Pt[] = (() => {
   const yb = PLATE_TOP - W.y;
-  return [[28, yb], [38, yb], [38, 34], [28, 34], [28, 4], [-4, 4], [-4, -4], [28, -4]];
+  return [
+    [28, yb],
+    [38, yb],
+    [38, 34],
+    [28, 34],
+    [28, 4],
+    [-4, 4],
+    [-4, -4],
+    [28, -4],
+  ];
 })();
 /** The pawl's spring is a coil on its pivot stub, between the pawl's back face and the stand's face: this wide to the wire's centre. */
 const SPRING_R = 5.5;
@@ -158,22 +188,64 @@ function build(v: Values): Part[] {
   const pawl = pivoted(PAWL, 8, PIVOT, at(PIVOT), s.psi);
   const stand = pivoted(STAND, 10, [0, 0], at([0, 0], Z_STAND), 0);
   // The load is a stone cube on the cord: its weight is obvious, so it has no arrow (the figure stays small).
-  const bucket = loadBlock("bucket", at([CORD_X, PLATE_TOP + s.rise - W.y], Z_HUB), LOAD, 0, { name: "Bucket", role: "The load: its weight tries to turn the wheel back.", on: on("cord", "glue") });
+  const bucket = loadBlock("bucket", at([CORD_X, PLATE_TOP + s.rise - W.y], Z_HUB), LOAD, 0, {
+    name: "Bucket",
+    role: "The load: its weight tries to turn the wheel back.",
+    on: on("cord", "glue"),
+  });
   const springLength = Z_PAWL_BACK - Z_STAND_FACE;
   return [
     plate(70, 50),
     shaped("stand", "Stand", "Carries the wheel's axle and the pawl's pivot.", stand, look.structure, on("plate", "weld")),
     // The pivot stub comes forward from the stand to the pawl's plane.
-    pin("pivot", at(PIVOT, Z_STAND_FACE + springLength / 2 - 1), springLength + 2, { name: "Stand", role: "The stub the pawl swings on.", on: on("stand", "weld") }),
+    pin("pivot", at(PIVOT, Z_STAND_FACE + springLength / 2 - 1), springLength + 2, {
+      name: "Stand",
+      role: "The stub the pawl swings on.",
+      on: on("stand", "weld"),
+    }),
     part("wheel", "Ratchet wheel", "Sawtooth wedges: ramps one way, cliffs the other.", w.shape, w.position, look.focus, on("stand", "hinge"), w.rotation),
     // The hub is cast with the wheel, behind it: the cord winds onto it.
-    part("hub", "Ratchet wheel", "The wheel's hub: the cord winds onto it as the wheel turns.", cylinder(HUB_R, 10).shape, at([0, 0], Z_HUB), look.focus, on("wheel", "weld"), v3(90, 0, 0)),
+    part(
+      "hub",
+      "Ratchet wheel",
+      "The wheel's hub: the cord winds onto it as the wheel turns.",
+      cylinder(HUB_R, 10).shape,
+      at([0, 0], Z_HUB),
+      look.focus,
+      on("wheel", "weld"),
+      v3(90, 0, 0),
+    ),
     knob("knob", at(knobPoint(s.turn), Z_KNOB), "z", { name: "Knob", role: "Where your hand winds the wheel.", on: on("wheel", "hinge") }),
-    shaped("cord", "Cord", "Hangs the bucket from the hub.", strand(at([CORD_X, 0], Z_HUB), at([CORD_X, bucket.top - W.y], Z_HUB), CORD), look.slate, on("hub", "glue")),
+    shaped(
+      "cord",
+      "Cord",
+      "Hangs the bucket from the hub.",
+      strand(at([CORD_X, 0], Z_HUB), at([CORD_X, bucket.top - W.y], Z_HUB), CORD),
+      look.slate,
+      on("hub", "glue"),
+    ),
     ...bucket.parts.filter((q) => !/arrow/.test(q.id)),
-    part("pawl", "Pawl", "Rides up each ramp and drops behind each cliff; a backward push jams it into the tooth.", pawl.shape, pawl.position, look.focus, on("pivot", "hinge"), pawl.rotation),
+    part(
+      "pawl",
+      "Pawl",
+      "Rides up each ramp and drops behind each cliff; a backward push jams it into the tooth.",
+      pawl.shape,
+      pawl.position,
+      look.focus,
+      on("pivot", "hinge"),
+      pawl.rotation,
+    ),
     // One coil round the pawl's pivot presses it onto the wheel. Its ends are on the stand and the pawl, so it needs no housing.
-    part("spring", "Spring", "Presses the pawl onto the wheel.", coil(SPRING_R, SPRING_WIRE, springLength, 4), at(PIVOT, Z_STAND_FACE + springLength / 2), look.slate, on("stand", "spring"), v3(90, 0, 0)),
+    part(
+      "spring",
+      "Spring",
+      "Presses the pawl onto the wheel.",
+      coil(SPRING_R, SPRING_WIRE, springLength, 4),
+      at(PIVOT, Z_STAND_FACE + springLength / 2),
+      look.slate,
+      on("stand", "spring"),
+      v3(90, 0, 0),
+    ),
   ];
 }
 
@@ -183,7 +255,10 @@ function readouts(v: Values) {
   return [
     { label: "Step", value: `360° ÷ ${s.n} = ${fmt(360 / s.n, 1)}° = ${fmt(step, 1)} mm of lift` },
     { label: "Travel", value: `knob ${fmt(s.turn * 360)}° round, bucket up ${fmt(s.rise, 1)} mm` },
-    { label: "State", value: s.seated ? `pawl holds it on landing ${s.clicks}` : `${s.clicks} clicks; let go and it drops ${fmt(s.slack * LIFT_PER_TURN, 1)} mm` },
+    {
+      label: "State",
+      value: s.seated ? `pawl holds it on landing ${s.clicks}` : `${s.clicks} clicks; let go and it drops ${fmt(s.slack * LIFT_PER_TURN, 1)} mm`,
+    },
   ];
 }
 
@@ -208,9 +283,19 @@ function judge(v: Values): Verdict {
     case "strips":
       return { pass: false, outcome: "teeth-stripped", headline: "Teeth sheared off", detail: "Too many fine teeth: each one is too weak to hold the bucket." };
     case "slips":
-      return { pass: false, outcome: "slipped-past", headline: "Slipped past the mark", detail: "Too few teeth: the pawl only catches far below the mark, so the bucket sinks." };
+      return {
+        pass: false,
+        outcome: "slipped-past",
+        headline: "Slipped past the mark",
+        detail: "Too few teeth: the pawl only catches far below the mark, so the bucket sinks.",
+      };
     case "pass":
-      return { pass: true, outcome: "held-at-mark", headline: "Held at the mark", detail: "The pawl catches right under the mark, and the teeth are strong enough to hold." };
+      return {
+        pass: true,
+        outcome: "held-at-mark",
+        headline: "Held at the mark",
+        detail: "The pawl catches right under the mark, and the teeth are strong enough to hold.",
+      };
   }
 }
 
@@ -232,7 +317,11 @@ const CHIP_FALL = 380;
 /** The tooth tip a shear breaks off: what is above the stump. */
 function chip(n: number): Pt[] {
   const h = Math.max(3, toothHeight(n) - STUMP);
-  return [[0, 0], [3.5, 0], [0, h]];
+  return [
+    [0, 0],
+    [3.5, 0],
+    [0, h],
+  ];
 }
 
 function play(v: Values): Run {
@@ -247,7 +336,7 @@ function play(v: Values): Run {
   const windMs = clamp(400 + 1100 * (r.markTurn - from), 400, prepped ? 1000 : 1400);
   const dropMs = clamp(110 * Math.sqrt(r.drop), 80, 320);
   const strips = r.kind === "strips";
-  const downMs = clamp(260 * Math.sqrt(r.landTurn * LIFT_PER_TURN / 10), 450, 800);
+  const downMs = clamp(260 * Math.sqrt((r.landTurn * LIFT_PER_TURN) / 10), 450, 800);
   const tl = phases({
     unload: prepped ? PREP.unload : 0,
     lift: prepped ? PREP.lift : 0,
@@ -265,7 +354,8 @@ function play(v: Values): Run {
   const windTurn = (ms: number) => from + (r.markTurn - from) * smooth(tl.t("wind", ms));
   const downTurn = (ms: number) => r.landTurn * (1 - fall(tl.t("rundown", ms)));
   const cues: Cue[] = [];
-  for (let k = Math.floor(from * n + 1e-9) + 1; k / n <= r.markTurn + 1e-9; k++) cues.push({ ms: whenReaches(windTurn, k / n, tl.start("wind"), tl.end("wind")), kind: "click" });
+  for (let k = Math.floor(from * n + 1e-9) + 1; k / n <= r.markTurn + 1e-9; k++)
+    cues.push({ ms: whenReaches(windTurn, k / n, tl.start("wind"), tl.end("wind")), kind: "click" });
   cues.push({ ms: tl.end("drop"), kind: "click" });
   /** When the rundown (turn = landTurn × (1 - u²)) passes landing j, the tooth there shears. */
   const shearAt = (j: number) => tl.start("rundown") + Math.sqrt(1 - j / (n * r.landTurn)) * downMs;
@@ -282,7 +372,13 @@ function play(v: Values): Run {
     cues.push({ ms: tl.end("rundown"), kind: "thud" });
   }
 
-  const values = (turn: number, extra: { lift?: number; strip?: number } = {}): Values => ({ ...v, teeth: v.teeth ?? 12, turn, lift: extra.lift ?? 0, strip: extra.strip ?? 0 });
+  const values = (turn: number, extra: { lift?: number; strip?: number } = {}): Values => ({
+    ...v,
+    teeth: v.teeth ?? 12,
+    turn,
+    lift: extra.lift ?? 0,
+    strip: extra.strip ?? 0,
+  });
   const chips = (ms: number): Part[] =>
     sheared
       .filter((c) => ms >= c.ms)
@@ -293,7 +389,16 @@ function play(v: Values): Run {
         const x = W.x + ROOT + STUMP + 2 + q * (i % 4) * 3;
         const z = W.z + q * ((i % 3) - 1) * 5;
         const p = pivoted(chip(n), 10, [0, 0], v3(x, y, z), 0);
-        return part(`${MARK_ID}chip-${c.j}`, "Tooth chip", "A tooth tip sheared off by the bucket's weight.", p.shape, p.position, look.focus, on("plate", "glue"), p.rotation);
+        return part(
+          `${MARK_ID}chip-${c.j}`,
+          "Tooth chip",
+          "A tooth tip sheared off by the bucket's weight.",
+          p.shape,
+          p.position,
+          look.focus,
+          on("plate", "glue"),
+          p.rotation,
+        );
       });
   const liftArrow = (turn: number, lift: number): Part[] => {
     const psi = pawlLift(n, turn, 0, lift);
@@ -364,7 +469,11 @@ function scene(): Part[] {
   const tickAt = right + MARK_CLEAR;
   return [
     post(`${SCENE}post`, tickAt + MARK_LENGTH + 5, z, markY + 1.5, { name: "Post", role: "Holds the mark beside the bucket's path." }),
-    tick(`${SCENE}mark`, v3(tickAt + MARK_LENGTH / 2, markY, z), MARK_LENGTH, "x", { name: "Mark", role: "Where the bucket's top has to stop.", on: on(`${SCENE}post`, "weld") }),
+    tick(`${SCENE}mark`, v3(tickAt + MARK_LENGTH / 2, markY, z), MARK_LENGTH, "x", {
+      name: "Mark",
+      role: "Where the bucket's top has to stop.",
+      on: on(`${SCENE}post`, "weld"),
+    }),
   ];
 }
 
@@ -379,10 +488,7 @@ export const ratchet: Primitive = {
     "A ratchet wheel's teeth are wedges: a gentle ramp on one side and a straight cliff on the other. A coil spring round its hinge presses a hooked catch, the pawl, onto the wheel. Winding forward, the pawl's nose rides up each ramp and drops behind each cliff: that is the click. Let go and the load turns the wheel back until a cliff meets the nose; the pawl's pivot sits above and outside the nose, so that push turns it further into the tooth and it locks. The wheel can only stop at a landing, so it rolls back up to one tooth before it holds. More teeth give finer landings, but smaller teeth that shear more easily. In this game a tooth holds about 1100 ÷ teeth newtons: that is a simplification to show finer teeth being weaker, not a rule for real steel. Friction and the spring's force are left out.",
   madeOf: ["wheel", "wedge", "spring"],
   seenIn: ["Socket wrench", "Bike freewheel", "The watch's click"],
-  sliders: [
-    TEETH,
-    { id: "turn", label: "Turn", min: 0, max: 1, step: 0.002, initial: 0.06, unit: "°", displayScale: 360 },
-  ],
+  sliders: [TEETH, { id: "turn", label: "Turn", min: 0, max: 1, step: 0.002, initial: 0.06, unit: "°", displayScale: 360 }],
   view: VIEW.bench,
   build,
   readouts,

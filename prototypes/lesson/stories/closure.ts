@@ -4,7 +4,22 @@
 // cap choreography, read off any kit part: it rides down turning and crooked, sits, then presses in.
 import type { Kit, Part } from "../../../shared/kit.ts";
 import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
-import { AXIS, type Control, type Ctx, EMPTY_SCENE, type PartMove, type Rigid, STILL, type StoryModuleSpec, type Test, type Values, type Vec, vec, type Zone, zoneAt } from "../model.ts";
+import {
+  AXIS,
+  type Control,
+  type Ctx,
+  EMPTY_SCENE,
+  type PartMove,
+  type Rigid,
+  STILL,
+  type StoryModuleSpec,
+  type Test,
+  type Values,
+  type Vec,
+  vec,
+  type Zone,
+  zoneAt,
+} from "../model.ts";
 import { add, overlay, scale, shudder, targetOf, turnMark } from "../templates/pair.ts";
 import { carryAll, dropBelow, fit, floorOf, type Piece, pieceOf, threeZones } from "./piece.ts";
 
@@ -62,7 +77,13 @@ export function closureOf(kit: Kit, part: Part, seals: readonly string[]): Closu
   const length = 2 * piece.half[piece.axis];
   const lift = Math.min(12 * piece.k, Math.max(3 * piece.k, 0.3 * length));
   const sealed = (ctx: Ctx) => seals.some((id) => ctx.present.includes(id));
-  const sealThick = Math.min(...seals.map((id) => kit.parts.find((p) => p.id === id)).filter((p): p is Part => p !== undefined).map((p) => 2 * pieceOf(kit, p).half[piece.axis]), length);
+  const sealThick = Math.min(
+    ...seals
+      .map((id) => kit.parts.find((p) => p.id === id))
+      .filter((p): p is Part => p !== undefined)
+      .map((p) => 2 * pieceOf(kit, p).half[piece.axis]),
+    length,
+  );
   const crushSink = Math.min(0.12 * length, 0.6 * sealThick);
   const [seat, crush] = grip.until;
   const valueOf = (v: Values) => v[key] ?? 0;
@@ -78,7 +99,10 @@ export function closureOf(kit: Kit, part: Part, seals: readonly string[]): Closu
   };
   const moveOf = (q: Pose): PartMove => ({
     offset: add(scale(piece.out, q.d), q.shift ?? vec()),
-    turns: [{ axis: piece.out, pivot: piece.centre, deg: q.spin }, { axis: tiltAxisOf(piece), pivot: piece.centre, deg: q.tilt }],
+    turns: [
+      { axis: piece.out, pivot: piece.centre, deg: q.spin },
+      { axis: tiltAxisOf(piece), pivot: piece.centre, deg: q.tilt },
+    ],
   });
   const carry = (ctx: Ctx, q: Pose) => carryAll(piece.subtree, ctx.present, moveOf(q));
 
@@ -115,7 +139,11 @@ export function closureOf(kit: Kit, part: Part, seals: readonly string[]): Closu
       const upward = Math.abs(piece.out.y) > 0.9;
       const v0 = add(scale(piece.out, (upward ? 260 : 170) * k), upward ? vec(170 * k, 0, 0) : vec(0, 260 * k, 0));
       const startD = rest.d + 0.02 * piece.size;
-      const reach = dropBelow(kit, piece.subtree.filter((id) => ctx.present.includes(id)), moveOf({ d: 0, spin: 0, tilt: -90 }));
+      const reach = dropBelow(
+        kit,
+        piece.subtree.filter((id) => ctx.present.includes(id)),
+        moveOf({ d: 0, spin: 0, tilt: -90 }),
+      );
       const y0 = piece.out.y * startD;
       const target = floorOf(ctx) + reach - piece.centre.y;
       const flight = (v0.y + Math.sqrt(Math.max(0, v0.y * v0.y + 2 * g * (y0 - target)))) / g;
@@ -123,10 +151,19 @@ export function closureOf(kit: Kit, part: Part, seals: readonly string[]): Closu
         if (ms < OFF_AT) {
           // Rattling: it hops on what it never gripped.
           const hop = 0.02 * piece.size * Math.abs(Math.sin((2 * Math.PI * ms) / SHAKE_EACH));
-          return { d: rest.d + hop, spin: rest.spin + 10 * Math.sin((4 * Math.PI * ms) / SHAKE_EACH), tilt: rest.tilt + 6 * Math.sin((2 * Math.PI * ms) / SHAKE_EACH) };
+          return {
+            d: rest.d + hop,
+            spin: rest.spin + 10 * Math.sin((4 * Math.PI * ms) / SHAKE_EACH),
+            tilt: rest.tilt + 6 * Math.sin((2 * Math.PI * ms) / SHAKE_EACH),
+          };
         }
         const tau = Math.min((ms - OFF_AT) / 1000, flight);
-        return { d: startD, spin: rest.spin + 400 * tau, tilt: rest.tilt - 90 * (tau / flight), shift: vec(v0.x * tau, v0.y * tau - 0.5 * g * tau * tau, v0.z * tau) };
+        return {
+          d: startD,
+          spin: rest.spin + 400 * tau,
+          tilt: rest.tilt - 90 * (tau / flight),
+          shift: vec(v0.x * tau, v0.y * tau - 0.5 * g * tau * tau, v0.z * tau),
+        };
       };
       const offEnd = Math.max(SHAKE_SWING, OFF_AT + flight * 1000);
       const end = poseOff(offEnd);
@@ -138,7 +175,12 @@ export function closureOf(kit: Kit, part: Part, seals: readonly string[]): Closu
           const p = smooth(clamp01((ms - offEnd - SHAKE_HOLD) / SHAKE_RESET));
           const mix = (a: number, b: number) => a * (1 - p) + b * p;
           const shift = end.shift ?? vec();
-          const back: Pose = { d: mix(end.d, rest.d), spin: mix(end.spin, rest.spin), tilt: mix(end.tilt, rest.tilt), shift: vec(shift.x * (1 - p), shift.y * (1 - p) + 0.2 * piece.size * Math.sin(Math.PI * p), shift.z * (1 - p)) };
+          const back: Pose = {
+            d: mix(end.d, rest.d),
+            spin: mix(end.spin, rest.spin),
+            tilt: mix(end.tilt, rest.tilt),
+            shift: vec(shift.x * (1 - p), shift.y * (1 - p) + 0.2 * piece.size * Math.sin(Math.PI * p), shift.z * (1 - p)),
+          };
           return overlay("Putting it back", carry(ctx, back), [], rigidAt(ms));
         },
       };
@@ -152,9 +194,10 @@ export function closureOf(kit: Kit, part: Part, seals: readonly string[]): Closu
       const rest = poseAt(valueOf(values), ctx);
       if (zone(values, ctx).id === "high") {
         return {
-          verdict: kind === "twist"
-            ? { pass: false, line: "Stuck. It's too tight to open by hand.", nudge: `The ${piece.name} is on too tight.` }
-            : { pass: false, line: "Stuck. A hand can't pull it off.", nudge: `The ${piece.name} is pressed in too far.` },
+          verdict:
+            kind === "twist"
+              ? { pass: false, line: "Stuck. It's too tight to open by hand.", nudge: `The ${piece.name} is on too tight.` }
+              : { pass: false, line: "Stuck. A hand can't pull it off.", nudge: `The ${piece.name} is pressed in too far.` },
           durationMs: REFUSE_MS,
           at: (ms) => {
             const w = shudder(clamp01(ms / REFUSE_MS));
@@ -172,14 +215,20 @@ export function closureOf(kit: Kit, part: Part, seals: readonly string[]): Closu
         at: (ms) => {
           if (ms < undo) {
             const p = smooth(ms / undo);
-            return overlay(kind === "twist" ? "Opening…" : "Pulling…", carry(ctx, { d: rest.d + (loose.d - rest.d) * p, spin: rest.spin + (loose.spin - rest.spin) * p, tilt: rest.tilt * (1 - p) }));
+            return overlay(
+              kind === "twist" ? "Opening…" : "Pulling…",
+              carry(ctx, { d: rest.d + (loose.d - rest.d) * p, spin: rest.spin + (loose.spin - rest.spin) * p, tilt: rest.tilt * (1 - p) }),
+            );
           }
           if (ms < undo + OPEN_LIFTOFF + OPEN_HOLD) {
             const q = easeOut(clamp01((ms - undo) / OPEN_LIFTOFF));
             return overlay(kind === "twist" ? "Open" : "Off", carry(ctx, { ...loose, d: lift + (free - lift) * q }));
           }
           const p = smooth(clamp01((ms - undo - OPEN_LIFTOFF - OPEN_HOLD) / OPEN_BACK));
-          return overlay("Putting it back", carry(ctx, { d: free + (rest.d - free) * p, spin: loose.spin + (rest.spin - loose.spin) * p, tilt: rest.tilt * p }));
+          return overlay(
+            "Putting it back",
+            carry(ctx, { d: free + (rest.d - free) * p, spin: loose.spin + (rest.spin - loose.spin) * p, tilt: rest.tilt * p }),
+          );
         },
       };
     },
@@ -214,9 +263,35 @@ export function closerModule(c: Closure, produces: readonly string[], adds: read
       values: { [c.control.key]: 0 },
     },
     learn: twist
-      ? { say: "Twist it. The nut rides the spiral.", rigs: { thread: { controls: { turns: "Twist" }, why: ["A thread is a ramp wrapped round a post.", "Twist the nut and the ramp carries it along.", `On the ${p.object}, that ramp pulls the ${p.name} on and holds it there.`] } } }
-      : { say: "Squeeze it. Friction holds it there.", rigs: { grip: { controls: { squeeze: "Squeeze" }, why: ["Squeezed surfaces push hard on each other.", "Friction between them stops them sliding.", `On the ${p.object}, a tight fit squeezes the ${p.name} so it stays.`] } } },
-    uses: twist ? { thread: `A thread turns your twist into a grip that holds the ${p.name} on.` } : { grip: `A tight fit squeezes the ${p.name}, and friction holds it on.` },
+      ? {
+          say: "Twist it. The nut rides the spiral.",
+          rigs: {
+            thread: {
+              controls: { turns: "Twist" },
+              why: [
+                "A thread is a ramp wrapped round a post.",
+                "Twist the nut and the ramp carries it along.",
+                `On the ${p.object}, that ramp pulls the ${p.name} on and holds it there.`,
+              ],
+            },
+          },
+        }
+      : {
+          say: "Squeeze it. Friction holds it there.",
+          rigs: {
+            grip: {
+              controls: { squeeze: "Squeeze" },
+              why: [
+                "Squeezed surfaces push hard on each other.",
+                "Friction between them stops them sliding.",
+                `On the ${p.object}, a tight fit squeezes the ${p.name} so it stays.`,
+              ],
+            },
+          },
+        },
+    uses: twist
+      ? { thread: `A thread turns your twist into a grip that holds the ${p.name} on.` }
+      : { grip: `A tight fit squeezes the ${p.name}, and friction holds it on.` },
     assemble: {
       piece: p.Name,
       title: twist ? `The thread inside the ${p.name} grips the ${p.parentWords}.` : `The ${p.name} presses tight onto the ${p.parentWords}.`,
@@ -224,15 +299,27 @@ export function closerModule(c: Closure, produces: readonly string[], adds: read
     },
     target: targetFor(p),
     enter: scale(p.out, 50 * p.k),
-    play: { say: twist ? fit((n) => `Twist the ${n} on. Then shake.`, p.name) : fit((n) => `Press the ${n} in. Then shake.`, p.name), control: c.control, tests: [c.shake, c.open] },
+    play: {
+      say: twist ? fit((n) => `Twist the ${n} on. Then shake.`, p.name) : fit((n) => `Press the ${n} in. Then shake.`, p.name),
+      control: c.control,
+      tests: [c.shake, c.open],
+    },
     hints: [
       `Watch the ${p.name} while it shakes. Does it stay put?`,
       twist ? `A loose ${p.name} only rests on the thread. Twist it further.` : `A loose ${p.name} has no grip. Press it further.`,
       `Too far and a hand can't get it off. Stop at ${ok(c)}.`,
     ],
     why: twist
-      ? [`On its own the ${p.name} just rests on the ${p.parentWords}.`, "The thread pulls it on and holds it tight.", `Without the thread, the first bump knocks the ${p.name} off.`]
-      : [`The ${p.name} only stays because it is squeezed tight.`, "Squeezed surfaces grip each other. That grip is friction.", `Without a tight fit, the ${p.name} falls off at the first bump.`],
+      ? [
+          `On its own the ${p.name} just rests on the ${p.parentWords}.`,
+          "The thread pulls it on and holds it tight.",
+          `Without the thread, the first bump knocks the ${p.name} off.`,
+        ]
+      : [
+          `The ${p.name} only stays because it is squeezed tight.`,
+          "Squeezed surfaces grip each other. That grip is friction.",
+          `Without a tight fit, the ${p.name} falls off at the first bump.`,
+        ],
     job: twist ? fit((n) => `The thread holds the ${n} on.`, p.name) : fit((n) => `A tight fit holds the ${n} on.`, p.name),
     cheer: twist ? "Locked on!" : "Pressed in!",
     payoff: twist ? { part: "Thread", job: `holds the ${p.name} on.` } : { part: "Tight fit", job: `holds the ${p.name} in.` },

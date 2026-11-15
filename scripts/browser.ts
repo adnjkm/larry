@@ -32,7 +32,9 @@ function findChromium(): string {
 export function launchChromium(gpu = false): Promise<Browser> {
   return chromium.launch({
     executablePath: findChromium(),
-    args: gpu ? ["--use-angle=metal", "--ignore-gpu-blocklist", "--enable-gpu"] : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-webgl"],
+    args: gpu
+      ? ["--use-angle=metal", "--ignore-gpu-blocklist", "--enable-gpu"]
+      : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-webgl"],
   });
 }
 

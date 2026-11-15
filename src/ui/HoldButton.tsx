@@ -10,7 +10,18 @@ const HOLD_MS = 700;
 const styles = stylex.create({
   wrap: { display: "flex", flexDirection: "column", gap: 6, flexGrow: 1 },
   button: { position: "relative", overflow: "hidden", isolation: "isolate" },
-  fill: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: -1, backgroundColor: colors.accent, transformOrigin: "left", transform: "scaleX(0)", pointerEvents: "none" },
+  fill: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: -1,
+    backgroundColor: colors.accent,
+    transformOrigin: "left",
+    transform: "scaleX(0)",
+    pointerEvents: "none",
+  },
   hint: { textAlign: "center" },
 });
 
@@ -46,7 +57,11 @@ export function HoldButton({ label, onHeld, ...rest }: { label: string; onHeld: 
           pressed.current = true;
           // Keeps the press on this button even if the page shifts under a held pointer.
           e.currentTarget.setPointerCapture(e.pointerId);
-          const animation = fill.current?.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: HOLD_MS, easing: "linear", fill: "forwards" });
+          const animation = fill.current?.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
+            duration: HOLD_MS,
+            easing: "linear",
+            fill: "forwards",
+          });
           if (!animation) return;
           holding.current = animation;
           animation.onfinish = () => {

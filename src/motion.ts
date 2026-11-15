@@ -6,7 +6,13 @@ export const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
  * Moves a value from `from` to `to` on a critically damped spring (no overshoot), starting at `velocity` units per second.
  * `response` is roughly the seconds it takes to settle. Returns a function that stops it where it is.
  */
-export function spring(from: number, to: number, velocity: number, onFrame: (value: number) => void, { response = 0.35, onDone }: { response?: number; onDone?: () => void } = {}): () => void {
+export function spring(
+  from: number,
+  to: number,
+  velocity: number,
+  onFrame: (value: number) => void,
+  { response = 0.35, onDone }: { response?: number; onDone?: () => void } = {},
+): () => void {
   const omega = (2 * Math.PI) / response;
   const a = from - to;
   const b = velocity + omega * a;
@@ -28,7 +34,8 @@ export function spring(from: number, to: number, velocity: number, onFrame: (val
 }
 
 /** How far past a boundary an element follows a drag of `overshoot`: less and less the further it goes, never a hard stop. */
-export const rubberBand = (overshoot: number, dimension: number, constant = 0.55) => (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+export const rubberBand = (overshoot: number, dimension: number, constant = 0.55) =>
+  (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
 
 /** Where a flick at `velocity` (per second) would come to rest, the way scrolling decelerates. */
 export const project = (velocity: number, decelerationRate = 0.998) => ((velocity / 1000) * decelerationRate) / (1 - decelerationRate);

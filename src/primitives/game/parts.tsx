@@ -13,7 +13,16 @@ const styles = stylex.create({
   // One grid per group of rows, so the label, bar and value columns line up from row to row.
   grid: { display: "grid", gridTemplateColumns: "96px minmax(48px, 1fr)", columnGap: 12, rowGap: 10, alignItems: "center" },
   gridRow: { display: "grid", gridTemplateColumns: "subgrid", gridColumn: "1 / -1", alignItems: "center", minHeight: 20 },
-  label: { margin: 0, fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "0.08em", textTransform: "uppercase", color: colors.graphite, overflowWrap: "break-word" },
+  label: {
+    margin: 0,
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    lineHeight: "14px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: colors.graphite,
+    overflowWrap: "break-word",
+  },
   labelInk: { color: colors.ink },
   bar: { position: "relative", height: 20 },
   barTrack: { position: "absolute", left: 0, right: 0, top: 7, height: 6, borderRadius: 3, backgroundColor: colors.track },
@@ -40,7 +49,15 @@ const styles = stylex.create({
     outlineOffset: -2,
     borderRadius: 6,
   },
-  toggleBox: { width: "100%", maxWidth: 30, aspectRatio: "1 / 1", borderRadius: 4, backgroundColor: colors.rule, transitionProperty: "background-color", transitionDuration: "120ms" },
+  toggleBox: {
+    width: "100%",
+    maxWidth: 30,
+    aspectRatio: "1 / 1",
+    borderRadius: 4,
+    backgroundColor: colors.rule,
+    transitionProperty: "background-color",
+    transitionDuration: "120ms",
+  },
   toggleOn: { backgroundColor: colors.pink },
   verdict: { margin: 0, minHeight: 40, fontSize: 14, lineHeight: "20px", color: colors.ink, textAlign: "center", textWrap: "balance" },
   readouts: { display: "flex", flexDirection: "column", gap: 6, padding: 14, borderRadius: 14, backgroundColor: colors.soft },
@@ -87,7 +104,7 @@ export const SliderRow = memo(function SliderRow({ store, slider, ink = false }:
         step={slider.step}
         value={value}
         aria-label={slider.label}
-                onChange={(e) => store.controller?.set({ [slider.id]: Number(e.currentTarget.value) })}
+        onChange={(e) => store.controller?.set({ [slider.id]: Number(e.currentTarget.value) })}
         {...stylex.props(styles.range)}
       />
     </label>

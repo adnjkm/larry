@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { threshold } from "../../src/surface/dither.ts";
 
-const TONES = [[20, 20, 20], [107, 107, 107], [201, 201, 201], [255, 255, 255]] as const;
+const TONES = [
+  [20, 20, 20],
+  [107, 107, 107],
+  [201, 201, 201],
+  [255, 255, 255],
+] as const;
 
 /**
  * A photo drawn as 1px Bayer-dithered greys, one canvas pixel per CSS pixel of its box. With
@@ -30,9 +35,7 @@ export function Dither({ src, aspect, className }: { src: string; aspect?: numbe
       if (!live || !c) return;
       const ratio = aspect ?? img.width / img.height;
       const h = Math.round(width / ratio);
-      const crop = img.width / img.height > ratio
-        ? { sw: img.height * ratio, sh: img.height }
-        : { sw: img.width, sh: img.width / ratio };
+      const crop = img.width / img.height > ratio ? { sw: img.height * ratio, sh: img.height } : { sw: img.width, sh: img.width / ratio };
       c.width = width;
       c.height = h;
       const ctx = c.getContext("2d", { willReadFrequently: true })!;

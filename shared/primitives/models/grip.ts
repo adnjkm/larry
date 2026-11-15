@@ -66,11 +66,20 @@ const handleAt = (t: number) => v3(X0 + ROD_R + t + KNOB / 2, PLATE_TOP + PAD_H 
 function build(v: Values): Part[] {
   const s = settle(v);
   const pad = (id: string, sign: number) =>
-    part(id, "Pad", "Rubber that presses on the rod. It squashes as the squeeze grows.", box(s.t, PAD_H, PAD_Z, 1), v3(X0 + sign * (ROD_R + s.t / 2), PLATE_TOP + PAD_H / 2, 0), look.focus, on("plate", "weld"));
+    part(
+      id,
+      "Pad",
+      "Rubber that presses on the rod. It squashes as the squeeze grows.",
+      box(s.t, PAD_H, PAD_Z, 1),
+      v3(X0 + sign * (ROD_R + s.t / 2), PLATE_TOP + PAD_H / 2, 0),
+      look.focus,
+      on("plate", "weld"),
+    );
   // A cracked rod is the main piece, still held, and a chip that has broken off its bottom and fallen.
   const mainBottom = s.cracked ? HELD_BOTTOM + CHIP : s.bottom;
   const mainLen = s.cracked ? ROD_LEN - CHIP : ROD_LEN;
-  const rod = (id: string, bottom: number, len: number) => part(id, "Rod", "The part being held.", cylinder(ROD_R, len).shape, v3(X0, bottom + len / 2, 0), look.steel, on("pad-left", "press-fit"));
+  const rod = (id: string, bottom: number, len: number) =>
+    part(id, "Rod", "The part being held.", cylinder(ROD_R, len).shape, v3(X0, bottom + len / 2, 0), look.steel, on("pad-left", "press-fit"));
   const top = mainBottom + mainLen;
   return [
     plate(2 * (ROD_R + padThickness(10)) + KNOB, PAD_Z),
@@ -79,8 +88,16 @@ function build(v: Values): Part[] {
     rod("rod", mainBottom, mainLen),
     ...(s.cracked ? [rod("rod-chip", s.bottom, CHIP)] : []),
     knob("handle", handleAt(s.t), "x", { name: "Thumb knob", role: "Where your hand pushes the pad on.", on: on("pad-right", "glue") }),
-    ...arrow("limit-arrow", v3(X0 - ARROW_X, top, 0), 90, arrowLength(s.limit, FORCE_MAX, ARROW_LONG), "pull", { name: "Friction arrow", role: "The most the two pads can hold: μ × 2 × the squeeze, pointing up.", on: on("rod", "glue") }),
-    ...arrow("load-arrow", v3(X0 + ARROW_X, top, 0), -90, arrowLength(s.load, FORCE_MAX, ARROW_LONG), "push", { name: "Load arrow", role: "The load pulling the rod down, at the same scale.", on: on("rod", "glue") }),
+    ...arrow("limit-arrow", v3(X0 - ARROW_X, top, 0), 90, arrowLength(s.limit, FORCE_MAX, ARROW_LONG), "pull", {
+      name: "Friction arrow",
+      role: "The most the two pads can hold: μ × 2 × the squeeze, pointing up.",
+      on: on("rod", "glue"),
+    }),
+    ...arrow("load-arrow", v3(X0 + ARROW_X, top, 0), -90, arrowLength(s.load, FORCE_MAX, ARROW_LONG), "push", {
+      name: "Load arrow",
+      role: "The load pulling the rod down, at the same scale.",
+      on: on("rod", "glue"),
+    }),
   ];
 }
 
@@ -89,8 +106,16 @@ function readouts(v: Values) {
   const squash = Math.round((100 * s.squeeze) / SOFT);
   return [
     { label: "Friction limit", value: `μ × 2 pads × N = ${MU} × 2 × ${fmt(s.squeeze)} = ${fmt(s.limit, 1)} N` },
-    { label: "Travel", value: s.drop > 0.05 ? `pads squashed ${squash}%; rod slid ${fmt(s.drop)} of ${SLIDE} mm` : `pads squashed ${squash}%; rod has not moved` },
-    { label: "State", value: s.slips ? `slips: the ${fmt(s.load)} N load is over the ${fmt(s.limit, 1)} N limit` : `holds: the ${fmt(s.load)} N load is under the ${fmt(s.limit, 1)} N limit` },
+    {
+      label: "Travel",
+      value: s.drop > 0.05 ? `pads squashed ${squash}%; rod slid ${fmt(s.drop)} of ${SLIDE} mm` : `pads squashed ${squash}%; rod has not moved`,
+    },
+    {
+      label: "State",
+      value: s.slips
+        ? `slips: the ${fmt(s.load)} N load is over the ${fmt(s.limit, 1)} N limit`
+        : `holds: the ${fmt(s.load)} N load is under the ${fmt(s.limit, 1)} N limit`,
+    },
   ];
 }
 

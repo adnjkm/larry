@@ -4,7 +4,11 @@ import { tidyKit } from "./model.ts";
 
 const photoUrls = import.meta.glob<string>("../../fixtures/photos/*.jpg", { eager: true, query: "?url", import: "default" });
 const kitJson = import.meta.glob<unknown>("../../fixtures/kits/*.json", { eager: true, import: "default" });
-const idOf = (path: string) => path.split("/").pop()!.replace(/\.\w+$/, "");
+const idOf = (path: string) =>
+  path
+    .split("/")
+    .pop()!
+    .replace(/\.\w+$/, "");
 
 export type Sample = { id: string; label: string; photo: string; kit: Kit };
 

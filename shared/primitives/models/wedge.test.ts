@@ -117,7 +117,10 @@ describe("wedge", () => {
         assert.ok(a.position.y > 6 && a.position.y < rig.TOP_Y, `slope ${sl}: the arrow is not level with the half`);
         const tail = a.position.x - sign * (len(a) / 2);
         const tipX = a.position.x + sign * (len(a) / 2);
-        assert.ok(sign * tail >= s.open - 1e-9 && sign * tail <= s.open + 3, `slope ${sl}: the ${side} arrow starts ${sign * tail - s.open} mm from the half's inner edge`);
+        assert.ok(
+          sign * tail >= s.open - 1e-9 && sign * tail <= s.open + 3,
+          `slope ${sl}: the ${side} arrow starts ${sign * tail - s.open} mm from the half's inner edge`,
+        );
         assert.ok(sign * tipX > sign * tail, "the arrow points inward");
         assert.ok(sign * tipX < rig.POST_X - 5, `slope ${sl}: the ${side} arrow runs into the post`);
         assert.ok(Math.abs(block.position.y - a.position.y) < 1e-9);
@@ -163,7 +166,10 @@ describe("wedge", () => {
     assert.equal(thin.kind, "thin");
     assert.ok(OPEN - thin.open >= 3, `slope 8 opens ${thin.open} of ${OPEN}`);
     const scene = game.scene!({ slope: 8, push: 0 });
-    for (const [sl, fatOrThin] of [[8, "thin"], [35, "fat"]] as const) {
+    for (const [sl, fatOrThin] of [
+      [8, "thin"],
+      [35, "fat"],
+    ] as const) {
       const run = game.play({ slope: sl, push: 0 });
       const peak = Math.max(...sample(run).map(({ frame }) => frame.values.push ?? 0));
       const right = find(wedge.build({ slope: sl, push: peak }), "block-right");
@@ -190,7 +196,8 @@ describe("wedge", () => {
       assert.ok(post.position.z - post.shape.depth / 2 > rig.DEPTH / 2, "the post is in the half");
       const arrowBottom = 6 + rig.BLOCK_H / 2 - 5;
       assert.ok(6 + post.shape.height < arrowBottom, "the post reaches the force arrows");
-      for (const p of [0, 10, 20, 32]) for (const a of wedge.build({ slope: sl, push: p }).filter((q) => /out-arrow/.test(q.id))) assert.ok(a.position.y - 5 > 6 + post.shape.height);
+      for (const p of [0, 10, 20, 32])
+        for (const a of wedge.build({ slope: sl, push: p }).filter((q) => /out-arrow/.test(q.id))) assert.ok(a.position.y - 5 > 6 + post.shape.height);
     }
   });
 
@@ -226,7 +233,10 @@ describe("wedge", () => {
         lastBlow = Number(m[1]);
         const shown = openIn(frame.live)!;
         const pose = settle(frame.values).open;
-        assert.ok(Math.abs(shown - pose) <= 0.05 + 1e-9 || Math.abs(shown - Math.round(pose)) <= 0.5 + 1e-9, `slope ${v.slope}: "${frame.live}" against a pose open ${pose}`);
+        assert.ok(
+          Math.abs(shown - pose) <= 0.05 + 1e-9 || Math.abs(shown - Math.round(pose)) <= 0.5 + 1e-9,
+          `slope ${v.slope}: "${frame.live}" against a pose open ${pose}`,
+        );
         assert.ok(shown >= lastOpen - 1e-9, `slope ${v.slope}: the caption's opening goes ${lastOpen} → ${shown}`);
         lastOpen = shown;
         const p = frame.values.push ?? 0;
@@ -235,15 +245,25 @@ describe("wedge", () => {
       }
       // The whole run: up to the peak, then (fat only) one fall back out, then still, then back to where it started.
       const peakAt = pushes.indexOf(Math.max(...pushes));
-      assert.ok(pushes.slice(0, peakAt + 1).every((p, i, a) => i === 0 || p >= a[i - 1]! - 1e-9), `slope ${v.slope}: not a single rise`);
+      assert.ok(
+        pushes.slice(0, peakAt + 1).every((p, i, a) => i === 0 || p >= a[i - 1]! - 1e-9),
+        `slope ${v.slope}: not a single rise`,
+      );
       const popped = frames.some(({ frame }) => frame.live === "Sprang back out");
       assert.equal(popped, r.kind === "fat", `slope ${v.slope}: only a fat wedge is pushed back out`);
       if (r.kind === "fat") {
         assert.equal((run.cues ?? []).filter((c) => c.kind === "pop").length, 1);
         const after = pushes.slice(peakAt);
-        assert.ok(after.every((p, i, a) => i === 0 || p <= a[i - 1]! + 1e-9), `slope ${v.slope}: the wedge rose again after the peak`);
+        assert.ok(
+          after.every((p, i, a) => i === 0 || p <= a[i - 1]! + 1e-9),
+          `slope ${v.slope}: the wedge rose again after the peak`,
+        );
       }
-      assert.equal((run.cues ?? []).some((c) => c.kind === "snap"), r.kind === "pass", `slope ${v.slope}: the log splits only on a pass`);
+      assert.equal(
+        (run.cues ?? []).some((c) => c.kind === "snap"),
+        r.kind === "pass",
+        `slope ${v.slope}: the log splits only on a pass`,
+      );
       assert.ok(Math.max(...pushes) <= r.limit + 1e-9, `slope ${v.slope}: the wedge went to ${Math.max(...pushes)}, past its limit ${r.limit}`);
     }
   });

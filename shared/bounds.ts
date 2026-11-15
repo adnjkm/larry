@@ -24,7 +24,6 @@ type Hull = {
   inflate: number;
 };
 
-
 function centre(points: number[]): void {
   for (let axis = 0; axis < 3; axis++) {
     let lo = Infinity;

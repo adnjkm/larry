@@ -5,16 +5,31 @@ import { clamp01 } from "../../../shared/primitives/motion/ease.ts";
 import { type Mark, vec, type Vec } from "../model.ts";
 import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
-
 /** A drop's outline, round at the front and drawn out into a tail behind it, longer the faster it falls. */
 const teardrop = (r: number, tail: number): Shape => ({
   kind: "lathe",
-  profile: [[0, -1], [0.5, -0.87], [0.87, -0.5], [1, 0], [0.93, 0.4], [0.72, 0.8], [0.45, 0.8 + 0.5 * tail], [0.2, 0.8 + 0.85 * tail], [0, 0.8 + tail]].map(([x, y]) => ({ r: r * x!, y: r * y! })),
+  profile: [
+    [0, -1],
+    [0.5, -0.87],
+    [0.87, -0.5],
+    [1, 0],
+    [0.93, 0.4],
+    [0.72, 0.8],
+    [0.45, 0.8 + 0.5 * tail],
+    [0.2, 0.8 + 0.85 * tail],
+    [0, 0.8 + tail],
+  ].map(([x, y]) => ({ r: r * x!, y: r * y! })),
 });
 /** The puddle grows in whole steps, so its few sizes are each built once. */
 const puddle = (radius: number): Shape => ({
   kind: "lathe",
-  profile: [{ r: 0, y: 0 }, { r: radius, y: 0 }, { r: radius - 0.3, y: 0.8 }, { r: radius - 1.6, y: 1.4 }, { r: 0, y: 1.5 }],
+  profile: [
+    { r: 0, y: 0 },
+    { r: radius, y: 0 },
+    { r: radius - 0.3, y: 0.8 },
+    { r: radius - 1.6, y: 1.4 },
+    { r: 0, y: 1.5 },
+  ],
 });
 const PUDDLE_GROW_MS = 260;
 /** A drop hitting the ground throws up a ring that widens and thins, then soaks into the puddle. */
@@ -59,22 +74,25 @@ export function dropsAt(k: number): Drops {
     const shape = puddles.get(size) ?? puddle(size);
     puddles.set(size, shape);
     const pool: Mark[] = size >= 3 * k ? [{ id: "puddle", shape, at: vec(middle.x, 0.75, middle.z), ride: null }] : [];
-    return [...pool, ...drops.flatMap((d, i): Mark[] => {
-      const tau = (ms - d.spawn) / 1000;
-      const land = lands[i]!;
-      if (tau < 0) return [];
-      if (ms < land.ms) {
-        const vy = d.vy - g * tau;
-        const fast = Math.hypot(d.vx, vy, d.vz) > streakSpeed;
-        // The tail trails the way it came from.
-        const lean = Math.atan2(d.vx, -vy) / DEG_TO_RAD;
-        const at = vec(d.origin.x + d.vx * tau, d.origin.y + d.vy * tau - 0.5 * g * tau * tau, d.origin.z + d.vz * tau);
-        return [{ id: `drop-${i}`, shape: fast ? streak : drop, at, rotation: vec(0, 0, lean), ride: null }];
-      }
-      const c = Math.floor((ms - land.ms) / (CROWN_MS / crowns.length));
-      const crown = crowns[c];
-      return crown ? [{ id: `crown-${i}`, shape: crown, at: vec(land.x, 1.5 * k + (crown.kind === "torus" ? crown.tube : 0), land.z), ride: null }] : [];
-    })];
+    return [
+      ...pool,
+      ...drops.flatMap((d, i): Mark[] => {
+        const tau = (ms - d.spawn) / 1000;
+        const land = lands[i]!;
+        if (tau < 0) return [];
+        if (ms < land.ms) {
+          const vy = d.vy - g * tau;
+          const fast = Math.hypot(d.vx, vy, d.vz) > streakSpeed;
+          // The tail trails the way it came from.
+          const lean = Math.atan2(d.vx, -vy) / DEG_TO_RAD;
+          const at = vec(d.origin.x + d.vx * tau, d.origin.y + d.vy * tau - 0.5 * g * tau * tau, d.origin.z + d.vz * tau);
+          return [{ id: `drop-${i}`, shape: fast ? streak : drop, at, rotation: vec(0, 0, lean), ride: null }];
+        }
+        const c = Math.floor((ms - land.ms) / (CROWN_MS / crowns.length));
+        const crown = crowns[c];
+        return crown ? [{ id: `crown-${i}`, shape: crown, at: vec(land.x, 1.5 * k + (crown.kind === "torus" ? crown.tube : 0), land.z), ride: null }] : [];
+      }),
+    ];
   };
   const out = { g, radius, marks };
   made.set(k, out);

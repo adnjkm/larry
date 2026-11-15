@@ -38,12 +38,26 @@ const PIVOT = /\b(pivot|pivots|pivoting|hinge|hinged|turn|turns|swing|swings)\b/
 
 export const EVIDENCE: readonly Evidence[] = [
   // Role words are verbs and adjectives, so "a tab on the seal ring" does not make the tab a seal.
-  { id: "seal", template: sealTemplate, joints: "any", name: /\b(seal|o-?ring|gasket)\b/i, role: /\b(seals|sealing|airtight|watertight|leak-?proof)\b|\bkeeps? (water|air|liquid) (out|in)\b/i, whose: "self" },
+  {
+    id: "seal",
+    template: sealTemplate,
+    joints: "any",
+    name: /\b(seal|o-?ring|gasket)\b/i,
+    role: /\b(seals|sealing|airtight|watertight|leak-?proof)\b|\bkeeps? (water|air|liquid) (out|in)\b/i,
+    whose: "self",
+  },
   // A rivet that the kit says turns is a pivot: the part riveted to it turns, as a lever. Fixed rivets stay fixed.
   { id: "pivot", template: hingeTemplate, joints: ["rivet"], name: PIVOT, role: PIVOT, whose: "pin" },
   // A rivet or screw whose own words say it holds parts together and lets them turn is a grip that
   // clamps them: a scissors' pivot rivet. Its name alone counts when it is called a pivot.
-  { id: "clamp", template: clampTemplate, joints: ["rivet", "screw"], name: /\bpivot\b/i, role: /^(?=.*\b(together|tight)\b)(?=.*\b(turn|turns|pivot|pivots|swing|swings)\b)/i, whose: "self" },
+  {
+    id: "clamp",
+    template: clampTemplate,
+    joints: ["rivet", "screw"],
+    name: /\bpivot\b/i,
+    role: /^(?=.*\b(together|tight)\b)(?=.*\b(turn|turns|pivot|pivots|swing|swings)\b)/i,
+    whose: "self",
+  },
 ];
 
 export type Reading = { template: Template; pin: Part | null; evidence: Evidence["id"] | null };

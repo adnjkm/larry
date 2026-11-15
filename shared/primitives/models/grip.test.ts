@@ -19,7 +19,13 @@ describe("grip", () => {
   it("follows the design language", () => checkDesign(grip));
 
   it("is six kinds of part at rest", () => {
-    assert.deepEqual(grip.build({ squeeze: 40, load: 20 }).map((p) => p.id).sort(), ["handle", "limit-arrow", "load-arrow", "pad-left", "pad-right", "plate", "rod"]);
+    assert.deepEqual(
+      grip
+        .build({ squeeze: 40, load: 20 })
+        .map((p) => p.id)
+        .sort(),
+      ["handle", "limit-arrow", "load-arrow", "pad-left", "pad-right", "plate", "rod"],
+    );
   });
 
   it("presses both pads on the rod with no gap and no overlap, squashed more as the squeeze grows", () => {
@@ -88,7 +94,10 @@ describe("grip", () => {
     assert.ok(end.some((p) => p.id === "rod-chip"));
     const chip = find(end, "rod-chip");
     assert.ok(Math.abs(chip.position.y - geometry.CHIP / 2 - PLATE_TOP) < 1e-9, "the chip lies on the plate");
-    assert.ok(Math.abs(find(end, "rod").position.y - (geometry.HELD_BOTTOM + geometry.CHIP + (geometry.ROD_LEN - geometry.CHIP) / 2)) < 1e-9, "the rest stays held");
+    assert.ok(
+      Math.abs(find(end, "rod").position.y - (geometry.HELD_BOTTOM + geometry.CHIP + (geometry.ROD_LEN - geometry.CHIP) / 2)) < 1e-9,
+      "the rest stays held",
+    );
   });
 
   it("keeps the handle on the thumb disc and solves back to the squeeze", () => {

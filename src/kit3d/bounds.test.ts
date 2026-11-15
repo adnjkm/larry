@@ -8,14 +8,37 @@ import type { Part, Shape } from "../../shared/kit.ts";
 const SHAPES: Shape[] = [
   { kind: "box", width: 40, height: 10, depth: 6, cornerRadius: 0 },
   { kind: "box", width: 40, height: 10, depth: 6, cornerRadius: 2.4 },
-  { kind: "lathe", profile: [{ r: 0, y: 0 }, { r: 12, y: 0 }, { r: 12, y: 30 }, { r: 5, y: 38 }, { r: 0, y: 38 }] },
+  {
+    kind: "lathe",
+    profile: [
+      { r: 0, y: 0 },
+      { r: 12, y: 0 },
+      { r: 12, y: 30 },
+      { r: 5, y: 38 },
+      { r: 0, y: 38 },
+    ],
+  },
   { kind: "torus", radius: 20, tube: 2, arcDegrees: 360 },
   { kind: "torus", radius: 20, tube: 2, arcDegrees: 200 },
   { kind: "helix", radius: 8, tube: 1.2, length: 40, turns: 5 },
   { kind: "helix", radius: 8, tube: 1.2, length: 40, turns: 2.5 },
-  { kind: "extrusion", outline: [{ x: 0, y: 0 }, { x: 30, y: 4 }, { x: 34, y: 14 }, { x: 6, y: 10 }], depth: 5 },
+  {
+    kind: "extrusion",
+    outline: [
+      { x: 0, y: 0 },
+      { x: 30, y: 4 },
+      { x: 34, y: 14 },
+      { x: 6, y: 10 },
+    ],
+    depth: 5,
+  },
 ];
-const TURNS = [{ x: 0, y: 0, z: 0 }, { x: 20, y: 35, z: -50 }, { x: 90, y: 0, z: 45 }, { x: -130, y: 70, z: 10 }];
+const TURNS = [
+  { x: 0, y: 0, z: 0 },
+  { x: 20, y: 35, z: -50 },
+  { x: 90, y: 0, z: 45 },
+  { x: -130, y: 70, z: 10 },
+];
 /** mm. A coil's hull rings its wire with a ball, which the wire's slanted round section stays a hair inside. */
 const TOLERANCE = 0.05;
 
@@ -24,7 +47,11 @@ function part(shape: Shape, rotation: Part["rotation"]): Part {
 }
 
 function builtBounds(p: Part, around: { x: number; z: number }) {
-  const m = new Matrix4().compose(new Vector3(p.position.x, p.position.y, p.position.z), new Quaternion().setFromEuler(new Euler(...(["x", "y", "z"] as const).map((k) => (p.rotation[k] * Math.PI) / 180) as [number, number, number])), new Vector3(1, 1, 1));
+  const m = new Matrix4().compose(
+    new Vector3(p.position.x, p.position.y, p.position.z),
+    new Quaternion().setFromEuler(new Euler(...((["x", "y", "z"] as const).map((k) => (p.rotation[k] * Math.PI) / 180) as [number, number, number]))),
+    new Vector3(1, 1, 1),
+  );
   const position = buildGeometry(p.shape).getAttribute("position");
   const v = new Vector3();
   const lo = new Vector3(Infinity, Infinity, Infinity);

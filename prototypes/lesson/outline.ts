@@ -52,7 +52,10 @@ function latheEdges(profile: readonly { r: number; y: number }[]): Edge[] {
     const tilt = Math.atan2(b.r - a.r, b.y - a.y);
     return Array.from({ length: SIDES }, (_, k) => ({
       shape: bar(length),
-      at: new Matrix4().makeRotationY((k / SIDES) * 2 * Math.PI).multiply(T((a.r + b.r) / 2, (a.y + b.y) / 2, 0)).multiply(new Matrix4().makeRotationZ(-tilt)),
+      at: new Matrix4()
+        .makeRotationY((k / SIDES) * 2 * Math.PI)
+        .multiply(T((a.r + b.r) / 2, (a.y + b.y) / 2, 0))
+        .multiply(new Matrix4().makeRotationZ(-tilt)),
     }));
   });
   return [...rings, ...sides];
@@ -83,8 +86,16 @@ export function outline(parts: readonly Part[], color: string): Part[] {
       placed.clone().multiply(edge.at).decompose(pos, turn, new Vector3());
       const e = new Euler().setFromQuaternion(turn, "XYZ");
       return {
-        id: `ghost-${part.id}-${i}`, name: "ghost", role: "", parentId: null, joint: null, shape: edge.shape,
-        position: vec(pos.x, pos.y, pos.z), rotation: vec(e.x / DEG_TO_RAD, e.y / DEG_TO_RAD, e.z / DEG_TO_RAD), color, finish: "matte",
+        id: `ghost-${part.id}-${i}`,
+        name: "ghost",
+        role: "",
+        parentId: null,
+        joint: null,
+        shape: edge.shape,
+        position: vec(pos.x, pos.y, pos.z),
+        rotation: vec(e.x / DEG_TO_RAD, e.y / DEG_TO_RAD, e.z / DEG_TO_RAD),
+        color,
+        finish: "matte",
       };
     });
   });

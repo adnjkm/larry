@@ -42,10 +42,15 @@ export const snapFitTemplate: Template = {
           run: (values, ctx) => {
             const f = forceOf(values);
             const ok = f > TUG;
-            return pullOff(pair, ctx, ok
-              ? { pass: true, line: `The ${child} stayed clipped under a ${TUG} N tug. The catch lets go at ${f} N.` }
-              : { pass: false, line: `The ${child} popped off under a ${TUG} N tug. The catch lets go at ${f} N.` },
-            ok, { pulling: `Tugging ${TUG} N`, held: "Still clipped", off: "Popped off" });
+            return pullOff(
+              pair,
+              ctx,
+              ok
+                ? { pass: true, line: `The ${child} stayed clipped under a ${TUG} N tug. The catch lets go at ${f} N.` }
+                : { pass: false, line: `The ${child} popped off under a ${TUG} N tug. The catch lets go at ${f} N.` },
+              ok,
+              { pulling: `Tugging ${TUG} N`, held: "Still clipped", off: "Popped off" },
+            );
           },
         },
         {
@@ -55,10 +60,19 @@ export const snapFitTemplate: Template = {
             const f = forceOf(values);
             const peak = f + PEAK_EXTRA;
             const ok = peak <= FINGER;
-            return pullOff(pair, ctx, ok
-              ? { pass: true, line: `Unclipped by hand. It peaked at ${peak} N, under the ${FINGER} N a finger gives.` }
-              : { pass: false, line: `It would not unclip. It peaks at ${peak} N and a finger gives about ${FINGER} N.`, nudge: "The catch is far too strong for a finger." },
-            !ok, { pulling: `Unclipping`, held: `Needs ${peak} N`, off: "Unclipped" });
+            return pullOff(
+              pair,
+              ctx,
+              ok
+                ? { pass: true, line: `Unclipped by hand. It peaked at ${peak} N, under the ${FINGER} N a finger gives.` }
+                : {
+                    pass: false,
+                    line: `It would not unclip. It peaks at ${peak} N and a finger gives about ${FINGER} N.`,
+                    nudge: "The catch is far too strong for a finger.",
+                  },
+              !ok,
+              { pulling: `Unclipping`, held: `Needs ${peak} N`, off: "Unclipped" },
+            );
           },
         },
       ],

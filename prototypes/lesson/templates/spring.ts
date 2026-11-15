@@ -118,7 +118,9 @@ export const springTemplate: Template = {
             const k = stiffnessOf(values);
             const detail = `The spring pushes ${pushOf(k)} N and friction holds with ${FRICTION} N.`;
             const ok = springsBack(k);
-            const line = ok ? `The ${child} ${jaw ? "snapped shut" : "sprang back"}. ${detail}` : `The ${child} ${jaw ? "stayed open" : "stayed in"}. ${detail}`;
+            const line = ok
+              ? `The ${child} ${jaw ? "snapped shut" : "sprang back"}. ${detail}`
+              : `The ${child} ${jaw ? "stayed open" : "stayed in"}. ${detail}`;
             return pressRelease(pair, motion, ctx, k, { pass: ok, line }, "release");
           },
         },
@@ -128,9 +130,20 @@ export const springTemplate: Template = {
           run: (values, ctx) => {
             const k = stiffnessOf(values);
             const depth = pressedMm(k);
-            return pressRelease(pair, motion, ctx, k, depth >= TRAVEL
-              ? { pass: true, line: `It pressed all ${TRAVEL} mm with ${pushOf(k)} N, under the ${HAND} N a hand gives.` }
-              : { pass: false, line: `It went only ${depth} of ${TRAVEL} mm${jaw ? ", so it opened only partway" : ""}. Full travel takes ${pushOf(k)} N and a hand gives about ${HAND} N.`, nudge: "The spring is far too stiff for a hand." }, "press");
+            return pressRelease(
+              pair,
+              motion,
+              ctx,
+              k,
+              depth >= TRAVEL
+                ? { pass: true, line: `It pressed all ${TRAVEL} mm with ${pushOf(k)} N, under the ${HAND} N a hand gives.` }
+                : {
+                    pass: false,
+                    line: `It went only ${depth} of ${TRAVEL} mm${jaw ? ", so it opened only partway" : ""}. Full travel takes ${pushOf(k)} N and a hand gives about ${HAND} N.`,
+                    nudge: "The spring is far too stiff for a hand.",
+                  },
+              "press",
+            );
           },
         },
       ],
@@ -144,7 +157,11 @@ export const springTemplate: Template = {
       suspect: pair.child.id,
       misses: { [pair.parent.id]: `The ${parent} holds still. Watch the part that should ${jaw ? "shut" : "come back"} during ${release}.` },
       missDefault: `That part does not move during ${release}. Watch which one ${stuck}.`,
-      uses: { spring: jaw ? `The spring between the ${child} and the ${parent}. It pushes the ${child} shut when you let go.` : `The spring between the ${child} and the ${parent}. It pushes the ${child} back after you press.` },
+      uses: {
+        spring: jaw
+          ? `The spring between the ${child} and the ${parent}. It pushes the ${child} shut when you let go.`
+          : `The spring between the ${child} and the ${parent}. It pushes the ${child} back after you press.`,
+      },
       task: "Find a spring that returns but still presses.",
       why: jaw
         ? `A spring stores the work of your press and gives it back when you let go: it pushes the back ends apart, so the front ends close. Its push has to beat friction or the ${child} ${stuck}, and you press against that same push every time, so stiffness is a trade between the two.`

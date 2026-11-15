@@ -191,7 +191,13 @@ export function GameScreen({ primitive, kicker, onBack, children }: { primitive:
         <div {...stylex.props(styles.stage)}>
           <FigureStage primitive={primitive} mode="game" palette="library" height={STAGE_HEIGHT} controllerRef={store.attach} onLive={setLive} onCue={buzz} />
           <span ref={liveEl} data-live aria-hidden {...stylex.props(styles.live)} />
-          <button type="button" data-action="sweep" aria-pressed={sweeping} onClick={toggleSweep} {...stylex.props(buttons.base, buttons.secondary, styles.sweep)}>
+          <button
+            type="button"
+            data-action="sweep"
+            aria-pressed={sweeping}
+            onClick={toggleSweep}
+            {...stylex.props(buttons.base, buttons.secondary, styles.sweep)}
+          >
             {sweeping ? "Stop" : "Play"}
           </button>
         </div>
@@ -201,7 +207,11 @@ export function GameScreen({ primitive, kicker, onBack, children }: { primitive:
           <Divider />
           <SliderRow store={store} slider={number} ink />
           {rows.map((row) =>
-            row.kind === "slider" ? <SliderRow key={row.slider.id} store={store} slider={row.slider} ink /> : <ToggleRow key={row.sliders[0]!.id} store={store} sliders={row.sliders} />,
+            row.kind === "slider" ? (
+              <SliderRow key={row.slider.id} store={store} slider={row.slider} ink />
+            ) : (
+              <ToggleRow key={row.sliders[0]!.id} store={store} sliders={row.sliders} />
+            ),
           )}
         </Rows>
 
@@ -215,7 +225,14 @@ export function GameScreen({ primitive, kicker, onBack, children }: { primitive:
           {hold ? (
             <HoldButton label={label} onHeld={act} data-action="act" />
           ) : (
-            <button type="button" data-action="act" data-phase={phase} disabled={playing} onClick={act} {...stylex.props(buttons.base, buttons.primary, playing && buttons.disabled)}>
+            <button
+              type="button"
+              data-action="act"
+              data-phase={phase}
+              disabled={playing}
+              onClick={act}
+              {...stylex.props(buttons.base, buttons.primary, playing && buttons.disabled)}
+            >
               {label}
             </button>
           )}

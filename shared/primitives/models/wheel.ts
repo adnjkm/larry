@@ -19,7 +19,27 @@
 import type { Part } from "../../kit.ts";
 import { clamp, fall, rockBack, shudder, smooth } from "../motion/ease.ts";
 import { frame, handArrow, HOLD, phases, SCENE } from "../motion/run.ts";
-import { arrow, arrowLength, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, PLATE_TOP, plate, post, ring, shaped, strand, tick, v3, type Pt } from "../parts.ts";
+import {
+  arrow,
+  arrowLength,
+  cylinder,
+  fmt,
+  knob,
+  loadBlock,
+  loadEdge,
+  look,
+  on,
+  part,
+  PLATE_TOP,
+  plate,
+  post,
+  ring,
+  shaped,
+  strand,
+  tick,
+  v3,
+  type Pt,
+} from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres. The wheel's face is at z = 0 before the shift that centres the rig.
@@ -87,14 +107,46 @@ function build(v: Values): Part[] {
   const k = knobPoint(s.radius, s.turn);
   const kDeg = knobAngle(s.turn);
   const wound = clamp(30 + 360 * s.turn, 30, 340);
-  const bucket = loadBlock("bucket", v3(-R_EFF, PLATE_TOP + s.rise, wheelAt(Z_CORD)), LOAD, MM_PER_N, { name: "Load", role: "The bucket the wheel lifts: its weight tries to turn the wheel back.", on: on("cord", "glue"), arrowSide: "left" });
+  const bucket = loadBlock("bucket", v3(-R_EFF, PLATE_TOP + s.rise, wheelAt(Z_CORD)), LOAD, MM_PER_N, {
+    name: "Load",
+    role: "The bucket the wheel lifts: its weight tries to turn the wheel back.",
+    on: on("cord", "glue"),
+    arrowSide: "left",
+  });
   const cord = strand(v3(-R_EFF, AXLE_Y, wheelAt(Z_CORD)), v3(-R_EFF, bucket.top, wheelAt(Z_CORD)), CORD);
   const parts: Part[] = [
     plate(95, 55),
     post("post", 0, wheelAt(POST_Z), AXLE_Y + 5, { name: "Post", role: "Holds the wheel and axle." }),
-    part("axle", "Wheel", "The small wheel the cord winds onto: the wheel's own centre, turning with it.", cylinder(AXLE_R, Z_AXLE_FRONT - Z_AXLE_BACK).shape, v3(0, AXLE_Y, wheelAt((Z_AXLE_BACK + Z_AXLE_FRONT) / 2)), look.focus, on("post", "hinge"), v3(90, 0, 0)),
-    part("wheel", "Wheel", "The big wheel: a small pull at its rim is a big pull at the axle.", cylinder(s.radius, DISC_T).shape, v3(0, AXLE_Y, wheelAt(0)), look.focus, on("axle", "weld"), v3(90, 0, 0)),
-    part("wound", "Cord", "Cord wrapped on the axle: more of it as the bucket rises.", ring(R_EFF, CORD / 2, wound), v3(0, AXLE_Y, wheelAt(Z_CORD)), look.slate, on("axle", "glue"), v3(90, 180 - wound / 2, 0)),
+    part(
+      "axle",
+      "Wheel",
+      "The small wheel the cord winds onto: the wheel's own centre, turning with it.",
+      cylinder(AXLE_R, Z_AXLE_FRONT - Z_AXLE_BACK).shape,
+      v3(0, AXLE_Y, wheelAt((Z_AXLE_BACK + Z_AXLE_FRONT) / 2)),
+      look.focus,
+      on("post", "hinge"),
+      v3(90, 0, 0),
+    ),
+    part(
+      "wheel",
+      "Wheel",
+      "The big wheel: a small pull at its rim is a big pull at the axle.",
+      cylinder(s.radius, DISC_T).shape,
+      v3(0, AXLE_Y, wheelAt(0)),
+      look.focus,
+      on("axle", "weld"),
+      v3(90, 0, 0),
+    ),
+    part(
+      "wound",
+      "Cord",
+      "Cord wrapped on the axle: more of it as the bucket rises.",
+      ring(R_EFF, CORD / 2, wound),
+      v3(0, AXLE_Y, wheelAt(Z_CORD)),
+      look.slate,
+      on("axle", "glue"),
+      v3(90, 180 - wound / 2, 0),
+    ),
     shaped("cord", "Cord", "Hangs the bucket from the axle.", cord, look.slate, on("axle", "glue")),
     ...bucket.parts.map((p) => (/arrow/.test(p.id) ? { ...p, name: "Arrow" } : p)),
     knob("knob", v3(k[0], AXLE_Y + k[1], wheelAt(Z_KNOB)), "z", { name: "Knob", role: "Where a hand turns the wheel.", on: on("wheel", "weld") }),
@@ -103,17 +155,24 @@ function build(v: Values): Part[] {
   if (s.turn > 1e-9) {
     const tangent = kDeg - 90;
     const u: Pt = [Math.cos((tangent * Math.PI) / 180), Math.sin((tangent * Math.PI) / 180)];
-    parts.push(...arrow("pull-arrow", v3(k[0] - 5.5 * u[0], AXLE_Y + k[1] - 5.5 * u[1], wheelAt(Z_KNOB)), tangent, arrowLength(s.effort, LOAD, 40), "push", { name: "Arrow", role: s.weak ? "An arm's whole pull at the rim: 15 N, not enough." : "The pull at the rim that holds the bucket, to the same scale.", on: on("knob", "glue") }));
+    parts.push(
+      ...arrow("pull-arrow", v3(k[0] - 5.5 * u[0], AXLE_Y + k[1] - 5.5 * u[1], wheelAt(Z_KNOB)), tangent, arrowLength(s.effort, LOAD, 40), "push", {
+        name: "Arrow",
+        role: s.weak ? "An arm's whole pull at the rim: 15 N, not enough." : "The pull at the rim that holds the bucket, to the same scale.",
+        on: on("knob", "glue"),
+      }),
+    );
   }
   return parts;
 }
 
 function readouts(v: Values) {
   const s = settle(v);
-  const state =
-    s.weak ? `needs ${fmt(s.hold, 1)} N, arm gives ${ARM}: it strains ${fmt(STRAIN_MM, 1)} mm`
-    : s.turn < 1e-9 ? "bucket stands on the plate"
-    : `holding the bucket takes ${fmt(s.hold, 1)} N of the arm's ${ARM}`;
+  const state = s.weak
+    ? `needs ${fmt(s.hold, 1)} N, arm gives ${ARM}: it strains ${fmt(STRAIN_MM, 1)} mm`
+    : s.turn < 1e-9
+      ? "bucket stands on the plate"
+      : `holding the bucket takes ${fmt(s.hold, 1)} N of the arm's ${ARM}`;
   return [
     { label: "Pull at rim", value: `F = ${LOAD} N × ${fmt(R_EFF, 1)} ÷ ${fmt(s.hand)} = ${fmt(s.hold, 1)} N` },
     { label: "Travel", value: `rim ${fmt(s.rim)} mm, bucket up ${fmt(s.rise)} mm: ${fmt(s.rim)} ÷ ${fmt(s.rise)} = ${fmt(s.ratio, 1)}×` },
@@ -142,11 +201,26 @@ function judge(v: Values): Verdict {
   const r = winch(v);
   switch (r.kind) {
     case "weak":
-      return { pass: false, outcome: "too-heavy", headline: "Too heavy to turn", detail: "Wheel too small: without a big wheel to turn, one arm cannot pull hard enough." };
+      return {
+        pass: false,
+        outcome: "too-heavy",
+        headline: "Too heavy to turn",
+        detail: "Wheel too small: without a big wheel to turn, one arm cannot pull hard enough.",
+      };
     case "short":
-      return { pass: false, outcome: "out-of-reach", headline: "Arm ran out", detail: "Wheel too big: the arm runs out of reach before the bucket gets to the line." };
+      return {
+        pass: false,
+        outcome: "out-of-reach",
+        headline: "Arm ran out",
+        detail: "Wheel too big: the arm runs out of reach before the bucket gets to the line.",
+      };
     case "pass":
-      return { pass: true, outcome: "bucket-lifted", headline: "Bucket lifted", detail: "The wheel makes the pull easy, and the arm still reaches far enough." };
+      return {
+        pass: true,
+        outcome: "bucket-lifted",
+        headline: "Bucket lifted",
+        detail: "The wheel makes the pull easy, and the arm still reaches far enough.",
+      };
   }
 }
 
@@ -180,7 +254,15 @@ function play(v: Values): Run {
       : r.kind === "short"
         ? phases({ lead: LEAD, haul: haulMs, twitch: 0, hold: HOLD, reset: 0, drop: DROP_MS })
         : phases({ lead: LEAD, haul: haulMs, twitch: 0, hold: HOLD, reset: RESET, drop: 0 });
-  const cues: Cue[] = r.kind === "short" ? [{ ms: tl.end("haul"), kind: "thud" }, { ms: tl.end("hold") + DROP_MS * 0.95, kind: "thud" }] : r.kind === "pass" ? [{ ms: tl.end("haul"), kind: "click" }] : [{ ms: tl.start("twitch") + 120, kind: "thud" }];
+  const cues: Cue[] =
+    r.kind === "short"
+      ? [
+          { ms: tl.end("haul"), kind: "thud" },
+          { ms: tl.end("hold") + DROP_MS * 0.95, kind: "thud" },
+        ]
+      : r.kind === "pass"
+        ? [{ ms: tl.end("haul"), kind: "click" }]
+        : [{ ms: tl.start("twitch") + 120, kind: "thud" }];
 
   const values = (turn: number): Values => ({ ...v, radius: r.radius, turn });
   return {
@@ -234,7 +316,11 @@ function scene(): Part[] {
   const tip = -R_EFF - edge / 2 - MARK_CLEAR;
   return [
     post(`${SCENE}mark-post`, tip - MARK_LEN - 5, z, at + 4, { name: "Mark post", role: "Carries the line the bucket has to reach." }),
-    tick(`${SCENE}mark`, v3(tip - MARK_LEN / 2, at, z), MARK_LEN, "x", { name: "Mark", role: "How high the top of the bucket has to get.", on: on(`${SCENE}mark-post`, "weld") }),
+    tick(`${SCENE}mark`, v3(tip - MARK_LEN / 2, at, z), MARK_LEN, "x", {
+      name: "Mark",
+      role: "How high the top of the bucket has to get.",
+      on: on(`${SCENE}mark-post`, "weld"),
+    }),
   ];
 }
 
@@ -249,10 +335,7 @@ export const wheel: Primitive = {
     "A wheel and axle is a lever that can turn without end. A force at the rim of the big wheel turns the small axle, and the cord wound on the axle pulls with a force bigger by the ratio of the radii, R ÷ r, where r is measured to the cord's middle. The price is distance: the rim travels R ÷ r times further than the load rises. An arm that cannot pull the force a small wheel needs only strains it a millimetre or two. Friction in the bearing and the stiffness of the cord are left out.",
   madeOf: [],
   seenIn: ["Doorknob", "Screwdriver handle", "Tap"],
-  sliders: [
-    RADIUS,
-    { id: "turn", label: "Turn", min: 0, max: TURN_MAX, step: 0.01, initial: 0.3, unit: " turns" },
-  ],
+  sliders: [RADIUS, { id: "turn", label: "Turn", min: 0, max: TURN_MAX, step: 0.01, initial: 0.3, unit: " turns" }],
   view: VIEW.bench,
   build,
   readouts,

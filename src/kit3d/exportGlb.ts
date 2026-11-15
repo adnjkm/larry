@@ -51,7 +51,13 @@ async function kitToGlb(kit: Kit): Promise<ArrayBuffer> {
   }
 }
 
-const glbFileName = (kit: Kit) => `${kit.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "model"}.glb`;
+const glbFileName = (kit: Kit) =>
+  `${
+    kit.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "model"
+  }.glb`;
 
 /**
  * Saves the kit as a .glb. A touch device gets the share sheet, which is how a phone saves to Files or sends a file on;

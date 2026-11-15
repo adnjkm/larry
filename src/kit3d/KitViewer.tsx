@@ -51,7 +51,6 @@ const styles = stylex.create({
   }),
 });
 
-
 const shapeKeys = new WeakMap<Part["shape"], string>();
 function keyOf(part: Part): string {
   let key = shapeKeys.get(part.shape);
@@ -98,7 +97,16 @@ function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimu
   cam.updateProjectionMatrix();
 }
 
-export const KitViewer = memo(function KitViewer({ parts, spin: wantsSpin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, look = DEFAULT_LOOK }: KitViewerProps) {
+export const KitViewer = memo(function KitViewer({
+  parts,
+  spin: wantsSpin = false,
+  elevation = 20,
+  azimuth = 30,
+  height = 360,
+  frame,
+  pixelScale,
+  look = DEFAULT_LOOK,
+}: KitViewerProps) {
   const box = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
   useEffect(() => {
@@ -130,7 +138,21 @@ export const KitViewer = memo(function KitViewer({ parts, spin: wantsSpin = fals
   );
 });
 
-function Scene({ parts, spin, elevation, azimuth, frame, look }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: KitBounds | undefined; look: DitherLook }) {
+function Scene({
+  parts,
+  spin,
+  elevation,
+  azimuth,
+  frame,
+  look,
+}: {
+  parts: Part[];
+  spin: boolean;
+  elevation: number;
+  azimuth: number;
+  frame: KitBounds | undefined;
+  look: DitherLook;
+}) {
   const { camera, size, gl, invalidate } = useThree();
   const shapes = useGeometries(parts);
   const bounds = useMemo(() => frame ?? measureParts(parts), [frame, parts]);
@@ -258,11 +280,25 @@ function Scene({ parts, spin, elevation, azimuth, frame, look }: { parts: Part[]
 
   return (
     <>
-      <mesh ref={shadow} visible={look.shadow.show} geometry={shadowGeometry} material={shadowMaterial} position={shadowPosition} scale={[shadowRadius.x, 1, shadowRadius.z]} renderOrder={-1} />
+      <mesh
+        ref={shadow}
+        visible={look.shadow.show}
+        geometry={shadowGeometry}
+        material={shadowMaterial}
+        position={shadowPosition}
+        scale={[shadowRadius.x, 1, shadowRadius.z]}
+        renderOrder={-1}
+      />
       <group ref={pivot}>
         <group position={[-bounds.centerX, 0, -bounds.centerZ]}>
           {parts.map((part, i) => (
-            <mesh key={part.id} geometry={shapes[i]} material={materials[i]} position={[part.position.x, part.position.y, part.position.z]} rotation={[part.rotation.x * DEG_TO_RAD, part.rotation.y * DEG_TO_RAD, part.rotation.z * DEG_TO_RAD]} />
+            <mesh
+              key={part.id}
+              geometry={shapes[i]}
+              material={materials[i]}
+              position={[part.position.x, part.position.y, part.position.z]}
+              rotation={[part.rotation.x * DEG_TO_RAD, part.rotation.y * DEG_TO_RAD, part.rotation.z * DEG_TO_RAD]}
+            />
           ))}
         </group>
       </group>

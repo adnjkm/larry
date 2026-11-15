@@ -91,7 +91,13 @@ describe("lesson player", () => {
   it("judges a tune step below, above, then inside the window", () => {
     const at = (value: number) => run(toTune(), { type: "slider", id: "stiffness", value }, tryTune);
     const toTune = () =>
-      run(startLesson(whole), { type: "problem", action: { type: "run" } }, { type: "next" }, { type: "problem", action: { type: "pick", option: 1 } }, { type: "next" });
+      run(
+        startLesson(whole),
+        { type: "problem", action: { type: "run" } },
+        { type: "next" },
+        { type: "problem", action: { type: "pick", option: 1 } },
+        { type: "next" },
+      );
     assert.deepEqual(at(below).steps[2]?.problem, { type: "tune", verdict: "below", solved: false });
     assert.deepEqual(at(above).steps[2]?.problem, { type: "tune", verdict: "above", solved: false });
     const solved = run(at(above), { type: "slider", id: "stiffness", value: inside }, tryTune);
@@ -99,7 +105,13 @@ describe("lesson player", () => {
   });
 
   it("drops a tune verdict once the slider moves, so it never describes a setting that has changed", () => {
-    const toTune = run(startLesson(whole), { type: "problem", action: { type: "run" } }, { type: "next" }, { type: "problem", action: { type: "pick", option: 1 } }, { type: "next" });
+    const toTune = run(
+      startLesson(whole),
+      { type: "problem", action: { type: "run" } },
+      { type: "next" },
+      { type: "problem", action: { type: "pick", option: 1 } },
+      { type: "next" },
+    );
     const judged = run(toTune, { type: "slider", id: "stiffness", value: below }, tryTune);
     const moved = reduce(judged, { type: "slider", id: "stiffness", value: above });
     assert.deepEqual(moved.steps[2]?.problem, { type: "tune", verdict: null, solved: false });
@@ -108,7 +120,13 @@ describe("lesson player", () => {
   });
 
   it("keeps a tune verdict when a slider the problem doesn't judge moves", () => {
-    const toTune = run(startLesson(whole), { type: "problem", action: { type: "run" } }, { type: "next" }, { type: "problem", action: { type: "pick", option: 1 } }, { type: "next" });
+    const toTune = run(
+      startLesson(whole),
+      { type: "problem", action: { type: "run" } },
+      { type: "next" },
+      { type: "problem", action: { type: "pick", option: 1 } },
+      { type: "next" },
+    );
     const judged = run(toTune, { type: "slider", id: "stiffness", value: below }, tryTune);
     const other = reduce(judged, { type: "slider", id: "force", value: 10 });
     assert.deepEqual(other.steps[2]?.problem, { type: "tune", verdict: "below", solved: false });

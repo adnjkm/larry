@@ -43,7 +43,10 @@ async function check(page: Page, url: string, tag: string) {
   await shot("1-rest");
   assert.equal(await verdictText(page), shown(game.judge(startValues(primitive))), "verdict at rest is game.judge(start)");
 
-  for (const [name, n] of [["fail", failing!], ["pass", passing!]] as const) {
+  for (const [name, n] of [
+    ["fail", failing!],
+    ["pass", passing!],
+  ] as const) {
     await page.reload({ waitUntil: "networkidle" });
     await ready(page);
     await page.locator(`[data-slider="${number.id}"] input`).fill(String(n));
@@ -74,7 +77,10 @@ async function check(page: Page, url: string, tag: string) {
 
 const { url, browser, close } = await launch();
 try {
-  for (const [w, h] of [[390, 844], [320, 700]] as const) {
+  for (const [w, h] of [
+    [390, 844],
+    [320, 700],
+  ] as const) {
     const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true });
     await check(page, url, `${w}`);
     await page.close();

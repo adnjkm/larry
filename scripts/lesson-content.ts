@@ -29,7 +29,9 @@ function strings(lesson: Lesson): { where: string; text: string }[] {
   return out;
 }
 
-for (const file of readdirSync(dir).filter((f) => f.endsWith(".json")).sort()) {
+for (const file of readdirSync(dir)
+  .filter((f) => f.endsWith(".json"))
+  .sort()) {
   const lesson = JSON.parse(readFileSync(join(dir, file), "utf8")) as Lesson;
   const steps = allSteps(lesson);
   const storyWords = steps.map((s) => words(s.story));
@@ -37,7 +39,11 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith(".json")).sort()) {
   const runs = steps.filter((s) => s.problem?.type === "run");
   const bare = runs.filter((s) => s.primitive === null);
   const leaks = strings(lesson).filter(({ text }) => LEAK.test(text));
-  console.log(`${file.replace(/\.json$/, "")}: ${steps.length} steps, story words [${storyWords.join(" ")}] max ${Math.max(...storyWords)}, payoff words [${payoffWords.join(" ")}] max ${Math.max(...payoffWords)}, hook ${words(lesson.hook)}, closing ${words(lesson.closing)}`);
-  console.log(`  run steps ${runs.length}, without a primitive ${bare.length}${bare.length ? ` (${bare.map((s) => s.id).join(", ")})` : ""}; leaks ${leaks.length}`);
+  console.log(
+    `${file.replace(/\.json$/, "")}: ${steps.length} steps, story words [${storyWords.join(" ")}] max ${Math.max(...storyWords)}, payoff words [${payoffWords.join(" ")}] max ${Math.max(...payoffWords)}, hook ${words(lesson.hook)}, closing ${words(lesson.closing)}`,
+  );
+  console.log(
+    `  run steps ${runs.length}, without a primitive ${bare.length}${bare.length ? ` (${bare.map((s) => s.id).join(", ")})` : ""}; leaks ${leaks.length}`,
+  );
   for (const { where, text } of leaks) console.log(`  leak in ${where}: ${text.match(new RegExp(`.{0,40}(${LEAK.source}).{0,40}`, "i"))?.[0]}`);
 }

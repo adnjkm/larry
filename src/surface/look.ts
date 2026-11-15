@@ -37,11 +37,40 @@ export const LOOK = {
   edge: { radius: 1.5, ridge: 0.5, crease: 0.7 },
   materials: {
     /** The wheel's greys plus white. The knob, the shutter, the wheel. */
-    bone: { tones: [[26, 26, 26], [84, 84, 84], [168, 168, 168], [240, 240, 240], [255, 255, 255]], flat: 0.82, floor: 0.2 },
+    bone: {
+      tones: [
+        [26, 26, 26],
+        [84, 84, 84],
+        [168, 168, 168],
+        [240, 240, 240],
+        [255, 255, 255],
+      ],
+      flat: 0.82,
+      floor: 0.2,
+    },
     /** A dark moulded panel: tracks, slots, wells in the camera body. */
-    slate: { tones: [[10, 10, 12], [26, 27, 32], [44, 46, 54], [78, 80, 90]], flat: 0.42, floor: 0 },
+    slate: {
+      tones: [
+        [10, 10, 12],
+        [26, 27, 32],
+        [44, 46, 54],
+        [78, 80, 90],
+      ],
+      flat: 0.42,
+      floor: 0,
+    },
     /** The accent, shaded toward ink and paper. */
-    pink: { tones: [[60, 0, 40], [150, 0, 84], [255, 0, 135], [255, 120, 190], [255, 225, 240]], flat: 0.55, floor: 0.1 },
+    pink: {
+      tones: [
+        [60, 0, 40],
+        [150, 0, 84],
+        [255, 0, 135],
+        [255, 120, 190],
+        [255, 225, 240],
+      ],
+      flat: 0.55,
+      floor: 0.1,
+    },
   },
   /** The colour of a cast shadow falling on empty ground. */
   ink: [10, 10, 12],

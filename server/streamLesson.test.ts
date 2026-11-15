@@ -14,7 +14,6 @@ const kit = parseKit(fixture("kits"));
 const [first, second, ...rest] = pen.chapters;
 assert.ok(first && second);
 
-
 const header = (lesson: Lesson): StructuredEvent => ({ type: "header", value: { title: lesson.title, hook: lesson.hook } });
 const result = (output: Lesson): StructuredEvent => ({ type: "result", output, costUsd: 0.1 });
 
@@ -42,14 +41,26 @@ test("a rewrite after a broken chapter keeps what was streamed and streams the r
   const rewrite = { ...pen, title: "Rewritten", hook: ["Rewritten hook."], chapters: [{ ...first, id: "rewritten-first" }, second, ...rest] };
 
   const { events, attempts, streamed, lesson } = await play(
-    scripted([header(broken), ...broken.chapters.map((value): StructuredEvent => ({ type: "item", value })), result(broken)], [header(rewrite), ...rewrite.chapters.map((value): StructuredEvent => ({ type: "item", value })), result(rewrite)]),
+    scripted(
+      [header(broken), ...broken.chapters.map((value): StructuredEvent => ({ type: "item", value })), result(broken)],
+      [header(rewrite), ...rewrite.chapters.map((value): StructuredEvent => ({ type: "item", value })), result(rewrite)],
+    ),
   );
 
   assert.equal(attempts, 2);
-  assert.deepEqual(events.map((e) => e.type), ["started", ...pen.chapters.map(() => "chapter"), "done"]);
-  assert.deepEqual(streamed, pen.chapters.map((c) => c.id));
+  assert.deepEqual(
+    events.map((e) => e.type),
+    ["started", ...pen.chapters.map(() => "chapter"), "done"],
+  );
+  assert.deepEqual(
+    streamed,
+    pen.chapters.map((c) => c.id),
+  );
   assert.equal(lesson.title, pen.title);
-  assert.deepEqual(lesson.chapters.map((c) => c.id), streamed);
+  assert.deepEqual(
+    lesson.chapters.map((c) => c.id),
+    streamed,
+  );
 });
 
 test("a hook that runs long is held back, and the rewrite's title and hook are the ones shown", async () => {
@@ -57,10 +68,15 @@ test("a hook that runs long is held back, and the rewrite's title and hook are t
   const rewrite = { ...pen, title: "Rewritten" };
   const items = (lesson: Lesson) => lesson.chapters.map((value): StructuredEvent => ({ type: "item", value }));
 
-  const { events, lesson } = await play(scripted([header(rambling), ...items(rambling), result(rambling)], [header(rewrite), ...items(rewrite), result(rewrite)]));
+  const { events, lesson } = await play(
+    scripted([header(rambling), ...items(rambling), result(rambling)], [header(rewrite), ...items(rewrite), result(rewrite)]),
+  );
 
   const started = events.filter((e) => e.type === "started");
-  assert.deepEqual(started.map((e) => e.title), ["Rewritten"]);
+  assert.deepEqual(
+    started.map((e) => e.title),
+    ["Rewritten"],
+  );
   assert.equal(lesson.title, "Rewritten");
   assert.deepEqual(lesson.hook, pen.hook);
 });
@@ -69,12 +85,18 @@ test("a retry continues from what the reader was shown and streams only what is 
   const rewrite = { ...pen, title: "Rewritten", chapters: [{ ...first, id: "rewritten-first" }, second, ...rest] };
   const items = rewrite.chapters.map((value): StructuredEvent => ({ type: "item", value }));
 
-  const { events, streamed, lesson } = await play(scripted([header(rewrite), ...items, result(rewrite)]), { header: { title: pen.title, hook: pen.hook }, chapters: [first] });
+  const { events, streamed, lesson } = await play(scripted([header(rewrite), ...items, result(rewrite)]), {
+    header: { title: pen.title, hook: pen.hook },
+    chapters: [first],
+  });
 
   assert.equal(events.filter((e) => e.type === "started").length, 0);
   assert.deepEqual(streamed, [second.id, ...rest.map((c) => c.id)]);
   assert.equal(lesson.title, pen.title);
-  assert.deepEqual(lesson.chapters.map((c) => c.id), pen.chapters.map((c) => c.id));
+  assert.deepEqual(
+    lesson.chapters.map((c) => c.id),
+    pen.chapters.map((c) => c.id),
+  );
 });
 
 const words = (count: number) => Array.from({ length: count }, () => "word").join(" ");

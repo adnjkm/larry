@@ -20,7 +20,7 @@ const tricky: Kit = {
   ...firstKit,
   name: 'The "parts" {kit}',
   summary: 'Quotes \\" and backslashes \\\\ and ]} brackets, "parts": [ in text.',
-  parts: firstKit.parts.map((part, i) => (i === 0 ? { ...part, name: 'a "b" \\ {c} [d]', role: 'ends with a backslash \\' } : part)),
+  parts: firstKit.parts.map((part, i) => (i === 0 ? { ...part, name: 'a "b" \\ {c} [d]', role: "ends with a backslash \\" } : part)),
 };
 
 function mulberry32(seed: number) {
@@ -46,7 +46,7 @@ function scan(key: string, chunks: string[]) {
 function randomChunks(text: string, seed: number, maxSize: number) {
   const next = mulberry32(seed);
   const chunks: string[] = [];
-  for (let i = 0; i < text.length; ) {
+  for (let i = 0; i < text.length;) {
     const size = 1 + Math.floor(next() * maxSize);
     chunks.push(text.slice(i, i + size));
     i += size;
@@ -68,7 +68,11 @@ const cases = [
 
 for (const { name, doc, key } of cases) {
   const text = JSON.stringify(doc);
-  const assertEmits = (chunks: string[]) => assert.deepEqual(scan(key, chunks).map((e) => e.event), expected(doc, key));
+  const assertEmits = (chunks: string[]) =>
+    assert.deepEqual(
+      scan(key, chunks).map((e) => e.event),
+      expected(doc, key),
+    );
 
   test(`${name}: one character at a time`, () => assertEmits([...text]));
 
@@ -97,5 +101,8 @@ for (const { name, doc, key } of cases) {
 test("an element that is not valid JSON is skipped and the next one still arrives", () => {
   const text = '{"name":"n","summary":"s","parts":[{"a":,},{"b":1}]}';
   const events = scan("parts", [text]).map((e) => e.event);
-  assert.deepEqual(events, [{ type: "header", value: { name: "n", summary: "s", parts: [] } }, { type: "item", value: { b: 1 } }]);
+  assert.deepEqual(events, [
+    { type: "header", value: { name: "n", summary: "s", parts: [] } },
+    { type: "item", value: { b: 1 } },
+  ]);
 });

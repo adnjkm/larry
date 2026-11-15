@@ -105,7 +105,8 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
     const before = presentAfter(lesson, kit, index - 1);
     const restAfter = lesson.rest({ kit, present: after });
     const centre = restCentre(kit, after, restAfter);
-    const draw = (present: readonly string[], scene: Scene, explode: number | Shares, pink = new Set<string>()) => drawObject({ kit, present, scene, explode, plan: lesson.explode, pink, centre, apart: lesson.apart });
+    const draw = (present: readonly string[], scene: Scene, explode: number | Shares, pink = new Set<string>()) =>
+      drawObject({ kit, present, scene, explode, plan: lesson.explode, pink, centre, apart: lesson.apart });
     const own = (parts: Part[]) => parts.filter((p) => produces.includes(p.id));
     const home = extents(own(draw(after, restAfter, 0)));
     const homeCentre = centreOf(home);
@@ -118,11 +119,13 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
     }
     const blockers = [...pieces.values()].flatMap((ids) => {
       const b = extents(draw(before, restAfter, 0).filter((p) => ids.includes(p.id)));
-      const overlaps = b.min.x < home.max.x && b.max.x > home.min.x && b.min.y < home.max.y + 1 && b.max.y > home.min.y && b.min.z < home.max.z && b.max.z > home.min.z;
+      const overlaps =
+        b.min.x < home.max.x && b.max.x > home.min.x && b.min.y < home.max.y + 1 && b.max.y > home.min.y && b.min.z < home.max.z && b.max.z > home.min.z;
       const lift = home.max.y - b.min.y + Math.max(GAP, 2 * (home.max.y - home.min.y));
       return overlaps ? ids.map((id) => ({ id, lift })) : [];
     });
-    const lifted = (k: number): Scene => compose(restAfter, { moves: Object.fromEntries(blockers.map((b) => [b.id, { offset: vec(0, b.lift * k, 0) }])), marks: [] });
+    const lifted = (k: number): Scene =>
+      compose(restAfter, { moves: Object.fromEntries(blockers.map((b) => [b.id, { offset: vec(0, b.lift * k, 0) }])), marks: [] });
     const object = (explode: number | Shares, k: number) => draw(before, lifted(k), explode);
     const ghost = (explode: number | Shares) => own(draw(after, restAfter, explode));
     // The outline traces the piece's own shell, not every rib and thread fixed to it.
@@ -134,12 +137,21 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
     // The piece rests on the table beside a tall object, and above a long one.
     const box = extents([...draw(after, restAfter, 0), ...object(0, 1)]);
     const half = sub(home.max, homeCentre);
-    const tray = box.max.y - box.min.y >= box.max.x - box.min.x
-      ? vec(box.max.x + GAP + half.x, box.min.y + half.y, (box.min.z + box.max.z) / 2)
-      : vec((box.min.x + box.max.x) / 2, box.max.y + GAP + half.y, (box.min.z + box.max.z) / 2);
+    const tray =
+      box.max.y - box.min.y >= box.max.x - box.min.x
+        ? vec(box.max.x + GAP + half.x, box.min.y + half.y, (box.min.z + box.max.z) / 2)
+        : vec((box.min.x + box.max.x) / 2, box.max.y + GAP + half.y, (box.min.z + box.max.z) / 2);
     const whole = (explode: number | Shares) => draw(after, restAfter, explode);
     return {
-      after, restAfter, centre, tray, object, ghost, piece, whole, lifts: blockers.length > 0,
+      after,
+      restAfter,
+      centre,
+      tray,
+      object,
+      ghost,
+      piece,
+      whole,
+      lifts: blockers.length > 0,
       hover: module.main.id === "thread" ? Math.max(8, 0.6 * (home.max.y - home.min.y)) : 6,
       around: [...piece(tray, 0), ...object(0, 1)],
       hidden: produces.some((id) => enclosed(id, whole(0), produces)),
@@ -152,13 +164,24 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
   const placed = phase.kind === "placed";
   const screws = module.main.id === "thread";
 
-  const pose = phase.kind === "landing"
-    ? landingPath(reducedMotion.matches ? "snap" : screws ? "screw" : "press", phase.from, phase.to, setup.hover, setup.lifts).at(phase.ms)
-    : { at: phase.kind === "placed" ? setup.tray : phase.at, turn: 0, k: 1 };
+  const pose =
+    phase.kind === "landing"
+      ? landingPath(reducedMotion.matches ? "snap" : screws ? "screw" : "press", phase.from, phase.to, setup.hover, setup.lifts).at(phase.ms)
+      : { at: phase.kind === "placed" ? setup.tray : phase.at, turn: 0, k: 1 };
   const tone = phase.kind === "held" ? (phase.near ? GHOST.lit : GHOST.held) : GHOST.idle;
 
   const parts = useMemo(() => {
-    if (phase.kind === "placed") return drawObject({ kit, present: setup.after, scene: setup.restAfter, explode: explode.shown, plan: lesson.explode, pink: new Set(module.produces), centre: setup.centre, apart: lesson.apart });
+    if (phase.kind === "placed")
+      return drawObject({
+        kit,
+        present: setup.after,
+        scene: setup.restAfter,
+        explode: explode.shown,
+        plan: lesson.explode,
+        pink: new Set(module.produces),
+        centre: setup.centre,
+        apart: lesson.apart,
+      });
     const ghost = phase.kind === "landing" ? [] : outline(setup.shell(setup.ghost(explode.shown)), tone);
     return [...setup.object(explode.shown, pose.k), ...ghost, ...setup.piece(pose.at, pose.turn)];
   }, [setup, kit, lesson.apart, lesson.explode, module, phase.kind, explode.shown, tone, pose.at, pose.turn, pose.k]);
@@ -168,7 +191,12 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
   // What the pointer handlers and the overlay loop read between renders.
   const live = useRef({ piece: [] as Vec[], ghost: [] as Vec[], at: setup.tray, phase });
   const ghostNow = setup.ghost(explode.shown);
-  live.current = { piece: cornersOf(extents(setup.piece(pose.at, pose.turn))), ghost: ghostNow.length > 0 ? cornersOf(extents(ghostNow)) : [], at: pose.at, phase };
+  live.current = {
+    piece: cornersOf(extents(setup.piece(pose.at, pose.turn))),
+    ghost: ghostNow.length > 0 ? cornersOf(extents(ghostNow)) : [],
+    at: pose.at,
+    phase,
+  };
   const ghostCentre = () => centreOf(extents(setup.ghost(explode.shown)));
 
   const handle = useRef<HTMLButtonElement>(null);
@@ -213,13 +241,17 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
     const path = landingPath(reducedMotion.matches ? "snap" : screws ? "screw" : "press", from, to, setup.hover, setup.lifts, approachMs);
     let seated = false;
     setPhase({ kind: "landing", from, to, ms: 0 });
-    void play(path.totalMs, (ms) => {
-      if (!seated && ms >= path.seatMs) {
-        seated = true;
-        navigator.vibrate?.(18);
-      }
-      setPhase({ kind: "landing", from, to, ms });
-    }, alive).then((done) => {
+    void play(
+      path.totalMs,
+      (ms) => {
+        if (!seated && ms >= path.seatMs) {
+          seated = true;
+          navigator.vibrate?.(18);
+        }
+        setPhase({ kind: "landing", from, to, ms });
+      },
+      alive,
+    ).then((done) => {
       if (!done) return;
       setPhase({ kind: "placed" });
       // A part that lands inside another would turn pink out of sight, so the object comes apart to show it.
@@ -234,10 +266,16 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
     // It stays in front of the ghost on the way home and drops back beside the object only at the end.
     const lift = front.current;
     const behind = sub(from, lift);
-    stopBack.current = spring(100, 0, 0, (left) => {
-      const k = left / 100;
-      setPhase({ kind: "loose", at: add(mix(setup.tray, behind, k), mix(vec(), lift, Math.min(1, 5 * k))), missed: true });
-    }, { response: 0.4 });
+    stopBack.current = spring(
+      100,
+      0,
+      0,
+      (left) => {
+        const k = left / 100;
+        setPhase({ kind: "loose", at: add(mix(setup.tray, behind, k), mix(vec(), lift, Math.min(1, 5 * k))), missed: true });
+      },
+      { response: 0.4 },
+    );
   };
 
   /** Where the piece goes under the finger: on the plane through the ghost, pulled toward it as it gets close. */
@@ -261,11 +299,17 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
   const pieceName = module.assemble.piece.toLowerCase();
   const target = module.target.label.toLowerCase();
   const names = listOf(module.produces.map((id) => kit.parts.find((q) => q.id === id)?.name ?? id));
-  const say = placed ? `Built: ${names}.`
-    : phase.kind === "landing" ? (screws ? "Twisting it on…" : "Pressing it in…")
-    : near ? "Let go."
-    : phase.kind === "loose" && phase.missed ? `Not there. Find the faint ${pieceName}.`
-    : `Drag the ${pieceName} onto the ${target}.`;
+  const say = placed
+    ? `Built: ${names}.`
+    : phase.kind === "landing"
+      ? screws
+        ? "Twisting it on…"
+        : "Pressing it in…"
+      : near
+        ? "Let go."
+        : phase.kind === "loose" && phase.missed
+          ? `Not there. Find the faint ${pieceName}.`
+          : `Drag the ${pieceName} onto the ${target}.`;
 
   return (
     <main className="page" data-stage="assemble" data-build="drag">
@@ -275,7 +319,13 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
         why={
           <Why title="Build it">
             <p className="sheet-lead">{module.assemble.title}</p>
-            {placed ? <p>{module.assemble.built} Pink marks the part this lesson is about.</p> : <p>Drag the pink {pieceName} onto its faint outline on the {lesson.objectName.toLowerCase()}. It clicks into place when it's close.</p>}
+            {placed ? (
+              <p>{module.assemble.built} Pink marks the part this lesson is about.</p>
+            ) : (
+              <p>
+                Drag the pink {pieceName} onto its faint outline on the {lesson.objectName.toLowerCase()}. It clicks into place when it's close.
+              </p>
+            )}
           </Why>
         }
       >
@@ -304,7 +354,8 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
                 const at = live.current.at;
                 const p = lens.toScreen(at);
                 grab.current = { x: e.clientX - p.x, y: e.clientY - p.y };
-                const reach = (pts: readonly Vec[]) => pts.length > 0 ? Math.hypot(pts[7]!.x - pts[0]!.x, pts[7]!.y - pts[0]!.y, pts[7]!.z - pts[0]!.z) / 2 : 0;
+                const reach = (pts: readonly Vec[]) =>
+                  pts.length > 0 ? Math.hypot(pts[7]!.x - pts[0]!.x, pts[7]!.y - pts[0]!.y, pts[7]!.z - pts[0]!.z) / 2 : 0;
                 const depth = reach(live.current.piece) + reach(live.current.ghost) + CLEAR;
                 front.current = vec(lens.facing.x * depth, lens.facing.y * depth, lens.facing.z * depth);
                 setPhase({ kind: "held", ...follow(lens, e.clientX, e.clientY) });
@@ -339,7 +390,9 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
       </Viewer>
       <ExplodeSlider value={explode.target} onChange={explode.set} disabled={phase.kind === "held" || phase.kind === "landing"} />
       <Actions>
-        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>{next}</button>
+        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>
+          {next}
+        </button>
       </Actions>
     </main>
   );

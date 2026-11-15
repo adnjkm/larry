@@ -64,7 +64,8 @@ export function settle(v: Values) {
 
 const nutMid = (rise: number) => PLATE_TOP + NUT_H / 2 + rise;
 const handleAngle = (turns: number) => HANDLE_AT_0 + turns * 360;
-const handlePoint = (turns: number, rise: number) => v3(HAND_R * Math.cos(handleAngle(turns) * DEG_TO_RAD), nutMid(rise), -HAND_R * Math.sin(handleAngle(turns) * DEG_TO_RAD));
+const handlePoint = (turns: number, rise: number) =>
+  v3(HAND_R * Math.cos(handleAngle(turns) * DEG_TO_RAD), nutMid(rise), -HAND_R * Math.sin(handleAngle(turns) * DEG_TO_RAD));
 
 /** The ridge wire's radius for a drawn pitch: thicker as the pitch grows, never under 1.2 (a 2.4 wire) and always clear of the next turn. */
 export const ridgeWire = (pitch: number) => clamp(0.12 * pitch + 0.72, 1.2, 2);
@@ -77,12 +78,41 @@ function build(v: Values): Part[] {
   const mid = nutMid(s.rise);
   const wire = ridgeWire(s.pitch);
   const length = RIDGE_TO - RIDGE_FROM;
-  const bar = knob("handle", handlePoint(s.turns, s.rise), "x", { name: "Handle", role: "A bar on the nut: your hand takes it once round the bolt for each pitch the nut rises.", on: on("nut", "press-fit") });
+  const bar = knob("handle", handlePoint(s.turns, s.rise), "x", {
+    name: "Handle",
+    role: "A bar on the nut: your hand takes it once round the bolt for each pitch the nut rises.",
+    on: on("nut", "press-fit"),
+  });
   return [
     plate(61, 49),
-    part("rod", "Bolt", "The rod the ridge is wound on.", cylinder(ROD_R, ROD_TOP - PLATE_TOP).shape, v3(0, (PLATE_TOP + ROD_TOP) / 2, 0), look.steel, on("plate", "weld")),
-    part("ridge", "Thread ridge", "A wedge wound round the rod, climbing one pitch per turn.", coil(MEAN_R, wire, length, (length - 2 * wire) / s.pitch), v3(0, (RIDGE_FROM + RIDGE_TO) / 2, 0), look.focusMetal, on("rod", "weld")),
-    part("nut", "Nut", "Its matching thread rides the wedge, so it climbs one pitch for every turn.", hexShape(NUT_R, NUT_H), v3(0, mid, 0), look.focus, on("rod", "thread"), v3(-90, 0, a)),
+    part(
+      "rod",
+      "Bolt",
+      "The rod the ridge is wound on.",
+      cylinder(ROD_R, ROD_TOP - PLATE_TOP).shape,
+      v3(0, (PLATE_TOP + ROD_TOP) / 2, 0),
+      look.steel,
+      on("plate", "weld"),
+    ),
+    part(
+      "ridge",
+      "Thread ridge",
+      "A wedge wound round the rod, climbing one pitch per turn.",
+      coil(MEAN_R, wire, length, (length - 2 * wire) / s.pitch),
+      v3(0, (RIDGE_FROM + RIDGE_TO) / 2, 0),
+      look.focusMetal,
+      on("rod", "weld"),
+    ),
+    part(
+      "nut",
+      "Nut",
+      "Its matching thread rides the wedge, so it climbs one pitch for every turn.",
+      hexShape(NUT_R, NUT_H),
+      v3(0, mid, 0),
+      look.focus,
+      on("rod", "thread"),
+      v3(-90, 0, a),
+    ),
     { ...bar, rotation: v3(0, a, 90) },
   ];
 }
@@ -94,7 +124,11 @@ function build(v: Values): Part[] {
  */
 function weight(v: Values): Part[] {
   const s = settle(v);
-  return loadBlock(`${SCENE}load`, v3(0, LOAD_BOTTOM_0 + s.rise, 0), LOAD_N, MM_PER_N, { name: "Weight", role: "The load: it has a hole for the bolt and rests on the nut.", on: on("nut", "glue") }).parts.filter((q) => !q.id.endsWith("-arrow"));
+  return loadBlock(`${SCENE}load`, v3(0, LOAD_BOTTOM_0 + s.rise, 0), LOAD_N, MM_PER_N, {
+    name: "Weight",
+    role: "The load: it has a hole for the bolt and rests on the nut.",
+    on: on("nut", "glue"),
+  }).parts.filter((q) => !q.id.endsWith("-arrow"));
 }
 
 function readouts(v: Values) {
@@ -102,7 +136,12 @@ function readouts(v: Values) {
   return [
     { label: "Rise", value: `turns × pitch = ${fmt(s.turns, 2)} × ${fmt(s.pitch, 1)} = ${fmt(s.rise, 1)} mm` },
     { label: "Travel", value: `hand ${fmt(s.handPath)} mm round, weight up ${fmt(s.rise, 1)} mm` },
-    { label: "State", value: s.holds ? `lead ${fmt(s.lead, 1)}° under friction's ${fmt(FRICTION_DEG, 1)}°: holds` : `lead ${fmt(s.lead, 1)}° over friction's ${fmt(FRICTION_DEG, 1)}°: spins back` },
+    {
+      label: "State",
+      value: s.holds
+        ? `lead ${fmt(s.lead, 1)}° under friction's ${fmt(FRICTION_DEG, 1)}°: holds`
+        : `lead ${fmt(s.lead, 1)}° over friction's ${fmt(FRICTION_DEG, 1)}°: spins back`,
+    },
   ];
 }
 
@@ -126,11 +165,26 @@ function judge(v: Values): Verdict {
   const r = jack(v);
   switch (r.kind) {
     case "short":
-      return { pass: false, outcome: "ran-out-of-turns", headline: "Ran out of turns", detail: "Threads too close together: you run out of turns before the weight reaches the mark." };
+      return {
+        pass: false,
+        outcome: "ran-out-of-turns",
+        headline: "Ran out of turns",
+        detail: "Threads too close together: you run out of turns before the weight reaches the mark.",
+      };
     case "spins":
-      return { pass: false, outcome: "spun-back", headline: "Spun back down", detail: "Threads too steep: friction cannot hold, so the weight spins the nut back down." };
+      return {
+        pass: false,
+        outcome: "spun-back",
+        headline: "Spun back down",
+        detail: "Threads too steep: friction cannot hold, so the weight spins the nut back down.",
+      };
     case "pass":
-      return { pass: true, outcome: "held-at-mark", headline: "Held at the mark", detail: "Threads reach the mark and are gentle enough that friction holds the weight." };
+      return {
+        pass: true,
+        outcome: "held-at-mark",
+        headline: "Held at the mark",
+        detail: "Threads reach the mark and are gentle enough that friction holds the weight.",
+      };
   }
 }
 
@@ -204,9 +258,27 @@ function scene(v: Values): Part[] {
   const top = y + 1.5;
   const cx = (x1 + x0 + POST_W) / 2;
   const cy = (PLATE_TOP + top) / 2;
-  const pts: [number, number][] = [[x0, PLATE_TOP], [x0 + POST_W, PLATE_TOP], [x0 + POST_W, top], [x1, top], [x1, y - 1.5], [x0, y - 1.5]];
+  const pts: [number, number][] = [
+    [x0, PLATE_TOP],
+    [x0 + POST_W, PLATE_TOP],
+    [x0 + POST_W, top],
+    [x1, top],
+    [x1, y - 1.5],
+    [x0, y - 1.5],
+  ];
   const outline = pts.map(([px, py]) => ({ x: px - cx, y: py - cy }));
-  return [...weight(v), part(`${SCENE}mark`, "Mark", "The weight's top has to come up to this level: a tick on a slim post.", { kind: "extrusion", outline, depth: POST_W }, v3(cx, cy, 0), look.structure, on("plate", "weld"))];
+  return [
+    ...weight(v),
+    part(
+      `${SCENE}mark`,
+      "Mark",
+      "The weight's top has to come up to this level: a tick on a slim post.",
+      { kind: "extrusion", outline, depth: POST_W },
+      v3(cx, cy, 0),
+      look.structure,
+      on("plate", "weld"),
+    ),
+  ];
 }
 
 const PITCH: Slider = { id: "pitch", label: "Pitch", min: 2, max: 6, step: 0.5, initial: 4, unit: " mm", displayScale: PITCH_UNIT };
@@ -251,7 +323,8 @@ export const thread: Primitive = {
   game: {
     name: "Jack",
     goal: "Jack the weight up to the mark, then let go: it has to stay there.",
-    rules: "You have a limited number of turns. Closer threads lift less per turn but hold. Steeper threads lift more but slip. Without threads, the weight could not stay up.",
+    rules:
+      "You have a limited number of turns. Closer threads lift less per turn but hold. Steeper threads lift more but slip. Without threads, the weight could not stay up.",
     number: "pitch",
     action: "Let go",
     meters,

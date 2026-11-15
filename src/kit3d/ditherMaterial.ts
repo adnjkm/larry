@@ -27,7 +27,6 @@ function srgb(hex: string): Vector3 {
   return new Vector3(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
 
-
 function lookValues(look: DitherLook) {
   const angle = look.light.angle * DEG_TO_RAD;
   const height = look.light.height * DEG_TO_RAD;
@@ -63,7 +62,6 @@ export type LookUniforms = { [K in keyof LookValues]: { value: LookValues[K] } }
 export function createLookUniforms(look: DitherLook = DEFAULT_LOOK): LookUniforms {
   return Object.fromEntries(Object.entries(lookValues(look)).map(([name, value]) => [name, { value }])) as LookUniforms;
 }
-
 
 // The shaders build no local arrays: Mali GPUs (Pixel phones) refuse to compile array constructors ("no default precision
 // defined for variable 'vec3[5]'"), and indexing a local array by a computed index is slow on mobile GPUs anyway.

@@ -145,21 +145,54 @@ const bagTop = (kPa: number) => {
  * the tube's left wall, the shoulder and the neck. The right one: the barrel's floor, the right wall and the other halves.
  */
 const LEFT: Pt[] = [
-  [-BAR_L, ROOF], [-SEAT_R, ROOF], [-SEAT_R, SEAT_Y], [-BORE, SEAT_Y], [-BORE, SHOULDER], [-NECK, SHOULDER], [-NECK, NECK_TOP],
-  [-NECK - WALL, NECK_TOP], [-NECK - WALL, SHOULDER + WALL], [-OUTER, SHOULDER + WALL], [-OUTER, ROOF + WALL], [-BAR_L, ROOF + WALL],
+  [-BAR_L, ROOF],
+  [-SEAT_R, ROOF],
+  [-SEAT_R, SEAT_Y],
+  [-BORE, SEAT_Y],
+  [-BORE, SHOULDER],
+  [-NECK, SHOULDER],
+  [-NECK, NECK_TOP],
+  [-NECK - WALL, NECK_TOP],
+  [-NECK - WALL, SHOULDER + WALL],
+  [-OUTER, SHOULDER + WALL],
+  [-OUTER, ROOF + WALL],
+  [-BAR_L, ROOF + WALL],
 ];
 const RIGHT: Pt[] = [
-  [-BAR_L, PLATE_TOP + GAP], [-OUTER, PLATE_TOP + GAP], [-OUTER, PLATE_TOP], [OUTER, PLATE_TOP], [OUTER, SHOULDER + WALL], [NECK + WALL, SHOULDER + WALL], [NECK + WALL, NECK_TOP], [NECK, NECK_TOP],
-  [NECK, SHOULDER], [BORE, SHOULDER], [BORE, SEAT_Y], [SEAT_R, SEAT_Y], [SEAT_R, ROOF], [BORE, ROOF], [BORE, FLOOR_TOP], [-BAR_L, FLOOR_TOP],
+  [-BAR_L, PLATE_TOP + GAP],
+  [-OUTER, PLATE_TOP + GAP],
+  [-OUTER, PLATE_TOP],
+  [OUTER, PLATE_TOP],
+  [OUTER, SHOULDER + WALL],
+  [NECK + WALL, SHOULDER + WALL],
+  [NECK + WALL, NECK_TOP],
+  [NECK, NECK_TOP],
+  [NECK, SHOULDER],
+  [BORE, SHOULDER],
+  [BORE, SEAT_Y],
+  [SEAT_R, SEAT_Y],
+  [SEAT_R, ROOF],
+  [BORE, ROOF],
+  [BORE, FLOOR_TOP],
+  [-BAR_L, FLOOR_TOP],
 ];
 
-const shift = (outline: Pt[]) => pivoted(outline.map(([x, y]): Pt => [VX + x, y]), DEPTH, [0, 0], v3(0, 0, 0), 0);
+const shift = (outline: Pt[]) =>
+  pivoted(
+    outline.map(([x, y]): Pt => [VX + x, y]),
+    DEPTH,
+    [0, 0],
+    v3(0, 0, 0),
+    0,
+  );
 
 const sphere = (r: number) =>
-  lathe(Array.from({ length: 25 }, (_, i): Pt => {
-    const t = (i / 24) * Math.PI;
-    return [r * Math.sin(t), -r * Math.cos(t)];
-  })).shape;
+  lathe(
+    Array.from({ length: 25 }, (_, i): Pt => {
+      const t = (i / 24) * Math.PI;
+      return [r * Math.sin(t), -r * Math.cos(t)];
+    }),
+  ).shape;
 
 function build(v: Values): Part[] {
   const s = settle(v);
@@ -167,25 +200,82 @@ function build(v: Values): Part[] {
   const right = shift(RIGHT);
   const parts: Part[] = [
     plate(BAR_L + OUTER, 30),
-    part("body-left", "Valve body", "Cut open to show inside: the pump barrel's roof, half the seat, the tube's wall, the shoulder and the neck.", left.shape, left.position, look.structure, on("plate", "weld")),
-    part("body-right", "Valve body", "Cut open to show inside: the barrel's floor, half the seat, the tube's wall, the shoulder and the neck.", right.shape, right.position, look.structure, on("plate", "weld")),
-    part("ball", "Ball", "Sits on the hole and shuts it; lifts when the push under it beats the spring.", sphere(BALL_R), v3(VX, s.ballY, 0), look.focus, on("body-right", "slide")),
-    coilSpring("spring", "Spring", "Presses the ball onto its seat: its preload sets the opening pressure. The ball lifts until its coils touch.", [VX, s.foot], [VX, SHOULDER], 0, COIL_R, s.wire / 2, s.turns, look.slate, on("body-left", "spring")),
-    pushDisc("plunger", v3(VX + s.plunger, BARREL_Y, 0), "x", { name: "Pump plunger", role: "Your thumb pushes it in to raise the pressure under the ball.", on: on("body-left", "slide") }),
-    part("bag", "Bag", "The thing being filled: it swells as its pressure rises.", sphere(s.bagR), v3(VX, bagCentre(s.bagR), 0), look.stone, on("body-left", "glue")),
+    part(
+      "body-left",
+      "Valve body",
+      "Cut open to show inside: the pump barrel's roof, half the seat, the tube's wall, the shoulder and the neck.",
+      left.shape,
+      left.position,
+      look.structure,
+      on("plate", "weld"),
+    ),
+    part(
+      "body-right",
+      "Valve body",
+      "Cut open to show inside: the barrel's floor, half the seat, the tube's wall, the shoulder and the neck.",
+      right.shape,
+      right.position,
+      look.structure,
+      on("plate", "weld"),
+    ),
+    part(
+      "ball",
+      "Ball",
+      "Sits on the hole and shuts it; lifts when the push under it beats the spring.",
+      sphere(BALL_R),
+      v3(VX, s.ballY, 0),
+      look.focus,
+      on("body-right", "slide"),
+    ),
+    coilSpring(
+      "spring",
+      "Spring",
+      "Presses the ball onto its seat: its preload sets the opening pressure. The ball lifts until its coils touch.",
+      [VX, s.foot],
+      [VX, SHOULDER],
+      0,
+      COIL_R,
+      s.wire / 2,
+      s.turns,
+      look.slate,
+      on("body-left", "spring"),
+    ),
+    pushDisc("plunger", v3(VX + s.plunger, BARREL_Y, 0), "x", {
+      name: "Pump plunger",
+      role: "Your thumb pushes it in to raise the pressure under the ball.",
+      on: on("body-left", "slide"),
+    }),
+    part(
+      "bag",
+      "Bag",
+      "The thing being filled: it swells as its pressure rises.",
+      sphere(s.bagR),
+      v3(VX, bagCentre(s.bagR), 0),
+      look.stone,
+      on("body-left", "glue"),
+    ),
   ];
   // The pump's push on the ball from below, to scale.
-  if (s.push > 0) parts.push(...arrow("push-arrow", v3(VX, s.ballY - BALL_R, 0), 90, s.push * MM_PER_N, "push", { name: "Pump's push", role: "The pressure under the ball times the hole's area.", on: on("ball", "glue") }));
+  if (s.push > 0)
+    parts.push(
+      ...arrow("push-arrow", v3(VX, s.ballY - BALL_R, 0), 90, s.push * MM_PER_N, "push", {
+        name: "Pump's push",
+        role: "The pressure under the ball times the hole's area.",
+        on: on("ball", "glue"),
+      }),
+    );
   return parts;
 }
 
 function readouts(v: Values) {
   const s = settle(v);
-  const state =
-    s.solid ? "wide open: the coils touch, the ball's stop"
-    : s.lift > 1e-6 ? `open: the ball is up ${fmt(s.lift, 1)} mm and air goes round it`
-    : s.bag > 0 ? `shut: the bag's ${fmt(s.bag)} kPa only presses it down`
-    : `shut: ${fmt(s.push, 1)} N is under the spring's ${fmt(s.preload, 1)} N`;
+  const state = s.solid
+    ? "wide open: the coils touch, the ball's stop"
+    : s.lift > 1e-6
+      ? `open: the ball is up ${fmt(s.lift, 1)} mm and air goes round it`
+      : s.bag > 0
+        ? `shut: the bag's ${fmt(s.bag)} kPa only presses it down`
+        : `shut: ${fmt(s.push, 1)} N is under the spring's ${fmt(s.preload, 1)} N`;
   return [
     { label: "Push", value: `${fmt(s.pressure)} kPa × ${fmt(SEAT_AREA)} mm² = ${fmt(s.push, 1)} N vs ${fmt(s.preload, 1)} N of spring` },
     { label: "Travel", value: `plunger in ${fmt(s.plunger - PLUNGER_X0, 1)} mm, ball up ${fmt(s.lift, 1)} of ${fmt(s.liftMax, 1)} mm` },
@@ -258,11 +348,26 @@ function judge(v: Values): Verdict {
   const r = pumpUp(v);
   switch (r.kind) {
     case "stalls":
-      return { pass: false, outcome: "stalls-short", headline: "Stalled below the mark", detail: "Too stiff a spring: your thumb cannot push the ball open far enough to fill the bag." };
+      return {
+        pass: false,
+        outcome: "stalls-short",
+        headline: "Stalled below the mark",
+        detail: "Too stiff a spring: your thumb cannot push the ball open far enough to fill the bag.",
+      };
     case "leaks":
-      return { pass: false, outcome: "leaks-back", headline: "Leaked back each stroke", detail: "Too soft a spring: the ball shuts late, so air runs back out of the bag." };
+      return {
+        pass: false,
+        outcome: "leaks-back",
+        headline: "Leaked back each stroke",
+        detail: "Too soft a spring: the ball shuts late, so air runs back out of the bag.",
+      };
     case "pass":
-      return { pass: true, outcome: "pumped-up", headline: "Pumped to the mark", detail: "The ball opens for your thumb and shuts fast enough to trap the air." };
+      return {
+        pass: true,
+        outcome: "pumped-up",
+        headline: "Pumped to the mark",
+        detail: "The ball opens for your thumb and shuts fast enough to trap the air.",
+      };
   }
 }
 
@@ -300,21 +405,32 @@ export function strokeAt(r: ReturnType<typeof pumpUp>, n: number, t: number) {
  * When the ball lands back on its seat in stroke n, ms into the stroke: the lagged pump reaches bag + opening pressure.
  * A stroke that fills the bag to the ceiling shuts the ball as the push ends.
  */
-const seatAt = (r: ReturnType<typeof pumpUp>, n: number) => (r.list[n]!.full ? PUSH_MS : PUSH_MS + springFor(r.open).reseat + (THUMB - r.list[n]!.after - r.open) * MS_PER_KPA);
+const seatAt = (r: ReturnType<typeof pumpUp>, n: number) =>
+  r.list[n]!.full ? PUSH_MS : PUSH_MS + springFor(r.open).reseat + (THUMB - r.list[n]!.after - r.open) * MS_PER_KPA;
 
 /** Air in the neck: two slate dots that ride the air, so they climb into the bag as it fills and sink as it runs back. */
 const DOT_R = 2;
 const DOT_LO = SHOULDER + DOT_R + 0.5;
 const DOT_HI = NECK_TOP - DOT_R - 0.5;
 const DOT_KPA = 12;
-const dot = lathe(Array.from({ length: 9 }, (_, i): Pt => {
-  const a = ((i / 8) * 180 - 90) * DEG_TO_RAD;
-  return [DOT_R * Math.cos(a), DOT_R * Math.sin(a)];
-}));
+const dot = lathe(
+  Array.from({ length: 9 }, (_, i): Pt => {
+    const a = ((i / 8) * 180 - 90) * DEG_TO_RAD;
+    return [DOT_R * Math.cos(a), DOT_R * Math.sin(a)];
+  }),
+);
 function airDots(bag: number): Part[] {
   return [0, 0.5].map((offset, i) => {
     const u = (((bag / DOT_KPA + offset) % 1) + 1) % 1;
-    return part(`${MARK}air-${i + 1}`, "Air", "Air going through the neck: up into the bag, or back out of it.", dot.shape, v3(VX, DOT_LO + u * (DOT_HI - DOT_LO), 0), look.slate, on("body-left", "glue"));
+    return part(
+      `${MARK}air-${i + 1}`,
+      "Air",
+      "Air going through the neck: up into the bag, or back out of it.",
+      dot.shape,
+      v3(VX, DOT_LO + u * (DOT_HI - DOT_LO), 0),
+      look.slate,
+      on("body-left", "glue"),
+    );
   });
 }
 
@@ -325,7 +441,13 @@ function play(v: Values): Run {
   const tl = phases({ lead: LEAD, strokes: STROKES * STROKE, hold: HOLD });
   const strokeStart = (n: number) => tl.start("strokes") + n * STROKE;
   const cues: Cue[] = r.list.flatMap((s, n) => (s.gain > 0 ? [{ ms: strokeStart(n) + seatAt(r, n), kind: "click" as const }] : []));
-  const values = (pressure: number, bag: number, held: number): Values => ({ ...v, open: r.open, pressure: clamp(pressure, 0, THUMB), bag: clamp(bag, 0, THUMB), held: clamp(held, 0, THUMB) });
+  const values = (pressure: number, bag: number, held: number): Values => ({
+    ...v,
+    open: r.open,
+    pressure: clamp(pressure, 0, THUMB),
+    bag: clamp(bag, 0, THUMB),
+    held: clamp(held, 0, THUMB),
+  });
 
   return {
     verdict,
@@ -356,8 +478,20 @@ function scene(): Part[] {
   const tickFrom = MARK_POST_X + 2;
   const tickTo = -BAG_MAX_R - 2;
   return [
-    part(`${SCENE}mark-post`, "Mark post", "Holds the mark beside the bag.", box(4, postTop - (ROOF + WALL), 4, 1), v3(VX + MARK_POST_X, (postTop + ROOF + WALL) / 2, 0), look.structure, on("body-left", "weld")),
-    tick(`${SCENE}mark`, v3(VX + (tickFrom + tickTo) / 2, MARK_Y, 0), tickTo - tickFrom, "x", { name: "Mark", role: `The bag's top has to come up to this level: ${TARGET} kPa.`, on: on(`${SCENE}mark-post`, "glue") }),
+    part(
+      `${SCENE}mark-post`,
+      "Mark post",
+      "Holds the mark beside the bag.",
+      box(4, postTop - (ROOF + WALL), 4, 1),
+      v3(VX + MARK_POST_X, (postTop + ROOF + WALL) / 2, 0),
+      look.structure,
+      on("body-left", "weld"),
+    ),
+    tick(`${SCENE}mark`, v3(VX + (tickFrom + tickTo) / 2, MARK_Y, 0), tickTo - tickFrom, "x", {
+      name: "Mark",
+      role: `The bag's top has to come up to this level: ${TARGET} kPa.`,
+      on: on(`${SCENE}mark-post`, "glue"),
+    }),
   ];
 }
 
@@ -372,10 +506,7 @@ export const valve: Primitive = {
     "A check valve is a ball held on a hole by a spring. Air pushing from below presses on the ball over the hole's area: pressure times area. While that is less than the spring's preload the ball stays shut; past it, the ball lifts and air goes round it. Air from above only presses the ball harder onto its seat, so nothing comes back: one way. The opening pressure is the preload over the hole's area, and every push loses that much, so a stiff spring stalls short. A soft spring is slow to push the ball back down (a ball on a spring swings back in a time that goes as 1 ÷ √k), and until it is down air runs back. Real balls reseat in milliseconds: here the delay is slowed so you can see it, and the bag losing 1/250 of its air per late millisecond is this game's rule. The bag is drawn bigger as its pressure rises; the ball's weight and the air's own drag are left out.",
   madeOf: ["seal", "spring"],
   seenIn: ["Bike tyre", "Spray bottle", "Tap"],
-  sliders: [
-    OPEN,
-    { id: "pressure", label: "Pressure", min: 0, max: 250, step: 5, initial: 130, unit: " kPa" },
-  ],
+  sliders: [OPEN, { id: "pressure", label: "Pressure", min: 0, max: 250, step: 5, initial: 130, unit: " kPa" }],
   view: VIEW.bench,
   build,
   readouts,

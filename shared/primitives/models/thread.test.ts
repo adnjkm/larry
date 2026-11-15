@@ -20,7 +20,10 @@ describe("thread", () => {
     const kinds = new Set(thread.build({ pitch: 4, turns: 2.5 }).map((p) => p.id.replace(/-arrow$/, "arrow")));
     assert.ok(kinds.size <= 9, [...kinds].join(", "));
     assert.deepEqual([...kinds].sort(), ["handle", "nut", "plate", "ridge", "rod"]);
-    assert.deepEqual(game.scene!({}).map((p) => p.id), [`${SCENE}load`, `${SCENE}mark`]);
+    assert.deepEqual(
+      game.scene!({}).map((p) => p.id),
+      [`${SCENE}load`, `${SCENE}mark`],
+    );
   });
 
   it("climbs exactly one pitch per turn, whatever the pitch, and rests on the plate at turn 0", () => {

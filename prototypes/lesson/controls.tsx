@@ -60,7 +60,11 @@ export function Wheel({ label, position, valueText, disabled, onPosition }: Cont
   // Keep a groove about as wide as on the camera's 112 px wheel with 19 ridges.
   const ridges = Math.max(8, Math.round(width / 6));
   const pitch = (2 * Math.PI) / ridges;
-  const relief = useMemo(() => (t: number): Relief => [drum({ ridges, rim: 3, turn: t * pitch })], [ridges, pitch]);
+  const relief = useMemo(
+    () =>
+      (t: number): Relief => [drum({ ridges, rim: 3, turn: t * pitch })],
+    [ridges, pitch],
+  );
   const perPixel = TRACK / WHEEL_TRAVEL_PX;
   return (
     <div className="wheel-box" ref={box} data-disabled={disabled ? "" : undefined}>
@@ -83,7 +87,16 @@ export function Wheel({ label, position, valueText, disabled, onPosition }: Cont
             const turned = (Math.abs(state.velocity) / perPixel / (width / 2)) * 16;
             const smear = Math.min(WHEEL_FRAMES * 0.6, turned / (pitch / WHEEL_FRAMES));
             return (
-              <Surface shape={rrect(width, WHEEL_HEIGHT, 10)} relief={relief} bakeKey={`lesson-wheel-${ridges}`} frames={WHEEL_FRAMES} at={radians / pitch} smear={smear} grain={GRAIN} drift={DRIFT} />
+              <Surface
+                shape={rrect(width, WHEEL_HEIGHT, 10)}
+                relief={relief}
+                bakeKey={`lesson-wheel-${ridges}`}
+                frames={WHEEL_FRAMES}
+                at={radians / pitch}
+                smear={smear}
+                grain={GRAIN}
+                drift={DRIFT}
+              />
             );
           }}
         </Thumbwheel>
@@ -110,7 +123,17 @@ export function DitherRange({ label, position, valueText, disabled, onPosition }
       {width > 0 ? (
         <div className="dither-bar" style={{ width, height: BAR_HEIGHT }}>
           {/* The fill runs to the thumb's middle, so the thumb always sits on the end of the pink. */}
-          <DitherBar fill={(THUMB / 2 + fill * travel) / width} reveal="follow" width={width} height={BAR_HEIGHT} radius={BAR_HEIGHT / 2} cell={GRAIN} dividers={NO_DIVIDERS} glow={0} idle={DRIFT} />
+          <DitherBar
+            fill={(THUMB / 2 + fill * travel) / width}
+            reveal="follow"
+            width={width}
+            height={BAR_HEIGHT}
+            radius={BAR_HEIGHT / 2}
+            cell={GRAIN}
+            dividers={NO_DIVIDERS}
+            glow={0}
+            idle={DRIFT}
+          />
         </div>
       ) : null}
       {width > 0 ? (

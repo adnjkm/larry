@@ -66,8 +66,10 @@ export function shapeKey(s: Shape): string {
  */
 export function canStretch(base: Shape, next: Shape): boolean {
   // An arc that grows or shrinks with the same segment count: every vertex is recomputed from its place on the ring, exactly.
-  if (base.kind === "torus" && next.kind === "torus") return close(base.radius, next.radius) && close(base.tube, next.tube) && torusSegments(base.arcDegrees) === torusSegments(next.arcDegrees);
-  if (base.kind === "helix" && next.kind === "helix") return close(base.radius, next.radius) && close(base.tube, next.tube) && close(base.turns, next.turns) && next.length > 2 * next.tube;
+  if (base.kind === "torus" && next.kind === "torus")
+    return close(base.radius, next.radius) && close(base.tube, next.tube) && torusSegments(base.arcDegrees) === torusSegments(next.arcDegrees);
+  if (base.kind === "helix" && next.kind === "helix")
+    return close(base.radius, next.radius) && close(base.tube, next.tube) && close(base.turns, next.turns) && next.length > 2 * next.tube;
   if (base.kind === "box" && next.kind === "box") {
     const r = boxRadius(base);
     if (!close(r, boxRadius(next))) return false;

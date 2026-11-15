@@ -61,7 +61,10 @@ describe("cord", () => {
               const x = a[0] + (b[0] - a[0]) * t;
               const y = a[1] + (b[1] - a[1]) * t;
               // The peg is a cylinder about (0, PEG_Y); the cord's centre line stays outside its radius plus the cord's own.
-              assert.ok(Math.hypot(x, y - rig.PEG_Y) >= rig.RC - 0.3, `weight ${w}, pull ${p}, flight ${flight}: the cord is ${rig.RC - Math.hypot(x, y - rig.PEG_Y)} mm into the peg at x ${x.toFixed(1)}`);
+              assert.ok(
+                Math.hypot(x, y - rig.PEG_Y) >= rig.RC - 0.3,
+                `weight ${w}, pull ${p}, flight ${flight}: the cord is ${rig.RC - Math.hypot(x, y - rig.PEG_Y)} mm into the peg at x ${x.toFixed(1)}`,
+              );
             }
           }
         }
@@ -96,7 +99,7 @@ describe("cord", () => {
 
   it("snaps only above the break, and lifts to the line only when the yank is enough: yank 0.5 to 1.0 passes", () => {
     const outcome = Object.fromEntries(numberSweep(cord).map((v) => [v.yank, game.judge(v).outcome]));
-    for (const f of steps({ ...(game.controls![0]!), id: "yank" })) {
+    for (const f of steps({ ...game.controls![0]!, id: "yank" })) {
       const o = outcome[f as number];
       if (f < 0.5) assert.equal(o, "too-gentle", `yank ${f}`);
       else if (f <= 1) assert.equal(o, "reached-the-line", `yank ${f}`);
@@ -118,12 +121,22 @@ describe("cord", () => {
       if (r.kind === "pass") assert.ok(Math.abs(peak - r.reach) < 0.1 && peak >= LINE - 0.1, `yank ${v.yank}: up ${peak}`);
       if (r.kind === "gentle") assert.ok(peak < LINE && Math.abs(peak - r.reach) < 0.1, `yank ${v.yank}: up ${peak}`);
       if (r.kind === "snap") {
-        assert.ok(tops.some((t) => t.snapped), `yank ${v.yank}: never snapped`);
+        assert.ok(
+          tops.some((t) => t.snapped),
+          `yank ${v.yank}: never snapped`,
+        );
         assert.equal(tops.at(-1)!.lift, 0, "the weight ends on the floor");
         assert.ok(peak <= STROKE + 1e-9, "it never flew");
         assert.ok(!tops.some((t, i) => i > 0 && tops[i - 1]!.snapped && !t.snapped && false));
-      } else if (r.f > 0.1) assert.ok(tops.some((t) => t.slack > 1), `yank ${v.yank}: the cord never went slack under the flying weight`);
-      assert.equal((run.cues ?? []).some((c) => c.kind === "snap"), r.kind === "snap");
+      } else if (r.f > 0.1)
+        assert.ok(
+          tops.some((t) => t.slack > 1),
+          `yank ${v.yank}: the cord never went slack under the flying weight`,
+        );
+      assert.equal(
+        (run.cues ?? []).some((c) => c.kind === "snap"),
+        r.kind === "snap",
+      );
     }
   });
 
@@ -155,12 +168,18 @@ describe("cord", () => {
         assert.ok(weight.shape.kind === "box");
         const wLo = screen(weight.position.x - weight.shape.width / 2, weight.position.z + weight.shape.depth / 2);
         const wHi = screen(weight.position.x + weight.shape.width / 2, weight.position.z - weight.shape.depth / 2);
-        assert.ok(wHi < lo - 0.2 || wLo > hi + 0.2, `weight ${w}: the weight (screen ${wLo.toFixed(1)}..${wHi.toFixed(1)}) is in front of the post (${lo.toFixed(1)}..${hi.toFixed(1)})`);
+        assert.ok(
+          wHi < lo - 0.2 || wLo > hi + 0.2,
+          `weight ${w}: the weight (screen ${wLo.toFixed(1)}..${wHi.toFixed(1)}) is in front of the post (${lo.toFixed(1)}..${hi.toFixed(1)})`,
+        );
         // Every cord strand below the post's top, by its screen position.
         for (const c of parts.filter((q) => /^cord-/.test(q.id))) {
           if (c.position.y - 2 > top) continue;
           const x = screen(c.position.x, c.position.z);
-          assert.ok(x < lo - 1 || x > hi + 1, `weight ${w}, pull ${p}: cord ${c.id} at screen x ${x.toFixed(1)} runs down the post's face (${lo.toFixed(1)}..${hi.toFixed(1)})`);
+          assert.ok(
+            x < lo - 1 || x > hi + 1,
+            `weight ${w}, pull ${p}: cord ${c.id} at screen x ${x.toFixed(1)} runs down the post's face (${lo.toFixed(1)}..${hi.toFixed(1)})`,
+          );
         }
       }
     }
@@ -172,7 +191,8 @@ describe("cord", () => {
     assert.equal(lens.at(-1), 40);
     for (let i = 1; i < lens.length; i++) assert.ok(lens[i]! >= lens[i - 1]!, "an arrow shrinks as the weight grows");
     assert.ok(lens.every((l) => l >= 12));
-    for (const w of steps(tension)) assert.ok(Math.abs(len(find(cord.build({ tension: w, pull: 12 }), "weight-arrow")) - Math.max(12, w * rig.MM_PER_N)) < 1e-9);
+    for (const w of steps(tension))
+      assert.ok(Math.abs(len(find(cord.build({ tension: w, pull: 12 }), "weight-arrow")) - Math.max(12, w * rig.MM_PER_N)) < 1e-9);
     for (const p of [-20, -1, 0]) assert.ok(!hasArrow(cord.build({ tension: 25, pull: p }), "pull-arrow"));
   });
 
@@ -207,7 +227,9 @@ describe("cord", () => {
       assert.ok(post.position.x + post.shape.width / 2 <= weight.position.x - weight.shape.width / 2 + 1e-9);
       const plate = find(cord.build({ tension: w, pull: 0 }), "plate");
       assert.ok(plate.shape.kind === "box");
-      assert.ok(post.position.x - post.shape.width / 2 > plate.position.x - plate.shape.width / 2 && post.position.z + post.shape.depth / 2 < plate.shape.depth / 2);
+      assert.ok(
+        post.position.x - post.shape.width / 2 > plate.position.x - plate.shape.width / 2 && post.position.z + post.shape.depth / 2 < plate.shape.depth / 2,
+      );
     }
   });
 

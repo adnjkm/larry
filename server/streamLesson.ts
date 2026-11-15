@@ -1,5 +1,16 @@
 import type { Kit } from "../shared/kit.ts";
-import { Chapter, chapterProblems, headerProblems, Lesson, LessonError, LessonHeader, type Shown, type LessonEvent, lessonProblems, parseLesson } from "../shared/lesson.ts";
+import {
+  Chapter,
+  chapterProblems,
+  headerProblems,
+  Lesson,
+  LessonError,
+  LessonHeader,
+  type Shown,
+  type LessonEvent,
+  lessonProblems,
+  parseLesson,
+} from "../shared/lesson.ts";
 import { RULES, WORDS } from "../shared/rules.ts";
 import { CATALOG } from "../shared/primitives/catalog.ts";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
@@ -61,7 +72,10 @@ function catalogText(): string {
   return PRIMITIVES.map((p) => {
     const start = initialValues(p);
     const sliders = p.sliders.map((s) => `${s.id} ("${s.label}", ${s.min} to ${s.max}${s.unit ? ` ${s.unit.trim()}` : ""}, starts at ${s.initial})`).join("; ");
-    const readouts = p.readouts(start).map((r) => `${r.label}: ${r.value}`).join(" | ");
+    const readouts = p
+      .readouts(start)
+      .map((r) => `${r.label}: ${r.value}`)
+      .join(" | ");
     const madeOf = p.madeOf.length > 0 ? ` Made of ${p.madeOf.join(" + ")}.` : "";
     return `- ${p.id} (${p.level.toLowerCase()}): ${p.job}.${madeOf} Seen in ${p.seenIn.join(", ")}.
   How it works: ${p.howItWorks}
@@ -100,7 +114,13 @@ function keepShown(rewrite: Lesson, header: LessonHeader | undefined, shown: Cha
  */
 export async function* streamLesson(
   kit: Kit,
-  { brain = LESSON_BRAIN, onStats, ask = streamStructured, resume, signal }: { brain?: Brain; onStats?: (stats: LessonStats) => void; ask?: typeof streamStructured; resume?: Shown; signal?: AbortSignal } = {},
+  {
+    brain = LESSON_BRAIN,
+    onStats,
+    ask = streamStructured,
+    resume,
+    signal,
+  }: { brain?: Brain; onStats?: (stats: LessonStats) => void; ask?: typeof streamStructured; resume?: Shown; signal?: AbortSignal } = {},
 ): AsyncGenerator<LessonEvent> {
   const started = Date.now();
   let firstChapterMs: number | undefined;
@@ -115,7 +135,14 @@ export async function* streamLesson(
     let output: unknown;
     const text = `Catalogue of primitives:\n${CATALOG_TEXT}\n\n${kitText(kit)}\n\nWrite the lesson for this ${kit.name}.${feedback}`;
 
-    for await (const event of ask({ system: SYSTEM_PROMPT, schema: lessonJsonSchema, brain, content: [{ type: "text", text }], streamKey: "chapters", signal })) {
+    for await (const event of ask({
+      system: SYSTEM_PROMPT,
+      schema: lessonJsonSchema,
+      brain,
+      content: [{ type: "text", text }],
+      streamKey: "chapters",
+      signal,
+    })) {
       if (event.type === "result") {
         output = event.output;
         costUsd += event.costUsd;
@@ -150,7 +177,9 @@ export async function* streamLesson(
 
 function alreadyShown(header: LessonHeader | undefined, shown: Chapter[]): string {
   const what = [header && "the title and the hook", shown.length > 0 && `the first ${shown.length} chapter(s)`].filter(Boolean).join(" and ");
-  return what ? `\n\nThe reader has already been shown ${what}, so they cannot change. Write the lesson with those kept word for word, then everything after them.` : "";
+  return what
+    ? `\n\nThe reader has already been shown ${what}, so they cannot change. Write the lesson with those kept word for word, then everything after them.`
+    : "";
 }
 
 /**

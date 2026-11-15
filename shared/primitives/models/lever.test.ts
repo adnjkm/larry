@@ -253,7 +253,10 @@ describe("lever", () => {
       assert.ok(Math.abs(mark.position.z - post.position.z) < 1e-9);
       assert.ok(Math.abs(post.position.y - post.shape.height / 2 - 6) < 1e-9 && post.position.y + post.shape.height / 2 > mark.position.y);
       // The line is level with the block's front face, within 1 mm, so the eye compares heights in one plane.
-      assert.ok(Math.abs(mark.position.z - rig.BLOCK / 2) <= 2.5, `ratio ${r}: the line stands ${mark.position.z - rig.BLOCK / 2} mm off the block's face in z`);
+      assert.ok(
+        Math.abs(mark.position.z - rig.BLOCK / 2) <= 2.5,
+        `ratio ${r}: the line stands ${mark.position.z - rig.BLOCK / 2} mm off the block's face in z`,
+      );
       assert.ok(mark.position.z - mark.shape.depth / 2 >= rig.BLOCK / 2, "the line is in the block");
       // Nothing that moves touches the post (its left face) or the line, at any pose.
       for (const p of steps(push)) {
@@ -261,19 +264,38 @@ describe("lever", () => {
         const block = find(parts, "load");
         const a = block.rotation.z * DEG_TO_RAD;
         const half = rig.BLOCK / 2;
-        const farthest = Math.max(...[[half, half], [half, -half], [-half, half], [-half, -half]].map(([x, y]) => block.position.x + x! * Math.cos(a) - y! * Math.sin(a)));
-        assert.ok(farthest <= post.position.x - post.shape.width / 2 - 0.5, `ratio ${r}, push ${p}: the block reaches x = ${farthest.toFixed(1)}, into the post`);
+        const farthest = Math.max(
+          ...[
+            [half, half],
+            [half, -half],
+            [-half, half],
+            [-half, -half],
+          ].map(([x, y]) => block.position.x + x! * Math.cos(a) - y! * Math.sin(a)),
+        );
+        assert.ok(
+          farthest <= post.position.x - post.shape.width / 2 - 0.5,
+          `ratio ${r}, push ${p}: the block reaches x = ${farthest.toFixed(1)}, into the post`,
+        );
         // The bar shares the line's z range, so beyond the line's left end the bar's top edge must stay under it, and short of the post.
         const bar = find(parts, "bar");
         const ba = bar.rotation.z * DEG_TO_RAD;
-        const along = (x: number, y: number) => ({ x: bar.position.x + x * Math.cos(ba) - y * Math.sin(ba), y: bar.position.y + x * Math.sin(ba) + y * Math.cos(ba) });
+        const along = (x: number, y: number) => ({
+          x: bar.position.x + x * Math.cos(ba) - y * Math.sin(ba),
+          y: bar.position.y + x * Math.sin(ba) + y * Math.cos(ba),
+        });
         const end = along(SPAN_BAR / 2, rig.BAR_T / 2);
         const start = along(-SPAN_BAR / 2, rig.BAR_T / 2);
         const lineLeft = mark.position.x - mark.shape.width / 2;
         const edgeAt = (x: number) => start.y + ((end.y - start.y) * (x - start.x)) / (end.x - start.x);
         const top = Math.max(edgeAt(lineLeft), end.y);
-        assert.ok(top < mark.position.y - 1.5 - 0.5, `ratio ${r}, push ${p}: the bar's top edge rises to ${top.toFixed(1)}, into the line at ${mark.position.y.toFixed(1)}`);
-        assert.ok(Math.max(end.x, along(SPAN_BAR / 2, -rig.BAR_T / 2).x) < post.position.x - post.shape.width / 2 - 0.5, `ratio ${r}, push ${p}: the bar reaches the post`);
+        assert.ok(
+          top < mark.position.y - 1.5 - 0.5,
+          `ratio ${r}, push ${p}: the bar's top edge rises to ${top.toFixed(1)}, into the line at ${mark.position.y.toFixed(1)}`,
+        );
+        assert.ok(
+          Math.max(end.x, along(SPAN_BAR / 2, -rig.BAR_T / 2).x) < post.position.x - post.shape.width / 2 - 0.5,
+          `ratio ${r}, push ${p}: the bar reaches the post`,
+        );
       }
     }
     assert.equal(new Set(game.scene!({ ratio: 2, push: 0 }).map((p) => p.name)).size, 2);

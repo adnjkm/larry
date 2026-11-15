@@ -55,7 +55,9 @@ describe("stage shapes", () => {
   });
 
   it("will not stretch a box whose rounding would change", () => {
-    assert.ok(!canStretch({ kind: "box", width: 40, height: 3, depth: 3, cornerRadius: 1.5 }, { kind: "box", width: 2, height: 3, depth: 3, cornerRadius: 1.5 }));
+    assert.ok(
+      !canStretch({ kind: "box", width: 40, height: 3, depth: 3, cornerRadius: 1.5 }, { kind: "box", width: 2, height: 3, depth: 3, cornerRadius: 1.5 }),
+    );
   });
 
   it("stretches a coil along its axis, keeping the wire round to within a few hundredths of a mm", () => {
@@ -147,7 +149,11 @@ describe("stage controller", () => {
     const done = m.play(r);
     for (let t = 1000; t <= 1000 + r.durationMs + 50; t += 16) m.tick(t);
     assert.equal(await done, true);
-    assert.deepEqual(log.cues, [...r.cues!].sort((a, b) => a.ms - b.ms), "cues fire in time order");
+    assert.deepEqual(
+      log.cues,
+      [...r.cues!].sort((a, b) => a.ms - b.ms),
+      "cues fire in time order",
+    );
     assert.deepEqual(m.get(), r.at(r.durationMs).values);
     for (let i = 1; i < log.live.length; i++) assert.notEqual(log.live[i], log.live[i - 1]);
     assert.equal(m.state(), "idle");
@@ -186,7 +192,11 @@ describe("stage controller", () => {
     const applied: { v: Values; marks: unknown }[] = [];
     const m = new Motion({ apply: (v, marks) => applied.push({ v, marks }), wake: () => {}, reducedMotion: () => false }, spring, { force: 0, bounce: 0 });
     const marks = spring.build({ force: 0 }).slice(0, 1);
-    const done = m.play({ verdict: { pass: true, outcome: "pass", headline: "", detail: "" }, durationMs: 100, at: (ms) => ({ values: { force: ms / 10, bounce: 3 }, live: "", marks }) });
+    const done = m.play({
+      verdict: { pass: true, outcome: "pass", headline: "", detail: "" },
+      durationMs: 100,
+      at: (ms) => ({ values: { force: ms / 10, bounce: 3 }, live: "", marks }),
+    });
     m.tick(0);
     m.tick(200);
     assert.equal(await done, true);
@@ -198,7 +208,11 @@ describe("stage controller", () => {
     const applied: unknown[] = [];
     const m = new Motion({ apply: (_v, marks) => applied.push(marks), wake: () => {}, reducedMotion: () => true }, spring, { force: 0 });
     const marks = spring.build({ force: 0 }).slice(0, 1);
-    await m.play({ verdict: { pass: true, outcome: "pass", headline: "", detail: "" }, durationMs: 100, at: () => ({ values: { force: 0 }, live: "", marks }) });
+    await m.play({
+      verdict: { pass: true, outcome: "pass", headline: "", detail: "" },
+      durationMs: 100,
+      at: () => ({ values: { force: 0 }, live: "", marks }),
+    });
     m.set({ force: 0 });
     assert.equal(applied.at(-1), marks, "a set that changes nothing keeps the run's props");
     m.reset();

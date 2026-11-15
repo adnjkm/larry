@@ -8,7 +8,13 @@ import { COLOR, SYNTHWAVE } from "./parts.ts";
 /** Each slider at its minimum, start and maximum, with the others at their start. */
 function samples(p: (typeof PRIMITIVES)[number]): Values[] {
   const start = initialValues(p);
-  return [start, ...p.sliders.flatMap((s) => [{ ...start, [s.id]: s.min }, { ...start, [s.id]: s.max }])];
+  return [
+    start,
+    ...p.sliders.flatMap((s) => [
+      { ...start, [s.id]: s.min },
+      { ...start, [s.id]: s.max },
+    ]),
+  ];
 }
 
 const palette = new Set<string>([...SYNTHWAVE, ...Object.values(COLOR)]);
@@ -40,8 +46,14 @@ describe("primitives library", () => {
           for (const n of [part.position.x, part.position.y, part.position.z]) assert.ok(Number.isFinite(n), `${p.id}/${part.id} position`);
           assert.ok(palette.has(part.color), `${p.id}/${part.id} colour ${part.color} is not from the Synthwave palette`);
         }
-        assert.ok(kit.parts.some((part) => part.color === COLOR.focus), `${p.id} has no focus part`);
-        assert.ok(p.readouts(v).every((r) => !/NaN|Infinity/.test(r.value)), `${p.id} readout`);
+        assert.ok(
+          kit.parts.some((part) => part.color === COLOR.focus),
+          `${p.id} has no focus part`,
+        );
+        assert.ok(
+          p.readouts(v).every((r) => !/NaN|Infinity/.test(r.value)),
+          `${p.id} readout`,
+        );
       }
     });
   }

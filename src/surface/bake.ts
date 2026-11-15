@@ -107,7 +107,18 @@ function lightAtAligned(Z: Float32Array, kp: number, z: number, steps: number, o
  * far the horizon rises, squashed to 0..1 each. Worked a tap at a time along the row, so each loop is tight and reads
  * only the neighbours its tap has weight on.
  */
-function hiddenRow(Z: Float32Array, row: number, a: number, b: number, PW: number, ring: Taps, invDist: Float64Array, horizon: Float64Array, stride: number, out: Float64Array) {
+function hiddenRow(
+  Z: Float32Array,
+  row: number,
+  a: number,
+  b: number,
+  PW: number,
+  ring: Taps,
+  invDist: Float64Array,
+  horizon: Float64Array,
+  stride: number,
+  out: Float64Array,
+) {
   const { off, w, kind } = ring;
   for (let d = 0; d < RING; d++) {
     const h = d * stride;
@@ -128,7 +139,8 @@ function hiddenRow(Z: Float32Array, row: number, a: number, b: number, PW: numbe
       } else if (k === 2) {
         for (let i = a; i <= b; i++) horizon[h + i] = Math.max(horizon[h + i]!, (Z[o + i]! * w0 + Z[o + i + PW]! * w2 - Z[row + i]!) * inv);
       } else {
-        for (let i = a; i <= b; i++) horizon[h + i] = Math.max(horizon[h + i]!, (Z[o + i]! * w0 + Z[o + i + 1]! * w1 + Z[o + i + PW]! * w2 + Z[o + i + PW + 1]! * w3 - Z[row + i]!) * inv);
+        for (let i = a; i <= b; i++)
+          horizon[h + i] = Math.max(horizon[h + i]!, (Z[o + i]! * w0 + Z[o + i + 1]! * w1 + Z[o + i + PW]! * w2 + Z[o + i + PW + 1]! * w3 - Z[row + i]!) * inv);
       }
     }
   }

@@ -47,14 +47,19 @@ export function generatedLesson(kit: Kit, id = "generated"): Workshop | null {
       byTemplate.set(template, { part, last: template.last === true, build: (earns) => template.module(pairOf(kit, part, earns, pin)) });
   }
   const stand = standOf(kit);
-  const candidates = [...byTemplate.values(), ...(stand ? [{ part: stand.root, last: false, build: (earns: readonly string[]) => standModule(stand, earns) }] : [])];
+  const candidates = [
+    ...byTemplate.values(),
+    ...(stand ? [{ part: stand.root, last: false, build: (earns: readonly string[]) => standModule(stand, earns) }] : []),
+  ];
   if (candidates.length === 0) return null;
   const parentOf = (p: Part) => kit.parts.find((q) => q.id === p.parentId);
   const depth = (p: Part): number => {
     const up = parentOf(p);
     return up ? 1 + depth(up) : 0;
   };
-  const chosen = candidates.sort((a, b) => volume(b.part) - volume(a.part)).slice(0, MAX_MODULES)
+  const chosen = candidates
+    .sort((a, b) => volume(b.part) - volume(a.part))
+    .slice(0, MAX_MODULES)
     .sort((a, b) => Number(a.last) - Number(b.last) || depth(a.part) - depth(b.part) || kit.parts.indexOf(a.part) - kit.parts.indexOf(b.part));
   const claimed = new Set(chosen.map((c) => c.part.id));
   const earns = (p: Part): string[] => [p.id, ...kit.parts.filter((q) => q.parentId === p.id && !claimed.has(q.id)).flatMap(earns)];
@@ -65,7 +70,10 @@ export function generatedLesson(kit: Kit, id = "generated"): Workshop | null {
     objectName: kit.name,
     match: /(?!)/,
     modules,
-    view: facingView(kit, modules.flatMap((m) => m.produces)),
+    view: facingView(
+      kit,
+      modules.flatMap((m) => m.produces),
+    ),
     final: {
       need: `It must pass all ${tests.length} tests at once.`,
       success: `You built the ${kit.name.toLowerCase()}.`,

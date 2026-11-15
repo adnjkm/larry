@@ -7,7 +7,17 @@ import { radii } from "../tokens.stylex.ts";
 import { CAMERA } from "./look.ts";
 
 /** The shutter: a raised dish, pressed in while held. Its shape is the dithered dish; the button has no face of its own. */
-export function Shutter({ disabled, pressed, onPress, onShoot }: { disabled: boolean; pressed: boolean; onPress: (down: boolean) => void; onShoot: () => void }) {
+export function Shutter({
+  disabled,
+  pressed,
+  onPress,
+  onShoot,
+}: {
+  disabled: boolean;
+  pressed: boolean;
+  onPress: (down: boolean) => void;
+  onShoot: () => void;
+}) {
   const size = CAMERA.shutter;
   return (
     <Button

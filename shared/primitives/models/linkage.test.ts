@@ -18,7 +18,14 @@ function corners(p: Part): Pt[] {
   assert.ok(p.shape.kind === "box");
   const a = (p.rotation.z * Math.PI) / 180;
   const [w, h] = [p.shape.width / 2, p.shape.height / 2];
-  return ([[-w, -h], [w, -h], [w, h], [-w, h]] as Pt[]).map(([x, y]): Pt => [p.position.x + x * Math.cos(a) - y * Math.sin(a), p.position.y + x * Math.sin(a) + y * Math.cos(a)]);
+  return (
+    [
+      [-w, -h],
+      [w, -h],
+      [w, h],
+      [-w, h],
+    ] as Pt[]
+  ).map(([x, y]): Pt => [p.position.x + x * Math.cos(a) - y * Math.sin(a), p.position.y + x * Math.sin(a) + y * Math.cos(a)]);
 }
 /** Distance from a point to a segment. */
 function segDist(p: Pt, a: Pt, b: Pt): number {
@@ -131,12 +138,18 @@ describe("linkage", () => {
     assert.ok(Math.abs(pz0 - (stack.position.z + stack.shape.depth / 2)) < 1e-9, "the peg starts on the post's front face");
     const pivotPost = find(parts, "post-d");
     assert.ok(pivotPost.shape.kind === "box");
-    assert.ok(Math.abs(stack.position.y - stack.shape.height / 2 - (pivotPost.position.y + pivotPost.shape.height / 2)) < 1e-9, "the stack sits on the pivot post");
+    assert.ok(
+      Math.abs(stack.position.y - stack.shape.height / 2 - (pivotPost.position.y + pivotPost.shape.height / 2)) < 1e-9,
+      "the stack sits on the pivot post",
+    );
     assert.equal(stack.position.x, pivotPost.position.x);
     assert.ok(Math.abs(peg.position.y + rig.PEG_R - (stack.position.y + stack.shape.height / 2)) < 1e-9, "the peg's top is the stack's top");
     assert.equal(stack.parentId, "post-d");
     assert.equal(peg.parentId, "game-post");
-    assert.ok(game.scene!({}).every((p) => p.color === find(parts, "post-d").color), "the frame is structure black");
+    assert.ok(
+      game.scene!({}).every((p) => p.color === find(parts, "post-d").color),
+      "the frame is structure black",
+    );
   });
 
   it("stops the rocker against the stop: its side touches the peg at the stop angle and the peg is never cut into", () => {
@@ -152,7 +165,10 @@ describe("linkage", () => {
       const k = 360 - stallAt(r);
       assert.ok(Number.isFinite(k) && k > 0 && k < 360, `rocker ${r}: stalls at ${k}`);
       assert.ok(Math.abs(fourBar(r, k).rockerDeg - STOP_LO) < 1e-6, `rocker ${r}: the stall is at the stop angle`);
-      assert.ok(Math.abs(gap({ rocker: r, crank: k })) < 0.05, `rocker ${r}: the rocker's side is ${gap({ rocker: r, crank: k }).toFixed(3)} mm from the peg at the stall`);
+      assert.ok(
+        Math.abs(gap({ rocker: r, crank: k })) < 0.05,
+        `rocker ${r}: the rocker's side is ${gap({ rocker: r, crank: k }).toFixed(3)} mm from the peg at the stall`,
+      );
       // Just before the stall (the band that the stop blocks is a few degrees wide for the longest of these) the rocker is clear.
       assert.ok(gap({ rocker: r, crank: k + 0.5 }) > 0, `rocker ${r}: the rocker is touching the peg half a degree early`);
       if (r <= 54) assert.ok(gap({ rocker: r, crank: k + 3 }) > 0.2, `rocker ${r}: the rocker is clear of the peg before the stall`);

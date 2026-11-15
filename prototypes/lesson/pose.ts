@@ -4,7 +4,20 @@ import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import type { Kit, Part, Shape } from "../../shared/kit.ts";
 import { hexRgb } from "../../src/surface/dither.ts";
 import { COLOR } from "./primitives/parts.ts";
-import { DEFAULT_VIEW, type ExplodePlan, familyOf, type Leave, type PartMove, type Rigid, type Scene, type Shares, STILL, type Vec, vec, type View } from "./model.ts";
+import {
+  DEFAULT_VIEW,
+  type ExplodePlan,
+  familyOf,
+  type Leave,
+  type PartMove,
+  type Rigid,
+  type Scene,
+  type Shares,
+  STILL,
+  type Vec,
+  vec,
+  type View,
+} from "./model.ts";
 import { DEG_TO_RAD } from "../../shared/angles.ts";
 
 export const EXPLODE_STEP = 24;
@@ -63,7 +76,14 @@ function localPoints(shape: Shape): Vec[] {
     return [-1, 1].flatMap((sz) => shape.outline.map((p) => vec(p.x - cx, p.y - cy, sz * h.z)));
   }
   const round = shape.kind === "lathe" || shape.kind === "torus";
-  const ring: [number, number][] = round ? RING.map((a) => [Math.cos(a) * h.x, Math.sin(a) * h.z]) : [[-h.x, -h.z], [-h.x, h.z], [h.x, -h.z], [h.x, h.z]];
+  const ring: [number, number][] = round
+    ? RING.map((a) => [Math.cos(a) * h.x, Math.sin(a) * h.z])
+    : [
+        [-h.x, -h.z],
+        [-h.x, h.z],
+        [h.x, -h.z],
+        [h.x, h.z],
+      ];
   return [-1, 1].flatMap((sy) => ring.map(([x, z]) => vec(x, sy * h.y, z)));
 }
 
@@ -105,7 +125,10 @@ export function enclosed(id: string, parts: readonly Part[], beside: readonly st
   return parts.some((q) => {
     if (q.id === id || beside.includes(q.id)) return false;
     const b = extents([q]);
-    const overlap = { min: vec(Math.max(a.min.x, b.min.x), Math.max(a.min.y, b.min.y), Math.max(a.min.z, b.min.z)), max: vec(Math.min(a.max.x, b.max.x), Math.min(a.max.y, b.max.y), Math.min(a.max.z, b.max.z)) };
+    const overlap = {
+      min: vec(Math.max(a.min.x, b.min.x), Math.max(a.min.y, b.min.y), Math.max(a.min.z, b.min.z)),
+      max: vec(Math.min(a.max.x, b.max.x), Math.min(a.max.y, b.max.y), Math.min(a.max.z, b.max.z)),
+    };
     return own > 0 && volume(overlap) / own > 0.6;
   });
 }
@@ -174,11 +197,20 @@ export function fitFrame(subject: readonly Part[], view: { elevation: number; az
     else hi = mid;
   }
   const { half, h } = shaped(hi);
-  return [{
-    id: "frame", name: "frame", role: "", parentId: null, joint: null,
-    shape: { kind: "box", width: 2 * half.x, height: h, depth: 2 * half.z, cornerRadius: 0 },
-    position: vec(cx, targetY, cz), rotation: vec(), color: "#ffffff", finish: "matte",
-  }];
+  return [
+    {
+      id: "frame",
+      name: "frame",
+      role: "",
+      parentId: null,
+      joint: null,
+      shape: { kind: "box", width: 2 * half.x, height: h, depth: 2 * half.z, cornerRadius: 0 },
+      position: vec(cx, targetY, cz),
+      rotation: vec(),
+      color: "#ffffff",
+      finish: "matte",
+    },
+  ];
 }
 
 export const centreOf = ({ min, max }: Extents): Vec => scale(add(min, max), 0.5);
@@ -208,15 +240,16 @@ export function compose(a: Scene, b: Scene): Scene {
   const moves: Record<string, PartMove> = { ...a.moves };
   for (const [id, m] of Object.entries(b.moves)) {
     const under = moves[id];
-    moves[id] = under
-      ? { offset: add(under.offset ?? vec(), m.offset ?? vec()), turns: [...(under.turns ?? []), ...(m.turns ?? [])] }
-      : m;
+    moves[id] = under ? { offset: add(under.offset ?? vec(), m.offset ?? vec()), turns: [...(under.turns ?? []), ...(m.turns ?? [])] } : m;
   }
   return { moves, marks: [...a.marks, ...b.marks] };
 }
 
 const rigidMatrix = (centre: Vec, rigid: Rigid) =>
-  T(vec(rigid.dx, rigid.dy, 0)).multiply(T(centre)).multiply(new Matrix4().makeRotationZ(rigid.angle * DEG_TO_RAD)).multiply(T(neg(centre)));
+  T(vec(rigid.dx, rigid.dy, 0))
+    .multiply(T(centre))
+    .multiply(new Matrix4().makeRotationZ(rigid.angle * DEG_TO_RAD))
+    .multiply(T(neg(centre)));
 
 /** Where a point fixed to the object ends up after a rigid move. */
 export function rigidPoint(centre: Vec, rigid: Rigid, p: Vec): Vec {
@@ -228,7 +261,9 @@ function moveMatrix(move: PartMove | undefined): Matrix4 {
   const m = T(move?.offset ?? vec());
   for (const t of [...(move?.turns ?? [])].reverse()) {
     const axis = new Vector3(t.axis.x, t.axis.y, t.axis.z).normalize();
-    m.multiply(T(t.pivot)).multiply(new Matrix4().makeRotationAxis(axis, t.deg * DEG_TO_RAD)).multiply(T(neg(t.pivot)));
+    m.multiply(T(t.pivot))
+      .multiply(new Matrix4().makeRotationAxis(axis, t.deg * DEG_TO_RAD))
+      .multiply(T(neg(t.pivot)));
   }
   return m;
 }
@@ -269,7 +304,18 @@ export function drawObject({ kit, present, scene, explode, plan, pink, centre, r
   });
   const marks = scene.marks.flatMap((k): Part[] => {
     if (k.ride !== null && !present.includes(k.ride)) return [];
-    const base: Part = { id: k.id, name: "mark", role: "", parentId: null, joint: null, shape: k.shape, position: k.at, rotation: k.rotation ?? vec(), color: COLOR.accent, finish: "matte" };
+    const base: Part = {
+      id: k.id,
+      name: "mark",
+      role: "",
+      parentId: null,
+      joint: null,
+      shape: k.shape,
+      position: k.at,
+      rotation: k.rotation ?? vec(),
+      color: COLOR.accent,
+      finish: "matte",
+    };
     if (k.ride === null) return [base];
     return [withMatrix(base, whole.clone().multiply(lift(k.ride)).multiply(moveMatrix(scene.moves[k.ride])).multiply(matrixOf(base)))];
   });
@@ -300,7 +346,12 @@ function spreadLift(kit: Kit, shown: readonly Part[], explode: number, apart: Re
   const steps = (i: number) => {
     const me = outward[i]!;
     if (me.part.parentId === null) return 0;
-    const behind = outward.filter((o, j) => o.part.parentId !== null && o.dir.x * me.dir.x + o.dir.y * me.dir.y + o.dir.z * me.dir.z > 0.9 && (o.length < me.length || (o.length === me.length && j < i)));
+    const behind = outward.filter(
+      (o, j) =>
+        o.part.parentId !== null &&
+        o.dir.x * me.dir.x + o.dir.y * me.dir.y + o.dir.z * me.dir.z > 0.9 &&
+        (o.length < me.length || (o.length === me.length && j < i)),
+    );
     return behind.length + 1;
   };
   return (id) => {
@@ -319,9 +370,14 @@ export function restCentre(kit: Kit, present: readonly string[], scene: Scene): 
 /** Returns last frame's Part objects where nothing changed, so the viewer keeps their geometry instead of rebuilding it. */
 export function reuseParts(previous: Map<string, Part>, parts: Part[]): Part[] {
   const same = (a: Part, b: Part) =>
-    a.color === b.color && a.finish === b.finish &&
-    a.position.x === b.position.x && a.position.y === b.position.y && a.position.z === b.position.z &&
-    a.rotation.x === b.rotation.x && a.rotation.y === b.rotation.y && a.rotation.z === b.rotation.z &&
+    a.color === b.color &&
+    a.finish === b.finish &&
+    a.position.x === b.position.x &&
+    a.position.y === b.position.y &&
+    a.position.z === b.position.z &&
+    a.rotation.x === b.rotation.x &&
+    a.rotation.y === b.rotation.y &&
+    a.rotation.z === b.rotation.z &&
     (a.shape === b.shape || JSON.stringify(a.shape) === JSON.stringify(b.shape));
   const out = parts.map((p) => {
     const old = previous.get(p.id);

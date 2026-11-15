@@ -28,7 +28,8 @@ function paint(ctx: CanvasRenderingContext2D, cols: number, rows: number, w: num
   const last = STOPS.length - 1;
   for (let y = 0; y < rows; y++)
     for (let x = 0; x < cols; x++) {
-      const px = (x + 0.5) * CELL, py = (y + 0.5) * CELL;
+      const px = (x + 0.5) * CELL,
+        py = (y + 0.5) * CELL;
       const card = outside(px, py, FRAME_PAD, FRAME_PAD, w, h, RADIUS);
       if (card <= 0) continue;
       const n = noise(px, py, 14) * 0.65 + noise(px, py, 5) * 0.35;

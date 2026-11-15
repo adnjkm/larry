@@ -69,26 +69,76 @@ const DRIP_REST = 1.4;
 
 /** A drop's height `phase` of the way down (0 at the joint, 1 on the plate), falling faster as it goes. */
 const dropY = (phase: number) => GASKET_Y + FLANGE_T / 2 - (GASKET_Y + FLANGE_T / 2 - (PLATE_TOP + DROP_R)) * fall(phase);
-const dropShape = lathe(Array.from({ length: 9 }, (_, i): Pt => {
-  const a = ((i / 8) * 180 - 90) * DEG_TO_RAD;
-  return [DROP_R * Math.cos(a), DROP_R * Math.sin(a)];
-}));
+const dropShape = lathe(
+  Array.from({ length: 9 }, (_, i): Pt => {
+    const a = ((i / 8) * 180 - 90) * DEG_TO_RAD;
+    return [DROP_R * Math.cos(a), DROP_R * Math.sin(a)];
+  }),
+);
 
 function build(v: Values): Part[] {
   const s = settle(v);
-  const pipe = lathe([[BORE_R, 0], [PIPE_R, 0], [PIPE_R, PIPE_H], [FLANGE_R, PIPE_H], [FLANGE_R, PIPE_H + FLANGE_T], [BORE_R, PIPE_H + FLANGE_T], [BORE_R, 0]]);
-  const gasket = lathe([[BORE_R, 0], [s.outer, 0], [s.outer, s.t], [BORE_R, s.t], [BORE_R, 0]]);
+  const pipe = lathe([
+    [BORE_R, 0],
+    [PIPE_R, 0],
+    [PIPE_R, PIPE_H],
+    [FLANGE_R, PIPE_H],
+    [FLANGE_R, PIPE_H + FLANGE_T],
+    [BORE_R, PIPE_H + FLANGE_T],
+    [BORE_R, 0],
+  ]);
+  const gasket = lathe([
+    [BORE_R, 0],
+    [s.outer, 0],
+    [s.outer, s.t],
+    [BORE_R, s.t],
+    [BORE_R, 0],
+  ]);
   const lid = cylinder(FLANGE_R, LID_T);
   const drip = v.drip ?? DRIP_REST;
   return [
     plate(WIDEST + DROP_X + DROP_R, 2 * WIDEST),
-    part("pipe", "Pipe end", "The end of a pipe, with a flat flange for the gasket to sit on.", pipe.shape, v3(0, PLATE_TOP + pipe.midY, 0), look.structure, on("plate", "weld")),
-    part("gasket", "Gasket", "Soft rubber ring. Squeezed thinner, it spreads wider: the rubber is moved, not lost.", gasket.shape, v3(0, GASKET_Y + gasket.midY, 0), look.focus, on("pipe", "press-fit")),
-    part("lid", "Lid", "Closes the pipe and squeezes the gasket against the flange.", lid.shape, v3(0, GASKET_Y + s.t + lid.midY, 0), LID_LOOK, on("pipe", "screw")),
+    part(
+      "pipe",
+      "Pipe end",
+      "The end of a pipe, with a flat flange for the gasket to sit on.",
+      pipe.shape,
+      v3(0, PLATE_TOP + pipe.midY, 0),
+      look.structure,
+      on("plate", "weld"),
+    ),
+    part(
+      "gasket",
+      "Gasket",
+      "Soft rubber ring. Squeezed thinner, it spreads wider: the rubber is moved, not lost.",
+      gasket.shape,
+      v3(0, GASKET_Y + gasket.midY, 0),
+      look.focus,
+      on("pipe", "press-fit"),
+    ),
+    part(
+      "lid",
+      "Lid",
+      "Closes the pipe and squeezes the gasket against the flange.",
+      lid.shape,
+      v3(0, GASKET_Y + s.t + lid.midY, 0),
+      LID_LOOK,
+      on("pipe", "screw"),
+    ),
     pushDisc("handle", v3(0, s.lidTop + HANDLE_T / 2, 0), "y", { name: "Press disc", role: "Where your hand presses the lid down.", on: on("lid", "glue") }),
     ...Array.from({ length: s.drops }, (_, k) => ({ k, u: drip - k / s.drops }))
       .filter(({ u }) => u >= 0)
-      .map(({ k, u }) => part(`drop-${k + 1}`, "Drop", "A drop that has got through the gaps and runs down the pipe.", dropShape.shape, v3(DROP_X, dropY(u % 1), 0), look.slate, on("pipe", "glue"))),
+      .map(({ k, u }) =>
+        part(
+          `drop-${k + 1}`,
+          "Drop",
+          "A drop that has got through the gaps and runs down the pipe.",
+          dropShape.shape,
+          v3(DROP_X, dropY(u % 1), 0),
+          look.slate,
+          on("pipe", "glue"),
+        ),
+      ),
   ];
 }
 
@@ -97,7 +147,14 @@ function readouts(v: Values) {
   return [
     { label: "Squeeze", value: `thickness lost ÷ original = (${fmt(T0, 1)} − ${fmt(s.t, 1)}) ÷ ${fmt(T0, 1)} = ${fmt(s.squeeze * 100)}%` },
     { label: "Travel", value: `lid down ${fmt(T0 - s.t, 1)} mm; the rubber spreads ${fmt(s.outer - GASKET_R0, 1)} mm outward` },
-    { label: "State", value: s.weeps ? `weeping: gaps stay open under ${fmt(WEEP * 100)}%` : s.split ? `crushed: rubber forced ${fmt(s.lip, 1)} mm past the flange` : "sealed: the rubber fills the gaps" },
+    {
+      label: "State",
+      value: s.weeps
+        ? `weeping: gaps stay open under ${fmt(WEEP * 100)}%`
+        : s.split
+          ? `crushed: rubber forced ${fmt(s.lip, 1)} mm past the flange`
+          : "sealed: the rubber fills the gaps",
+    },
   ];
 }
 
@@ -147,7 +204,12 @@ const SPRAY_MS = 1000;
 /** Four drops of spray, two each side: where each is `u` of the way through its flight, from the lip. */
 function spray(outer: number, u: number): Part[] {
   const y0 = GASKET_Y + 4;
-  return [[1, 0.8], [1, 0.3], [-1, 0.8], [-1, 0.3]].map(([side, lift], k) => {
+  return [
+    [1, 0.8],
+    [1, 0.3],
+    [-1, 0.8],
+    [-1, 0.3],
+  ].map(([side, lift], k) => {
     const x = side! * (outer + 3 + 12 * u);
     const y = Math.max(PLATE_TOP + DROP_R, y0 + lift! * 30 * u - 38 * u * u);
     return part(`${MARK}spray-${k + 1}`, "Spray", "Fluid forced out of the split joint.", dropShape.shape, v3(x, y, 0), look.slate, on("plate", "glue"));

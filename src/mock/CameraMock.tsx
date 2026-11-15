@@ -20,7 +20,11 @@ const Dials = import.meta.env.DEV ? lazy(() => import("./Dials.tsx")) : null;
 
 const photoUrls = import.meta.glob<string>("../../fixtures/photos/*.jpg", { eager: true, query: "?url", import: "default" });
 const kitJson = import.meta.glob<unknown>("../../fixtures/kits/*.json", { eager: true, import: "default" });
-const nameOf = (path: string) => path.split("/").pop()?.replace(/\.\w+$/, "") ?? path;
+const nameOf = (path: string) =>
+  path
+    .split("/")
+    .pop()
+    ?.replace(/\.\w+$/, "") ?? path;
 
 type MockObject = { name: string; photo: string; kit: Kit };
 const OBJECTS: MockObject[] = Object.entries(photoUrls).flatMap(([path, photo]) => {
@@ -95,7 +99,11 @@ const MOCK_INTRO: Intro = {
  * The camera in a phone, with the fake flow round it. On its own (camera.html) it has dials. Given `after`, it is a
  * demo: no dials, and the result's "Build it" hands the phone over to whatever `after` draws, until `onCamera`.
  */
-export default function CameraMock({ object: initialObject, intro = MOCK_INTRO, after }: { object?: string; intro?: Intro; after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode } = {}) {
+export default function CameraMock({
+  object: initialObject,
+  intro = MOCK_INTRO,
+  after,
+}: { object?: string; intro?: Intro; after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode } = {}) {
   const [settings, setSettings] = useState<MockSettings>(() => ({
     ...defaultSettings(initialObject ?? (OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? ""))),
     showUsable: !after,
@@ -146,7 +154,9 @@ export default function CameraMock({ object: initialObject, intro = MOCK_INTRO, 
           {built && after ? (
             <div data-after {...stylex.props(s.screen, light)}>
               <div {...stylex.props(light, s.page)}>
-                <div {...stylex.props(s.viewport(usableTop, usableHeight))}>{after({ screen: { top: usableTop, height: usableHeight, width: DEVICE.width }, onCamera: () => restart("live") })}</div>
+                <div {...stylex.props(s.viewport(usableTop, usableHeight))}>
+                  {after({ screen: { top: usableTop, height: usableHeight, width: DEVICE.width }, onCamera: () => restart("live") })}
+                </div>
               </div>
               <SystemBars tab={settings.tab} />
             </div>
@@ -316,7 +326,14 @@ function Flow({
           onTransitionEnd={(e) => e.target === e.currentTarget && sheet === "leaving" && setSheet("gone")}
         >
           <div {...stylex.props(s.viewport(usableTop, usableHeight))}>
-            <Camera photo={object.photo} width={DEVICE.width} height={usableHeight} busy={phase === "reading" || phase === "building"} tuning={settings.tuning} onCapture={read} />
+            <Camera
+              photo={object.photo}
+              width={DEVICE.width}
+              height={usableHeight}
+              busy={phase === "reading" || phase === "building"}
+              tuning={settings.tuning}
+              onCapture={read}
+            />
           </div>
         </div>
       )}
@@ -428,7 +445,18 @@ const s = stylex.create({
   eyebrow: { margin: 0, fontFamily: fonts.mono, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: colors.graphite },
   heading: { margin: 0, fontSize: 32, lineHeight: "36px", fontWeight: 600, letterSpacing: "-0.02em" },
   blurb: { margin: 0, fontSize: 14, lineHeight: "20px", color: colors.graphite },
-  log: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4, fontFamily: fonts.mono, fontSize: 12, lineHeight: "16px", minHeight: 120 },
+  log: {
+    margin: 0,
+    padding: 0,
+    listStyle: "none",
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    lineHeight: "16px",
+    minHeight: 120,
+  },
   logEmpty: { color: colors.graphite },
 
   phoneSlot: (width: number, height: number) => ({ width, height, flexShrink: 0 }),
@@ -545,7 +573,16 @@ const s = stylex.create({
     backgroundColor: screen.card,
     transition: `height 700ms ${camera.easeOut}, background-color 600ms ease`,
   }),
-  viewer: { position: "absolute", top: 0, left: 0, width: "100%", animationName: fadeIn, animationDuration: "500ms", animationDelay: "150ms", animationFillMode: "both" },
+  viewer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    animationName: fadeIn,
+    animationDuration: "500ms",
+    animationDelay: "150ms",
+    animationFillMode: "both",
+  },
   pip: {
     position: "absolute",
     left: 14,
@@ -562,14 +599,49 @@ const s = stylex.create({
     animationFillMode: "both",
   },
   pipPhoto: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" },
-  turnHint: { position: "absolute", right: 16, bottom: 16, fontFamily: fonts.mono, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: screen.muted },
+  turnHint: {
+    position: "absolute",
+    right: 16,
+    bottom: 16,
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: screen.muted,
+  },
 
   lower: { position: "relative", flexGrow: 1 },
   result: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", paddingTop: 18, paddingInline: 24, gap: 2 },
-  label: { fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "0.08em", textTransform: "uppercase", color: screen.muted, transition: colorFade },
-  name: { margin: 0, fontSize: 28, lineHeight: "34px", fontWeight: 600, letterSpacing: "-0.02em", animationName: riseIn, animationDuration: "350ms", animationTimingFunction: camera.easeOut },
+  label: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    lineHeight: "14px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: screen.muted,
+    transition: colorFade,
+  },
+  name: {
+    margin: 0,
+    fontSize: 28,
+    lineHeight: "34px",
+    fontWeight: 600,
+    letterSpacing: "-0.02em",
+    animationName: riseIn,
+    animationDuration: "350ms",
+    animationTimingFunction: camera.easeOut,
+  },
   countRow: { display: "flex", alignItems: "flex-end", gap: 12, marginTop: 10, height: 56 },
-  count: { fontFamily: fonts.mono, fontSize: 64, lineHeight: "56px", fontWeight: 200, letterSpacing: "-0.04em", fontVariantNumeric: "tabular-nums", animationName: riseIn, animationDuration: "250ms" },
+  count: {
+    fontFamily: fonts.mono,
+    fontSize: 64,
+    lineHeight: "56px",
+    fontWeight: 200,
+    letterSpacing: "-0.04em",
+    fontVariantNumeric: "tabular-nums",
+    animationName: riseIn,
+    animationDuration: "250ms",
+  },
   countText: { display: "flex", flexDirection: "column", gap: 2, paddingBottom: 4 },
   countWord: { fontSize: 18, lineHeight: "22px", fontWeight: 500 },
   chips: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 14 },
@@ -602,5 +674,14 @@ const s = stylex.create({
     transition: "background-color 300ms ease, color 300ms ease",
   },
   primaryReady: { backgroundColor: screen.fg, color: screen.bg, cursor: "pointer" },
-  link: { padding: 0, borderWidth: 0, backgroundColor: "transparent", color: screen.muted, fontFamily: fonts.sans, fontSize: 15, fontWeight: 500, cursor: "pointer" },
+  link: {
+    padding: 0,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    color: screen.muted,
+    fontFamily: fonts.sans,
+    fontSize: 15,
+    fontWeight: 500,
+    cursor: "pointer",
+  },
 });

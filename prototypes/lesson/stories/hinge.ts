@@ -32,7 +32,13 @@ export function hingeModule(piece: Piece, produces: readonly string[], adds: rea
   const swung = (ctx: Ctx, deg: number) => carryAll(piece.subtree, ctx.present, { turns: [{ axis: h.turn, pivot: h.pivot, deg: h.open * deg }] });
   // The purple arrow is the hand: it slides along the part, from by the pivot out to the end.
   const hand = (v: number): Mark => arrowMark("hand", add(h.push.at, scale(sub(h.pivot, h.hand), 1 - reachOf(v))), h.push.dir, h.handPart.id);
-  const control: Control = { key, verb: "Hand", start: 0, zones: () => ZONES, pose: (v, ctx) => (ctx.present.includes(child.id) ? { moves: {}, marks: [hand(v)] } : { moves: {}, marks: [] }) };
+  const control: Control = {
+    key,
+    verb: "Hand",
+    start: 0,
+    zones: () => ZONES,
+    pose: (v, ctx) => (ctx.present.includes(child.id) ? { moves: {}, marks: [hand(v)] } : { moves: {}, marks: [] }),
+  };
 
   const press: Test = {
     id: `press-${child.id}`,
@@ -43,7 +49,11 @@ export function hingeModule(piece: Piece, produces: readonly string[], adds: rea
         // Nothing holds it: pushed, it slides off along the push and drops to the table.
         const ids = piece.subtree.filter((id) => ctx.present.includes(id));
         const drop = floorOf(ctx) - extents(kit.parts.filter((p) => ids.includes(p.id))).min.y;
-        const fall = (p: number) => carryAll(ids, ctx.present, { offset: add(scale(h.push.dir, 0.3 * h.arm * p), vec(0, drop * p * p, 0)), turns: [{ axis: h.turn, pivot: h.pivot, deg: 25 * h.open * p }] });
+        const fall = (p: number) =>
+          carryAll(ids, ctx.present, {
+            offset: add(scale(h.push.dir, 0.3 * h.arm * p), vec(0, drop * p * p, 0)),
+            turns: [{ axis: h.turn, pivot: h.pivot, deg: 25 * h.open * p }],
+          });
         return {
           verdict: { pass: false, line: fit((n) => `The ${n} falls away. Nothing holds it.`, c) },
           durationMs: PUSH_MS + FALL_MS + HOLD_MS + BACK_MS,
@@ -59,13 +69,16 @@ export function hingeModule(piece: Piece, produces: readonly string[], adds: rea
       const closed = strong ? 1 : 0.5;
       const start = OPEN_MS + 200;
       return {
-        verdict: strong ? { pass: true, line: "It closes all the way." } : { pass: false, line: "Too weak. It stops partway.", nudge: "Your hand is too close to the pivot." },
+        verdict: strong
+          ? { pass: true, line: "It closes all the way." }
+          : { pass: false, line: "Too weak. It stops partway.", nudge: "Your hand is too close to the pivot." },
         durationMs: start + PUSH_MS + HOLD_MS + BACK_MS,
         at: (ms) => {
           if (ms < start) return overlay("Opening it", swung(ctx, OPEN_DEG * smooth(clamp01(ms / OPEN_MS))), [hand(v)]);
           const q = easeOut(clamp01((ms - start) / PUSH_MS));
           const deg = OPEN_DEG * (1 - closed * q);
-          if (ms < start + PUSH_MS + HOLD_MS) return overlay(ms < start + PUSH_MS ? "Pressing…" : strong ? "Closed" : "Stuck partway", swung(ctx, deg), [hand(v)]);
+          if (ms < start + PUSH_MS + HOLD_MS)
+            return overlay(ms < start + PUSH_MS ? "Pressing…" : strong ? "Closed" : "Stuck partway", swung(ctx, deg), [hand(v)]);
           const p = smooth(clamp01((ms - start - PUSH_MS - HOLD_MS) / BACK_MS));
           return overlay("Back to rest", swung(ctx, deg * (1 - p)), [hand(v)]);
         },
@@ -99,10 +112,21 @@ export function hingeModule(piece: Piece, produces: readonly string[], adds: rea
     title: `Pivot the ${piece.noun}`,
     primitive: "lever",
     produces,
-    without: { say: fit((n) => `Press the ${n}. Watch it.`, c), line: fit((n) => `With no ${pinWord}, the ${n} falls away.`, c), test: press, adds, values: { [missing]: 1, [key]: okValue(control) } },
+    without: {
+      say: fit((n) => `Press the ${n}. Watch it.`, c),
+      line: fit((n) => `With no ${pinWord}, the ${n} falls away.`, c),
+      test: press,
+      adds,
+      values: { [missing]: 1, [key]: okValue(control) },
+    },
     learn: {
       say: "Push it. The bar turns on its pivot.",
-      rigs: { lever: { controls: { push: "Push" }, why: ["A lever is a bar that turns on a pivot.", "Push far from the pivot and your push grows.", "But that end has to move further for it."] } },
+      rigs: {
+        lever: {
+          controls: { push: "Push" },
+          why: ["A lever is a bar that turns on a pivot.", "Push far from the pivot and your push grows.", "But that end has to move further for it."],
+        },
+      },
     },
     uses: { lever: `The ${c} turns on the ${pinWord}, and your push turns it.` },
     assemble: { piece: piece.Name, title: `The ${c} turns on the ${pinWord}.`, built: `The ${c} now turns on the ${pinWord}.` },

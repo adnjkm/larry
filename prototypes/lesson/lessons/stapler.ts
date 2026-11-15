@@ -2,7 +2,21 @@
 // The head (channel, arm, pad, pin) is one rigid body that turns about the hinge pin, resting open.
 import type { Kit, Part, Shape } from "../../../shared/kit.ts";
 import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
-import { AXIS, type Ctx, defineLesson, type Mark, type Overlay, type PartMove, type Scene, STILL, type Test, type Values, vec, type Vec, type Window } from "../model.ts";
+import {
+  AXIS,
+  type Ctx,
+  defineLesson,
+  type Mark,
+  type Overlay,
+  type PartMove,
+  type Scene,
+  STILL,
+  type Test,
+  type Values,
+  vec,
+  type Vec,
+  type Window,
+} from "../model.ts";
 import { extents } from "../pose.ts";
 import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
@@ -95,7 +109,15 @@ const overlay = (live: string, moves: Overlay["moves"], marks: Mark[]): Overlay 
 const arrow = (up: boolean, length: number): Shape => {
   const h = length / 2;
   const s = up ? 1 : -1;
-  const pts = [[-2.5, -h], [2.5, -h], [2.5, h - 8], [6, h - 8], [0, h], [-6, h - 8], [-2.5, h - 8]];
+  const pts = [
+    [-2.5, -h],
+    [2.5, -h],
+    [2.5, h - 8],
+    [6, h - 8],
+    [0, h],
+    [-6, h - 8],
+    [-2.5, h - 8],
+  ];
   return { kind: "extrusion", outline: pts.map(([x, y]) => ({ x: x!, y: y! * s })), depth: 3 };
 };
 const SPRING_ARROW = arrow(true, 16);
@@ -104,7 +126,16 @@ const HAND_ARROW = arrow(false, 20);
 const STACK_SHAPE: Shape = { kind: "box", width: STACK_W, height: STACK_H, depth: STACK_D, cornerRadius: 0.5 };
 const STAPLE_SHAPE: Shape = {
   kind: "extrusion",
-  outline: [[-17, STAPLE_H], [17, STAPLE_H], [17, 0], [14, 0], [14, STAPLE_H - 3], [-14, STAPLE_H - 3], [-14, 0], [-17, 0]].map(([x, y]) => ({ x: x!, y: y! })),
+  outline: [
+    [-17, STAPLE_H],
+    [17, STAPLE_H],
+    [17, 0],
+    [14, 0],
+    [14, STAPLE_H - 3],
+    [-14, STAPLE_H - 3],
+    [-14, 0],
+    [-17, 0],
+  ].map(([x, y]) => ({ x: x!, y: y! })),
   depth: 3,
 };
 
@@ -145,12 +176,16 @@ function squeezeResult(values: Values, hasSpring: boolean): Squeezed {
 
 const squeezeLine = (r: Squeezed) => {
   switch (r.kind) {
-    case "weak": return `An ordinary ${HAND_N} N squeeze became ${HAND_N} × ${r.ratio} = ${r.atStaple} N at the staple. ${SHEETS} sheets need ${PIERCE_N} N, so it pierced ${r.pierced}.`;
-    case "short": return `The staple moved ${HAND_TRAVEL} ÷ ${r.ratio} = ${r.travel} mm. Closing its legs takes ${CLOSE_TRAVEL} mm, so it stopped short.`;
-    case "hard": return `It needs ${r.total} N of squeeze: ${r.need} N for the sheets and ${r.spring} N against the spring. A comfortable squeeze stops at ${COMFORT_N} N, so it pierced ${r.pierced} of ${SHEETS} sheets.`;
-    case "pass": return r.spring > 0
-      ? `Through all ${SHEETS} sheets, legs closed. It took ${r.total} N of squeeze: ${r.need} N for the sheets and ${r.spring} N against the spring.`
-      : `Through all ${SHEETS} sheets, legs closed. It took ${r.need} N of squeeze.`;
+    case "weak":
+      return `An ordinary ${HAND_N} N squeeze became ${HAND_N} × ${r.ratio} = ${r.atStaple} N at the staple. ${SHEETS} sheets need ${PIERCE_N} N, so it pierced ${r.pierced}.`;
+    case "short":
+      return `The staple moved ${HAND_TRAVEL} ÷ ${r.ratio} = ${r.travel} mm. Closing its legs takes ${CLOSE_TRAVEL} mm, so it stopped short.`;
+    case "hard":
+      return `It needs ${r.total} N of squeeze: ${r.need} N for the sheets and ${r.spring} N against the spring. A comfortable squeeze stops at ${COMFORT_N} N, so it pierced ${r.pierced} of ${SHEETS} sheets.`;
+    case "pass":
+      return r.spring > 0
+        ? `Through all ${SHEETS} sheets, legs closed. It took ${r.total} N of squeeze: ${r.need} N for the sheets and ${r.spring} N against the spring.`
+        : `Through all ${SHEETS} sheets, legs closed. It took ${r.need} N of squeeze.`;
   }
 };
 
@@ -175,7 +210,9 @@ const squeeze: Test = {
     const hand: Mark = { id: "hand", shape: HAND_ARROW, at: rig.handAt, ride: PAD };
     const lines = (q: number) => {
       const into = result.depth * q;
-      return result.pierced < SHEETS ? `Staple through ${Math.round(into * SHEETS)} of ${SHEETS} sheets` : `Staple down ${(into * CLOSE_TRAVEL).toFixed(1)} of ${CLOSE_TRAVEL} mm`;
+      return result.pierced < SHEETS
+        ? `Staple through ${Math.round(into * SHEETS)} of ${SHEETS} sheets`
+        : `Staple down ${(into * CLOSE_TRAVEL).toFixed(1)} of ${CLOSE_TRAVEL} mm`;
     };
     return {
       verdict: { pass: result.kind === "pass", line: squeezeLine(result) },
@@ -183,15 +220,21 @@ const squeeze: Test = {
       at: (ms) => {
         const press = smooth(clamp01(ms / PRESS));
         const lift = clamp01((ms - liftAt) / LIFT);
-        const angle = ms < liftAt ? rig.closeDeg + (OPEN_DEG - rig.closeDeg) * (1 - press) : rig.closeDeg + (OPEN_DEG - rig.closeDeg) * (springLifts ? easeOut(lift) : smooth(lift));
+        const angle =
+          ms < liftAt
+            ? rig.closeDeg + (OPEN_DEG - rig.closeDeg) * (1 - press)
+            : rig.closeDeg + (OPEN_DEG - rig.closeDeg) * (springLifts ? easeOut(lift) : smooth(lift));
         const q = easeOut(clamp01((ms - PRESS) / DRIVE));
         const tip = ms < PRESS ? turnPoint(rig.nose, rig.pin, angle) : vec(carried.x, carried.y - dropFull * result.depth * q, 0);
         const staple: Mark = { id: "staple", shape: STAPLE_SHAPE, at: vec(tip.x, tip.y + STAPLE_H / 2, 0), rotation: vec(0, 90, 0), ride: null };
         const live =
-          ms < PRESS ? `Pad down ${(HAND_TRAVEL * press).toFixed(0)} of ${HAND_TRAVEL} mm`
-          : ms < liftAt ? lines(q)
-          : springLifts ? "Spring lifts the arm"
-          : "Lifting the arm by hand";
+          ms < PRESS
+            ? `Pad down ${(HAND_TRAVEL * press).toFixed(0)} of ${HAND_TRAVEL} mm`
+            : ms < liftAt
+              ? lines(q)
+              : springLifts
+                ? "Spring lifts the arm"
+                : "Lifting the arm by hand";
         return overlay(live, headMoves(rig.pin, angle), ms < liftAt ? [stack, staple, hand] : [stack, staple]);
       },
     };
@@ -220,15 +263,8 @@ const release: Test = {
       at: (ms) => {
         const down = smooth(clamp01(ms / R_PRESS));
         const after = ms - start;
-        const angle =
-          ms < start ? OPEN_DEG * (1 - down)
-          : lifts ? OPEN_DEG * easeOut(clamp01(after / popMs))
-          : STUCK_DEG * easeOut(clamp01(after / R_STUCK));
-        const live =
-          ms < R_PRESS ? "Pressing the arm down"
-          : ms < start ? "Holding it down"
-          : lifts ? "Spring lifts the arm"
-          : "Arm stays down";
+        const angle = ms < start ? OPEN_DEG * (1 - down) : lifts ? OPEN_DEG * easeOut(clamp01(after / popMs)) : STUCK_DEG * easeOut(clamp01(after / R_STUCK));
+        const live = ms < R_PRESS ? "Pressing the arm down" : ms < start ? "Holding it down" : lifts ? "Spring lifts the arm" : "Arm stays down";
         return overlay(live, headMoves(rig.pin, angle), ms < start ? [hand] : []);
       },
     };
@@ -242,7 +278,12 @@ export default defineLesson({
   rest: (ctx): Scene => {
     const rig = rigOf(ctx);
     const channel = find(ctx.kit, CHANNEL);
-    const mark: Mark = { id: "spring-arrow", shape: SPRING_ARROW, at: vec(channel.position.x - 40, channel.position.y, channel.position.z + 16), ride: CHANNEL };
+    const mark: Mark = {
+      id: "spring-arrow",
+      shape: SPRING_ARROW,
+      at: vec(channel.position.x - 40, channel.position.y, channel.position.z + 16),
+      ride: CHANNEL,
+    };
     return { moves: headMoves(rig.pin, OPEN_DEG), marks: ctx.present.includes(CHANNEL) ? [mark] : [] };
   },
   apart: {
@@ -264,7 +305,8 @@ export default defineLesson({
       assemble: {
         piece: "Lever bar",
         title: "Hinge the lever at the back: it becomes the top arm.",
-        built: "The bar is now the top arm, turning on the hinge pin at the back. Your hand pushes on the pad at the long end, and the staple sits nearer the hinge.",
+        built:
+          "The bar is now the top arm, turning on the hinge pin at the back. Your hand pushes on the pad at the long end, and the staple sits nearer the hinge.",
       },
       target: { label: "Top arm", at: vec(-30, 58, 0), ring: { radius: 40, axis: "z" } },
       enter: vec(0, 50, 0),
@@ -273,7 +315,8 @@ export default defineLesson({
       tests: [squeeze],
       hints: {
         observe: "Run Squeeze and watch the staple. It starts into the stack and stops partway.",
-        principle: "The arm is a lever hinged at the back. The force at the staple is your squeeze times the arm ratio, your distance from the hinge divided by the staple's. The staple's travel is your travel divided by the same ratio.",
+        principle:
+          "The arm is a lever hinged at the back. The force at the staple is your squeeze times the arm ratio, your distance from the hinge divided by the staple's. The staple's travel is your travel divided by the same ratio.",
         direction: "Raise the arm ratio until 40 N becomes at least 100 N at the staple, and stop before the staple's travel drops under 6 mm.",
         low: "Too little force reaches the staple, and it stops partway through the stack.",
         high: "The staple moves too little to close its legs, and it stops short.",
@@ -298,7 +341,8 @@ export default defineLesson({
           { label: "Staple travel", value: `${HAND_TRAVEL} mm ÷ ${r} = ${tenth(HAND_TRAVEL / r)} mm (legs need ${CLOSE_TRAVEL} mm)` },
         ];
       },
-      gameNote: "Game numbers: an ordinary squeeze is 40 N, each sheet takes 5 N to pierce (100 N for 20), the pad moves 24 mm, and the staple needs 6 mm of travel to close its legs. The lever law is real. The lever in Learn is a seesaw, so its load moves the other way; in the stapler the staple moves down with your hand. The paper stack is drawn thicker than 20 real sheets.",
+      gameNote:
+        "Game numbers: an ordinary squeeze is 40 N, each sheet takes 5 N to pierce (100 N for 20), the pad moves 24 mm, and the staple needs 6 mm of travel to close its legs. The lever law is real. The lever in Learn is a seesaw, so its load moves the other way; in the stapler the staple moves down with your hand. The paper stack is drawn thicker than 20 real sheets.",
     },
     {
       id: "spring",
@@ -318,7 +362,8 @@ export default defineLesson({
       tests: [release, squeeze],
       hints: {
         observe: "Run Release and watch the arm. After you let go it stays down.",
-        principle: "A spring pushes back with F = k × x: stiffness times how far it is squeezed. Here it is squeezed 10 mm, and its push has to beat the 12 N of friction in the hinge.",
+        principle:
+          "A spring pushes back with F = k × x: stiffness times how far it is squeezed. Here it is squeezed 10 mm, and its push has to beat the 12 N of friction in the hinge.",
         direction: "Stiffen it, but not too far. You squeeze against the spring on every staple. Check Release and Squeeze together.",
         low: "The spring loses to hinge friction and the arm stays down.",
         high: "Sheets plus spring take more than a comfortable 55 N squeeze, and the staple stops partway.",
@@ -345,7 +390,8 @@ export default defineLesson({
           { label: "Squeeze needed", value: `${need} N for the sheets + ${spring} N = ${tenth(need + spring)} N (comfortable to ${COMFORT_N} N)` },
         ];
       },
-      gameNote: "Game numbers: the spring is squeezed 10 mm when the arm is down, so it pushes 10 N for each N/mm of stiffness. Hinge friction holds the arm down with 12 N, and a squeeze stays comfortable up to 55 N, the spring included. A real stapler hides the spring inside the head. The purple arrow shows where it pushes.",
+      gameNote:
+        "Game numbers: the spring is squeezed 10 mm when the arm is down, so it pushes 10 N for each N/mm of stiffness. Hinge friction holds the arm down with 12 N, and a squeeze stays comfortable up to 55 N, the spring included. A real stapler hides the spring inside the head. The purple arrow shows where it pushes.",
     },
   ],
   final: {

@@ -16,7 +16,21 @@ const flashOut = stylex.keyframes({ "0%": { opacity: 0 }, "15%": { opacity: 0.9 
  * over with `onCapture`. After that the controls dim and `busy` turns the photo bar into a loader. Space takes a
  * photo, Enter uses them.
  */
-export function Camera({ photo, width, height, busy, tuning, onCapture }: { photo: string; width: number; height: number; busy: boolean; tuning: Tuning; onCapture: (shots: number) => void }) {
+export function Camera({
+  photo,
+  width,
+  height,
+  busy,
+  tuning,
+  onCapture,
+}: {
+  photo: string;
+  width: number;
+  height: number;
+  busy: boolean;
+  tuning: Tuning;
+  onCapture: (shots: number) => void;
+}) {
   const box = { width: width - 2 * CAMERA.sideInset, height: Math.max(160, height - 2 * CAMERA.barHeight) };
   const [shots, setShots] = useState(0);
   // The photo bar fills when the band reaches the top of the frame, not on the press, so the photo looks carried up into it.
@@ -117,7 +131,17 @@ const s = stylex.create({
   controls: (inset: number) => ({ flexGrow: 1, display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", paddingInline: inset }),
   slot: { minWidth: 0, display: "flex", justifyContent: "center" },
   start: { justifyContent: "flex-start" },
-  use: { padding: 0, borderWidth: 0, backgroundColor: "transparent", color: colors.paper, fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
+  use: {
+    padding: 0,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    color: colors.paper,
+    fontFamily: fonts.sans,
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
   flash: {
     position: "absolute",
     top: 0,

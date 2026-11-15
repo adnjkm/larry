@@ -50,10 +50,18 @@ export function Viewer(props: { parts: Part[]; subject: readonly Part[]; view?: 
   const parts = reuseParts(previous.current, props.parts);
   return (
     <div className="viewer" ref={box}>
-      {frame ? <KitViewer parts={parts} frame={frame} elevation={view.elevation} azimuth={view.azimuth} height={size.height} pixelScale={1} look={LOOK} /> : null}
-      {props.live ? <span className="live" aria-live="polite">{props.live}</span> : null}
+      {frame ? (
+        <KitViewer parts={parts} frame={frame} elevation={view.elevation} azimuth={view.azimuth} height={size.height} pixelScale={1} look={LOOK} />
+      ) : null}
+      {props.live ? (
+        <span className="live" aria-live="polite">
+          {props.live}
+        </span>
+      ) : null}
       {props.children}
-      <span className="drag" aria-hidden="true">Drag to turn</span>
+      <span className="drag" aria-hidden="true">
+        Drag to turn
+      </span>
     </div>
   );
 }
@@ -124,7 +132,17 @@ function trackOf(min: number, max: number, zones: readonly Zone[] | undefined) {
  * pink dithered bar. It is stiffer where `zones` make it stiff, ticks on the phone when it crosses into a new zone,
  * and the word for the current zone sits beside it. No numbers.
  */
-export function Strip(props: { id: string; label: string; value: number; min: number; max: number; zones?: readonly Zone[]; wheel?: boolean; disabled?: boolean; onChange: (v: number) => void }) {
+export function Strip(props: {
+  id: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  zones?: readonly Zone[];
+  wheel?: boolean;
+  disabled?: boolean;
+  onChange: (v: number) => void;
+}) {
   const { min, max, zones } = props;
   const track = useMemo(() => trackOf(min, max, zones), [min, max, zones]);
   const zoneAt = (v: number) => (zones ? zoneOf(zones, v) : undefined);
@@ -139,8 +157,18 @@ export function Strip(props: { id: string; label: string; value: number; min: nu
   return (
     <div className="slider strip" data-strip={props.id} data-free={zones ? undefined : ""}>
       <span className="mono">{props.label}</span>
-      <Control label={props.label} position={Math.round(track.toTrack(props.value) * TRACK)} valueText={zone?.word ?? props.label} disabled={props.disabled} onPosition={change} />
-      {zone ? <span className="zone" data-zone={zone.id}>{zone.word}</span> : null}
+      <Control
+        label={props.label}
+        position={Math.round(track.toTrack(props.value) * TRACK)}
+        valueText={zone?.word ?? props.label}
+        disabled={props.disabled}
+        onPosition={change}
+      />
+      {zone ? (
+        <span className="zone" data-zone={zone.id}>
+          {zone.word}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -156,7 +184,16 @@ export function SliderRow(props: { slider: Slider; value: number; onChange: (v: 
       <span className="mono">{s.label}</span>
       <span className="track">
         {band ? <span className="band" style={{ left: at(band[0]), width: `calc(${at(band[1])} - ${at(band[0])})` }} /> : null}
-        <input type="range" min={s.min} max={s.max} step={s.step} value={value} disabled={props.disabled} data-slider={s.id} onChange={(e) => props.onChange(Number(e.target.value))} />
+        <input
+          type="range"
+          min={s.min}
+          max={s.max}
+          step={s.step}
+          value={value}
+          disabled={props.disabled}
+          data-slider={s.id}
+          onChange={(e) => props.onChange(Number(e.target.value))}
+        />
       </span>
       <span className="val">{formatSlider(s, value)}</span>
     </label>
@@ -172,7 +209,9 @@ export function Say({ kicker, children, why, note, found }: { kicker: string; ch
     <div className="say">
       <div className="say-text">
         <span className="mono">{kicker}</span>
-        <h1 className="do" data-note={note || found ? "" : undefined} data-found={found ? "" : undefined} aria-live="polite">{children}</h1>
+        <h1 className="do" data-note={note || found ? "" : undefined} data-found={found ? "" : undefined} aria-live="polite">
+          {children}
+        </h1>
       </div>
       {why}
     </div>
@@ -213,7 +252,17 @@ export function Why({ label = WHY, title, children }: { label?: string; title: s
   return (
     <>
       <span className="why-wrap">
-        <button ref={button} type="button" className="why" data-why data-lit={lit ? "" : undefined} aria-haspopup="dialog" onClick={() => sheet.current?.showModal()}>{label}</button>
+        <button
+          ref={button}
+          type="button"
+          className="why"
+          data-why
+          data-lit={lit ? "" : undefined}
+          aria-haspopup="dialog"
+          onClick={() => sheet.current?.showModal()}
+        >
+          {label}
+        </button>
         {lit ? <Beam width={size.width} height={size.height} /> : null}
       </span>
       <dialog ref={sheet} className="sheet" data-sheet aria-label={title} onClick={(e) => e.target === sheet.current && close()} onClose={() => setSeen(true)}>
@@ -233,7 +282,11 @@ export function Why({ label = WHY, title, children }: { label?: string; title: s
 
 /** The screen's action, pinned to the bottom of the screen. */
 export function Actions({ children }: { children: ReactNode }) {
-  return <div className="actions" data-actions>{children}</div>;
+  return (
+    <div className="actions" data-actions>
+      {children}
+    </div>
+  );
 }
 
 export type Step = { key: string; title: string; state: "done" | "now" | "todo"; enabled: boolean; go: () => void };
@@ -241,16 +294,40 @@ export type Step = { key: string; title: string; state: "done" | "now" | "todo";
 const STATE: Record<Step["state"], string> = { done: "done", now: "you are here", todo: "to do" };
 
 /** The lesson's top bar: back to the photos, the object, a dot per step, and the scanned photo as the goal. */
-export function Shell({ objectName, photo, steps, onHome, children }: { objectName: string; photo: string; steps: Step[]; onHome: () => void; children: ReactNode }) {
+export function Shell({
+  objectName,
+  photo,
+  steps,
+  onHome,
+  children,
+}: {
+  objectName: string;
+  photo: string;
+  steps: Step[];
+  onHome: () => void;
+  children: ReactNode;
+}) {
   const plain = useContext(Plain);
   return (
     <div className="screen">
       <header className="top">
-        <button type="button" className="back" data-home aria-label="Back to photos" onClick={onHome}>←</button>
+        <button type="button" className="back" data-home aria-label="Back to photos" onClick={onHome}>
+          ←
+        </button>
         <strong className="top-name">{objectName}</strong>
         <nav className="dots-nav" aria-label="Progress">
           {steps.map((s, i) => (
-            <button key={s.key} type="button" className="step-dot" data-state={s.state} data-pill={s.key} disabled={!s.enabled} aria-label={`${i + 1}. ${s.title}, ${STATE[s.state]}`} aria-current={s.state === "now" ? "step" : undefined} onClick={s.go}>
+            <button
+              key={s.key}
+              type="button"
+              className="step-dot"
+              data-state={s.state}
+              data-pill={s.key}
+              disabled={!s.enabled}
+              aria-label={`${i + 1}. ${s.title}, ${STATE[s.state]}`}
+              aria-current={s.state === "now" ? "step" : undefined}
+              onClick={s.go}
+            >
               <span aria-hidden="true">{s.state === "done" ? "✓" : plain ? "" : i + 1}</span>
             </button>
           ))}

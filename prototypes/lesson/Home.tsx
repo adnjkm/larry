@@ -9,7 +9,11 @@ const count = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
 const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
 const spelled = (n: number, one: string) => `${WORDS[n] ?? n} ${n === 1 ? one : `${one}s`}`;
 const describe = (lesson: Lesson, s: Sample) =>
-  lesson.kind === "workshop" ? count(lesson.modules.length, "build") : lesson.kind === "story" ? spelled(lesson.modules.length, "build").toLowerCase() : count(s.kit.parts.length, "part");
+  lesson.kind === "workshop"
+    ? count(lesson.modules.length, "build")
+    : lesson.kind === "story"
+      ? spelled(lesson.modules.length, "build").toLowerCase()
+      : count(s.kit.parts.length, "part");
 
 export function Home({ samples, lessonOf, onPick }: { samples: readonly Sample[]; lessonOf: (s: Sample) => Lesson; onPick: (s: Sample) => void }) {
   return (
@@ -47,18 +51,30 @@ export function Scan({ sample, lesson, onStart }: { sample: Sample; lesson: Less
   return (
     <main className="page screen" data-stage="scan">
       <Say kicker={finished ? sample.kit.name : "Scanning"} found={finished}>
-        {finished ? (lesson.kind === "workshop" ? `${count(lesson.modules.length, "thing")} to build and fix.` : lesson.kind === "story" ? `${spelled(lesson.modules.length, "part")} to build.` : "Take it apart and see each job.") : "Finding its parts…"}
+        {finished
+          ? lesson.kind === "workshop"
+            ? `${count(lesson.modules.length, "thing")} to build and fix.`
+            : lesson.kind === "story"
+              ? `${spelled(lesson.modules.length, "part")} to build.`
+              : "Take it apart and see each job."
+          : "Finding its parts…"}
       </Say>
       <div className="scan" data-go={go ? "" : undefined}>
         <Dither src={sample.photo} aspect={1} className="faint" />
-        <div className="reveal"><Dither src={sample.photo} aspect={1} /></div>
+        <div className="reveal">
+          <Dither src={sample.photo} aspect={1} />
+        </div>
         <span className="beam" />
       </div>
       <ul className="parts" aria-label="Parts found">
-        {parts.slice(0, shown).map((p) => <li key={p.id}>{p.name}</li>)}
+        {parts.slice(0, shown).map((p) => (
+          <li key={p.id}>{p.name}</li>
+        ))}
       </ul>
       <Actions>
-        <button type="button" className="btn" data-start disabled={!finished} onClick={onStart}>Start</button>
+        <button type="button" className="btn" data-start disabled={!finished} onClick={onStart}>
+          Start
+        </button>
       </Actions>
     </main>
   );

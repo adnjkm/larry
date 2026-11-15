@@ -45,7 +45,6 @@ export const LIFT_CLEAR = 24;
 /** Penetration up to this, in mm, counts as touching. */
 const TOUCH = 0.01;
 
-
 /** `p` turned `deg` degrees anticlockwise about `c`. */
 export function turnAbout(p: Pt, deg: number, c: Pt = [0, 0]): Pt {
   const a = deg * DEG_TO_RAD;

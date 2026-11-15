@@ -26,7 +26,10 @@ function focusPieces(module: Built): Part[] {
   let x = 0;
   return assembledFrom(module).flatMap((p) => {
     // Drawn matte whatever the primitive's finish, so a rubber pad or a metal coil floats in the same bright pink as the part it becomes.
-    const parts = p.build(initialValues(p)).filter((q) => q.color === COLOR.focus).map((q) => ({ ...q, finish: "matte" as const }));
+    const parts = p
+      .build(initialValues(p))
+      .filter((q) => q.color === COLOR.focus)
+      .map((q) => ({ ...q, finish: "matte" as const }));
     if (parts.length === 0) return [];
     const box = extents(parts);
     const shift = vec(x - box.min.x, -(box.min.y + box.max.y) / 2, -(box.min.z + box.max.z) / 2);
@@ -65,14 +68,22 @@ function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: str
     const size = Math.min(100, Math.max(40, 0.55 * Math.max(wide, tall)));
     const scale = Math.min(MAX_ENLARGE, size / Math.max(rawBox.max.x - rawBox.min.x, rawBox.max.y - rawBox.min.y, rawBox.max.z - rawBox.min.z));
     // The piece floats beside a tall object and above a long one, so it adds as little as it can to the view.
-    const at = tall >= wide
-      ? vec(box.max.x + GAP + size / 2, Math.max(size / 2 + 8, (box.min.y + box.max.y) / 2), 0)
-      : vec((box.min.x + box.max.x) / 2, box.max.y + GAP + size / 2, 0);
+    const at =
+      tall >= wide
+        ? vec(box.max.x + GAP + size / 2, Math.max(size / 2 + 8, (box.min.y + box.max.y) / 2), 0)
+        : vec((box.min.x + box.max.x) / 2, box.max.y + GAP + size / 2, 0);
     const piece = { raw, scale, centre: vec((rawBox.min.x + rawBox.max.x) / 2, (rawBox.min.y + rawBox.max.y) / 2, 0), at };
     const target: Part = {
-      id: "target", name: "target", role: "", parentId: null, joint: null,
+      id: "target",
+      name: "target",
+      role: "",
+      parentId: null,
+      joint: null,
       shape: { kind: "torus", radius: module.target.ring.radius, tube: 2, arcDegrees: 360 },
-      position: module.target.at, rotation: ringRotation(module.target.ring.axis), color: COLOR.accent, finish: "matte",
+      position: module.target.at,
+      rotation: ringRotation(module.target.ring.axis),
+      color: COLOR.accent,
+      finish: "matte",
     };
     const around = [...whole(0), ...placeParts(raw, piece.centre, scale, vec(piece.at.x, piece.at.y + 10, 0)), target];
     return { before, after, restBefore, restAfter, centre, piece, target, around, whole, hidden: module.produces.some((id) => enclosed(id, whole(0))) };
@@ -97,10 +108,14 @@ function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: str
     if (progress !== null) return;
     setPicked(true);
     const from = explode;
-    void play(FLIGHT_MS, (ms) => {
-      setProgress(ms / FLIGHT_MS);
-      setExplode(from * (1 - easeOut(clamp01(ms / FLIGHT_MS / LAND))));
-    }, alive).then((done) => {
+    void play(
+      FLIGHT_MS,
+      (ms) => {
+        setProgress(ms / FLIGHT_MS);
+        setExplode(from * (1 - easeOut(clamp01(ms / FLIGHT_MS / LAND))));
+      },
+      alive,
+    ).then((done) => {
       // A part that lands inside another would turn pink out of sight, so the object comes apart to show it.
       if (done && setup.hidden) void play(REVEAL_MS, (ms) => setExplode(smooth(ms / REVEAL_MS)), alive);
     });
@@ -127,7 +142,10 @@ function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: str
     const q = easeOut(clamp01(p / LAND));
     const bob = progress === null ? 4 * Math.sin(tick * 0.3) + (picked ? 10 : 0) : 0;
     const at = vec(lerp(piece.at.x, module.target.at.x, q), lerp(piece.at.y + bob, module.target.at.y, q), lerp(0, module.target.at.z, q));
-    const floating = placeParts(piece.raw, piece.centre, lerp(piece.scale, piece.scale * 0.12, q), at).map<Part>((part) => ({ ...part, id: `piece-${part.id}` }));
+    const floating = placeParts(piece.raw, piece.centre, lerp(piece.scale, piece.scale * 0.12, q), at).map<Part>((part) => ({
+      ...part,
+      id: `piece-${part.id}`,
+    }));
     const marker: Part = picked ? { ...target, shape: { kind: "torus", radius: module.target.ring.radius, tube: 3, arcDegrees: 360 } } : target;
     return [...object, ...floating, marker];
   }, [setup, kit, lesson.apart, module, progress, landed, tick, picked, explode]);
@@ -136,7 +154,13 @@ function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: str
   const names = listOf(module.produces.map((id) => kit.parts.find((q) => q.id === id)?.name ?? id));
   const piece = module.assemble.piece;
   const target = module.target.label;
-  const say = placed ? `Built: ${names}.` : warn ? `Tap the ${piece.toLowerCase()} first.` : picked ? `Now tap ${target.toLowerCase()}.` : `Tap the ${piece.toLowerCase()}.`;
+  const say = placed
+    ? `Built: ${names}.`
+    : warn
+      ? `Tap the ${piece.toLowerCase()} first.`
+      : picked
+        ? `Now tap ${target.toLowerCase()}.`
+        : `Tap the ${piece.toLowerCase()}.`;
 
   return (
     <main className="page" data-stage="assemble">
@@ -146,7 +170,11 @@ function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: str
         why={
           <Why title="Build it">
             <p className="sheet-lead">{module.assemble.title}</p>
-            {placed ? <p>{module.assemble.built} Pink marks the part this lesson is about.</p> : <p>Tap the floating piece, then the ring on the {lesson.objectName.toLowerCase()} where it goes.</p>}
+            {placed ? (
+              <p>{module.assemble.built} Pink marks the part this lesson is about.</p>
+            ) : (
+              <p>Tap the floating piece, then the ring on the {lesson.objectName.toLowerCase()} where it goes.</p>
+            )}
           </Why>
         }
       >
@@ -156,7 +184,17 @@ function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: str
       <ExplodeSlider value={explode} onChange={setExplode} disabled={flying} />
       {placed ? null : (
         <div className="row steps">
-          <button type="button" className="step" data-step="piece" data-on={picked ? "" : undefined} disabled={progress !== null} onClick={() => { setPicked(true); setWarn(false); }}>
+          <button
+            type="button"
+            className="step"
+            data-step="piece"
+            data-on={picked ? "" : undefined}
+            disabled={progress !== null}
+            onClick={() => {
+              setPicked(true);
+              setWarn(false);
+            }}
+          >
             <span className="mono">{plain ? "Pick up" : "1 · Pick up"}</span>
             <strong>{piece}</strong>
           </button>
@@ -167,7 +205,9 @@ function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: str
         </div>
       )}
       <Actions>
-        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>{next}</button>
+        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>
+          {next}
+        </button>
       </Actions>
     </main>
   );

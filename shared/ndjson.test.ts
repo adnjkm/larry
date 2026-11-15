@@ -3,7 +3,11 @@ import { describe, it } from "node:test";
 import { z } from "zod";
 import { readEvents } from "./ndjson.ts";
 
-const Event = z.discriminatedUnion("type", [z.object({ type: z.literal("part"), n: z.number() }), z.object({ type: z.literal("done") }), z.object({ type: z.literal("failed"), message: z.string() })]);
+const Event = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("part"), n: z.number() }),
+  z.object({ type: z.literal("done") }),
+  z.object({ type: z.literal("failed"), message: z.string() }),
+]);
 
 const streamOf = (...chunks: string[]) =>
   new Response(

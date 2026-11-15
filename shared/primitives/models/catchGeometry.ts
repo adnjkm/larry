@@ -8,7 +8,6 @@
 import type { Pt } from "../parts.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
 
-
 /** The bolt's leading face, which the door's edge meets as it shuts, rises at this angle from the door's travel. */
 export const CLOSE_DEG = 30;
 /** Its trailing face, which the notch's wall bears on when the door is pulled, rises this steeply. */
@@ -51,7 +50,12 @@ export const BOLT: Pt[] = [
   [-HALF, CLEAR + LIP],
 ];
 /** The bolt's underside, left to right: the gentle face, the tip, the steep face. */
-const BOLT_EDGE: Pt[] = [[-HALF, 0], [TIP_L, -THROW], [TIP_R, -THROW], [HALF, 0]];
+const BOLT_EDGE: Pt[] = [
+  [-HALF, 0],
+  [TIP_L, -THROW],
+  [TIP_R, -THROW],
+  [HALF, 0],
+];
 
 /** The notch the bolt drops into: its floor is this far below the door's top, 2 below the bolt's tip. */
 const NOTCH_D = THROW + 2;

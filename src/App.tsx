@@ -107,7 +107,8 @@ export function App() {
       .then(({ loadDemo }) => loadDemo(DEMO, LIVE))
       .then(
         ({ kit, lesson }) => live && showKit(kit, lesson),
-        (error: unknown) => live && setState({ phase: "failed", message: error instanceof Error ? error.message : String(error), retry: () => location.reload() }),
+        (error: unknown) =>
+          live && setState({ phase: "failed", message: error instanceof Error ? error.message : String(error), retry: () => location.reload() }),
       );
     return () => {
       live = false;

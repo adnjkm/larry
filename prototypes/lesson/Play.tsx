@@ -14,10 +14,7 @@ const CAMERA_MS = 300;
  * The three story screens that run tests on the object. `problem` shows it failing without the
  * module's part; `play` hands the player the control with the part built; `final` runs every test.
  */
-export type PlayMode =
-  | { kind: "problem"; index: number; seen: boolean }
-  | { kind: "play"; index: number; earned: boolean }
-  | { kind: "final"; done: boolean };
+export type PlayMode = { kind: "problem"; index: number; seen: boolean } | { kind: "play"; index: number; earned: boolean } | { kind: "final"; done: boolean };
 
 type Props = {
   story: Story;
@@ -43,14 +40,21 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
   const value = tuning[control.key] ?? control.start;
 
   const world = useMemo(() => {
-    const present = mode.kind === "problem" ? [...presentAfter(story, kit, mode.index - 1), ...module!.without.adds] : presentAfter(story, kit, mode.kind === "play" ? mode.index : story.modules.length - 1);
+    const present =
+      mode.kind === "problem"
+        ? [...presentAfter(story, kit, mode.index - 1), ...module!.without.adds]
+        : presentAfter(story, kit, mode.kind === "play" ? mode.index : story.modules.length - 1);
     const rest = story.rest({ kit, present });
     const centre = restCentre(kit, present, rest);
     const ctx = { kit, present, centre };
     const pink = new Set(mode.kind === "play" ? module!.produces : []);
-    const draw = (overlay: Overlay, explode: number | Shares) => drawObject({ kit, present, scene: compose(rest, overlay), rigid: overlay.rigid, explode, plan: story.explode, pink, centre, apart: story.apart });
+    const draw = (overlay: Overlay, explode: number | Shares) =>
+      drawObject({ kit, present, scene: compose(rest, overlay), rigid: overlay.rigid, explode, plan: story.explode, pink, centre, apart: story.apart });
     const held = (v: number): Overlay => ({ ...control.pose(v, ctx), rigid: STILL, live: "" });
-    const reach = (run: Run, v: number): Part[] => [...draw(held(v), 0), ...Array.from({ length: FRAME_SAMPLES + 1 }, (_, i) => draw(run.at((run.durationMs * i) / FRAME_SAMPLES), 0)).flat()];
+    const reach = (run: Run, v: number): Part[] => [
+      ...draw(held(v), 0),
+      ...Array.from({ length: FRAME_SAMPLES + 1 }, (_, i) => draw(run.at((run.durationMs * i) / FRAME_SAMPLES), 0)).flat(),
+    ];
     return { present, ctx, draw, held, reach, zones: control.zones(ctx) };
   }, [story, kit, mode.kind, mode.kind === "final" ? -1 : mode.index, module, control]);
 
@@ -90,8 +94,16 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
     }
     const run = test.run(tuning, world.ctx);
     setReach(world.reach(run, value));
-    await play(CAMERA_MS, () => {}, () => alive() && token.current === mine);
-    await play(run.durationMs, (ms) => setAnim(run.at(ms)), () => alive() && token.current === mine);
+    await play(
+      CAMERA_MS,
+      () => {},
+      () => alive() && token.current === mine,
+    );
+    await play(
+      run.durationMs,
+      (ms) => setAnim(run.at(ms)),
+      () => alive() && token.current === mine,
+    );
     if (!alive()) return;
     setAnim(null);
     setReach(null);
@@ -128,9 +140,19 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
   const subject = useMemo(() => (reach ? [...still, ...reach] : still), [reach, still]);
 
   const say =
-    mode.kind === "problem" ? (done ? module!.without.line : module!.without.say)
-    : mode.kind === "play" ? (done ? module!.job : module!.play.say)
-    : done ? story.final.success : blocked ? "Put it back together first." : story.final.say;
+    mode.kind === "problem"
+      ? done
+        ? module!.without.line
+        : module!.without.say
+      : mode.kind === "play"
+        ? done
+          ? module!.job
+          : module!.play.say
+        : done
+          ? story.final.success
+          : blocked
+            ? "Put it back together first."
+            : story.final.say;
   const kicker = mode.kind === "problem" ? `${module!.title} · Without it` : mode.kind === "play" ? `${module!.title} · Make it work` : story.final.title;
 
   const hints = module?.hints ?? [];
@@ -141,31 +163,76 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
       {hinting ? (
         <div className="hints" data-guide-hints>
           {shown === 0 ? <p>Try it first and watch what happens.</p> : null}
-          {hints.slice(0, shown).map((h, i) => <p key={h} className="hintline" data-hint={i + 1} data-latest={i === shown - 1 ? "" : undefined}><b>•</b><span>{h}</span></p>)}
-          {shown < hints.length ? <button type="button" className="link" data-next-hint onClick={() => setReadAhead(shown + 1)}>Next hint</button> : null}
+          {hints.slice(0, shown).map((h, i) => (
+            <p key={h} className="hintline" data-hint={i + 1} data-latest={i === shown - 1 ? "" : undefined}>
+              <b>•</b>
+              <span>{h}</span>
+            </p>
+          ))}
+          {shown < hints.length ? (
+            <button type="button" className="link" data-next-hint onClick={() => setReadAhead(shown + 1)}>
+              Next hint
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div data-why-text>
-        {(module ? module.why : story.final.why).map((line, i) => <p key={line} className={i === 0 && !hinting ? "sheet-lead" : undefined}>{line}</p>)}
+        {(module ? module.why : story.final.why).map((line, i) => (
+          <p key={line} className={i === 0 && !hinting ? "sheet-lead" : undefined}>
+            {line}
+          </p>
+        ))}
       </div>
     </Why>
   );
 
-  const nextLabel = mode.kind === "problem" ? "Next: learn the fix" : mode.kind === "play" ? `Next: ${(story.modules[mode.index + 1]?.title ?? story.final.title).toLowerCase()}` : "";
+  const nextLabel =
+    mode.kind === "problem"
+      ? "Next: learn the fix"
+      : mode.kind === "play"
+        ? `Next: ${(story.modules[mode.index + 1]?.title ?? story.final.title).toLowerCase()}`
+        : "";
   const stage = mode.kind === "problem" ? "problem" : mode.kind === "play" ? (done ? "earned" : "play") : "final";
 
   return (
     <main className="page" data-stage={stage}>
-      <Say kicker={kicker} why={sheet} found={done && mode.kind !== "problem"} note={mode.kind === "problem" && done}>{say}</Say>
+      <Say kicker={kicker} why={sheet} found={done && mode.kind !== "problem"} note={mode.kind === "problem" && done}>
+        {say}
+      </Say>
       <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live || (arming ? "Closing up…" : undefined)} />
       <Cheer text={cheer} show={cheers} />
-      <ExplodeSlider value={explode.target} disabled={running !== null} onChange={(v) => { token.current++; explode.set(v); }} />
+      <ExplodeSlider
+        value={explode.target}
+        disabled={running !== null}
+        onChange={(v) => {
+          token.current++;
+          explode.set(v);
+        }}
+      />
       {mode.kind === "problem" ? null : (
-        <Strip id={control.key} label={control.verb} wheel={TURNS.test(control.verb)} value={value} min={0} max={world.zones[world.zones.length - 1]!.until} zones={world.zones} disabled={running !== null || done} onChange={turn} />
+        <Strip
+          id={control.key}
+          label={control.verb}
+          wheel={TURNS.test(control.verb)}
+          value={value}
+          min={0}
+          max={world.zones[world.zones.length - 1]!.until}
+          zones={world.zones}
+          disabled={running !== null || done}
+          onChange={turn}
+        />
       )}
       <div className="tests">
         {tests.map((t) => (
-          <button key={t.id} type="button" className="test" data-test={t.id} data-status={status(t)} disabled={running !== null || blocked} onClick={() => void runTest(t)}>
+          <button
+            key={t.id}
+            type="button"
+            className="test"
+            data-test={t.id}
+            data-status={status(t)}
+            disabled={running !== null || blocked}
+            onClick={() => void runTest(t)}
+          >
             <span className="dot" aria-hidden="true" />
             {t.label}
             {status(t) === "idle" ? null : <span className="sr">{status(t) === "pass" ? ", passed" : ", failed"}</span>}
@@ -174,22 +241,36 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
       </div>
       {mode.kind === "final" && done ? (
         <ul className="payoff" data-payoff>
-          {story.final.payoff.map((p) => <li key={p.part}><b>{p.part}</b> {p.job}</li>)}
+          {story.final.payoff.map((p) => (
+            <li key={p.part}>
+              <b>{p.part}</b> {p.job}
+            </li>
+          ))}
         </ul>
       ) : (
-        <p className="result" data-result-line data-bad={latest && !latest.pass ? "" : undefined}>{latest ? latest.line : " "}</p>
+        <p className="result" data-result-line data-bad={latest && !latest.pass ? "" : undefined}>
+          {latest ? latest.line : " "}
+        </p>
       )}
       {mode.kind === "final" && !done ? (
-        <button type="button" className="btn secondary" data-assemble disabled={closed || running !== null} onClick={() => !running && explode.set(0)}>Assemble</button>
+        <button type="button" className="btn secondary" data-assemble disabled={closed || running !== null} onClick={() => !running && explode.set(0)}>
+          Assemble
+        </button>
       ) : null}
       <Actions>
         {mode.kind === "final" ? (
           <>
-            <button type="button" className="btn secondary" data-restart disabled={!done} onClick={onNext}>Start over</button>
-            <button type="button" className="btn" data-next disabled={!done} onClick={onHome}>Another object</button>
+            <button type="button" className="btn secondary" data-restart disabled={!done} onClick={onNext}>
+              Start over
+            </button>
+            <button type="button" className="btn" data-next disabled={!done} onClick={onHome}>
+              Another object
+            </button>
           </>
         ) : (
-          <button type="button" className="btn" data-next disabled={!done} onClick={onNext}>{nextLabel}</button>
+          <button type="button" className="btn" data-next disabled={!done} onClick={onNext}>
+            {nextLabel}
+          </button>
         )}
       </Actions>
     </main>

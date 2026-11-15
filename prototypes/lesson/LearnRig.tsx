@@ -53,7 +53,17 @@ function useHeight() {
 /** One slider of a library figure, following the figure's store so a drag of the handle moves it too: a wheel for a turn, else a dithered bar. */
 function StoreRow({ store, slider }: { store: GameStore; slider: Slider }) {
   const value = useSelect(store, (v) => v[slider.id] ?? slider.initial);
-  return <Strip id={slider.id} label={slider.label} wheel={TURNS.test(slider.label)} value={value} min={slider.min} max={slider.max} onChange={(n) => store.controller?.set({ [slider.id]: n })} />;
+  return (
+    <Strip
+      id={slider.id}
+      label={slider.label}
+      wheel={TURNS.test(slider.label)}
+      value={value}
+      min={slider.min}
+      max={slider.max}
+      onChange={(n) => store.controller?.set({ [slider.id]: n })}
+    />
+  );
 }
 
 /** One primitive's figure, then `children`, then the sliders its rig names. Figure and rows share one store. */
@@ -78,11 +88,15 @@ function Rig({ primitive, controls, children }: { primitive: Primitive; controls
     <>
       <div className="viewer" data-figure={primitive.id} ref={box}>
         {height > 0 ? <FigureStage primitive={figure} mode="game" handle={false} palette="library" height={height} controllerRef={store.attach} /> : null}
-        <button type="button" className="play" data-play aria-pressed={sweeping} onClick={toggle}>{sweeping ? "Stop" : "Play"}</button>
+        <button type="button" className="play" data-play aria-pressed={sweeping} onClick={toggle}>
+          {sweeping ? "Stop" : "Play"}
+        </button>
       </div>
       {children}
       <div className="rig-rows" data-rig={primitive.id}>
-        {shown.map((s) => <StoreRow key={s.id} store={store} slider={s} />)}
+        {shown.map((s) => (
+          <StoreRow key={s.id} store={store} slider={s} />
+        ))}
       </div>
     </>
   );
@@ -116,12 +130,26 @@ function FirstPassRig({ id, controls, children }: { id: string; controls: Readon
   return (
     <>
       <Viewer parts={parts} subject={frame} view={primitive.view}>
-        <button type="button" className="play" data-play aria-pressed={playing} onClick={() => setPlaying((x) => !x)}>{playing ? "Stop" : "Play"}</button>
+        <button type="button" className="play" data-play aria-pressed={playing} onClick={() => setPlaying((x) => !x)}>
+          {playing ? "Stop" : "Play"}
+        </button>
       </Viewer>
       {children}
       <div className="rig-rows" data-rig={id}>
         {shown.map((s) => (
-          <Strip key={s.id} id={s.id} label={controls[s.id]!} wheel={TURNS.test(controls[s.id]!)} value={values[s.id] ?? s.initial} min={s.min} max={s.max} onChange={(n) => { setPlaying(false); setValues((v) => ({ ...v, [s.id]: n })); }} />
+          <Strip
+            key={s.id}
+            id={s.id}
+            label={controls[s.id]!}
+            wheel={TURNS.test(controls[s.id]!)}
+            value={values[s.id] ?? s.initial}
+            min={s.min}
+            max={s.max}
+            onChange={(n) => {
+              setPlaying(false);
+              setValues((v) => ({ ...v, [s.id]: n }));
+            }}
+          />
         ))}
       </div>
     </>
@@ -149,7 +177,9 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
   const use = (
     <section className="use" data-use={p.id}>
       <Inset parts={here.parts} view={view} />
-      <p><b>{p.name}.</b> {here.line}</p>
+      <p>
+        <b>{p.name}.</b> {here.line}
+      </p>
     </section>
   );
 
@@ -159,7 +189,11 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
         kicker={kicker}
         why={
           <Why title={p.name}>
-            {rig.why.map((line, i) => <p key={line} className={i === 0 ? "sheet-lead" : undefined}>{line}</p>)}
+            {rig.why.map((line, i) => (
+              <p key={line} className={i === 0 ? "sheet-lead" : undefined}>
+                {line}
+              </p>
+            ))}
           </Why>
         }
       >
@@ -175,12 +209,18 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
         </div>
       ) : null}
       {FIRST_PASS_FIGURE.has(p.id) ? (
-        <FirstPassRig key={p.id} id={p.id} controls={rig.controls}>{use}</FirstPassRig>
+        <FirstPassRig key={p.id} id={p.id} controls={rig.controls}>
+          {use}
+        </FirstPassRig>
       ) : (
-        <Rig key={p.id} primitive={libraryOf(p)} controls={rig.controls}>{use}</Rig>
+        <Rig key={p.id} primitive={libraryOf(p)} controls={rig.controls}>
+          {use}
+        </Rig>
       )}
       <Actions>
-        <button type="button" className="btn" data-next onClick={onNext}>{next}</button>
+        <button type="button" className="btn" data-next onClick={onNext}>
+          {next}
+        </button>
       </Actions>
     </main>
   );

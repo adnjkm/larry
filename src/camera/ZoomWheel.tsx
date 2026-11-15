@@ -25,7 +25,11 @@ export function ZoomWheel({ onZoom }: { onZoom: (zoom: number) => void }) {
   const [zoom, setZoom] = useState<number>(min);
   // The drum looks the same every groove, so one groove's turn is every angle.
   const pitch = (2 * Math.PI) / ridges;
-  const relief = useMemo(() => (t: number): Relief => [drum({ ridges, rim, turn: t * pitch })], [ridges, rim, pitch]);
+  const relief = useMemo(
+    () =>
+      (t: number): Relief => [drum({ ridges, rim, turn: t * pitch })],
+    [ridges, rim, pitch],
+  );
   return (
     <Thumbwheel
       aria-label="Zoom"

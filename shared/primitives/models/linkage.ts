@@ -125,7 +125,11 @@ function build(v: Values): Part[] {
     knob("knob", v3(s.B[0], s.B[1], Z_KNOB), "z", { name: "Knob", role: "Where your hand turns the crank.", on: on("pin-b", "hinge") }),
   ];
   // How far the rocker rocks over a full turn: an arc just past its tip.
-  const arc = travelArc("swing-arc", v3(D[0], D[1], Z_ROCKER), s.rocker + END + ARC_PAST, s.lo, s.hi, { name: "Rock", role: "How far the rocker rocks over one crank turn.", on: on("post-d", "weld") });
+  const arc = travelArc("swing-arc", v3(D[0], D[1], Z_ROCKER), s.rocker + END + ARC_PAST, s.lo, s.hi, {
+    name: "Rock",
+    role: "How far the rocker rocks over one crank turn.",
+    on: on("post-d", "weld"),
+  });
   if (arc) parts.push(arc);
   return parts;
 }
@@ -202,7 +206,12 @@ function judge(v: Values): Verdict {
     case "hits-frame":
       return { pass: false, outcome: "hits-frame", headline: "Hit the frame", detail: "Too long a rocker: it swings into the frame stop and the crank jams." };
     case "leaves-strip":
-      return { pass: false, outcome: "leaves-strip", headline: "Left a strip", detail: "Too short a rocker: it stops swinging before the stop, leaving a strip unwiped." };
+      return {
+        pass: false,
+        outcome: "leaves-strip",
+        headline: "Left a strip",
+        detail: "Too short a rocker: it stops swinging before the stop, leaving a strip unwiped.",
+      };
     case "pass":
       return { pass: true, outcome: "wiped-clean", headline: "Wiped it clean", detail: "The rocker swings right down to the stop without touching it." };
   }
@@ -283,8 +292,17 @@ function play(v: Values): Run {
 function scene(): Part[] {
   const frontOfPost = Z_POST_D + 4;
   return [
-    post(`${SCENE}post`, D[0], Z_POST_D, PEG[1] + PEG_R, { name: "Post", role: "Carries the frame stop above the rocker's pivot.", bottom: D[1] + 4, on: on("post-d", "weld") }),
-    pin(`${SCENE}stop`, v3(PEG[0], PEG[1], frontOfPost + PEG_LENGTH / 2), PEG_LENGTH, { name: "Frame stop", role: "The frame: a rocker swinging this far hits it and cannot go on.", on: on(`${SCENE}post`, "press-fit") }),
+    post(`${SCENE}post`, D[0], Z_POST_D, PEG[1] + PEG_R, {
+      name: "Post",
+      role: "Carries the frame stop above the rocker's pivot.",
+      bottom: D[1] + 4,
+      on: on("post-d", "weld"),
+    }),
+    pin(`${SCENE}stop`, v3(PEG[0], PEG[1], frontOfPost + PEG_LENGTH / 2), PEG_LENGTH, {
+      name: "Frame stop",
+      role: "The frame: a rocker swinging this far hits it and cannot go on.",
+      on: on(`${SCENE}post`, "press-fit"),
+    }),
   ];
 }
 
@@ -299,10 +317,7 @@ export const linkage: Primitive = {
     "A linkage is levers joined end to end by pins. Here four bars make a loop: the base between the two posts, a short crank you turn all the way round, a coupler, and a long rocker. The rocker cannot go round; it rocks to and fro, so a steady turn becomes a back-and-forth swing, as in a windscreen wiper. Because the bars cannot stretch, the rocker's end can only sit where two circles meet, so every crank angle gives exactly one pose. A longer rocker rocks through a smaller angle. Friction and the bars' own weight are left out.",
   madeOf: ["lever", "lever"],
   seenIn: ["Windscreen wiper", "Locking pliers", "Desk lamp"],
-  sliders: [
-    ROCKER,
-    { id: "crank", label: "Crank", min: 0, max: 360, step: 1, initial: 50, unit: "°" },
-  ],
+  sliders: [ROCKER, { id: "crank", label: "Crank", min: 0, max: 360, step: 1, initial: 50, unit: "°" }],
   view: VIEW.bench,
   build,
   readouts,

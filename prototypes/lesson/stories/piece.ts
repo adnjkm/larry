@@ -12,7 +12,12 @@ const dominant = (v: Vec): Axis => AXES.reduce((best, a) => (Math.abs(v[a]) > Ma
 
 /** A kit name as words for a sentence: lower-case, letters only, no token with a digit. */
 export function wordsOf(name: string): string {
-  const kept = name.toLowerCase().split(/\s+/).filter((w) => !/\d/.test(w)).map((w) => w.replace(/[^a-z'-]/g, "")).filter((w) => w.length > 0);
+  const kept = name
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => !/\d/.test(w))
+    .map((w) => w.replace(/[^a-z'-]/g, ""))
+    .filter((w) => w.length > 0);
   return kept.length > 0 ? kept.join(" ") : "part";
 }
 export const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -76,7 +81,14 @@ export const floorOf = ({ kit, present }: Ctx) => extents(kit.parts.filter((p) =
 
 /** How far below its centre a group of parts reaches once turned by `move` (offset ignored). */
 export function dropBelow(kit: Kit, ids: readonly string[], move: PartMove): number {
-  const parts = drawObject({ kit, present: ids, scene: { moves: Object.fromEntries(ids.map((id) => [id, { turns: move.turns }])), marks: [] }, explode: 0, pink: new Set(), centre: vec() });
+  const parts = drawObject({
+    kit,
+    present: ids,
+    scene: { moves: Object.fromEntries(ids.map((id) => [id, { turns: move.turns }])), marks: [] },
+    explode: 0,
+    pink: new Set(),
+    centre: vec(),
+  });
   const before = extents(kit.parts.filter((p) => ids.includes(p.id)));
   return centreOf(before).y - extents(parts).min.y;
 }

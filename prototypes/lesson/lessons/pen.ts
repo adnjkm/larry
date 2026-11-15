@@ -2,7 +2,22 @@
 // Rules and choreography for Write, Tip down, Click and Write hard live here, as pure functions of the tuned values.
 import type { Kit, Part, Shape } from "../../../shared/kit.ts";
 import { clamp01, lerp, smooth } from "../../../shared/primitives/motion/ease.ts";
-import { type Ctx, defineLesson, EMPTY_SCENE, type Mark, type Overlay, type Rigid, type Scene, STILL, type Test, type TestCtx, type Values, vec, type Vec, type Window } from "../model.ts";
+import {
+  type Ctx,
+  defineLesson,
+  EMPTY_SCENE,
+  type Mark,
+  type Overlay,
+  type Rigid,
+  type Scene,
+  STILL,
+  type Test,
+  type TestCtx,
+  type Values,
+  vec,
+  type Vec,
+  type Window,
+} from "../model.ts";
 import { extents, rigidPoint } from "../pose.ts";
 
 const REFILL = "refill";
@@ -37,9 +52,7 @@ function tipOf(kit: Kit): Vec {
 
 /** Tube and button slide together along the pen: `e` is 0 retracted, 1 out. Without the button the tube already rests out. */
 const extension = (ctx: Ctx, e: number, dip = 0): Overlay["moves"] =>
-  ctx.present.includes(PLUNGER)
-    ? { [REFILL]: { offset: vec(-TRAVEL * e, 0, 0) }, [PLUNGER]: { offset: vec(-TRAVEL * e - dip, 0, 0) } }
-    : {};
+  ctx.present.includes(PLUNGER) ? { [REFILL]: { offset: vec(-TRAVEL * e, 0, 0) }, [PLUNGER]: { offset: vec(-TRAVEL * e - dip, 0, 0) } } : {};
 
 /** The tube clicks out over the first half second of a test that starts with the pen clicked in. */
 const clickOut = (ms: number) => smooth(clamp01(ms / 500));
@@ -116,9 +129,11 @@ const write: Test = {
     const gap = pct(SEAT_WINDOW[0]) - squeeze;
     const drag = squeeze - pct(SEAT_WINDOW[1]);
     const verdict =
-      gap > 0 ? { pass: false, line: "The line is blotchy. Ink is slipping past the ball and pooling on the paper." }
-      : drag > 0 ? { pass: false, line: "The line skips. The ball is too tight to roll, so it drags without laying ink." }
-      : { pass: true, line: "A clean, unbroken line with no blots." };
+      gap > 0
+        ? { pass: false, line: "The line is blotchy. Ink is slipping past the ball and pooling on the paper." }
+        : drag > 0
+          ? { pass: false, line: "The line skips. The ball is too tight to roll, so it drags without laying ink." }
+          : { pass: true, line: "A clean, unbroken line with no blots." };
     const { x0, pose, written } = strokeOf(ctx);
     return {
       verdict,
@@ -142,7 +157,15 @@ const dropShape: Shape = {
     return { r: i === 0 || i === 6 ? 0 : DROP_R * Math.cos(a), y: DROP_R * Math.sin(a) };
   }),
 };
-const splashShape: Shape = { kind: "lathe", profile: [{ r: 0, y: 0 }, { r: 6, y: 0 }, { r: 6, y: 1.4 }, { r: 0, y: 1.2 }] };
+const splashShape: Shape = {
+  kind: "lathe",
+  profile: [
+    { r: 0, y: 0 },
+    { r: 6, y: 0 },
+    { r: 6, y: 1.4 },
+    { r: 0, y: 1.2 },
+  ],
+};
 
 const tipDown: Test = {
   id: "tipdown",
@@ -150,9 +173,8 @@ const tipDown: Test = {
   run: (values, ctx) => {
     const gap = pct(SEAT_WINDOW[0]) - pct(squeezeOf(values));
     const drops = gap > 0 ? Math.max(1, Math.ceil((MAX_DROPS * gap) / pct(SEAT_WINDOW[0]))) : 0;
-    const verdict = drops === 0
-      ? { pass: true, line: "Dry. Nothing left the point overnight." }
-      : { pass: false, line: `${drops} drops of ink fell from the point.` };
+    const verdict =
+      drops === 0 ? { pass: true, line: "Dry. Nothing left the point overnight." } : { pass: false, line: `${drops} drops of ink fell from the point.` };
     const c = ctx.centre;
     const tip = tipOf(ctx.kit);
     const held = tipAt(c, tip, 90, c.x, HOLD_H);
@@ -165,10 +187,7 @@ const tipDown: Test = {
       durationMs: TURN + hold + TURN_BACK,
       at: (ms) => {
         const back = smooth(clamp01((ms - TURN - hold) / TURN_BACK));
-        const rigid =
-          ms < TURN ? onPage(c, tip, blend(STILL, held, smooth(ms / TURN)))
-          : ms < TURN + hold ? held
-          : onPage(c, tip, blend(held, STILL, back));
+        const rigid = ms < TURN ? onPage(c, tip, blend(STILL, held, smooth(ms / TURN))) : ms < TURN + hold ? held : onPage(c, tip, blend(held, STILL, back));
         const falling = spawns.flatMap((spawn, i) => {
           const tau = (ms - spawn) / 1000;
           return tau >= 0 ? [{ i, y: origin.y - 0.5 * G * tau * tau }] : [];
@@ -199,7 +218,11 @@ const click: Test = {
     const force = forceOf(values);
     if (force > FINGER_LIMIT) {
       return {
-        verdict: { pass: false, line: `The button would not go. It needs ${force} N and a finger comfortably gives about ${FINGER_LIMIT}.`, nudge: "The catch is gripping far too hard for a thumb." },
+        verdict: {
+          pass: false,
+          line: `The button would not go. It needs ${force} N and a finger comfortably gives about ${FINGER_LIMIT}.`,
+          nudge: "The catch is gripping far too hard for a thumb.",
+        },
         durationMs: REFUSE_MS,
         at: (ms) => {
           const t = clamp01(ms / REFUSE_MS);
@@ -235,7 +258,10 @@ const writeHard: Test = {
     const cut = holds ? 1 : Math.min(0.6, 0.15 + (0.15 * force) / WRITE_PUSH);
     const verdict = holds
       ? { pass: true, line: `The tip stayed out under ${WRITE_PUSH} N of writing push.` }
-      : { pass: false, line: `The tip was pushed back in after ${Math.round(cut * STROKE_LEN)} mm of line. Writing pushes with ${WRITE_PUSH} N and the catch lets go at ${force} N.` };
+      : {
+          pass: false,
+          line: `The tip was pushed back in after ${Math.round(cut * STROKE_LEN)} mm of line. Writing pushes with ${WRITE_PUSH} N and the catch lets go at ${force} N.`,
+        };
     const { x0, pose, written } = strokeOf(ctx);
     const shoveAt = holds ? Infinity : APPROACH + cut * STROKE;
     return {
@@ -282,7 +308,8 @@ export default defineLesson({
       tests: [write, tipDown],
       hints: {
         observe: "Run Write and Tip down and watch the point. The line blots, and ink drips while nobody is writing. Ink is getting past the ball.",
-        principle: "The ball is a wheel: it rolls and carries ink onto the paper. Its socket is a seal: squeezed snugly around the ball, it closes the gap so ink moves only when the ball turns.",
+        principle:
+          "The ball is a wheel: it rolls and carries ink onto the paper. Its socket is a seal: squeezed snugly around the ball, it closes the gap so ink moves only when the ball turns.",
         direction: "Seat the ball more tightly. Squeeze is how tightly the socket holds it. Check Write and Tip down together.",
         low: "Ink slips past the ball, so the line blots and the point drips.",
         high: "The ball drags instead of rolling, so the line skips.",
@@ -304,7 +331,8 @@ export default defineLesson({
         const seat = pct(squeezeOf(v));
         return [{ label: "Ball seat", value: `${seat}% (ink slips past below ${pct(SEAT_WINDOW[0])}%, the ball drags above ${pct(SEAT_WINDOW[1])}%)` }];
       },
-      gameNote: "Game numbers: here Squeeze stands for how tightly the ball sits in its socket. Below 15 percent ink slips past and leaks. Above 30 percent the ball drags and the line skips. A real ball sits in its socket with a clearance of a few thousandths of a millimetre and nothing is squeezed like rubber, so read the percentages as a game scale.",
+      gameNote:
+        "Game numbers: here Squeeze stands for how tightly the ball sits in its socket. Below 15 percent ink slips past and leaks. Above 30 percent the ball drags and the line skips. A real ball sits in its socket with a clearance of a few thousandths of a millimetre and nothing is squeezed like rubber, so read the percentages as a game scale.",
     },
     {
       id: "click",
@@ -325,7 +353,8 @@ export default defineLesson({
       tests: [click, writeHard],
       hints: {
         observe: "Run Write hard and watch the point. It clicks out, then the push of writing shoves it back in.",
-        principle: "A catch is a wedge held out by a spring. It holds until something pushes harder than its release force. Writing pushes back on the tip with about 3 N, so a catch that lets go below that cannot hold the tip out.",
+        principle:
+          "A catch is a wedge held out by a spring. It holds until something pushes harder than its release force. Writing pushes back on the tip with about 3 N, so a catch that lets go below that cannot hold the tip out.",
         direction: "Raise the release force above the writing push, but keep it under what a thumb presses. Check Click and Write hard together.",
         low: "Writing pushes the tip back in.",
         high: "The button needs more than the 10 N a thumb comfortably gives, so Click fails.",
@@ -351,7 +380,8 @@ export default defineLesson({
           { label: "Click", value: `${force} N against a thumb's ${FINGER_LIMIT} N: ${force > FINGER_LIMIT ? "too hard" : "it goes"}` },
         ];
       },
-      gameNote: "Game numbers: writing pushes back on the tip with about 3 N, and a thumb comfortably presses up to about 10 N. Real writing force is usually well under 3 N, and a real pen holds its tip with a cam, so the numbers are chosen to make the failure easy to see.",
+      gameNote:
+        "Game numbers: writing pushes back on the tip with about 3 N, and a thumb comfortably presses up to about 10 N. Real writing force is usually well under 3 N, and a real pen holds its tip with a cam, so the numbers are chosen to make the failure easy to see.",
     },
   ],
   final: {

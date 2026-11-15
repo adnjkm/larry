@@ -34,7 +34,10 @@ describe("gear", () => {
     assert.ok(kinds.size <= 7, [...kinds].join(", "));
     // Two posts and two axles hold two gears: nothing else is black but the plate and the turn mark.
     assert.equal(parts.filter((p) => p.name === "Gear").length, 2);
-    assert.ok(parts.filter((p) => p.name === "Gear").every((p) => p.color === look.focus.color), "both gears are pink");
+    assert.ok(
+      parts.filter((p) => p.name === "Gear").every((p) => p.color === look.focus.color),
+      "both gears are pink",
+    );
     assert.equal(parts.filter((p) => p.name === "Post").length, 2);
     assert.equal(parts.filter((p) => /arrow/.test(p.id)).length, 1, "one direction arrow");
     assert.ok(find(parts, "arrow-driven"));
@@ -128,7 +131,7 @@ describe("gear", () => {
         const v = { ratio: r, turn };
         const g = find(game.scene!(v), "game-ghost-arrow");
         const want = settle({ ...v, turn: 0 }).hand - GHOST * 360 * turn;
-        const k = (((g.rotation.z - want) % 360) + 540) % 360 - 180;
+        const k = ((((g.rotation.z - want) % 360) + 540) % 360) - 180;
         assert.ok(Math.abs(k) < 1e-6, `ratio ${r}, turn ${turn}: ghost at ${g.rotation.z}, wanted ${want}`);
         assert.equal(g.parentId, "pin-2");
       }

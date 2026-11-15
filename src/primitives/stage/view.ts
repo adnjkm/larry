@@ -21,7 +21,6 @@ const DRAG_RADIANS_PER_PIXEL = 0.012;
 /** Seconds for a flick's extra spin to fade to a third, as in KitViewer. */
 const FLING_SECONDS = 0.5;
 
-
 type StageCallbacks = {
   onLive?: (text: string) => void;
   onCue?: (cue: Cue) => void;
@@ -79,7 +78,13 @@ export class StageView implements Drawable {
     if (!ctx) throw new Error("No 2D canvas");
     this.ctx = ctx;
     // Game mode frames the game's scene and runs too, and fits its fixed camera to them rather than to a spin.
-    this.scene = new StageScene(framePrimitive(primitive, mode), primitive.view, looksFor(palette), palette === "lesson" ? LESSON_COLOR : undefined, mode === "game" ? "fixed" : "spin");
+    this.scene = new StageScene(
+      framePrimitive(primitive, mode),
+      primitive.view,
+      looksFor(palette),
+      palette === "lesson" ? LESSON_COLOR : undefined,
+      mode === "game" ? "fixed" : "spin",
+    );
     this.controller = new Motion(
       {
         apply: (values, marks) => {

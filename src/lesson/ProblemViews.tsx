@@ -26,9 +26,22 @@ const shake = stylex.keyframes({
 });
 
 const styles = stylex.create({
-  card: { position: "relative", display: "flex", flexDirection: "column", gap: 10, padding: 6, borderRadius: radii.tile, backgroundColor: colors.paper, boxShadow: `0 1px 0 ${colors.hairline}, 0 0 0 1px ${colors.faint}` },
+  card: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: 6,
+    borderRadius: radii.tile,
+    backgroundColor: colors.paper,
+    boxShadow: `0 1px 0 ${colors.hairline}, 0 0 0 1px ${colors.faint}`,
+  },
   cardFail: { boxShadow: `inset 0 0 0 1.5px ${colors.fail}` },
-  cardShake: { animationName: { default: shake, "@media (prefers-reduced-motion: reduce)": "none" }, animationDuration: "320ms", animationTimingFunction: "ease-out" },
+  cardShake: {
+    animationName: { default: shake, "@media (prefers-reduced-motion: reduce)": "none" },
+    animationDuration: "320ms",
+    animationTimingFunction: "ease-out",
+  },
   cardOk: { boxShadow: `inset 0 0 0 1.5px ${colors.ok}` },
   option: {
     boxSizing: "border-box",
@@ -107,10 +120,20 @@ function PickView({ problem, state, dispatch }: ViewProps<"pick">) {
             key={i}
             data-option={i}
             data-tried={tried || undefined}
-            {...stylex.props(styles.card, tried && !option.works && styles.cardFail, tried && !option.works && !state.solved && styles.cardShake, tried && option.works && styles.cardOk)}
+            {...stylex.props(
+              styles.card,
+              tried && !option.works && styles.cardFail,
+              tried && !option.works && !state.solved && styles.cardShake,
+              tried && option.works && styles.cardOk,
+            )}
           >
             {/* Focusable when disabled, so a tried option keeps focus and its verdict stays readable. */}
-            <Button disabled={frozen} focusableWhenDisabled {...stylex.props(styles.option, frozen && styles.optionDone)} onClick={() => frozen || dispatch({ type: "pick", option: i })}>
+            <Button
+              disabled={frozen}
+              focusableWhenDisabled
+              {...stylex.props(styles.option, frozen && styles.optionDone)}
+              onClick={() => frozen || dispatch({ type: "pick", option: i })}
+            >
               {tried && <span {...stylex.props(type.label, option.works ? notes.okText : notes.failText)}>{option.works ? "This works" : "This fails"}</span>}
               <span {...stylex.props(styles.optionName)}>{primitive?.name ?? option.primitive}</span>
               {primitive && !spent && <span {...stylex.props(styles.optionJob)}>{primitive.job}</span>}
@@ -138,9 +161,21 @@ function TuneView({ problem, state }: ViewProps<"tune">) {
         <p {...stylex.props(type.body)}>{problem.goal}</p>
       </div>
       <div ref={verdict} aria-live="polite">
-        {state.verdict === "below" && <Observation label="Too low" tone="fail">{problem.tooLow}</Observation>}
-        {state.verdict === "above" && <Observation label="Too high" tone="fail">{problem.tooHigh}</Observation>}
-        {state.verdict === "inside" && <Observation label="Just right" tone="ok">{problem.justRight}</Observation>}
+        {state.verdict === "below" && (
+          <Observation label="Too low" tone="fail">
+            {problem.tooLow}
+          </Observation>
+        )}
+        {state.verdict === "above" && (
+          <Observation label="Too high" tone="fail">
+            {problem.tooHigh}
+          </Observation>
+        )}
+        {state.verdict === "inside" && (
+          <Observation label="Just right" tone="ok">
+            {problem.justRight}
+          </Observation>
+        )}
       </div>
     </div>
   );

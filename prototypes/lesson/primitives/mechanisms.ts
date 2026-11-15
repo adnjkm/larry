@@ -15,12 +15,30 @@ function pin(id: string, name: string, role: string, r: number, len: number, at:
   return part(id, name, role, cylinder(r, len).shape, at, appearance, attach, v3(90, 0, 0));
 }
 
-function column(id: string, name: string, role: string, r: number, y0: number, y1: number, x: number, z: number, appearance: Look, attach: Attach | null): Part {
+function column(
+  id: string,
+  name: string,
+  role: string,
+  r: number,
+  y0: number,
+  y1: number,
+  x: number,
+  z: number,
+  appearance: Look,
+  attach: Attach | null,
+): Part {
   const c = cylinder(r, y1 - y0);
   return part(id, name, role, c.shape, v3(x, y0 + c.midY, z), appearance, attach);
 }
 
-function shaped(id: string, name: string, role: string, s: { shape: Part["shape"]; position: Vec; rotation: Vec }, appearance: Look, attach: Attach | null): Part {
+function shaped(
+  id: string,
+  name: string,
+  role: string,
+  s: { shape: Part["shape"]; position: Vec; rotation: Vec },
+  appearance: Look,
+  attach: Attach | null,
+): Part {
   return part(id, name, role, s.shape, s.position, appearance, attach, s.rotation);
 }
 
@@ -33,7 +51,19 @@ function link(a: Pt, b: Pt, thick: number, depth: number, z: number, ext: number
 }
 
 /** A coil spring whose axis runs from a to b, in the plane z. */
-function coilSpring(id: string, name: string, role: string, a: Pt, b: Pt, z: number, radius: number, tube: number, turns: number, appearance: Look, attach: Attach): Part {
+function coilSpring(
+  id: string,
+  name: string,
+  role: string,
+  a: Pt,
+  b: Pt,
+  z: number,
+  radius: number,
+  tube: number,
+  turns: number,
+  appearance: Look,
+  attach: Attach,
+): Part {
   const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const lean = Math.atan2(-(b[0] - a[0]), b[1] - a[1]) * DEG;
   return part(id, name, role, coil(radius, tube, len, turns), v3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, z), appearance, attach, v3(0, 0, lean));
@@ -77,8 +107,24 @@ const gear: Primitive = {
     const baseW = 2 * (r1 + r2) + 28;
     return [
       part("base", "Frame", "Holds both axles the right distance apart.", box(baseW, 8, 40, 2), v3((r2 - r1) / 2, 4, -6), look.structure),
-      part("post-1", "Left post", "Carries the driving gear's axle.", box(8, GEAR_AXIS_Y - 8, 6, 1), v3(x1, 8 + (GEAR_AXIS_Y - 8) / 2, -11), look.structure, on("base", "weld")),
-      part("post-2", "Right post", "Carries the driven gear's axle.", box(8, GEAR_AXIS_Y - 8, 6, 1), v3(x2, 8 + (GEAR_AXIS_Y - 8) / 2, -11), look.structure, on("base", "weld")),
+      part(
+        "post-1",
+        "Left post",
+        "Carries the driving gear's axle.",
+        box(8, GEAR_AXIS_Y - 8, 6, 1),
+        v3(x1, 8 + (GEAR_AXIS_Y - 8) / 2, -11),
+        look.structure,
+        on("base", "weld"),
+      ),
+      part(
+        "post-2",
+        "Right post",
+        "Carries the driven gear's axle.",
+        box(8, GEAR_AXIS_Y - 8, 6, 1),
+        v3(x2, 8 + (GEAR_AXIS_Y - 8) / 2, -11),
+        look.structure,
+        on("base", "weld"),
+      ),
       pin("pin-1", "Axle", "The driving gear turns on it.", 3, 18, v3(x1, GEAR_AXIS_Y, -5), look.structure, on("post-1", "press-fit")),
       pin("pin-2", "Axle", "The driven gear turns on it.", 3, 18, v3(x2, GEAR_AXIS_Y, -5), look.structure, on("post-2", "press-fit")),
       part("gear-driver", "Driving gear", "The gear you turn.", g1.shape, g1.position, look.focus, on("pin-1", "hinge"), g1.rotation),
@@ -99,7 +145,16 @@ const gear: Primitive = {
 
 const ROPE_R = 7.8;
 const FIXED_Y = 150;
-const SHEAVE = lathe([[0, -3], [9.5, -3], [9.5, -1.8], [6.6, -1.8], [6.6, 1.8], [9.5, 1.8], [9.5, 3], [0, 3]]);
+const SHEAVE = lathe([
+  [0, -3],
+  [9.5, -3],
+  [9.5, -1.8],
+  [6.6, -1.8],
+  [6.6, 1.8],
+  [9.5, 1.8],
+  [9.5, 3],
+  [0, 3],
+]);
 
 const pulley: Primitive = {
   id: "pulley",
@@ -141,8 +196,24 @@ const pulley: Primitive = {
       part("post-l", "Left post", "Holds up the beam.", box(8, 165, 12, 1), v3(-post, 6 + 82.5, -6), look.structure, on("ground", "weld")),
       part("post-r", "Right post", "Holds up the beam.", box(8, 165, 12, 1), v3(post, 6 + 82.5, -6), look.structure, on("ground", "weld")),
       part("beam", "Beam", "The fixed support the top block hangs from.", box(2 * post + 8, 8, 12, 1), v3(0, 167, -6), look.structure, on("post-l", "weld")),
-      part("block-top", "Fixed block", "Holds the fixed wheels in place.", box(fx.hi - fx.lo, 26, 5, 1.5), v3((fx.lo + fx.hi) / 2, FIXED_Y, -6), look.structure, on("beam", "weld")),
-      part("block-load", "Moving block", "Hangs from the cord and carries the load.", box(mv.hi - mv.lo, 26, 5, 1.5), v3((mv.lo + mv.hi) / 2, yM, -6), look.steel, on("block-top", "slide")),
+      part(
+        "block-top",
+        "Fixed block",
+        "Holds the fixed wheels in place.",
+        box(fx.hi - fx.lo, 26, 5, 1.5),
+        v3((fx.lo + fx.hi) / 2, FIXED_Y, -6),
+        look.structure,
+        on("beam", "weld"),
+      ),
+      part(
+        "block-load",
+        "Moving block",
+        "Hangs from the cord and carries the load.",
+        box(mv.hi - mv.lo, 26, 5, 1.5),
+        v3((mv.lo + mv.hi) / 2, yM, -6),
+        look.steel,
+        on("block-top", "slide"),
+      ),
       column("hook", "Hook", "Joins the load to the moving block.", 2.2, yM - 21, yM - 13, (mv.lo + mv.hi) / 2, -6, look.structure, on("block-load", "weld")),
       part("load", "Load", "The weight being lifted.", box(30, 26, 24, 2), v3((mv.lo + mv.hi) / 2, yM - 34, -6), look.stone, on("block-load", "glue")),
     ];
@@ -157,7 +228,18 @@ const pulley: Primitive = {
       const owner = isFixed ? "block-top" : "block-load";
       const y = yOf(i);
       parts.push(pin(`axle-${i + 1}`, "Axle", "The wheel turns on it.", 2.4, 14, v3(x, y, -1.5), look.structure, on(owner, "press-fit")));
-      parts.push(part(`wheel-${i + 1}`, isFixed ? "Fixed wheel" : "Moving wheel", "A grooved wheel the cord runs round.", SHEAVE.shape, v3(x, y, 0), look.focus, on(`axle-${i + 1}`, "hinge"), v3(90, 0, 0)));
+      parts.push(
+        part(
+          `wheel-${i + 1}`,
+          isFixed ? "Fixed wheel" : "Moving wheel",
+          "A grooved wheel the cord runs round.",
+          SHEAVE.shape,
+          v3(x, y, 0),
+          look.focus,
+          on(`axle-${i + 1}`, "hinge"),
+          v3(90, 0, 0),
+        ),
+      );
     });
 
     // The cord: a straight run, a half-turn round a wheel, a straight run, and so on.
@@ -169,7 +251,18 @@ const pulley: Primitive = {
     cordBar("cord-0", [xFirst, anchorY], [xFirst, odd ? FIXED_Y : yM]);
     xs.forEach((x, i) => {
       const up = fixed(i);
-      parts.push(part(`turn-${i + 1}`, "Cord", "The cord bending round a wheel.", ring(ROPE_R, 1.2, 180), v3(x, yOf(i), 0), look.slate, on(last, "molded"), v3(90, up ? 90 : -90, 0)));
+      parts.push(
+        part(
+          `turn-${i + 1}`,
+          "Cord",
+          "The cord bending round a wheel.",
+          ring(ROPE_R, 1.2, 180),
+          v3(x, yOf(i), 0),
+          look.slate,
+          on(last, "molded"),
+          v3(90, up ? 90 : -90, 0),
+        ),
+      );
       last = `turn-${i + 1}`;
       cordBar(`cord-${i + 1}`, [x + ROPE_R, yOf(i)], i < n - 1 ? [x + ROPE_R, yOf(i + 1)] : [x + ROPE_R, handleTop]);
     });
@@ -219,11 +312,46 @@ const thread: Primitive = {
     const tabAngle = ccw * RAD;
     return [
       part("base", "Base plate", "Holds the bolt upright.", box(64, 6, 52, 2), v3(0, 3, 0), look.structure),
-      part("head", "Bolt head", "Stops the bolt and gives a wrench something to grip.", hexShape(15, HEAD_H), v3(0, 6 + HEAD_H / 2, 0), look.structure, on("base", "weld"), v3(-90, 0, 0)),
+      part(
+        "head",
+        "Bolt head",
+        "Stops the bolt and gives a wrench something to grip.",
+        hexShape(15, HEAD_H),
+        v3(0, 6 + HEAD_H / 2, 0),
+        look.structure,
+        on("base", "weld"),
+        v3(-90, 0, 0),
+      ),
       part("rod", "Bolt shank", "The rod the ridge is wound on.", rod.shape, v3(0, 6 + HEAD_H + rod.midY, 0), look.steel, on("head", "weld")),
-      part("ridge", "Thread ridge", "A wedge-shaped ridge wound along the bolt.", coil(BOLT_CREST - wire, wire, ridgeLen, (ridgeLen - 2 * wire) / pitch), v3(0, 6 + HEAD_H + ridgeLen / 2, 0), look.steel, on("rod", "weld")),
-      part("nut", "Nut", "Its matching thread makes it climb as it turns.", hexShape(NUT_R, NUT_H), v3(0, 6 + HEAD_H + nutY, 0), look.focus, on("rod", "thread"), v3(-90, 0, -ccw)),
-      part("tab", "Turn mark", "Shows how far the nut has turned.", box(5, NUT_H, 5, 1), v3((NUT_R + 1.5) * Math.cos(tabAngle), 6 + HEAD_H + nutY, -(NUT_R + 1.5) * Math.sin(tabAngle)), look.stone, on("nut", "glue"), v3(0, ccw, 0)),
+      part(
+        "ridge",
+        "Thread ridge",
+        "A wedge-shaped ridge wound along the bolt.",
+        coil(BOLT_CREST - wire, wire, ridgeLen, (ridgeLen - 2 * wire) / pitch),
+        v3(0, 6 + HEAD_H + ridgeLen / 2, 0),
+        look.steel,
+        on("rod", "weld"),
+      ),
+      part(
+        "nut",
+        "Nut",
+        "Its matching thread makes it climb as it turns.",
+        hexShape(NUT_R, NUT_H),
+        v3(0, 6 + HEAD_H + nutY, 0),
+        look.focus,
+        on("rod", "thread"),
+        v3(-90, 0, -ccw),
+      ),
+      part(
+        "tab",
+        "Turn mark",
+        "Shows how far the nut has turned.",
+        box(5, NUT_H, 5, 1),
+        v3((NUT_R + 1.5) * Math.cos(tabAngle), 6 + HEAD_H + nutY, -(NUT_R + 1.5) * Math.sin(tabAngle)),
+        look.stone,
+        on("nut", "glue"),
+        v3(0, ccw, 0),
+      ),
     ];
   },
   readouts: ({ pitch = 4, turns = 2.5 }) => [
@@ -279,8 +407,24 @@ const cam: Primitive = {
       part("board", "Back board", "Carries the axle and the rod's guide.", box(70, 104, 6, 1), v3(0, 8 + 52, -14), look.stone, on("base", "weld")),
       pin("axle", "Axle", "The cam turns on it.", 3.5, 18, v3(0, CAM_AXIS_Y, -8), look.structure, on("board", "press-fit")),
       part("cam", "Cam", "Its bulging edge pushes the rod up and lets it drop.", c.shape, c.position, look.focus, on("axle", "hinge"), c.rotation),
-      part("foot", "Follower foot", "A flat shoe that rides on the cam's edge.", box(36, 4, 14, 1), v3(0, foot + 2, -5), look.steel, on("rod-guide-l", "slide")),
-      part("rod", "Follower rod", "Copies the cam's shape as an up-and-down motion.", rod.shape, v3(0, foot + 4 + rod.midY, -5), look.steel, on("foot", "weld")),
+      part(
+        "foot",
+        "Follower foot",
+        "A flat shoe that rides on the cam's edge.",
+        box(36, 4, 14, 1),
+        v3(0, foot + 2, -5),
+        look.steel,
+        on("rod-guide-l", "slide"),
+      ),
+      part(
+        "rod",
+        "Follower rod",
+        "Copies the cam's shape as an up-and-down motion.",
+        rod.shape,
+        v3(0, foot + 4 + rod.midY, -5),
+        look.steel,
+        on("foot", "weld"),
+      ),
       part("rod-guide-l", "Guide", "Keeps the rod moving straight up and down.", box(6, 18, 6, 1), v3(-7, 95, -8), look.structure, on("board", "weld")),
       part("rod-guide-r", "Guide", "Keeps the rod moving straight up and down.", box(6, 18, 6, 1), v3(7, 95, -8), look.structure, on("board", "weld")),
     ];
@@ -419,19 +563,64 @@ const ratchet: Primitive = {
     const [px, py] = RATCHET_PIVOT;
     const len = Math.hypot(tip[0] - px, tip[1] - py);
     const angle = Math.atan2(tip[1] - py, tip[0] - px) * DEG;
-    const pawl = pivoted([[0, -4], [len * 0.55, -3], [len, 0], [len * 0.55, 3], [0, 4]], 6, [0, 0], v3(px, py, -2), angle);
+    const pawl = pivoted(
+      [
+        [0, -4],
+        [len * 0.55, -3],
+        [len, 0],
+        [len * 0.55, 3],
+        [0, 4],
+      ],
+      6,
+      [0, 0],
+      v3(px, py, -2),
+      angle,
+    );
     const q = rotateAbout([len * 0.5, 3], angle, v3(px, py));
     const top: Pt = [q.x, py + 22];
     return [
       part("base", "Base", "Stands the whole thing on the floor.", box(110, 8, 36, 2), v3(14, 4, -8), look.structure),
-      part("post", "Wheel post", "Carries the wheel's axle.", box(10, RATCHET_AXIS_Y - 8, 6, 1), v3(0, 8 + (RATCHET_AXIS_Y - 8) / 2, -12), look.structure, on("base", "weld")),
+      part(
+        "post",
+        "Wheel post",
+        "Carries the wheel's axle.",
+        box(10, RATCHET_AXIS_Y - 8, 6, 1),
+        v3(0, 8 + (RATCHET_AXIS_Y - 8) / 2, -12),
+        look.structure,
+        on("base", "weld"),
+      ),
       pin("axle", "Axle", "The wheel turns on it.", 3.2, 12, v3(0, RATCHET_AXIS_Y, -6), look.structure, on("post", "press-fit")),
-      part("wheel", "Ratchet wheel", "A wheel of sawtooth wedges: ramps one way, cliffs the other.", wheel.shape, wheel.position, look.steel, on("axle", "hinge"), wheel.rotation),
+      part(
+        "wheel",
+        "Ratchet wheel",
+        "A wheel of sawtooth wedges: ramps one way, cliffs the other.",
+        wheel.shape,
+        wheel.position,
+        look.steel,
+        on("axle", "hinge"),
+        wheel.rotation,
+      ),
       part("pawl-post", "Pawl post", "Carries the pawl's pivot.", box(8, py - 8, 6, 1), v3(px, 8 + (py - 8) / 2, -8), look.structure, on("base", "weld")),
       pin("pawl-pin", "Pawl pivot", "The pawl swings on it.", 2.6, 10, v3(px, py, -3), look.structure, on("pawl-post", "press-fit")),
       part("pawl", "Pawl", "Rides up each ramp and drops behind each cliff.", pawl.shape, pawl.position, look.focus, on("pawl-pin", "hinge"), pawl.rotation),
-      part("bracket-post", "Spring post", "Holds up the spring's top end.", box(8, top[1] + 2 - 8, 6, 1), v3(px + 12, 8 + (top[1] + 2 - 8) / 2, -8), look.structure, on("base", "weld")),
-      part("bracket", "Spring seat", "The spring pushes against it.", box(px + 12 - top[0] + 8, 4, 6, 1), v3((top[0] + px + 12) / 2, top[1] + 2, -2), look.structure, on("bracket-post", "weld")),
+      part(
+        "bracket-post",
+        "Spring post",
+        "Holds up the spring's top end.",
+        box(8, top[1] + 2 - 8, 6, 1),
+        v3(px + 12, 8 + (top[1] + 2 - 8) / 2, -8),
+        look.structure,
+        on("base", "weld"),
+      ),
+      part(
+        "bracket",
+        "Spring seat",
+        "The spring pushes against it.",
+        box(px + 12 - top[0] + 8, 4, 6, 1),
+        v3((top[0] + px + 12) / 2, top[1] + 2, -2),
+        look.structure,
+        on("bracket-post", "weld"),
+      ),
       coilSpring("spring", "Spring coil", "Pushes the pawl down onto the wheel.", [q.x, q.y], top, -2, 4.2, 0.9, 7, look.slate, on("pawl", "spring")),
     ];
   },
@@ -492,14 +681,28 @@ const catchLatch: Primitive = {
     const e = boltExtension(door);
     const baseY = BOLT_BASE_Y - BOLT_TRAVEL + e;
     const bolt = pivoted(
-      [[-BOLT_W / 2, -14], [BOLT_W / 2, -14], [BOLT_W / 2, 0], [HEAD_APEX, HEAD_RISE], [-BOLT_W / 2, 0]],
+      [
+        [-BOLT_W / 2, -14],
+        [BOLT_W / 2, -14],
+        [BOLT_W / 2, 0],
+        [HEAD_APEX, HEAD_RISE],
+        [-BOLT_W / 2, 0],
+      ],
       12,
       [0, 0],
       v3(door, baseY, -3),
       0,
     );
     const strike = pivoted(
-      [[-STRIKE_HALF, 0], [-BOLT_W / 2, 0], [HEAD_APEX, HEAD_RISE], [BOLT_W / 2, 0], [STRIKE_HALF, 0], [STRIKE_HALF, 10], [-STRIKE_HALF, 10]],
+      [
+        [-STRIKE_HALF, 0],
+        [-BOLT_W / 2, 0],
+        [HEAD_APEX, HEAD_RISE],
+        [BOLT_W / 2, 0],
+        [STRIKE_HALF, 0],
+        [STRIKE_HALF, 10],
+        [-STRIKE_HALF, 10],
+      ],
       12,
       [0, 0],
       v3(0, STRIKE_Y, -3),
@@ -507,14 +710,42 @@ const catchLatch: Primitive = {
     );
     return [
       part("track", "Track", "Carries the door and the strike wall.", box(130, 6, 46, 2), v3(-26, 3, -4), look.structure),
-      part("wall", "Strike wall", "Holds the strike plate up.", box(72, STRIKE_Y + 10 - 6, 6, 1), v3(0, 6 + (STRIKE_Y + 10 - 6) / 2, -12), look.light, on("track", "weld")),
-      part("strike", "Strike plate", "Has a notch cut to the bolt's shape for the bolt to spring into.", strike.shape, strike.position, look.steel, on("wall", "weld")),
+      part(
+        "wall",
+        "Strike wall",
+        "Holds the strike plate up.",
+        box(72, STRIKE_Y + 10 - 6, 6, 1),
+        v3(0, 6 + (STRIKE_Y + 10 - 6) / 2, -12),
+        look.light,
+        on("track", "weld"),
+      ),
+      part(
+        "strike",
+        "Strike plate",
+        "Has a notch cut to the bolt's shape for the bolt to spring into.",
+        strike.shape,
+        strike.position,
+        look.steel,
+        on("wall", "weld"),
+      ),
       part("door", "Door", "Slides along the track and carries the latch.", box(52, 6, 18, 1), v3(door - 12, 9, -1), look.stone, on("track", "slide")),
       part("back", "Latch back", "Holds the latch's two sides together.", box(28, 24, 4, 1), v3(door, 24, -7), look.structure, on("door", "screw")),
       part("side-l", "Latch side", "Guides the bolt.", box(4, 24, 12, 1), v3(door - 10, 24, -3), look.structure, on("back", "weld")),
       part("side-r", "Latch side", "Guides the bolt.", box(4, 24, 12, 1), v3(door + 10, 24, -3), look.structure, on("back", "weld")),
       part("bolt", "Latch bolt", "A wedge: gentle face to close, steep face to hold.", bolt.shape, bolt.position, look.focus, on("back", "slide")),
-      coilSpring("spring", "Spring coil", "Pushes the bolt out.", [door, 12], [door, baseY - 14], -3, 4.5, 0.55 + force * 0.03, 5, look.slate, on("bolt", "spring")),
+      coilSpring(
+        "spring",
+        "Spring coil",
+        "Pushes the bolt out.",
+        [door, 12],
+        [door, baseY - 14],
+        -3,
+        4.5,
+        0.55 + force * 0.03,
+        5,
+        look.slate,
+        on("bolt", "spring"),
+      ),
     ];
   },
   readouts: ({ force = 8, door = -9 }) => {
@@ -541,7 +772,7 @@ const SPRING_FREE = 30;
 
 /** Spring preload in N from the opening pressure in kPa: pressure x seat area (1 kPa on 1 mm^2 = 0.001 N). */
 const preload = (kPa: number) => (kPa * SEAT_AREA) / 1000;
-const valveLift = (openKPa: number, kPa: number) => clamp((((kPa - openKPa) * SEAT_AREA) / 1000) / VALVE_RATE, 0, VALVE_STOP);
+const valveLift = (openKPa: number, kPa: number) => clamp(((kPa - openKPa) * SEAT_AREA) / 1000 / VALVE_RATE, 0, VALVE_STOP);
 
 const valve: Primitive = {
   id: "valve",
@@ -563,22 +794,65 @@ const valve: Primitive = {
     const springLen = SPRING_FREE - preload(open) / VALVE_RATE;
     const springBottom = BALL_REST + BALL_R + 2 + lift;
     const topY = BALL_REST + BALL_R + 2 + springLen;
-    const pipe = lathe([[SEAT_R, 0], [9.5, 0], [9.5, 20], [SEAT_R, 20], [SEAT_R, 0]]);
-    const seat = lathe([[SEAT_R, 0], [20, 0], [20, 4], [SEAT_R, 4], [SEAT_R, 0]]);
-    const ball = lathe(Array.from({ length: 19 }, (_, i): [number, number] => {
-      const t = (i / 18) * Math.PI;
-      return [BALL_R * Math.sin(t), -BALL_R * Math.cos(t)];
-    }));
+    const pipe = lathe([
+      [SEAT_R, 0],
+      [9.5, 0],
+      [9.5, 20],
+      [SEAT_R, 20],
+      [SEAT_R, 0],
+    ]);
+    const seat = lathe([
+      [SEAT_R, 0],
+      [20, 0],
+      [20, 4],
+      [SEAT_R, 4],
+      [SEAT_R, 0],
+    ]);
+    const ball = lathe(
+      Array.from({ length: 19 }, (_, i): [number, number] => {
+        const t = (i / 18) * Math.PI;
+        return [BALL_R * Math.sin(t), -BALL_R * Math.cos(t)];
+      }),
+    );
     const seatCap = cylinder(5, 2.4);
-    const rodAt = [[-15, -15], [15, -15], [-15, 15], [15, 15]] as const;
+    const rodAt = [
+      [-15, -15],
+      [15, -15],
+      [-15, 15],
+      [15, 15],
+    ] as const;
     return [
       part("pipe", "Inlet pipe", "Brings the pressure up to the seat.", pipe.shape, v3(0, pipe.midY), look.structure),
-      part("seat", "Seat plate", "A plate with a round hole: the ball seals against its edge.", seat.shape, v3(0, 20 + seat.midY), look.stone, on("pipe", "weld")),
+      part(
+        "seat",
+        "Seat plate",
+        "A plate with a round hole: the ball seals against its edge.",
+        seat.shape,
+        v3(0, 20 + seat.midY),
+        look.stone,
+        on("pipe", "weld"),
+      ),
       part("ball", "Sealing ball", "Sits on the hole and blocks it until pressure lifts it.", ball.shape, v3(0, ballY), look.focus, on("seat", "slide")),
-      part("cap", "Spring seat", "Spreads the spring's push over the ball.", seatCap.shape, v3(0, springBottom - 2.4 + seatCap.midY), look.steel, on("ball", "glue")),
+      part(
+        "cap",
+        "Spring seat",
+        "Spreads the spring's push over the ball.",
+        seatCap.shape,
+        v3(0, springBottom - 2.4 + seatCap.midY),
+        look.steel,
+        on("ball", "glue"),
+      ),
       ...rodAt.map(([x, z], i) => {
         const rod = cylinder(1.8, topY - SEAT_TOP);
-        return part(`rod-${i + 1}`, "Guide rod", "Keeps the spring's top plate above the seat.", rod.shape, v3(x, SEAT_TOP + rod.midY, z), look.structure, on("seat", "weld"));
+        return part(
+          `rod-${i + 1}`,
+          "Guide rod",
+          "Keeps the spring's top plate above the seat.",
+          rod.shape,
+          v3(x, SEAT_TOP + rod.midY, z),
+          look.structure,
+          on("seat", "weld"),
+        );
       }),
       part("top", "Top plate", "The spring pushes up against it.", box(40, 4, 40, 1.5), v3(0, topY + 2, 0), look.structure, on("rod-1", "weld")),
       coilSpring("spring", "Spring coil", "Presses the ball down onto its seat.", [0, springBottom], [0, topY], 0, 6.5, 1, 6, look.slate, on("cap", "spring")),
@@ -590,7 +864,13 @@ const valve: Primitive = {
     return [
       { label: "Spring", value: `${fmt(f0, 1)} N preload = ${fmt(open)} kPa × ${fmt(SEAT_AREA)} mm²` },
       { label: "Push on ball", value: `${fmt(f, 1)} N = ${fmt(pressure)} kPa × ${fmt(SEAT_AREA)} mm²` },
-      { label: "State", value: pressure > open ? `open, ball lifted ${fmt(valveLift(open, pressure), 1)} mm (k ${VALVE_RATE} N/mm assumed)` : "closed: pressure below the opening pressure" },
+      {
+        label: "State",
+        value:
+          pressure > open
+            ? `open, ball lifted ${fmt(valveLift(open, pressure), 1)} mm (k ${VALVE_RATE} N/mm assumed)`
+            : "closed: pressure below the opening pressure",
+      },
     ];
   },
 };
@@ -626,22 +906,52 @@ const piston: Primitive = {
     const topCollar = PLATE_T + AIR_LEN + HEAD_T + 6;
     const plate = cylinder(R + 6, PLATE_T);
     const head = cylinder(R - 3, HEAD_T);
-    const collar = lathe([[4.2, 0], [R + 5, 0], [R + 5, 4], [4.2, 4], [4.2, 0]]);
+    const collar = lathe([
+      [4.2, 0],
+      [R + 5, 0],
+      [R + 5, 4],
+      [4.2, 4],
+      [4.2, 0],
+    ]);
     const rodLen = 62;
     const rod = cylinder(4, rodLen);
     const bars = Array.from({ length: 6 }, (_, k) => {
       const a = (k * 60 + 30) * RAD;
       const b = cylinder(1.6, topCollar - PLATE_T);
-      return part(`bar-${k + 1}`, "Cage bar", "One bar of the open tube, so the inside shows.", b.shape, v3((R + 1.6) * Math.cos(a), PLATE_T + b.midY, (R + 1.6) * Math.sin(a)), look.structure, on("plate", "weld"));
+      return part(
+        `bar-${k + 1}`,
+        "Cage bar",
+        "One bar of the open tube, so the inside shows.",
+        b.shape,
+        v3((R + 1.6) * Math.cos(a), PLATE_T + b.midY, (R + 1.6) * Math.sin(a)),
+        look.structure,
+        on("plate", "weld"),
+      );
     });
     const stub = cylinder(3.5, 7);
     return [
       part("plate", "Base plate", "Closes the bottom of the tube.", plate.shape, v3(0, plate.midY), look.structure),
       part("stub", "Plugged outlet", "Where the air would leave, shut here.", stub.shape, v3(0, PLATE_T + stub.midY), look.structure, on("plate", "weld")),
       ...bars,
-      part("collar", "Top collar", "Holds the cage's top and guides the plunger rod.", collar.shape, v3(0, topCollar + collar.midY), look.structure, on("bar-1", "weld")),
+      part(
+        "collar",
+        "Top collar",
+        "Holds the cage's top and guides the plunger rod.",
+        collar.shape,
+        v3(0, topCollar + collar.midY),
+        look.structure,
+        on("bar-1", "weld"),
+      ),
       part("head", "Plunger head", "Carries the seal and pushes on the air.", head.shape, v3(0, headBottom + head.midY), look.stone, on("rod", "weld")),
-      part("seal", "Seal ring", "Rubber ring that wipes the tube wall so nothing leaks past.", ring(R - 2, 2, 360), v3(0, headMid), look.focusRubber, on("head", "press-fit")),
+      part(
+        "seal",
+        "Seal ring",
+        "Rubber ring that wipes the tube wall so nothing leaks past.",
+        ring(R - 2, 2, 360),
+        v3(0, headMid),
+        look.focusRubber,
+        on("head", "press-fit"),
+      ),
       part("rod", "Plunger rod", "Carries your push down to the head.", rod.shape, v3(0, headBottom + HEAD_T + rod.midY), look.steel, on("collar", "slide")),
       part("handle", "Handle", "Where you push.", cylinder(15, 4).shape, v3(0, headBottom + HEAD_T + rodLen + 2), look.stone, on("rod", "weld")),
     ];

@@ -207,7 +207,16 @@ export type Story = {
   match: RegExp;
   modules: readonly StoryModule[];
   /** `payoff` names each part's job once the whole object works. */
-  final: { title: string; say: string; success: string; cheer: string; control: Control; tests: readonly Test[]; why: readonly string[]; payoff: readonly { part: string; job: string }[] };
+  final: {
+    title: string;
+    say: string;
+    success: string;
+    cheer: string;
+    control: Control;
+    tests: readonly Test[];
+    why: readonly string[];
+    payoff: readonly { part: string; job: string }[];
+  };
   rest: (ctx: Ctx) => Scene;
   apart?: Readonly<Record<string, Vec>>;
   /** Assemblies that come apart on their own springs, in place of `apart`. */
@@ -319,7 +328,18 @@ const DIGIT = /\d/;
 /** Resolves a story lesson's primitives and checks its copy: short instructions, no numbers, a rig and a use line for every taught primitive. */
 export function defineStory(spec: StorySpec): Story {
   const problems: string[] = [];
-  const copy: [string, string][] = [["object name", spec.objectName], ["final title", spec.final.title], ["final say", spec.final.say], ["final success", spec.final.success], ["final cheer", spec.final.cheer], ...spec.final.why.map((s): [string, string] => ["final why", s]), ...spec.final.payoff.flatMap((p): [string, string][] => [["final payoff", p.part], ["final payoff", p.job]])];
+  const copy: [string, string][] = [
+    ["object name", spec.objectName],
+    ["final title", spec.final.title],
+    ["final say", spec.final.say],
+    ["final success", spec.final.success],
+    ["final cheer", spec.final.cheer],
+    ...spec.final.why.map((s): [string, string] => ["final why", s]),
+    ...spec.final.payoff.flatMap((p): [string, string][] => [
+      ["final payoff", p.part],
+      ["final payoff", p.job],
+    ]),
+  ];
   const short = (where: string, s: string) => {
     if (words(s) > TASK_WORDS) problems.push(`${where} "${s}" is over ${TASK_WORDS} words`);
   };
@@ -336,12 +356,28 @@ export function defineStory(spec: StorySpec): Story {
       if (rig && Object.keys(rig.controls).length === 0) problems.push(`${m.id}: the ${p.id} rig shows no control`);
     }
     if (m.play.tests.length === 0) problems.push(`${m.id}: no tests`);
-    for (const [where, s] of [["without say", m.without.say], ["learn say", m.learn.say], ["play say", m.play.say], ["job", m.job], ["cheer", m.cheer]] as const) short(`${m.id}: ${where}`, s);
+    for (const [where, s] of [
+      ["without say", m.without.say],
+      ["learn say", m.learn.say],
+      ["play say", m.play.say],
+      ["job", m.job],
+      ["cheer", m.cheer],
+    ] as const)
+      short(`${m.id}: ${where}`, s);
     copy.push(
-      [`${m.id} title`, m.title], [`${m.id} without`, m.without.say], [`${m.id} without`, m.without.line], [`${m.id} learn`, m.learn.say], [`${m.id} play`, m.play.say],
-      [`${m.id} verb`, m.play.control.verb], [`${m.id} job`, m.job], ...Object.values(m.assemble).map((s): [string, string] => [`${m.id} assemble`, s]),
-      ...Object.values(m.uses).map((s): [string, string] => [`${m.id} uses`, s]), ...[...m.hints, ...m.why].map((s): [string, string] => [`${m.id} sheet`, s]),
-      ...Object.values(m.learn.rigs).flatMap((r) => [...Object.values(r.controls), ...r.why]).map((s): [string, string] => [`${m.id} rig`, s]),
+      [`${m.id} title`, m.title],
+      [`${m.id} without`, m.without.say],
+      [`${m.id} without`, m.without.line],
+      [`${m.id} learn`, m.learn.say],
+      [`${m.id} play`, m.play.say],
+      [`${m.id} verb`, m.play.control.verb],
+      [`${m.id} job`, m.job],
+      ...Object.values(m.assemble).map((s): [string, string] => [`${m.id} assemble`, s]),
+      ...Object.values(m.uses).map((s): [string, string] => [`${m.id} uses`, s]),
+      ...[...m.hints, ...m.why].map((s): [string, string] => [`${m.id} sheet`, s]),
+      ...Object.values(m.learn.rigs)
+        .flatMap((r) => [...Object.values(r.controls), ...r.why])
+        .map((s): [string, string] => [`${m.id} rig`, s]),
     );
     return { ...m, teach, main, enter: m.enter ?? vec(0, 50, 0) };
   });
@@ -373,9 +409,10 @@ export function learnList(m: Module): Primitive[] {
 
 /** Kit part ids the lesson names that the kit lacks. A lesson binds to a kit only when this is empty. */
 export function missingParts(lesson: Workshop | Story, kit: Kit): string[] {
-  const named = lesson.kind === "workshop"
-    ? lesson.modules.flatMap((m) => [...m.produces, m.suspect, ...Object.keys(m.misses)])
-    : lesson.modules.flatMap((m) => [...m.produces, ...m.without.adds]);
+  const named =
+    lesson.kind === "workshop"
+      ? lesson.modules.flatMap((m) => [...m.produces, m.suspect, ...Object.keys(m.misses)])
+      : lesson.modules.flatMap((m) => [...m.produces, ...m.without.adds]);
   const ids = new Set(kit.parts.map((p) => p.id));
   return [...new Set(named)].filter((id) => !ids.has(id));
 }

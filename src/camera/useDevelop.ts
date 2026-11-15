@@ -107,7 +107,15 @@ export function useDevelop(options: DevelopOptions) {
 }
 
 /** The frame in miniature, blurred: while the sweep runs, the colour photo ahead of it, the grey behind, the band over both. */
-function drawGlow(glowEl: HTMLCanvasElement, scene: HTMLCanvasElement, img: HTMLImageElement, greyEl: HTMLCanvasElement, greyWidth: number, o: DevelopOptions, framing: Framing) {
+function drawGlow(
+  glowEl: HTMLCanvasElement,
+  scene: HTMLCanvasElement,
+  img: HTMLImageElement,
+  greyEl: HTMLCanvasElement,
+  greyWidth: number,
+  o: DevelopOptions,
+  framing: Framing,
+) {
   const { width, height } = o.box;
   const gw = Math.max(1, Math.round(width * GLOW_SCALE));
   const gh = Math.max(1, Math.round(height * GLOW_SCALE));

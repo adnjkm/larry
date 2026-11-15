@@ -61,7 +61,11 @@ describe("cam", () => {
     assert.equal(ramp, geometry.BUMPS.length * 2 * (geometry.RAMP - 1), `${ramp} vertices on the ramps`);
     assert.ok(Math.abs(Math.min(...radii) - geometry.R0) < 1e-9);
     // The rim is the same at every lift's base: only the bump heights change with the number.
-    for (const l of steps(lift)) assert.equal(geometry.outlineOf(l).filter(([x, y]) => Math.abs(Math.hypot(x, y) - geometry.R0) < 1e-9).length, 360 - geometry.BUMPS.length * (geometry.DWELL + 2 * geometry.RAMP - 1));
+    for (const l of steps(lift))
+      assert.equal(
+        geometry.outlineOf(l).filter(([x, y]) => Math.abs(Math.hypot(x, y) - geometry.R0) < 1e-9).length,
+        360 - geometry.BUMPS.length * (geometry.DWELL + 2 * geometry.RAMP - 1),
+      );
   });
 
   it("rides the drawn rim: the foot rests on its highest point at every turn and lift, never inside it", () => {
@@ -101,11 +105,13 @@ describe("cam", () => {
     assert.ok(rampAngle(12) <= LIMIT && rampAngle(13) > LIMIT, `${rampAngle(12)}° at 12 mm, ${rampAngle(13)}° at 13 mm`);
     // Cross-check on the drawn polygon, not the solver: the steepest edge's rise over its run along the turn.
     const o = geometry.outlineOf(13);
-    const edge = Math.max(...o.map(([x, y], i) => {
-      const [x1, y1] = o[(i + 1) % o.length]!;
-      const [r0, r1] = [Math.hypot(x, y), Math.hypot(x1, y1)];
-      return Math.atan2(Math.abs(r1 - r0), ((r0 + r1) / 2) * DEG_TO_RAD) * RAD_TO_DEG;
-    }));
+    const edge = Math.max(
+      ...o.map(([x, y], i) => {
+        const [x1, y1] = o[(i + 1) % o.length]!;
+        const [r0, r1] = [Math.hypot(x, y), Math.hypot(x1, y1)];
+        return Math.atan2(Math.abs(r1 - r0), ((r0 + r1) / 2) * DEG_TO_RAD) * RAD_TO_DEG;
+      }),
+    );
     assert.ok(Math.abs(edge - rampAngle(13)) < 1e-9);
   });
 

@@ -150,7 +150,15 @@ export function standOf(kit: Kit): Stand | null {
   if (lo === undefined || hi === undefined || lo >= hi || lo < LIGHTEST + ROOM * STEP - 1e-9) return null;
   const max = Number((hi + 5 * STEP).toFixed(6));
   return {
-    kit, root, footing, height, com, halfBase, tip, rise, handle,
+    kit,
+    root,
+    footing,
+    height,
+    com,
+    halfBase,
+    tip,
+    rise,
+    handle,
     balanceDeg: Math.atan(halfBase / com) / DEG_TO_RAD,
     slider: { label: "Mass", min: LIGHTEST, max, step: STEP, initial: Math.min(max, 2) },
     window: [lo, hi],
@@ -198,13 +206,20 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
 
   /** The angle it lies at once fallen: the first turn at which a corner beyond the edge reaches the table. */
   const lyingDeg = (present: readonly string[]) => {
-    const stops = kit.parts.filter((p) => present.includes(p.id)).flatMap(corners).map((c) => ({ u: dot(sub(c, edge), tip), y: c.y - edge.y })).filter((c) => c.u > 0.5 && c.y > 0).map((c) => Math.atan2(c.y, c.u) / DEG_TO_RAD);
+    const stops = kit.parts
+      .filter((p) => present.includes(p.id))
+      .flatMap(corners)
+      .map((c) => ({ u: dot(sub(c, edge), tip), y: c.y - edge.y }))
+      .filter((c) => c.u > 0.5 && c.y > 0)
+      .map((c) => Math.atan2(c.y, c.u) / DEG_TO_RAD);
     return Math.min(88, ...stops);
   };
 
   const knockArrow = (present: readonly string[], t: number): Mark => {
     const body = extents(kit.parts.filter((p) => present.includes(p.id) && p.id !== handle?.part.id));
-    const back = Math.max(...[body.min, body.max].flatMap((a) => [body.min, body.max].map((b) => -dot(sub(vec(a.x, 0, b.z), vec(footing.centre.x, 0, footing.centre.z)), tip))));
+    const back = Math.max(
+      ...[body.min, body.max].flatMap((a) => [body.min, body.max].map((b) => -dot(sub(vec(a.x, 0, b.z), vec(footing.centre.x, 0, footing.centre.z)), tip))),
+    );
     const rim = add(vec(footing.centre.x, body.max.y - 4, footing.centre.z), scale(tip, -back));
     return arrowMark("knock", add(rim, scale(tip, -24 * (1 - t))), tip, null);
   };
@@ -234,7 +249,12 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
           if (ms < start) return overlay("Knock", {}, marks([knockArrow(ctx.present, easeOut(ms / start))]));
           const t = ms - start;
           if (ok) {
-            if (t < RISE_MS) return overlay(`Tipped ${Math.round(reached * easeOut(t / RISE_MS))}° · falls past ${balance}°`, tipped(ctx.present, reached * easeOut(t / RISE_MS)), marks(t < 150 ? [knockArrow(ctx.present, 1)] : []));
+            if (t < RISE_MS)
+              return overlay(
+                `Tipped ${Math.round(reached * easeOut(t / RISE_MS))}° · falls past ${balance}°`,
+                tipped(ctx.present, reached * easeOut(t / RISE_MS)),
+                marks(t < 150 ? [knockArrow(ctx.present, 1)] : []),
+              );
             if (t < RISE_MS + SETTLE_MS) {
               const q = (t - RISE_MS) / SETTLE_MS;
               return overlay(`Tipped ${Math.round(reached)}° · falls past ${balance}°`, tipped(ctx.present, reached * (1 - q * q)), marks([]));
@@ -242,7 +262,12 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
             const q = clamp01((t - RISE_MS - SETTLE_MS) / ROCK_MS);
             return overlay("Rocked back", tipped(ctx.present, 0.25 * reached * Math.abs(Math.sin(2 * Math.PI * q)) * (1 - q)), marks([]));
           }
-          if (t < RISE_MS) return overlay(`Tipped ${Math.round(reached * smooth(t / RISE_MS))}° · falls past ${balance}°`, tipped(ctx.present, reached * smooth(t / RISE_MS)), marks(t < 150 ? [knockArrow(ctx.present, 1)] : []));
+          if (t < RISE_MS)
+            return overlay(
+              `Tipped ${Math.round(reached * smooth(t / RISE_MS))}° · falls past ${balance}°`,
+              tipped(ctx.present, reached * smooth(t / RISE_MS)),
+              marks(t < 150 ? [knockArrow(ctx.present, 1)] : []),
+            );
           if (t < RISE_MS + TOPPLE_MS) {
             const q = (t - RISE_MS) / TOPPLE_MS;
             return overlay("Past the edge", tipped(ctx.present, reached + (lie - reached) * q * q), marks([]));
@@ -263,14 +288,21 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
       const w = newtons(kg);
       const ok = liftable(s, kg);
       const top = extents(kit.parts.filter((p) => ctx.present.includes(p.id))).max.y;
-      const hand = handle && ctx.present.includes(handle.part.id)
-        ? arrowMark("lift", handle.grip, UP, handle.part.id)
-        : arrowMark("lift", add(vec(footing.centre.x, top, footing.centre.z), vec(0, 20, 0)), UP, root.id);
+      const hand =
+        handle && ctx.present.includes(handle.part.id)
+          ? arrowMark("lift", handle.grip, UP, handle.part.id)
+          : arrowMark("lift", add(vec(footing.centre.x, top, footing.centre.z), vec(0, 20, 0)), UP, root.id);
       const torque = kg * G * reachM;
       const verdict = handle
         ? ok
-          ? { pass: true, line: `It stayed level. Its ${w} N pulls ${fixed(reachM, 3)} m out from your fingers: ${fixed(torque, 2)} N·m on your wrist, within the ${WRIST_NM} N·m it holds steady.` }
-          : { pass: false, line: `It twisted down. Its ${w} N pulls ${fixed(reachM, 3)} m out from your fingers: ${fixed(torque, 2)} N·m on your wrist, more than the ${WRIST_NM} N·m it holds steady.` }
+          ? {
+              pass: true,
+              line: `It stayed level. Its ${w} N pulls ${fixed(reachM, 3)} m out from your fingers: ${fixed(torque, 2)} N·m on your wrist, within the ${WRIST_NM} N·m it holds steady.`,
+            }
+          : {
+              pass: false,
+              line: `It twisted down. Its ${w} N pulls ${fixed(reachM, 3)} m out from your fingers: ${fixed(torque, 2)} N·m on your wrist, more than the ${WRIST_NM} N·m it holds steady.`,
+            }
         : ok
           ? { pass: true, line: `It came up. ${kg} kg is ${w} N, within the ${ONE_HAND_KG} kg one hand lifts comfortably.` }
           : { pass: false, line: `It barely moved. ${kg} kg is ${w} N, more than the ${ONE_HAND_KG} kg one hand lifts comfortably.` };
@@ -285,7 +317,12 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
         at: (ms) => {
           const up = ms < LIFT_MS ? smooth(ms / LIFT_MS) : ms < LIFT_MS + HOLD_MS ? 1 : 1 - smooth(clamp01((ms - LIFT_MS - HOLD_MS) / DOWN_MS));
           if (ok) return overlay(ms < LIFT_MS + HOLD_MS ? `${live} · lifted` : "Set down", raised(LIFT_MM * up, 0), ms < LIFT_MS + HOLD_MS ? [hand] : []);
-          if (handle) return overlay(ms < LIFT_MS + HOLD_MS ? `${live} · twists down` : "Set down", raised(LIFT_MM * up, droop * up), ms < LIFT_MS + HOLD_MS ? [hand] : []);
+          if (handle)
+            return overlay(
+              ms < LIFT_MS + HOLD_MS ? `${live} · twists down` : "Set down",
+              raised(LIFT_MM * up, droop * up),
+              ms < LIFT_MS + HOLD_MS ? [hand] : [],
+            );
           const strain = ms < LIFT_MS + HOLD_MS ? 2 + 1.2 * Math.sin(2 * Math.PI * 4 * (ms / 1000)) * (ms < LIFT_MS ? ms / LIFT_MS : 1) : 2 * (1 - up);
           return overlay(ms < LIFT_MS + HOLD_MS ? `${live} · too heavy` : "Let go", raised(Math.max(0, strain * up), 0), ms < LIFT_MS + HOLD_MS ? [hand] : []);
         },
@@ -296,9 +333,12 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
   const misses = Object.fromEntries(
     kit.parts
       .filter((p) => p.id !== root.id)
-      .map((p) => [p.id, p.id === handle?.part.id
-        ? `The ${handleName} sets where your fingers pull, not how heavy the ${object} is. Watch what tips during ${bump}.`
-        : `The ${p.name.toLowerCase()} is a small share of the ${object}'s weight. Watch what tips during ${bump}.`]),
+      .map((p) => [
+        p.id,
+        p.id === handle?.part.id
+          ? `The ${handleName} sets where your fingers pull, not how heavy the ${object} is. Watch what tips during ${bump}.`
+          : `The ${p.name.toLowerCase()} is a small share of the ${object}'s weight. Watch what tips during ${bump}.`,
+      ]),
   );
   return {
     id: "stand",
@@ -311,7 +351,11 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
       title: `Set the weight on its base: it becomes the ${rootName}.`,
       built: `The ${rootName} now carries the ${object}'s weight down onto its base, ${Math.round(2 * s.halfBase)} mm across.`,
     },
-    target: { label: root.name, at: add(footing.centre, vec(0, Math.min(s.com, 40), 0)), ring: { radius: Math.min(45, Math.max(6, 1.15 * s.halfBase)), axis: "y" } },
+    target: {
+      label: root.name,
+      at: add(footing.centre, vec(0, Math.min(s.com, 40), 0)),
+      ring: { radius: Math.min(45, Math.max(6, 1.15 * s.halfBase)), axis: "y" },
+    },
     fault: { primitive: "weight", slider: "mass", start: s.start, range: s.slider },
     fix: { window: s.window },
     tests: [bumpTest, liftTest],

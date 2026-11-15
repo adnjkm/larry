@@ -17,9 +17,9 @@ export function DownloadButton({ kit, primary = false }: { kit: Kit; primary?: b
           import("../kit3d/exportGlb.ts")
             .then(({ downloadGlb }) => downloadGlb(kit))
             .then(
-            () => setStatus("idle"),
-            () => setStatus("failed"),
-          );
+              () => setStatus("idle"),
+              () => setStatus("failed"),
+            );
         }}
       >
         {status === "busy" ? "Preparing…" : "Download 3D model (.glb)"}

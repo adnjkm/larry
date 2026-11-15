@@ -5,7 +5,8 @@
 //   larry/shared-pure: shared/ and server/ run in Node, so they never import the client (src/, React, StyleX, UI SDK).
 
 const GRID = 2;
-const SIZED = /^(margin|padding|gap|rowGap|columnGap|width|height|minWidth|minHeight|maxWidth|maxHeight|blockSize|inlineSize|top|right|bottom|left|inset|flexBasis|lineHeight)|Radius$/;
+const SIZED =
+  /^(margin|padding|gap|rowGap|columnGap|width|height|minWidth|minHeight|maxWidth|maxHeight|blockSize|inlineSize|top|right|bottom|left|inset|flexBasis|lineHeight)|Radius$/;
 
 const keyName = (property) => property.key?.name ?? property.key?.value;
 
@@ -46,7 +47,8 @@ const grid = {
   meta: { type: "suggestion", docs: { description: "Spacing and sizes are multiples of 2px (a 4px grid with half steps)." } },
   create(context) {
     const check = (key, node, px) => {
-      if (px % GRID !== 0) context.report({ node, message: `${key}: ${px}px is off the grid. Use a multiple of ${GRID}px, preferably of 4px, or a token such as radii.pill.` });
+      if (px % GRID !== 0)
+        context.report({ node, message: `${key}: ${px}px is off the grid. Use a multiple of ${GRID}px, preferably of 4px, or a token such as radii.pill.` });
     };
     return {
       CallExpression(node) {
@@ -98,7 +100,10 @@ const CONTROLS = {
 const ROLES = new Set(["button", "switch", "checkbox", "radio", "slider", "tab", "tablist", "dialog", "menu", "menuitem", "listbox", "option", "combobox"]);
 
 const uiSdk = {
-  meta: { type: "problem", docs: { description: "Interactive controls come from UI SDK, the stack's control library, so behaviour and accessibility are not rebuilt by hand." } },
+  meta: {
+    type: "problem",
+    docs: { description: "Interactive controls come from UI SDK, the stack's control library, so behaviour and accessibility are not rebuilt by hand." },
+  },
   create(context) {
     return {
       JSXOpeningElement(node) {

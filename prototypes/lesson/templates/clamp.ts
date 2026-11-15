@@ -88,7 +88,9 @@ export const clampTemplate: Template = {
     const dist = (p: Vec) => Math.hypot(p.x - from.x, p.y - from.y, p.z - from.z);
     const opening = dist(rotate(mainCentre, pin.centre, pin.axis, 5)) > dist(mainCentre) ? 1 : -1;
     const turned = (present: readonly string[], deg: number): Record<string, PartMove> =>
-      Object.fromEntries(pin.turners.filter((id) => present.includes(id)).map((id) => [id, { turns: [{ axis: pin.axis, pivot: pin.centre, deg: opening * deg }] }]));
+      Object.fromEntries(
+        pin.turners.filter((id) => present.includes(id)).map((id) => [id, { turns: [{ axis: pin.axis, pivot: pin.centre, deg: opening * deg }] }]),
+      );
     const parted = (present: readonly string[], mm: number): Record<string, PartMove> =>
       Object.fromEntries(pin.turners.filter((id) => present.includes(id)).map((id) => [id, { offset: scale(pin.apart, mm) }]));
     const fingerAt = centreOf(extents([pin.finger]));
@@ -108,7 +110,13 @@ export const clampTemplate: Template = {
       },
       target: targetOf(pair),
       enter: scale(pin.axis, 40),
-      fault: { primitive: "grip", slider: "squeeze", key: "clamp", start: Math.max(LOWEST, Math.floor(lo / 3)), range: { label: "Squeeze", min: LOWEST, max: hi + 10, step: STEP, initial: Math.min(hi + 10, 40) } },
+      fault: {
+        primitive: "grip",
+        slider: "squeeze",
+        key: "clamp",
+        start: Math.max(LOWEST, Math.floor(lo / 3)),
+        range: { label: "Squeeze", min: LOWEST, max: hi + 10, step: STEP, initial: Math.min(hi + 10, 40) },
+      },
       fix: { window: [lo, hi] },
       tests: [
         {
@@ -121,7 +129,10 @@ export const clampTemplate: Template = {
             return {
               verdict: ok
                 ? { pass: true, line: `It held. The ${name} squeezes with ${n} N, more than the ${APART_N} N the work pushes them apart.` }
-                : { pass: false, line: `The ${mainName} lifted off the ${parent}. The ${name} squeezes with ${n} N, and the work pushes them apart with ${APART_N} N.` },
+                : {
+                    pass: false,
+                    line: `The ${mainName} lifted off the ${parent}. The ${name} squeezes with ${n} N, and the work pushes them apart with ${APART_N} N.`,
+                  },
               durationMs: PUSH_MS + HOLD_MS + BACK_MS,
               at: (ms) => {
                 if (ms < PUSH_MS) return overlay(`Pushed apart with ${APART_N} N`, parted(ctx.present, gap(easeOut(ms / PUSH_MS))), [spread]);
@@ -139,8 +150,15 @@ export const clampTemplate: Template = {
             const ok = opens(pin, n);
             return {
               verdict: ok
-                ? { pass: true, line: `It opened. Friction at the ${name} holds ${torqueOf(n)} N·mm, within the ${fingerNmm} N·mm your ${FINGER_N} N finger gives on the ${fingerName}.` }
-                : { pass: false, line: `It would not open. Friction at the ${name} holds ${torqueOf(n)} N·mm, more than the ${fingerNmm} N·mm your ${FINGER_N} N finger gives on the ${fingerName}.`, nudge: `The ${name} is far too tight for a finger.` },
+                ? {
+                    pass: true,
+                    line: `It opened. Friction at the ${name} holds ${torqueOf(n)} N·mm, within the ${fingerNmm} N·mm your ${FINGER_N} N finger gives on the ${fingerName}.`,
+                  }
+                : {
+                    pass: false,
+                    line: `It would not open. Friction at the ${name} holds ${torqueOf(n)} N·mm, more than the ${fingerNmm} N·mm your ${FINGER_N} N finger gives on the ${fingerName}.`,
+                    nudge: `The ${name} is far too tight for a finger.`,
+                  },
               durationMs: PUSH_MS + HOLD_MS + BACK_MS,
               at: (ms) => {
                 if (ms < PUSH_MS + HOLD_MS) {
@@ -165,7 +183,10 @@ export const clampTemplate: Template = {
       suspect: pair.child.id,
       misses: Object.fromEntries([
         [pair.parent.id, `The ${parent} holds still. Watch what the ${name} lets go of during ${cut}.`],
-        ...pin.turners.map((id) => [id, `The ${kit.parts.find((p) => p.id === id)!.name.toLowerCase()} turns on the ${name}; it does not set how tight it is.`]),
+        ...pin.turners.map((id) => [
+          id,
+          `The ${kit.parts.find((p) => p.id === id)!.name.toLowerCase()} turns on the ${name}; it does not set how tight it is.`,
+        ]),
       ]),
       missDefault: `That part does not hold the ${mainName} to the ${parent}. Watch what lifts during ${cut}.`,
       uses: { grip: `The squeeze in the ${name}. It presses the ${mainName} against the ${parent} so they stay together.` },

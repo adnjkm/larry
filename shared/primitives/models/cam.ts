@@ -57,7 +57,7 @@ const POST_PAST_BELL = 2;
 function rim(lift: number, a: number): number {
   let h = 0;
   for (const c of BUMPS) {
-    const away = Math.abs((((a - c) % 360) + 540) % 360 - 180);
+    const away = Math.abs(((((a - c) % 360) + 540) % 360) - 180);
     h = Math.max(h, away <= DWELL / 2 ? 1 : away >= DWELL / 2 + RAMP ? 0 : (DWELL / 2 + RAMP - away) / RAMP);
   }
   return R0 + lift * h;
@@ -165,14 +165,36 @@ const knobPoint = (turn: number) => v3(KNOB_R * Math.cos(knobAngle(turn) * DEG_T
 function build(v: Values): Part[] {
   const s = settle(v);
   const cam = pivoted(outlineOf(s.lift), CAM_T, [0, 0], v3(0, CAM_Y, ZC), s.turn * 360);
-  const outline: Pt[] = [[-FOOT_W / 2, 0], [FOOT_W / 2, 0], [FOOT_W / 2, ROD_L], [-FOOT_W / 2, ROD_L]];
+  const outline: Pt[] = [
+    [-FOOT_W / 2, 0],
+    [FOOT_W / 2, 0],
+    [FOOT_W / 2, ROD_L],
+    [-FOOT_W / 2, ROD_L],
+  ];
   const rod = pivoted(outline, CAM_T, [0, 0], v3(0, s.footY, ZC), 0);
   return [
     plate(68, 36),
     // The post is no taller than the rod needs; in the game the scene stacks a piece on it to hold the bell.
     post("post", 0, POST_Z, REST_TOP + POST_ABOVE_ROD, { name: "Post", role: "Carries the cam and guides the follower." }),
-    part("cam", "Cam", "A wheel with wedge-shaped bumps: each rises along a ramp, dwells, and drops.", cam.shape, cam.position, look.focus, on("post", "hinge"), cam.rotation),
-    part("follower", "Follower", "Its flat end rests on the rim and copies its height as an up-and-down motion.", rod.shape, rod.position, look.steel, on("post", "slide")),
+    part(
+      "cam",
+      "Cam",
+      "A wheel with wedge-shaped bumps: each rises along a ramp, dwells, and drops.",
+      cam.shape,
+      cam.position,
+      look.focus,
+      on("post", "hinge"),
+      cam.rotation,
+    ),
+    part(
+      "follower",
+      "Follower",
+      "Its flat end rests on the rim and copies its height as an up-and-down motion.",
+      rod.shape,
+      rod.position,
+      look.steel,
+      on("post", "slide"),
+    ),
     knob("knob", knobPoint(s.turn), "z", { name: "Knob", role: "Where your hand turns the cam.", on: on("cam", "press-fit") }),
   ];
 }
@@ -182,7 +204,10 @@ function readouts(v: Values) {
   return [
     { label: "Rod height", value: `highest rim under the foot − rest = ${fmt(s.up, 1)} mm of ${s.lift} mm` },
     { label: "Travel", value: `cam ${fmt(s.turn * 360)}° round, ${fmt(rampAngle(s.lift))}° ramps` },
-    { label: "State", value: s.up < 0.05 ? "on the base circle" : s.up >= s.lift - 0.05 ? `dwelling on a ${s.lift} mm bump` : `riding a ramp: ${fmt(s.up, 1)} of ${s.lift} mm` },
+    {
+      label: "State",
+      value: s.up < 0.05 ? "on the base circle" : s.up >= s.lift - 0.05 ? `dwelling on a ${s.lift} mm bump` : `riding a ramp: ${fmt(s.up, 1)} of ${s.lift} mm`,
+    },
   ];
 }
 
@@ -265,7 +290,7 @@ function play(v: Values): Run {
   };
   const rungSoFar = (turn: number) => {
     // One ring for each bump whose top has passed: the bump at body angle c reaches the top at turn (90 - c) / 360, wrapped.
-    const tops = BUMPS.map((c) => (((90 - c) / 360) % 1 + 1) % 1);
+    const tops = BUMPS.map((c) => ((((90 - c) / 360) % 1) + 1) % 1);
     return r.kind === "pass" ? tops.filter((t) => turn >= t - 1e-9).length : 0;
   };
   return {
@@ -295,12 +320,29 @@ function play(v: Values): Run {
  * steel: steel renders nearly white and would read as the handle.
  */
 function scene(v: Values): Part[] {
-  const b = lathe([[0, 0], [BELL_R, 0], [7.1, 1.4], [6, 4.5], [5.2, 8], [3.8, 10.4], [1.8, 11.4], [0, BELL_H]]);
+  const b = lathe([
+    [0, 0],
+    [BELL_R, 0],
+    [7.1, 1.4],
+    [6, 4.5],
+    [5.2, 8],
+    [3.8, 10.4],
+    [1.8, 11.4],
+    [0, BELL_H],
+  ]);
   const bottom = REST_TOP + STRIKE + (v.bell ?? 0);
   const top = REST_TOP + STRIKE + BELL_H + POST_PAST_BELL;
   return [
     post(`${SCENE}post`, 0, POST_Z, top, { name: "Post", role: "Carries the bell above the rod.", bottom: REST_TOP + POST_ABOVE_ROD, on: on("post", "weld") }),
-    part(`${SCENE}bell`, "Bell", "Rings when the rod reaches it.", b.shape, v3(0, bottom + b.midY, POST_Z + 4 + BELL_R), look.slate, on(`${SCENE}post`, "screw")),
+    part(
+      `${SCENE}bell`,
+      "Bell",
+      "Rings when the rod reaches it.",
+      b.shape,
+      v3(0, bottom + b.midY, POST_Z + 4 + BELL_R),
+      look.slate,
+      on(`${SCENE}post`, "screw"),
+    ),
   ];
 }
 
@@ -315,10 +357,7 @@ export const cam: Primitive = {
     "A cam is a wheel whose edge bulges out like a wedge. Spin it steadily and a flat-ended rod resting on the edge is pushed up the rising ramp, held by the flat top, then dropped down the falling ramp. Where the bumps sit round the rim is the timing: this cam has two, so the rod is pushed twice a turn. The lift is the bump height above the base circle, and it sets the steepness too: a taller bump on the same ramp length is a steeper ramp. A ramp that is too steep pushes the rod sideways against its guide harder than it pushes it up, and the rod wedges; the 45° limit here is a rule of thumb, since real limits depend on friction and the guide. The rod rests on the cam by its own weight (real cams often use a spring), and friction is left out.",
   madeOf: ["wheel", "wedge"],
   seenIn: ["Click pen", "Music box", "Sewing machine"],
-  sliders: [
-    LIFT,
-    { id: "turn", label: "Turn", min: 0, max: 1, step: 0.005, initial: 0.1, unit: "°", displayScale: 360 },
-  ],
+  sliders: [LIFT, { id: "turn", label: "Turn", min: 0, max: 1, step: 0.005, initial: 0.1, unit: "°", displayScale: 360 }],
   view: VIEW.bench,
   build,
   readouts,
@@ -338,7 +377,8 @@ export const cam: Primitive = {
   game: {
     name: "Ring the bell",
     goal: "Set the lift so the bell rings, then spin the cam once.",
-    rules: "The rod must rise high enough to hit the bell. Taller bumps push higher but are steeper, and too steep jams the cam. Without a cam, nothing times the push.",
+    rules:
+      "The rod must rise high enough to hit the bell. Taller bumps push higher but are steeper, and too steep jams the cam. Without a cam, nothing times the push.",
     number: "lift",
     action: "Spin",
     meters,

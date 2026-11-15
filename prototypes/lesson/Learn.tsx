@@ -7,7 +7,14 @@ import { Actions, Inset, Say, SliderRow, Strip, Viewer, Why } from "./ui.tsx";
 
 /** Parts at every combination of slider extremes. The camera fits these once, so it holds still while a slider moves the parts. */
 export function framingParts(p: Primitive): Part[] {
-  const combos = p.sliders.reduce<Values[]>((acc, s) => acc.flatMap((v) => [{ ...v, [s.id]: s.min }, { ...v, [s.id]: s.max }]), [{}]);
+  const combos = p.sliders.reduce<Values[]>(
+    (acc, s) =>
+      acc.flatMap((v) => [
+        { ...v, [s.id]: s.min },
+        { ...v, [s.id]: s.max },
+      ]),
+    [{}],
+  );
   return combos.flatMap((v, i) => p.build(v).map((part) => ({ ...part, id: `${part.id}~${i}` })));
 }
 
@@ -28,7 +35,8 @@ export type InObject = { line: string; parts: Part[] };
 export function objectFor(lesson: Builds, kit: Kit, m: Built & { uses: Readonly<Record<string, string>> }, p: Primitive): InObject {
   const present = kit.parts.map((q) => q.id);
   const scene = lesson.rest({ kit, present });
-  const draw = (explode: number) => drawObject({ kit, present, scene, explode, plan: lesson.explode, pink: new Set(m.produces), centre: restCentre(kit, present, scene), apart: lesson.apart });
+  const draw = (explode: number) =>
+    drawObject({ kit, present, scene, explode, plan: lesson.explode, pink: new Set(m.produces), centre: restCentre(kit, present, scene), apart: lesson.apart });
   const shut = draw(0);
   return { line: m.uses[p.id]!, parts: m.produces.some((id) => enclosed(id, shut)) ? draw(0.6) : shut };
 }
@@ -81,35 +89,39 @@ export function Learn({ list, words, kicker, next, own, inObject, view, onNext }
         why={
           words ? (
             <Why title={p.name}>
-              {words.why(p).map((line, i) => <p key={line} className={i === 0 ? "sheet-lead" : undefined}>{line}</p>)}
+              {words.why(p).map((line, i) => (
+                <p key={line} className={i === 0 ? "sheet-lead" : undefined}>
+                  {line}
+                </p>
+              ))}
             </Why>
           ) : (
-          <Why title={p.name}>
-            <p className="sheet-lead">{p.job}</p>
-            <p>{p.howItWorks}</p>
-            {mine ? (
-              <div className="readouts" data-own>
-                <span className="mono">In the {mine.object}</span>
-                {mine.numbers(v[mine.slider] ?? 0).map((r) => (
-                  <div key={r.label} className="readout" data-number>
-                    <span>{r.label}</span>
-                    <span>{r.value}</span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {mine && !mine.generic ? null : (
-              <div className="readouts" data-generic>
-                <span className="mono">This {p.name.toLowerCase()}</span>
-                {p.readouts(v).map((r) => (
-                  <div key={r.label} className="readout">
-                    <span>{r.label}</span>
-                    <span>{r.value}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Why>
+            <Why title={p.name}>
+              <p className="sheet-lead">{p.job}</p>
+              <p>{p.howItWorks}</p>
+              {mine ? (
+                <div className="readouts" data-own>
+                  <span className="mono">In the {mine.object}</span>
+                  {mine.numbers(v[mine.slider] ?? 0).map((r) => (
+                    <div key={r.label} className="readout" data-number>
+                      <span>{r.label}</span>
+                      <span>{r.value}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {mine && !mine.generic ? null : (
+                <div className="readouts" data-generic>
+                  <span className="mono">This {p.name.toLowerCase()}</span>
+                  {p.readouts(v).map((r) => (
+                    <div key={r.label} className="readout">
+                      <span>{r.label}</span>
+                      <span>{r.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Why>
           )
         }
       >
@@ -118,18 +130,33 @@ export function Learn({ list, words, kicker, next, own, inObject, view, onNext }
       {list.length > 1 ? (
         <div className="tabs" role="tablist">
           {list.map((q, i) => (
-            <button key={q.id} type="button" role="tab" aria-selected={i === tab} className="tab" data-tab={q.id} onClick={() => { setTab(i); setPlaying(false); }}>
+            <button
+              key={q.id}
+              type="button"
+              role="tab"
+              aria-selected={i === tab}
+              className="tab"
+              data-tab={q.id}
+              onClick={() => {
+                setTab(i);
+                setPlaying(false);
+              }}
+            >
               {q.name}
             </button>
           ))}
         </div>
       ) : null}
       <Viewer parts={parts} subject={frame} view={p.view}>
-        <button type="button" className="play" data-play aria-pressed={playing} onClick={() => setPlaying((x) => !x)}>{playing ? "Stop" : "Play"}</button>
+        <button type="button" className="play" data-play aria-pressed={playing} onClick={() => setPlaying((x) => !x)}>
+          {playing ? "Stop" : "Play"}
+        </button>
       </Viewer>
       <section className="use" data-use={p.id}>
         <Inset parts={here.parts} view={view} />
-        <p><b>{p.name}.</b> {here.line}</p>
+        <p>
+          <b>{p.name}.</b> {here.line}
+        </p>
       </section>
       <div className="sliders">
         {p.sliders.map((s) => {
@@ -138,13 +165,17 @@ export function Learn({ list, words, kicker, next, own, inObject, view, onNext }
             setValues((all) => ({ ...all, [p.id]: { ...all[p.id]!, [s.id]: n } }));
           };
           const value = v[s.id] ?? s.initial;
-          return words
-            ? <Strip key={s.id} id={s.id} label={s.label} value={value} min={s.min} max={s.max} onChange={change} />
-            : <SliderRow key={s.id} slider={s} value={value} onChange={change} />;
+          return words ? (
+            <Strip key={s.id} id={s.id} label={s.label} value={value} min={s.min} max={s.max} onChange={change} />
+          ) : (
+            <SliderRow key={s.id} slider={s} value={value} onChange={change} />
+          );
         })}
       </div>
       <Actions>
-        <button type="button" className="btn" data-next onClick={onNext}>{next}</button>
+        <button type="button" className="btn" data-next onClick={onNext}>
+          {next}
+        </button>
       </Actions>
     </main>
   );

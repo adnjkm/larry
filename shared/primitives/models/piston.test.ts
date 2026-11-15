@@ -58,7 +58,10 @@ describe("piston", () => {
         assert.ok(lo >= geometry.FLOOR_TOP - 1e-9, `dots through the floor at A ${a}, F ${f}`);
         assert.ok(hi <= s.headBottom + 1e-9, `dots through the head at A ${a}, F ${f}`);
         // No two dots overlap.
-        for (const p of d) for (const q of d) if (p !== q) assert.ok(Math.hypot(p.position.x - q.position.x, p.position.y - q.position.y) >= 2 * geometry.DOT_R - 1e-9, `dots overlap at A ${a}, F ${f}`);
+        for (const p of d)
+          for (const q of d)
+            if (p !== q)
+              assert.ok(Math.hypot(p.position.x - q.position.x, p.position.y - q.position.y) >= 2 * geometry.DOT_R - 1e-9, `dots overlap at A ${a}, F ${f}`);
       }
     }
   });

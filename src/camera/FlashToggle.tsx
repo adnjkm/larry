@@ -18,7 +18,17 @@ export function FlashToggle({ on, onChange, width, height }: { on: boolean; onCh
   const knob = height - 2 * KNOB_INSET;
   return (
     <Switch checked={on} onCheckedChange={onChange} aria-label="Flash" {...stylex.props(s.toggle(width, height))}>
-      <DitherBar fill={on ? 1 : 0} reveal="fade" glow={0} width={width} height={height} radius={height / 2} cell={CAMERA.grain} dividers={NO_DIVIDERS} idle={CAMERA.idleDither} />
+      <DitherBar
+        fill={on ? 1 : 0}
+        reveal="fade"
+        glow={0}
+        width={width}
+        height={height}
+        radius={height / 2}
+        cell={CAMERA.grain}
+        dividers={NO_DIVIDERS}
+        idle={CAMERA.idleDither}
+      />
       <SwitchThumb {...stylex.props(s.knob(knob), on && s.knobOn(width - height))}>
         <Surface shape={circle(knob)} relief="cap" grain={CAMERA.grain} depth={CAMERA.relief} drift={CAMERA.idleDither} />
         <span {...stylex.props(s.overSurface)}>

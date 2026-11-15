@@ -19,14 +19,24 @@ const extent = (p: Part) => {
   assert.ok(p.shape.kind === "extrusion");
   const xs = p.shape.outline.map((o) => o.x);
   const ys = p.shape.outline.map((o) => o.y);
-  return { x0: p.position.x + Math.min(...xs), x1: p.position.x + Math.max(...xs), y0: p.position.y + Math.min(...ys), y1: p.position.y + Math.max(...ys), depth: p.shape.depth };
+  return {
+    x0: p.position.x + Math.min(...xs),
+    x1: p.position.x + Math.max(...xs),
+    y0: p.position.y + Math.min(...ys),
+    y1: p.position.y + Math.max(...ys),
+    depth: p.shape.depth,
+  };
 };
 
 describe("spring", () => {
   it("is five kinds of part at rest and the game's scene is two: one slim stand and the bell", () => {
     for (const k of [1, 2.5, 4]) assert.equal(new Set(spring.build({ stiffness: k, force: 30 }).map((p) => p.name)).size, 5);
     const scene = game.scene!({ stiffness: 2, force: 0 });
-    assert.deepEqual(scene.map((p) => p.id), ["game-bell-stand", "game-bell"], "a stand and a bell: two parts, two kinds");
+    assert.deepEqual(
+      scene.map((p) => p.id),
+      ["game-bell-stand", "game-bell"],
+      "a stand and a bell: two parts, two kinds",
+    );
     assert.equal(new Set(scene.map((p) => p.name)).size, 2);
   });
 
@@ -99,7 +109,9 @@ describe("spring", () => {
   });
 
   it("shows stiffness in the wire: thicker wire and fewer turns as k rises", () => {
-    const coils = steps(stiffness).map((k) => find(spring.build({ stiffness: k, force: 0 }), "coil")).map((c) => (c.shape.kind === "helix" ? c.shape : assert.fail()));
+    const coils = steps(stiffness)
+      .map((k) => find(spring.build({ stiffness: k, force: 0 }), "coil"))
+      .map((c) => (c.shape.kind === "helix" ? c.shape : assert.fail()));
     for (let i = 1; i < coils.length; i++) {
       assert.ok(coils[i]!.tube > coils[i - 1]!.tube, "wire thickens");
       assert.ok(coils[i]!.turns < coils[i - 1]!.turns, "turns fall");

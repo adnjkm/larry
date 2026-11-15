@@ -28,7 +28,6 @@ const STEP_TIMEOUT_MS = 20_000;
 const LIVE_TIMEOUT_MS = 150_000;
 const KIT_TIMEOUT_MS = 150_000;
 
-
 const photoPath = join(root, "fixtures", "photos", `${name}.jpg`);
 if (photo && !existsSync(photoPath)) throw new Error(`No photo at ${photoPath}`);
 const fixtureKit = photo ? undefined : parseKit(JSON.parse(readFileSync(join(root, "fixtures", "kits", `${name}.json`), "utf8")));
@@ -95,8 +94,19 @@ const shot = (page: Page, file: string, fullPage = true) => page.screenshot({ pa
 
 /** Every viewer has drawn a frame and every entrance animation has finished, so a screenshot shows the settled screen. */
 async function viewersReady(page: Page) {
-  await page.waitForFunction(({ viewer, ready }) => document.querySelectorAll(viewer).length === document.querySelectorAll(ready).length, { viewer: VIEWER_SELECTOR, ready: READY_VIEWER_SELECTOR }, { timeout: READY_TIMEOUT_MS });
-  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished)));
+  await page.waitForFunction(
+    ({ viewer, ready }) => document.querySelectorAll(viewer).length === document.querySelectorAll(ready).length,
+    { viewer: VIEWER_SELECTOR, ready: READY_VIEWER_SELECTOR },
+    { timeout: READY_TIMEOUT_MS },
+  );
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+        .map((a) => a.finished),
+    ),
+  );
 }
 
 async function setSlider(input: Locator, value: number) {
@@ -124,10 +134,19 @@ async function download(page: Page, button: Locator, file: string) {
   assert.equal(bytes.readUInt32LE(8), bytes.length, "header length matches file size");
   const jsonLength = bytes.readUInt32LE(12);
   assert.equal(bytes.readUInt32LE(16), 0x4e4f534a, "first chunk is JSON");
-  const gltf = JSON.parse(bytes.subarray(20, 20 + jsonLength).toString("utf8")) as { meshes: unknown[]; nodes: { name?: string; scale?: number[] }[]; materials: unknown[] };
+  const gltf = JSON.parse(bytes.subarray(20, 20 + jsonLength).toString("utf8")) as {
+    meshes: unknown[];
+    nodes: { name?: string; scale?: number[] }[];
+    materials: unknown[];
+  };
   assert.equal(gltf.meshes.length, playedKit().parts.length, "one mesh per part");
-  assert.ok(gltf.nodes.some((n) => n.scale?.[0] === 0.001), "root is scaled from mm to m");
-  console.log(`download ${saved.suggestedFilename()}: ${bytes.length} bytes, ${gltf.meshes.length} meshes, ${gltf.materials.length} materials, root scale 0.001`);
+  assert.ok(
+    gltf.nodes.some((n) => n.scale?.[0] === 0.001),
+    "root is scaled from mm to m",
+  );
+  console.log(
+    `download ${saved.suggestedFilename()}: ${bytes.length} bytes, ${gltf.meshes.length} meshes, ${gltf.materials.length} materials, root scale 0.001`,
+  );
 }
 
 mkdirSync(outDir, { recursive: true });
@@ -160,10 +179,15 @@ try {
     await page.route("**/api/lessons", async (route) => {
       lessonRequests++;
       await new Promise((r) => setTimeout(r, 1200));
-      if (lessonRequests === 1) await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Larry's planner is asleep" }) });
+      if (lessonRequests === 1)
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Larry's planner is asleep" }) });
       else {
         const whole = parseLesson(lessonRaw, playedKit(), CATALOG);
-        const events: LessonEvent[] = [{ type: "started", title: whole.title, hook: whole.hook }, ...whole.chapters.map((chapter): LessonEvent => ({ type: "chapter", chapter })), { type: "done", lesson: whole }];
+        const events: LessonEvent[] = [
+          { type: "started", title: whole.title, hook: whole.hook },
+          ...whole.chapters.map((chapter): LessonEvent => ({ type: "chapter", chapter })),
+          { type: "done", lesson: whole },
+        ];
         await route.fulfill({ status: 200, contentType: "application/x-ndjson", body: events.map((e) => JSON.stringify(e)).join("\n") + "\n" });
       }
     });
@@ -178,7 +202,13 @@ try {
   async function chapterAt(c: number): Promise<Chapter | undefined> {
     if (lesson) return lesson.chapters[c];
     if (!known(c) && !finalLesson()) {
-      const waited = await page.locator("[data-waiting]").waitFor({ timeout: 3000 }).then(() => true, () => false);
+      const waited = await page
+        .locator("[data-waiting]")
+        .waitFor({ timeout: 3000 })
+        .then(
+          () => true,
+          () => false,
+        );
       if (waited) {
         console.log(`${since()} waiting state shown: out of chapters at ${c}, ${arrival("chapter").length} streamed`);
         if (!waitingShot) await shot(page, "03-waiting-for-next-part.png", false);
@@ -207,10 +237,14 @@ try {
       if (Date.now() - uploaded > KIT_TIMEOUT_MS) throw new Error("no kit parts arrived");
       await page.waitForTimeout(100);
     }
-    console.log(`${since(kitArrival("part")[0]?.t)} kit first part (started ${since(kitArrival("started")[0]?.t)}, ${kitArrival("part").length} part(s) streamed by ${since()}), done: ${kitArrival("done").length > 0 ? "yes" : "no"}`);
+    console.log(
+      `${since(kitArrival("part")[0]?.t)} kit first part (started ${since(kitArrival("started")[0]?.t)}, ${kitArrival("part").length} part(s) streamed by ${since()}), done: ${kitArrival("done").length > 0 ? "yes" : "no"}`,
+    );
     await viewersReady(page);
     await shot(page, "k2-kit-streaming.png", false);
-    console.log(`${since()} kit streaming screen: ${await page.locator("li").count()} part row(s) listed, ${kitArrival("part").length} part(s) streamed, done: ${kitArrival("done").length > 0 ? "yes" : "no"}`);
+    console.log(
+      `${since()} kit streaming screen: ${await page.locator("li").count()} part row(s) listed, ${kitArrival("part").length} part(s) streamed, done: ${kitArrival("done").length > 0 ? "yes" : "no"}`,
+    );
     await start.waitFor({ timeout: KIT_TIMEOUT_MS });
     const kit = playedKit();
     console.log(`${since()} kit done at ${since(kitArrival("done")[0]?.t)}: "${kit.name}", ${kit.parts.length} parts, north-star screen shown`);
@@ -243,7 +277,9 @@ try {
     const chapters = arrival("chapter").length;
     const rows = await page.locator("[data-requirements] li").count();
     const finished = arrival("done").length;
-    console.log(`${since(enabled)} Start building enabled with ${chapters} chapter(s) streamed (first at ${since(arrival("chapter")[0]?.t)}), ${rows} requirement row(s) shown, lesson done: ${finished > 0 ? "yes" : "no"}`);
+    console.log(
+      `${since(enabled)} Start building enabled with ${chapters} chapter(s) streamed (first at ${since(arrival("chapter")[0]?.t)}), ${rows} requirement row(s) shown, lesson done: ${finished > 0 ? "yes" : "no"}`,
+    );
     assert.ok(chapters >= 1, "Start enables only once a chapter has arrived");
     assert.equal(finished, 0, "Start enables while the rest of the lesson is still arriving");
     await shot(page, "02-north-star-first-chapter.png");
@@ -300,7 +336,7 @@ try {
           assert.equal(await tried.getAttribute("aria-disabled"), "true", "a failed option is marked as tried");
           await tried.click({ force: true });
           assert.equal(await page.locator("[data-option][data-tried]").count(), 1, "a failed option cannot be re-picked");
-          assert.ok((await tried.evaluate((b) => b === document.activeElement)), "a failed option keeps focus");
+          assert.ok(await tried.evaluate((b) => b === document.activeElement), "a failed option keeps focus");
           assert.equal(await next.count(), 0, "a wrong pick does not complete the step");
           await viewersReady(page);
           if (index === 1) await shot(page, `pick-wrong-${step.id}.png`);
@@ -339,7 +375,15 @@ try {
         await page.mouse.move(xAt(slider.min), box.y + box.height / 2);
         await page.mouse.down();
         await page.mouse.move(xAt(inside), box.y + box.height / 2, { steps: 8 });
-        await input.evaluate((el: HTMLInputElement, v) => new Promise<void>((done) => (function check() { Number(el.value) === v ? done() : requestAnimationFrame(check); })()), inside);
+        await input.evaluate(
+          (el: HTMLInputElement, v) =>
+            new Promise<void>((done) =>
+              (function check() {
+                Number(el.value) === v ? done() : requestAnimationFrame(check);
+              })(),
+            ),
+          inside,
+        );
         assert.equal(await page.locator('[data-note="ok"]').count(), 0, "the verdict waits for the slider to be let go");
         await page.mouse.up();
         await page.locator('[data-note="ok"]').waitFor();
@@ -354,7 +398,11 @@ try {
       }
       assert.notEqual(solved, null, `${step.id} can be completed`);
       const stage = await page.locator("[data-stage]").getAttribute("data-stage");
-      assert.equal(stage, step.earns.length > 0 || step.primitive === null ? "build" : "figure", `${step.id}: once solved, the stage shows the build if the step earned parts, else its figure`);
+      assert.equal(
+        stage,
+        step.earns.length > 0 || step.primitive === null ? "build" : "figure",
+        `${step.id}: once solved, the stage shows the build if the step earned parts, else its figure`,
+      );
       assert.equal(await page.locator(`${VIEWER_SELECTOR}:visible`).count(), 1, `${step.id}: one model per step, on its stage`);
       assert.equal(await next.count(), 1, `${step.id}: Next appears once the step is complete`);
       if (index === chapter.steps.length - 1 && chapterNumber <= 2) {
@@ -377,7 +425,9 @@ try {
   assert.equal(await page.locator("[data-roadmap] [data-placeholder]").count(), 0, "no placeholder chip once the lesson is done");
   if (live) {
     assert.ok(finalLesson(), "the stream ended with done");
-    console.log(`${since()} finish shown: ${chapterNumber} chapters played, kit timeline ${kitArrivals.map((a) => `${a.event.type}@${since(a.t)}`).join(" ")}, lesson timeline ${arrivals.map((a) => `${a.event.type}@${since(a.t)}`).join(" ")}`);
+    console.log(
+      `${since()} finish shown: ${chapterNumber} chapters played, kit timeline ${kitArrivals.map((a) => `${a.event.type}@${since(a.t)}`).join(" ")}, lesson timeline ${arrivals.map((a) => `${a.event.type}@${since(a.t)}`).join(" ")}`,
+    );
   }
   await download(page, page.locator("[data-action=download]"), `${name}.glb`);
   await page.locator("[data-action=restart]").click();

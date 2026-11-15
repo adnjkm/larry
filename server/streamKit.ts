@@ -50,7 +50,11 @@ export async function* streamKit(
 
   const content = [
     ...photos.map((photo) => ({ type: "image" as const, source: { type: "base64" as const, media_type: photo.mediaType, data: photo.base64 } })),
-    { type: "text" as const, text: photos.length === 1 ? "Build the kit for this object." : `Build the kit for this object. These ${photos.length} photos show it from different sides.` },
+    {
+      type: "text" as const,
+      text:
+        photos.length === 1 ? "Build the kit for this object." : `Build the kit for this object. These ${photos.length} photos show it from different sides.`,
+    },
   ];
 
   for await (const event of streamStructured({ system: SYSTEM_PROMPT, schema: kitJsonSchema, brain, content, streamKey: "parts", signal })) {

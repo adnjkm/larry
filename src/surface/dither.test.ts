@@ -4,7 +4,10 @@ import { hexRgb, inset, pack, ramp, snap, threshold, valueNoise } from "./dither
 
 test("the 4 x 4 thresholds are each sixteenth once, centred", () => {
   const all = Array.from({ length: 16 }, (_, i) => threshold(i % 4, Math.floor(i / 4))).sort((a, b) => a - b);
-  assert.deepEqual(all, Array.from({ length: 16 }, (_, k) => (k + 0.5) / 16));
+  assert.deepEqual(
+    all,
+    Array.from({ length: 16 }, (_, k) => (k + 0.5) / 16),
+  );
   assert.equal(threshold(5, 6), threshold(1, 2));
 });
 

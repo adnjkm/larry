@@ -5,7 +5,17 @@ import { TUNING } from "../camera/look.ts";
 import { type MockSettings, type Pace } from "./settings.ts";
 
 /** The DialKit panel for the mockup: which object and pace, the phone's shell, and the parts of the look still being tuned. Dev only. */
-export default function Dials({ objects, initial, onChange, onAction }: { objects: string[]; initial: MockSettings; onChange: (settings: MockSettings) => void; onAction: (action: "replay" | "jump") => void }) {
+export default function Dials({
+  objects,
+  initial,
+  onChange,
+  onAction,
+}: {
+  objects: string[];
+  initial: MockSettings;
+  onChange: (settings: MockSettings) => void;
+  onAction: (action: "replay" | "jump") => void;
+}) {
   const reset = useRef<() => void>(undefined);
   const controller = useDialKitController(
     "Camera mockup",

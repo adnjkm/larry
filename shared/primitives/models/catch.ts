@@ -136,7 +136,13 @@ const ringAt = (door: number) => v3(BX + door + RING_X, RING_Y, DEPTH / 2 + 2);
 const arrowLen = (newtons: number) => arrowLength(newtons, 1, MM_PER_N);
 
 /** The door: a block on the plate with the notched top edge from catchGeometry.ts. Door frame, world y. */
-const DOOR: Pt[] = [[DOOR_LEFT, PLATE_TOP], [LEAD, PLATE_TOP], ...DOOR_EDGE.slice().reverse().map(([x, y]): Pt => [x, DOOR_TOP + y])];
+const DOOR: Pt[] = [
+  [DOOR_LEFT, PLATE_TOP],
+  [LEAD, PLATE_TOP],
+  ...DOOR_EDGE.slice()
+    .reverse()
+    .map(([x, y]): Pt => [x, DOOR_TOP + y]),
+];
 
 /** The frame, latch frame: the post the door stops on, its head over the door's path, the slot and the lips. */
 const FRAME: Pt[] = [
@@ -162,33 +168,95 @@ const placed = (outline: Pt[], depth: number) => pivoted(outline, depth, [0, 0],
 function build(v: Values): Part[] {
   const s = settle(v);
   const d = s.door;
-  const frameShape = placed(FRAME.map(([x, y]) => [BX + x, DOOR_TOP + y]), DEPTH);
-  const door = placed(DOOR.map(([x, y]) => [BX + d + x, y]), DEPTH);
-  const bolt = placed(BOLT.map(([x, y]) => [BX + x, DOOR_TOP + s.lift + y]), BOLT_DEPTH);
+  const frameShape = placed(
+    FRAME.map(([x, y]) => [BX + x, DOOR_TOP + y]),
+    DEPTH,
+  );
+  const door = placed(
+    DOOR.map(([x, y]) => [BX + d + x, y]),
+    DEPTH,
+  );
+  const bolt = placed(
+    BOLT.map(([x, y]) => [BX + x, DOOR_TOP + s.lift + y]),
+    BOLT_DEPTH,
+  );
   const parts: Part[] = [
     plate(BX + SLOT + POST_W - doorLeft(DOOR_MIN), DEPTH + 4),
-    part("frame", "Frame", "Fixed: the post the door stops on, and the head that holds the bolt over the door's path.", frameShape.shape, frameShape.position, look.structure, on("plate", "weld")),
-    part("door", "Door", "Slides along the plate. The notch in its top edge is the strike the bolt drops into.", door.shape, door.position, { ...look.steel, finish: "matte" }, on("plate", "slide")),
-    coilSpring("spring", "Spring", "Pushes the bolt down. Fitted squeezed, so it pushes even with the bolt all the way down.", [BX, DOOR_TOP + FLANGE_TOP + s.lift], [BX, DOOR_TOP + ROOF], 0, COIL_R, s.wire / 2, s.turns, look.slate, on("frame", "spring")),
-    part("bolt", "Bolt", "A wedge on a spring: a gentle face to shut on, a steep face to hold with.", bolt.shape, bolt.position, look.focus, on("frame", "slide")),
+    part(
+      "frame",
+      "Frame",
+      "Fixed: the post the door stops on, and the head that holds the bolt over the door's path.",
+      frameShape.shape,
+      frameShape.position,
+      look.structure,
+      on("plate", "weld"),
+    ),
+    part(
+      "door",
+      "Door",
+      "Slides along the plate. The notch in its top edge is the strike the bolt drops into.",
+      door.shape,
+      door.position,
+      { ...look.steel, finish: "matte" },
+      on("plate", "slide"),
+    ),
+    coilSpring(
+      "spring",
+      "Spring",
+      "Pushes the bolt down. Fitted squeezed, so it pushes even with the bolt all the way down.",
+      [BX, DOOR_TOP + FLANGE_TOP + s.lift],
+      [BX, DOOR_TOP + ROOF],
+      0,
+      COIL_R,
+      s.wire / 2,
+      s.turns,
+      look.slate,
+      on("frame", "spring"),
+    ),
+    part(
+      "bolt",
+      "Bolt",
+      "A wedge on a spring: a gentle face to shut on, a steep face to hold with.",
+      bolt.shape,
+      bolt.position,
+      look.focus,
+      on("frame", "slide"),
+    ),
     pullRing("ring", ringAt(d), { name: "Handle", role: "Where your hand slides the door.", on: on("door", "screw") }),
   ];
   // Riding a face, the door stays put only while a hand holds it: pushing on the gentle face, pulling on the steep one.
   const len = arrowLen(Math.abs(s.hand));
-  if (s.showHand && s.hand > 1e-6) parts.push(...arrow("hand-arrow", v3(doorLeft(d), PUSH_Y, 0), 0, len, "push", { name: "Hand", role: "The push that holds the door here against the spring.", on: on("door", "glue") }));
-  if (s.showHand && s.hand < -1e-6) parts.push(...arrow("hand-arrow", v3(doorLeft(d), RING_Y, 0), 180, len, "pull", { name: "Hand", role: "The pull that holds the door here against the spring.", on: on("door", "glue") }));
+  if (s.showHand && s.hand > 1e-6)
+    parts.push(
+      ...arrow("hand-arrow", v3(doorLeft(d), PUSH_Y, 0), 0, len, "push", {
+        name: "Hand",
+        role: "The push that holds the door here against the spring.",
+        on: on("door", "glue"),
+      }),
+    );
+  if (s.showHand && s.hand < -1e-6)
+    parts.push(
+      ...arrow("hand-arrow", v3(doorLeft(d), RING_Y, 0), 180, len, "pull", {
+        name: "Hand",
+        role: "The pull that holds the door here against the spring.",
+        on: on("door", "glue"),
+      }),
+    );
   return parts;
 }
 
 function readouts(v: Values) {
   const s = settle(v);
   const S = fmt(s.full, 2);
-  const state =
-    s.shut ? `latched: the spring pushes ${fmt(s.rest, 1)} N with the bolt down`
-    : s.hand > 1e-6 ? `riding the gentle face: holding it takes a ${fmt(s.hand, 1)} N push`
-    : s.hand < -1e-6 ? `on the steep face: holding it takes a ${fmt(-s.hand, 1)} N pull`
-    : s.lift > 1e-6 ? "bolt all the way up, on the door's top"
-    : "open: the bolt hangs clear of the door";
+  const state = s.shut
+    ? `latched: the spring pushes ${fmt(s.rest, 1)} N with the bolt down`
+    : s.hand > 1e-6
+      ? `riding the gentle face: holding it takes a ${fmt(s.hand, 1)} N push`
+      : s.hand < -1e-6
+        ? `on the steep face: holding it takes a ${fmt(-s.hand, 1)} N pull`
+        : s.lift > 1e-6
+          ? "bolt all the way up, on the door's top"
+          : "open: the bolt hangs clear of the door";
   return [
     { label: "Faces", value: `${S} N × tan ${HOLD_DEG}° = ${fmt(s.release)} N to open; ${S} N × tan ${CLOSE_DEG}° = ${fmt(s.toShut, 1)} N to shut` },
     { label: "Travel", value: `door ${fmt(-s.door, 1)} mm from shut, bolt up ${fmt(s.lift, 1)} of ${THROW} mm` },
@@ -216,11 +284,26 @@ function judge(v: Values): Verdict {
   const r = shutAndHold(v);
   switch (r.kind) {
     case "wont-shut":
-      return { pass: false, outcome: "wont-shut", headline: "Too stiff to shut", detail: "Too strong a spring: a gentle push cannot ride the bolt over the ramp." };
+      return {
+        pass: false,
+        outcome: "wont-shut",
+        headline: "Too stiff to shut",
+        detail: "Too strong a spring: a gentle push cannot ride the bolt over the ramp.",
+      };
     case "gust-opens":
-      return { pass: false, outcome: "gust-opens", headline: "Gust pulled it open", detail: "Too weak a spring: the steep face lets go and the gust pulls the door open." };
+      return {
+        pass: false,
+        outcome: "gust-opens",
+        headline: "Gust pulled it open",
+        detail: "Too weak a spring: the steep face lets go and the gust pulls the door open.",
+      };
     case "pass":
-      return { pass: true, outcome: "shuts-and-holds", headline: "Shuts and holds", detail: "The gentle ramp lets a light push shut it, and the steep face holds against the gust." };
+      return {
+        pass: true,
+        outcome: "shuts-and-holds",
+        headline: "Shuts and holds",
+        detail: "The gentle ramp lets a light push shut it, and the steep face holds against the gust.",
+      };
   }
 }
 
@@ -278,7 +361,12 @@ function play(v: Values): Run {
 
   const values = (door: number, hand = 0): Values => ({ ...v, force: v.force ?? 8, door: clamp(door, DOOR_MIN, 0), hand });
   const push = (door: number) => handArrow(v3(doorLeft(door), PUSH_Y, 0), 0, "push", arrowLen(PUSH), "push-arrow");
-  const gust = (door: number) => arrow(`${MARK}gust-arrow`, v3(doorLeft(door), GUST_Y, 0), 180, arrowLen(GUST), "pull", { name: "Gust", role: "The gust's pull on the door.", on: on("plate", "glue") });
+  const gust = (door: number) =>
+    arrow(`${MARK}gust-arrow`, v3(doorLeft(door), GUST_Y, 0), 180, arrowLen(GUST), "pull", {
+      name: "Gust",
+      role: "The gust's pull on the door.",
+      on: on("plate", "glue"),
+    });
 
   return {
     verdict,
@@ -349,10 +437,7 @@ export const catchLatch: Primitive = {
     "A latch bolt is a wedge pushed out by a spring. Its leading face is gentle (30°): as the door shuts, the door's edge rides up it, and pushing the door along takes only the spring's push × tan 30°, about 0.58 of it. Once past, the spring snaps the bolt into the notch. Now its trailing face, steep at 70°, bears on the notch's wall, and pulling the door open takes the spring's push × tan 70°, about 2.75 of it. One spring, two very different forces. A stronger spring holds harder but also takes more to shut. Friction is left out; it would add to both.",
   madeOf: ["wedge", "spring"],
   seenIn: ["Door latch", "Gate catch", "Snap-fit"],
-  sliders: [
-    FORCE,
-    { id: "door", label: "Door", min: DOOR_MIN, max: 0, step: 0.5, initial: -9, unit: " mm" },
-  ],
+  sliders: [FORCE, { id: "door", label: "Door", min: DOOR_MIN, max: 0, step: 0.5, initial: -9, unit: " mm" }],
   view: VIEW.bench,
   build,
   readouts,

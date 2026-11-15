@@ -2,7 +2,16 @@ import * as stylex from "@stylexjs/stylex";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
 
 export const type = stylex.create({
-  label: { margin: 0, fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", color: colors.graphite },
+  label: {
+    margin: 0,
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    lineHeight: "14px",
+    fontWeight: 500,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: colors.graphite,
+  },
   labelAccent: { color: colors.accentText },
   title: { margin: 0, fontSize: 24, lineHeight: "30px", fontWeight: 600, letterSpacing: "-0.02em", textWrap: "balance" },
   task: { margin: 0, fontSize: 22, lineHeight: "28px", fontWeight: 600, letterSpacing: "-0.02em", textWrap: "balance" },
@@ -51,13 +60,46 @@ export const buttons = stylex.create({
     transitionDuration: "120ms",
     transitionTimingFunction: "ease-out",
   },
-  primary: { minHeight: 48, padding: "0 20px", borderRadius: radii.pill, backgroundColor: colors.ink, color: colors.paper, fontSize: 16, lineHeight: "20px", fontWeight: 600 },
+  primary: {
+    minHeight: 48,
+    padding: "0 20px",
+    borderRadius: radii.pill,
+    backgroundColor: colors.ink,
+    color: colors.paper,
+    fontSize: 16,
+    lineHeight: "20px",
+    fontWeight: 600,
+  },
   secondary: { minHeight: 44, padding: "0 12px", backgroundColor: "transparent", color: colors.graphite, fontSize: 14, lineHeight: "18px", fontWeight: 500 },
   disabled: { backgroundColor: colors.soft, color: colors.graphite, cursor: "not-allowed" },
   /** A 44 px target around a glyph, pulled into the gutter so the glyph lines up with the text below it. */
-  icon: { display: "grid", placeItems: "center", width: 44, height: 44, flexShrink: 0, marginLeft: -12, padding: 0, borderRadius: radii.pill, backgroundColor: "transparent", color: colors.ink },
+  icon: {
+    display: "grid",
+    placeItems: "center",
+    width: 44,
+    height: 44,
+    flexShrink: 0,
+    marginLeft: -12,
+    padding: 0,
+    borderRadius: radii.pill,
+    backgroundColor: "transparent",
+    color: colors.ink,
+  },
   /** A text action on the top row. */
-  topText: { width: "auto", display: "inline-flex", alignItems: "center", gap: 2, minHeight: 44, marginLeft: -12, padding: "0 12px 0 4px", backgroundColor: "transparent", color: colors.ink, fontSize: 15, lineHeight: "20px", fontWeight: 500 },
+  topText: {
+    width: "auto",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 2,
+    minHeight: 44,
+    marginLeft: -12,
+    padding: "0 12px 0 4px",
+    backgroundColor: "transparent",
+    color: colors.ink,
+    fontSize: 15,
+    lineHeight: "20px",
+    fontWeight: 500,
+  },
 });
 
 export const bars = stylex.create({
@@ -82,7 +124,16 @@ export const bars = stylex.create({
 });
 
 export const notes = stylex.create({
-  base: { boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 6, padding: "12px 14px", borderRadius: radii.card, backgroundColor: colors.paper, boxShadow: `0 0 0 1px ${colors.hairline}` },
+  base: {
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    padding: "12px 14px",
+    borderRadius: radii.card,
+    backgroundColor: colors.paper,
+    boxShadow: `0 0 0 1px ${colors.hairline}`,
+  },
   fail: { backgroundColor: colors.failSoft },
   ok: { backgroundColor: colors.okSoft },
   accent: { backgroundColor: colors.accentSoft },

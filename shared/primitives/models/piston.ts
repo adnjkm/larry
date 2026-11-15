@@ -74,17 +74,36 @@ const handleAt = (v: Values) => {
 function tube(wi: number): Part {
   const wo = wi + 2 * WALL;
   const cy = TUBE_H / 2;
-  const pts: Pt[] = [[-wo / 2, 0], [wo / 2, 0], [wo / 2, TUBE_H], [wi / 2, TUBE_H], [wi / 2, FLOOR], [-wi / 2, FLOOR], [-wi / 2, TUBE_H], [-wo / 2, TUBE_H]];
+  const pts: Pt[] = [
+    [-wo / 2, 0],
+    [wo / 2, 0],
+    [wo / 2, TUBE_H],
+    [wi / 2, TUBE_H],
+    [wi / 2, FLOOR],
+    [-wi / 2, FLOOR],
+    [-wi / 2, TUBE_H],
+    [-wo / 2, TUBE_H],
+  ];
   const outline = pts.map(([x, y]) => ({ x, y: y - cy }));
-  return part("tube", "Tube", "Holds the trapped air. Cut away at the front so you can see inside.", { kind: "extrusion", outline, depth: Z }, v3(0, PLATE_TOP + cy, 0), look.structure, on("plate", "weld"));
+  return part(
+    "tube",
+    "Tube",
+    "Holds the trapped air. Cut away at the front so you can see inside.",
+    { kind: "extrusion", outline, depth: Z },
+    v3(0, PLATE_TOP + cy, 0),
+    look.structure,
+    on("plate", "weld"),
+  );
 }
 
 const DOT_ROWS = 3;
 const DOT_COLS = 2;
-const dot = lathe(Array.from({ length: 9 }, (_, i): Pt => {
-  const t = ((i / 8) * 180 - 90) * DEG_TO_RAD;
-  return [DOT_R * Math.cos(t), DOT_R * Math.sin(t)];
-}));
+const dot = lathe(
+  Array.from({ length: 9 }, (_, i): Pt => {
+    const t = ((i / 8) * 180 - 90) * DEG_TO_RAD;
+    return [DOT_R * Math.cos(t), DOT_R * Math.sin(t)];
+  }),
+);
 
 /** The trapped air: the same six dots at every pose, spread through the column under the head. */
 function air(s: ReturnType<typeof settle>): Part[] {
@@ -93,7 +112,17 @@ function air(s: ReturnType<typeof settle>): Part[] {
     for (let i = 0; i < DOT_COLS; i++) {
       const x = ((i + 0.5) / DOT_COLS - 0.5) * s.wi * 0.7;
       const y = FLOOR_TOP + (s.air * (j + 0.5)) / DOT_ROWS;
-      out.push(part(`air-${j * DOT_COLS + i + 1}`, "Air", "The trapped air: the same dots, crowded closer as the plunger squeezes them.", dot.shape, v3(x, y, 0), look.slate, on("tube", "glue")));
+      out.push(
+        part(
+          `air-${j * DOT_COLS + i + 1}`,
+          "Air",
+          "The trapped air: the same dots, crowded closer as the plunger squeezes them.",
+          dot.shape,
+          v3(x, y, 0),
+          look.slate,
+          on("tube", "glue"),
+        ),
+      );
     }
   }
   return out;
@@ -107,10 +136,30 @@ function build(v: Values): Part[] {
     plate(widest + 2 * WALL, 30),
     tube(s.wi),
     ...air(s),
-    part("head", "Seal head", "The seal: it slides in the tube and wipes its walls so no air gets past.", box(s.wi, HEAD_T, Z, 1), v3(0, s.headBottom + HEAD_T / 2, 0), look.focus, on("tube", "slide")),
-    part("rod", "Plunger rod", "Carries your push down to the head.", cylinder(ROD_R, ROD_LEN).shape, v3(0, s.headBottom + HEAD_T + ROD_LEN / 2, 0), look.steel, on("head", "weld")),
+    part(
+      "head",
+      "Seal head",
+      "The seal: it slides in the tube and wipes its walls so no air gets past.",
+      box(s.wi, HEAD_T, Z, 1),
+      v3(0, s.headBottom + HEAD_T / 2, 0),
+      look.focus,
+      on("tube", "slide"),
+    ),
+    part(
+      "rod",
+      "Plunger rod",
+      "Carries your push down to the head.",
+      cylinder(ROD_R, ROD_LEN).shape,
+      v3(0, s.headBottom + HEAD_T + ROD_LEN / 2, 0),
+      look.steel,
+      on("head", "weld"),
+    ),
     pushDisc("handle", h, "y", { name: "Thumb disc", role: "Where your thumb pushes.", on: on("rod", "weld") }),
-    ...arrow("push-arrow", v3(0, h.y + 2, 0), -90, arrowLength(s.force, FORCE_MAX, ARROW_LONG), "push", { name: "Push arrow", role: "Your push on the plunger.", on: on("handle", "glue") }),
+    ...arrow("push-arrow", v3(0, h.y + 2, 0), -90, arrowLength(s.force, FORCE_MAX, ARROW_LONG), "push", {
+      name: "Push arrow",
+      role: "Your push on the plunger.",
+      on: on("handle", "glue"),
+    }),
   ];
 }
 
@@ -119,7 +168,10 @@ function readouts(v: Values) {
   return [
     { label: "Pressure", value: `p = F ÷ A = ${fmt(s.force)} N ÷ ${fmt(s.mm2)} mm² = ${fmt(s.gauge)} kPa above outside air` },
     { label: "Travel", value: `plunger down ${fmt(s.down, 1)} of ${AIR} mm: the air squeezed to ${fmt(s.ratio * 100)}% of its length` },
-    { label: "State", value: s.force === 0 ? "at rest: the air is at outside pressure" : `balanced: the air pushes back p × A = ${fmt(s.force)} N, so the plunger stops here` },
+    {
+      label: "State",
+      value: s.force === 0 ? "at rest: the air is at outside pressure" : `balanced: the air pushes back p × A = ${fmt(s.force)} N, so the plunger stops here`,
+    },
   ];
 }
 
@@ -140,11 +192,26 @@ function judge(v: Values): Verdict {
   const r = stop(v);
   switch (r.kind) {
     case "short":
-      return { pass: false, outcome: "stopped-short", headline: "Stopped short", detail: "Too wide a plunger: your push spreads thin and barely squeezes the air." };
+      return {
+        pass: false,
+        outcome: "stopped-short",
+        headline: "Stopped short",
+        detail: "Too wide a plunger: your push spreads thin and barely squeezes the air.",
+      };
     case "past":
-      return { pass: false, outcome: "went-past", headline: "Went past the line", detail: "Too narrow a plunger: your push is concentrated and squeezes the air too far." };
+      return {
+        pass: false,
+        outcome: "went-past",
+        headline: "Went past the line",
+        detail: "Too narrow a plunger: your push is concentrated and squeezes the air too far.",
+      };
     case "pass":
-      return { pass: true, outcome: "on-the-line", headline: "Stopped on the line", detail: "The trapped air pushes back just enough to stop the plunger on the line." };
+      return {
+        pass: true,
+        outcome: "on-the-line",
+        headline: "Stopped on the line",
+        detail: "The trapped air pushes back just enough to stop the plunger on the line.",
+      };
   }
 }
 
@@ -205,10 +272,7 @@ export const piston: Primitive = {
     "A piston is a seal sliding in a tube. Push on the plunger and the trapped air pushes back over the same area, so the pressure is the force divided by the area: the same push on half the area gives twice the pressure. The outlet is plugged, so the air is squeezed into less space (Boyle's law, with the temperature held steady), and the plunger stops where the air pushes back as hard as you push. The air acts as a spring: let go and it pushes the plunger back up. The tube is drawn cut away at the front so the air shows. Real seals leak and rub, and the air warms as it is compressed; both are ignored.",
   madeOf: ["seal", "spring"],
   seenIn: ["Syringe", "Soap pump", "Bike pump"],
-  sliders: [
-    AREA,
-    { id: "force", label: "Push", min: 0, max: FORCE_MAX, step: 1, initial: 50, unit: " N" },
-  ],
+  sliders: [AREA, { id: "force", label: "Push", min: 0, max: FORCE_MAX, step: 1, initial: 50, unit: " N" }],
   view: VIEW.bench,
   build,
   readouts,

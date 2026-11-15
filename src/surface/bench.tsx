@@ -39,7 +39,7 @@ function Wheel({ fast }: { fast: boolean }) {
     let raf = 0;
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
-      setAt((((now - start) / period) % 1 + 1) % 1);
+      setAt(((((now - start) / period) % 1) + 1) % 1);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
@@ -94,8 +94,26 @@ function Bench() {
 }
 
 const s = stylex.create({
-  page: { minHeight: "100dvh", boxSizing: "border-box", padding: 24, display: "flex", flexDirection: "column", gap: 24, backgroundColor: "#3A3A3A", fontFamily: fonts.sans },
-  control: { display: "flex", alignItems: "center", gap: 12, color: "#FFFFFF", fontFamily: fonts.mono, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em" },
+  page: {
+    minHeight: "100dvh",
+    boxSizing: "border-box",
+    padding: 24,
+    display: "flex",
+    flexDirection: "column",
+    gap: 24,
+    backgroundColor: "#3A3A3A",
+    fontFamily: fonts.sans,
+  },
+  control: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    color: "#FFFFFF",
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  },
   toggle: (on: boolean) => ({
     position: "relative",
     flexShrink: 0,

@@ -65,7 +65,13 @@ export function lathe(points: Pt[]): { shape: Shape; midY: number } {
 }
 
 /** A solid cylinder from y = 0 to h; place it at midY + base. Rotate x = 90 to lay it along z, z = 90 along x. */
-export const cylinder = (r: number, h: number) => lathe([[0, 0], [r, 0], [r, h], [0, h]]);
+export const cylinder = (r: number, h: number) =>
+  lathe([
+    [0, 0],
+    [r, 0],
+    [r, h],
+    [0, h],
+  ]);
 
 export const box = (width: number, height: number, depth: number, cornerRadius = 0): Shape => ({ kind: "box", width, height, depth, cornerRadius });
 

@@ -3,7 +3,25 @@
 // Rules and choreography live here as pure functions of the twist and the parts present.
 import type { Kit, Part } from "../../../shared/kit.ts";
 import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
-import { AXIS, type Control, type Ctx, defineStory, EMPTY_SCENE, type ExplodePlan, familyOf, type Mark, type Overlay, type PartMove, type Rigid, type Scene, type Test, type Values, vec, type Zone, zoneAt } from "../model.ts";
+import {
+  AXIS,
+  type Control,
+  type Ctx,
+  defineStory,
+  EMPTY_SCENE,
+  type ExplodePlan,
+  familyOf,
+  type Mark,
+  type Overlay,
+  type PartMove,
+  type Rigid,
+  type Scene,
+  type Test,
+  type Values,
+  vec,
+  type Zone,
+  zoneAt,
+} from "../model.ts";
 import { extents, rigidPoint } from "../pose.ts";
 import { BOTTLE_KIT } from "./bottle-kit.ts";
 import { type Drop, dropsAt } from "../stories/drops.ts";
@@ -36,8 +54,15 @@ const TIGHT: Omit<Zone, "until"> = { id: "tight", word: "Too tight", gain: 0.22 
 /** With the seal there is something to squeeze, so the cap can go too far; without it, it stops at snug. */
 const zonesOf = ({ present }: Ctx): Zone[] =>
   present.includes(RING)
-    ? [{ ...LOOSE, until: SEATED }, { ...SNUG, until: CRUSHED }, { ...TIGHT, until: 1 }]
-    : [{ ...LOOSE, until: SEATED }, { ...SNUG, gain: 0.35, until: STOP_BARE }];
+    ? [
+        { ...LOOSE, until: SEATED },
+        { ...SNUG, until: CRUSHED },
+        { ...TIGHT, until: 1 },
+      ]
+    : [
+        { ...LOOSE, until: SEATED },
+        { ...SNUG, gain: 0.35, until: STOP_BARE },
+      ];
 
 const twistOf = (v: Values) => v[TWIST] ?? 0;
 const zoneOf = (v: Values, ctx: Ctx) => zoneAt(zonesOf(ctx), twistOf(v)).id;
@@ -60,7 +85,10 @@ const UNSCREW_TURNS = 1.5;
 const UNSCREW_SHARE = 0.85;
 const explode: ExplodePlan = {
   order: [
-    { id: CAP, at: (s) => ({ offset: vec(0, CAP_RISE * s, 0), turns: [{ axis: AXIS.y, pivot: vec(), deg: -360 * UNSCREW_TURNS * Math.min(1, s / UNSCREW_SHARE) }] }) },
+    {
+      id: CAP,
+      at: (s) => ({ offset: vec(0, CAP_RISE * s, 0), turns: [{ axis: AXIS.y, pivot: vec(), deg: -360 * UNSCREW_TURNS * Math.min(1, s / UNSCREW_SHARE) }] }),
+    },
     { id: RING, at: (s) => ({ offset: vec(0, SEAL_RISE * s, 0) }) },
   ],
 };
@@ -104,7 +132,10 @@ type CapPose = { dx?: number; dy?: number; turn?: number; tilt?: number };
 /** Spun about its own axis first, then tipped, so a falling cap tumbles rather than wobbles. */
 const capMove = (pivot: Part["position"], c: CapPose): PartMove => ({
   offset: vec(c.dx ?? 0, c.dy ?? 0, 0),
-  turns: [{ axis: AXIS.y, pivot, deg: c.turn ?? 0 }, { axis: AXIS.z, pivot, deg: c.tilt ?? 0 }],
+  turns: [
+    { axis: AXIS.y, pivot, deg: c.turn ?? 0 },
+    { axis: AXIS.z, pivot, deg: c.tilt ?? 0 },
+  ],
 });
 
 /** The cap at a twist: it turns as it rides down the thread, sits, then presses into the seal if there is one. Turning positive moves its front to the right, with the finger on the grip. */
@@ -149,7 +180,13 @@ const flip: Test = {
     const held: Rigid = { dx: 0, dy: FLIP_LIFT, angle: 180 };
     const falling: Drop[] = Array.from({ length: drops }, (_, i) => {
       const a = (-60 + (((i * 3) % 5) - 2) * 28) * DEG_TO_RAD;
-      return { spawn: FLIP_UP + 150 + i * DROP_GAP, origin: rigidPoint(ctx.centre, held, vec(NECK_RADIUS * Math.cos(a), rig.jointY + cap.dy, -NECK_RADIUS * Math.sin(a))), vx: 0, vy: 0, vz: 0 };
+      return {
+        spawn: FLIP_UP + 150 + i * DROP_GAP,
+        origin: rigidPoint(ctx.centre, held, vec(NECK_RADIUS * Math.cos(a), rig.jointY + cap.dy, -NECK_RADIUS * Math.sin(a))),
+        vx: 0,
+        vy: 0,
+        vz: 0,
+      };
     });
     return {
       verdict,
@@ -157,9 +194,11 @@ const flip: Test = {
       at: (ms) => {
         const back = smooth(clamp01((ms - FLIP_UP - hold) / FLIP_BACK));
         const rigid: Rigid =
-          ms < FLIP_UP ? { dx: 0, dy: FLIP_LIFT * smooth(ms / FLIP_UP), angle: 180 * smooth(ms / FLIP_UP) }
-          : ms < FLIP_UP + hold ? held
-          : { dx: 0, dy: FLIP_LIFT * (1 - back), angle: 180 + 180 * back };
+          ms < FLIP_UP
+            ? { dx: 0, dy: FLIP_LIFT * smooth(ms / FLIP_UP), angle: 180 * smooth(ms / FLIP_UP) }
+            : ms < FLIP_UP + hold
+              ? held
+              : { dx: 0, dy: FLIP_LIFT * (1 - back), angle: 180 + 180 * back };
         const marks = dropMarks(falling, ms);
         const live = ms < FLIP_UP ? "Flipping…" : leaks ? (marks.length > 0 ? "Dripping…" : "Upside down") : "Dry";
         return overlay(rigid, live, capOnly(ctx, cap), marks);
@@ -208,13 +247,23 @@ const shake: Test = {
     const flight = (pop.vy + Math.sqrt(pop.vy * pop.vy + 2 * G * (startDy - landDy))) / G;
     const spill: Drop[] = Array.from({ length: SPILL_DROPS }, (_, i) => {
       const spawn = OFF_AT + 60 + i * SPILL_GAP;
-      return { spawn, origin: rigidPoint(ctx.centre, rigidAt(spawn), neck), vx: 120 + 25 * ((i * 7) % 4), vy: 150 + 30 * ((i * 5) % 3), vz: -20 + 14 * ((i * 3) % 4) };
+      return {
+        spawn,
+        origin: rigidPoint(ctx.centre, rigidAt(spawn), neck),
+        vx: 120 + 25 * ((i * 7) % 4),
+        vy: 150 + 30 * ((i * 5) % 3),
+        vz: -20 + 14 * ((i * 3) % 4),
+      };
     });
     const capAtMs = (ms: number): CapPose => {
       if (ms < OFF_AT) {
         // Rattling: it hops on the thread it never gripped.
         const hop = 4 * Math.abs(Math.sin((2 * Math.PI * ms) / SHAKE_EACH));
-        return { dy: cap.dy + hop, turn: cap.turn + 10 * Math.sin((4 * Math.PI * ms) / SHAKE_EACH), tilt: cap.tilt + 6 * Math.sin((2 * Math.PI * ms) / SHAKE_EACH) };
+        return {
+          dy: cap.dy + hop,
+          turn: cap.turn + 10 * Math.sin((4 * Math.PI * ms) / SHAKE_EACH),
+          tilt: cap.tilt + 6 * Math.sin((2 * Math.PI * ms) / SHAKE_EACH),
+        };
       }
       const tau = Math.min((ms - OFF_AT) / 1000, flight);
       return { dx: pop.vx * tau, dy: startDy + pop.vy * tau - 0.5 * G * tau * tau, turn: cap.turn + 400 * tau, tilt: cap.tilt - 90 * (tau / flight) };
@@ -231,7 +280,17 @@ const shake: Test = {
         }
         const p = smooth(clamp01((ms - offEnd - SHAKE_HOLD) / SHAKE_RESET));
         const mix = (a: number | undefined, b: number) => (a ?? 0) * (1 - p) + b * p;
-        return overlay(rigidAt(ms), "Cap back on", capOnly(ctx, { dx: mix(end.dx, 0), dy: mix(end.dy, cap.dy) + 45 * Math.sin(Math.PI * p), turn: mix(end.turn, cap.turn), tilt: mix(end.tilt, cap.tilt) }), dropMarks(spill, ms));
+        return overlay(
+          rigidAt(ms),
+          "Cap back on",
+          capOnly(ctx, {
+            dx: mix(end.dx, 0),
+            dy: mix(end.dy, cap.dy) + 45 * Math.sin(Math.PI * p),
+            turn: mix(end.turn, cap.turn),
+            tilt: mix(end.tilt, cap.tilt),
+          }),
+          dropMarks(spill, ms),
+        );
       },
     };
   },
@@ -255,7 +314,11 @@ const open: Test = {
         at: (ms) => {
           const t = clamp01(ms / REFUSE_MS);
           const shudder = Math.sin(2 * Math.PI * 3.2 * t) * (1 - t);
-          return overlay({ dx: 1.2 * shudder, dy: 0, angle: 0 }, "Straining…", capOnly(ctx, { dy: cap.dy, turn: cap.turn - 6 * Math.abs(shudder), tilt: cap.tilt }));
+          return overlay(
+            { dx: 1.2 * shudder, dy: 0, angle: 0 },
+            "Straining…",
+            capOnly(ctx, { dy: cap.dy, turn: cap.turn - 6 * Math.abs(shudder), tilt: cap.tilt }),
+          );
         },
       };
     }
@@ -267,14 +330,22 @@ const open: Test = {
       at: (ms) => {
         if (ms < OPEN_TWIST) {
           const p = smooth(ms / OPEN_TWIST);
-          return overlay({ dx: 0, dy: 0, angle: 0 }, "Opening…", capOnly(ctx, { dy: cap.dy + (LIFT - cap.dy) * p, turn: cap.turn + (free - cap.turn) * p, tilt: cap.tilt * (1 - p) }));
+          return overlay(
+            { dx: 0, dy: 0, angle: 0 },
+            "Opening…",
+            capOnly(ctx, { dy: cap.dy + (LIFT - cap.dy) * p, turn: cap.turn + (free - cap.turn) * p, tilt: cap.tilt * (1 - p) }),
+          );
         }
         if (ms < OPEN_TWIST + OPEN_LIFTOFF + OPEN_HOLD) {
           const q = easeOut(clamp01((ms - OPEN_TWIST) / OPEN_LIFTOFF));
           return overlay({ dx: 0, dy: 0, angle: 0 }, "Open", capOnly(ctx, { dy: LIFT + (top - LIFT) * q, turn: free }));
         }
         const p = smooth(clamp01((ms - OPEN_TWIST - OPEN_LIFTOFF - OPEN_HOLD) / OPEN_BACK));
-        return overlay({ dx: 0, dy: 0, angle: 0 }, "Closing again", capOnly(ctx, { dy: top + (cap.dy - top) * p, turn: free + (cap.turn - free) * p, tilt: cap.tilt * p }));
+        return overlay(
+          { dx: 0, dy: 0, angle: 0 },
+          "Closing again",
+          capOnly(ctx, { dy: top + (cap.dy - top) * p, turn: free + (cap.turn - free) * p, tilt: cap.tilt * p }),
+        );
       },
     };
   },
@@ -302,7 +373,8 @@ export default defineStory({
     const rig = rigOf(ctx);
     const c = rig.capPivot;
     const mark: Mark = {
-      id: "turn-mark", ride: CAP,
+      id: "turn-mark",
+      ride: CAP,
       shape: { kind: "box", width: 2, height: 12, depth: 2.6, cornerRadius: 0.6 },
       at: vec(c.x + MARK_RADIUS * Math.cos(MARK_ANGLE * DEG_TO_RAD), MARK_Y, c.z - MARK_RADIUS * Math.sin(MARK_ANGLE * DEG_TO_RAD)),
       rotation: vec(0, MARK_ANGLE, 0),
@@ -321,7 +393,11 @@ export default defineStory({
         rigs: {
           thread: {
             controls: { turns: "Twist" },
-            why: ["A thread is a ramp wrapped round a post.", "Twist the nut and the ramp carries it along.", "On the bottle, that ramp pulls the cap down and holds it there."],
+            why: [
+              "A thread is a ramp wrapped round a post.",
+              "Twist the nut and the ramp carries it along.",
+              "On the bottle, that ramp pulls the cap down and holds it there.",
+            ],
           },
         },
       },
@@ -358,7 +434,11 @@ export default defineStory({
         rigs: {
           seal: {
             controls: { squeeze: "Squeeze" },
-            why: ["Rubber is soft, so it changes shape when you squeeze it.", "Pressed between two hard faces, it spreads into every tiny gap.", "That closes the path water would take."],
+            why: [
+              "Rubber is soft, so it changes shape when you squeeze it.",
+              "Pressed between two hard faces, it spreads into every tiny gap.",
+              "That closes the path water would take.",
+            ],
           },
         },
       },

@@ -19,11 +19,23 @@ function corners(p: Part): Pt[] {
   const a = (p.rotation.z * Math.PI) / 180;
   const hx = p.shape.width / 2;
   const hy = p.shape.height / 2;
-  return ([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]] as Pt[]).map(([x, y]) => [p.position.x + x * Math.cos(a) - y * Math.sin(a), p.position.y + x * Math.sin(a) + y * Math.cos(a)]);
+  return (
+    [
+      [-hx, -hy],
+      [hx, -hy],
+      [hx, hy],
+      [-hx, hy],
+    ] as Pt[]
+  ).map(([x, y]) => [p.position.x + x * Math.cos(a) - y * Math.sin(a), p.position.y + x * Math.sin(a) + y * Math.cos(a)]);
 }
 function rect(p: Part): { x0: number; x1: number; y0: number; y1: number } {
   assert.ok(p.shape.kind === "box");
-  return { x0: p.position.x - p.shape.width / 2, x1: p.position.x + p.shape.width / 2, y0: p.position.y - p.shape.height / 2, y1: p.position.y + p.shape.height / 2 };
+  return {
+    x0: p.position.x - p.shape.width / 2,
+    x1: p.position.x + p.shape.width / 2,
+    y0: p.position.y - p.shape.height / 2,
+    y1: p.position.y + p.shape.height / 2,
+  };
 }
 /** Deepest a convex polygon's points sink into an axis-aligned box (mm), by sampling its edges. */
 function sink(poly: Pt[], r: ReturnType<typeof rect>): number {
@@ -56,7 +68,12 @@ function distToPoly(poly: Pt[], x: number, y: number): number {
   }
   return inside ? 0 : best;
 }
-const boxPoly = (b: { x0: number; x1: number; y0: number; y1: number }): Pt[] => [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]];
+const boxPoly = (b: { x0: number; x1: number; y0: number; y1: number }): Pt[] => [
+  [b.x0, b.y0],
+  [b.x1, b.y0],
+  [b.x1, b.y1],
+  [b.x0, b.y1],
+];
 
 describe("weight", () => {
   it("passes the generic game checks", () => checkGame(weight));
@@ -99,7 +116,10 @@ describe("weight", () => {
     // The crate does not move when only the swing angle does.
     for (const m of [1, 3, 5]) {
       const x = steps(swing).map((a) => rect(find(game.scene!({ mass: m, swing: a }), "game-crate")).x0);
-      assert.ok(x.every((q) => Math.abs(q - x[0]!) < 1e-9), `m ${m}: crate moved with the swing slider`);
+      assert.ok(
+        x.every((q) => Math.abs(q - x[0]!) < 1e-9),
+        `m ${m}: crate moved with the swing slider`,
+      );
     }
   });
 
@@ -118,7 +138,10 @@ describe("weight", () => {
         assert.ok(Math.abs(h - Math.max(12, (40 * m * Math.sin(Math.abs(a) * DEG_TO_RAD)) / 5)) < 1e-9, `hold arrow ${h} at ${a}, ${m}`);
       }
     }
-    for (const v of [{ mass: 3, swing: -35 }, { mass: 1, swing: -26 }]) {
+    for (const v of [
+      { mass: 3, swing: -35 },
+      { mass: 1, swing: -26 },
+    ]) {
       const run = game.play(v);
       for (const { ms, frame } of sample(run)) {
         const built = weight.build(frame.values);
@@ -154,7 +177,10 @@ describe("weight", () => {
         const bob = find(parts, "bob");
         assert.ok(bob.position.x + bobRadius(m) < geometry.POST_X - geometry.POST_W / 2 - 1, `m ${m}, a ${a}: bob reaches the post`);
         const handle = weight.handle.at({ mass: m, swing: a });
-        assert.ok(Math.abs(Math.hypot(handle.x - X0, geometry.PIVOT_Y - handle.y) - (STRING_MM - bobRadius(m) - 9 - 6)) < 1e-9, "the bead sits just above the bob");
+        assert.ok(
+          Math.abs(Math.hypot(handle.x - X0, geometry.PIVOT_Y - handle.y) - (STRING_MM - bobRadius(m) - 9 - 6)) < 1e-9,
+          "the bead sits just above the bob",
+        );
         assert.ok(Math.abs(Math.atan2(handle.x - X0, geometry.PIVOT_Y - handle.y) * RAD_TO_DEG - a) < 1e-9, "the bead is on the string's line");
         assert.ok(Math.abs(weight.handle.solve(handle, { mass: m, swing: a }) - a) < 1e-9, "solve undoes at");
       }

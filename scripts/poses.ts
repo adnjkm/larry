@@ -41,7 +41,12 @@ for (const p of PRIMITIVES.filter((q) => wanted.length === 0 || wanted.includes(
     }
     rows.push(row);
   }
-  const html = rows.map((row) => `<div class=row>${row.map((c) => `<figure><img src="data:image/png;base64,${c.data}"><figcaption>${c.label}</figcaption></figure>`).join("")}</div>`).join("");
+  const html = rows
+    .map(
+      (row) =>
+        `<div class=row>${row.map((c) => `<figure><img src="data:image/png;base64,${c.data}"><figcaption>${c.label}</figcaption></figure>`).join("")}</div>`,
+    )
+    .join("");
   await sheet.setContent(
     `<style>body{margin:0;padding:12px;font:13px ui-monospace,monospace;background:#fff;width:1176px}h1{font:600 18px system-ui;margin:0 0 8px}.row{display:flex;gap:6px;margin-bottom:8px}figure{margin:0;flex:1;border:1px solid #ddd}img{width:100%;display:block}figcaption{padding:4px 6px;background:#f4f4f4}</style>` +
       `<h1>${p.name} (${p.level}): each row sweeps one slider, the other at its initial value</h1>${html}`,

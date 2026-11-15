@@ -112,16 +112,35 @@ function build(v: Values): Part[] {
   const parts: Part[] = [
     plate(100.6, 45),
     post("post", PX + POST_AT, zc(POST_Z), PEG_Y - 2, { name: "Post", role: "Holds the peg, on the hand's side so the cord and weight hang in the open." }),
-    part("peg", "Post", "The corner the cord bends round.", cylinder(PEG_R, PEG_FRONT - PEG_BACK).shape, v3(PX, PEG_Y, zc((PEG_BACK + PEG_FRONT) / 2)), look.structure, on("post", "weld"), v3(90, 0, 0)),
+    part(
+      "peg",
+      "Post",
+      "The corner the cord bends round.",
+      cylinder(PEG_R, PEG_FRONT - PEG_BACK).shape,
+      v3(PX, PEG_Y, zc((PEG_BACK + PEG_FRONT) / 2)),
+      look.structure,
+      on("post", "weld"),
+      v3(90, 0, 0),
+    ),
     ...chain("cord", "Cord", "Carries the pull from the hand, round the peg, to the weight. It can only pull.", path, CORD, look.focus, "peg", "slide"),
     pullRing("ring", ringAt, { name: "Pull ring", role: "Where the hand pulls.", on: on("plate", "glue") }),
     part("weight", "Weight", "The load the cord lifts.", box(s.edge, s.edge, s.edge, 1.5), weightAt, look.stone, on("plate", "glue")),
     // The weight's own pull, over its top-left, clear of the cord that holds it.
-    ...arrow("weight-arrow", v3(PX - RC - 9, PLATE_TOP + s.lift + s.edge, zc(Z_CORD)), -90, s.weight * MM_PER_N, "push", { name: "Arrow", role: "The weight, pulling down.", on: on("weight", "glue") }),
+    ...arrow("weight-arrow", v3(PX - RC - 9, PLATE_TOP + s.lift + s.edge, zc(Z_CORD)), -90, s.weight * MM_PER_N, "push", {
+      name: "Arrow",
+      role: "The weight, pulling down.",
+      on: on("weight", "glue"),
+    }),
   ];
   // The cord's pull, drawn over the hand's end: the same size as the weight's while it holds it, nothing when it is slack.
   if (s.tension > 1e-9) {
-    parts.push(...arrow("pull-arrow", pullArrowAt(s), 0, s.tension * MM_PER_N, "push", { name: "Arrow", role: "The cord's pull at the hand's end: the same all along it.", on: on("ring", "glue") }));
+    parts.push(
+      ...arrow("pull-arrow", pullArrowAt(s), 0, s.tension * MM_PER_N, "push", {
+        name: "Arrow",
+        role: "The cord's pull at the hand's end: the same all along it.",
+        on: on("ring", "glue"),
+      }),
+    );
   }
   return parts;
 }
@@ -134,9 +153,25 @@ function readouts(v: Values) {
   const hand = s.pull > 0 ? `hand out ${fmt(s.pull)} mm` : s.pull < 0 ? `hand in ${fmt(-s.pull)} mm` : "hand at rest";
   const weight = s.lift > 0 ? `weight up ${fmt(s.lift, s.lift % 1 ? 1 : 0)} mm` : "weight on the floor";
   return [
-    { label: "Tension", value: s.snapped ? "0 N: the cord has snapped" : s.held ? `T = W = ${fmt(s.tension)} N, the same at both ends` : `0 N: nothing in a slack cord (the weight is ${fmt(s.weight)} N)` },
+    {
+      label: "Tension",
+      value: s.snapped
+        ? "0 N: the cord has snapped"
+        : s.held
+          ? `T = W = ${fmt(s.tension)} N, the same at both ends`
+          : `0 N: nothing in a slack cord (the weight is ${fmt(s.weight)} N)`,
+    },
     { label: "Travel", value: `${hand}, ${weight}` },
-    { label: "State", value: s.snapped ? "broken: the weight dropped" : s.held ? "taut: it carries the pull round the peg" : s.slack > 1e-9 ? `${fmt(s.slack, s.slack % 1 ? 1 : 0)} mm of spare cord hangs; it can't push` : "just taut: the floor still takes the weight" },
+    {
+      label: "State",
+      value: s.snapped
+        ? "broken: the weight dropped"
+        : s.held
+          ? "taut: it carries the pull round the peg"
+          : s.slack > 1e-9
+            ? `${fmt(s.slack, s.slack % 1 ? 1 : 0)} mm of spare cord hangs; it can't push`
+            : "just taut: the floor still takes the weight",
+    },
   ];
 }
 
@@ -160,11 +195,21 @@ function judge(v: Values): Verdict {
   const r = yank(v);
   switch (r.kind) {
     case "snap":
-      return { pass: false, outcome: "cord-snapped", headline: "The cord snapped", detail: "Too hard a yank: the cord cannot take the sudden pull, so it breaks." };
+      return {
+        pass: false,
+        outcome: "cord-snapped",
+        headline: "The cord snapped",
+        detail: "Too hard a yank: the cord cannot take the sudden pull, so it breaks.",
+      };
     case "gentle":
       return { pass: false, outcome: "too-gentle", headline: "Fell short", detail: "Too soft a yank: the weight lifts but never gets as high as the line." };
     case "pass":
-      return { pass: true, outcome: "reached-the-line", headline: "Reached the line", detail: "The yank is hard enough to throw the weight past the line, and gentle enough to spare the cord." };
+      return {
+        pass: true,
+        outcome: "reached-the-line",
+        headline: "Reached the line",
+        detail: "The yank is hard enough to throw the weight past the line, and gentle enough to spare the cord.",
+      };
   }
 }
 
@@ -196,13 +241,33 @@ function play(v: Values): Run {
   const start = clamp(v.pull ?? 0, -20, 30);
   const pullAt = (q: number) => start + (STROKE - start) * easeOut(q);
   const pullB = pullAt(qb);
-  const tl = phases({ lead: LEAD, yank: YANK_MS * qb, up: snaps ? 0 : up, down: snaps ? 0 : up, land: snaps ? 0 : LAND_MS, drop: snaps ? DROP_MS : 0, hold: HOLD, reset: RESET });
+  const tl = phases({
+    lead: LEAD,
+    yank: YANK_MS * qb,
+    up: snaps ? 0 : up,
+    down: snaps ? 0 : up,
+    land: snaps ? 0 : LAND_MS,
+    drop: snaps ? DROP_MS : 0,
+    hold: HOLD,
+    reset: RESET,
+  });
   /** The weight's height above the floor in the free rise: the hand's stroke, then `free` more, easing out as gravity takes over. */
   const height = (m: number) => STROKE + free * easeOut(clamp((m - tl.start("up")) / up, 0, 1));
-  const cues: Cue[] = snaps ? [{ ms: tl.end("yank"), kind: "snap" }, { ms: tl.end("drop"), kind: "thud" }] : [{ ms: tl.end("down"), kind: "thud" }];
+  const cues: Cue[] = snaps
+    ? [
+        { ms: tl.end("yank"), kind: "snap" },
+        { ms: tl.end("drop"), kind: "thud" },
+      ]
+    : [{ ms: tl.end("down"), kind: "thud" }];
   if (!snaps && r.reach >= LINE - 1e-9) cues.push({ ms: whenReaches(height, LINE - 1e-9, tl.start("up"), tl.end("up")), kind: "ring" });
 
-  const values = (pull: number, o: { flight?: number; extra?: number; snapped?: number } = {}): Values => ({ ...v, pull, flight: o.flight ?? 0, extra: o.extra ?? 0, snapped: o.snapped ?? 0 });
+  const values = (pull: number, o: { flight?: number; extra?: number; snapped?: number } = {}): Values => ({
+    ...v,
+    pull,
+    flight: o.flight ?? 0,
+    extra: o.extra ?? 0,
+    snapped: o.snapped ?? 0,
+  });
   return {
     verdict,
     durationMs: tl.total,
@@ -229,7 +294,11 @@ function play(v: Values): Run {
       }
       if (phase === "land") return frame(values(STROKE), r.reach >= LINE - 1e-9 ? "Past the line" : "Too low");
       if (phase === "drop") return frame(values(pullB, { snapped: 1, flight: -Math.max(pullB, 0) * fall(tl.t("drop", ms)) }), "The weight drops");
-      if (phase === "hold") return frame(snaps ? values(pullB, { snapped: 1, flight: -Math.max(pullB, 0) }) : values(STROKE), snaps ? "The cord is gone" : r.reach >= LINE - 1e-9 ? "It reached the line" : "It never got there");
+      if (phase === "hold")
+        return frame(
+          snaps ? values(pullB, { snapped: 1, flight: -Math.max(pullB, 0) }) : values(STROKE),
+          snaps ? "The cord is gone" : r.reach >= LINE - 1e-9 ? "It reached the line" : "It never got there",
+        );
       const from = snaps ? pullB : STROKE;
       const pull = from + (start - from) * smooth(tl.t("reset", ms));
       if (snaps) return frame(values(pull, { snapped: 1, flight: -Math.max(pull, 0) }), "Putting it back");
@@ -250,7 +319,11 @@ function scene(v: Values): Part[] {
   const at = PLATE_TOP + LINE + e;
   return [
     post(`${SCENE}line-post`, left - 5, front + 4.5, at + 4, { name: "Mark post", role: "Carries the line the weight has to reach." }),
-    tick(`${SCENE}line`, v3(left + MARK_LEN / 2, at, front + 2), MARK_LEN, "x", { name: "Mark", role: "How high the weight's top has to get.", on: on(`${SCENE}line-post`, "weld") }),
+    tick(`${SCENE}line`, v3(left + MARK_LEN / 2, at, front + 2), MARK_LEN, "x", {
+      name: "Mark",
+      role: "How high the weight's top has to get.",
+      on: on(`${SCENE}line-post`, "weld"),
+    }),
   ];
 }
 

@@ -36,9 +36,11 @@ function shake(pair: Pair): Test {
       const falls = each * SHAKES >= ENGAGE;
       const offOn = Math.ceil(ENGAGE / Math.max(each, 1e-9));
       const verdict =
-        each === 0 ? { pass: true, line: `The ${pair.childName} stayed on the ${pair.parentName} through every shake.` }
-        : falls ? { pass: false, line: `The ${pair.childName} walked off the ${pair.parentName} on shake ${offOn}.` }
-        : { pass: false, line: `The ${pair.childName} crept ${each * SHAKES} mm along the thread and would be off in a few more shakes.` };
+        each === 0
+          ? { pass: true, line: `The ${pair.childName} stayed on the ${pair.parentName} through every shake.` }
+          : falls
+            ? { pass: false, line: `The ${pair.childName} walked off the ${pair.parentName} on shake ${offOn}.` }
+            : { pass: false, line: `The ${pair.childName} crept ${each * SHAKES} mm along the thread and would be off in a few more shakes.` };
       const lift = (s: number) => Math.min(ENGAGE, each * (Math.floor(s) + smooth(s - Math.floor(s))));
       const freeAt = falls ? (offOn - 1) * SHAKE_EACH + SHAKE_EACH * 0.6 : Infinity;
       const off = clearance(pair);
@@ -55,7 +57,8 @@ function shake(pair: Pair): Test {
           const s = Math.min(ms, SHAKE_SWING) / SHAKE_EACH;
           const rigid: Rigid = { dx: 10 * Math.sin(2 * Math.PI * s), dy: 0, angle: 4 * Math.sin(2 * Math.PI * s) };
           const live = ms >= freeAt ? `${pair.child.name} off` : `Shake ${Math.min(SHAKES, Math.floor(s) + 1)} of ${SHAKES} · up ${along(ms).toFixed(0)} mm`;
-          if (ms < SHAKE_SWING + HOLD || !moved) return overlay(ms < SHAKE_SWING ? live : moved ? live : "Still on", carry(pair, ctx.present, at(ms)), [turnMark(pair)], rigid);
+          if (ms < SHAKE_SWING + HOLD || !moved)
+            return overlay(ms < SHAKE_SWING ? live : moved ? live : "Still on", carry(pair, ctx.present, at(ms)), [turnMark(pair)], rigid);
           const p = smooth(clamp01((ms - SHAKE_SWING - HOLD) / RESET));
           const end = along(SHAKE_SWING + HOLD);
           return overlay("Back on", carry(pair, ctx.present, screwed(pair, end * (1 - p), (end / pitch) * (1 - p))), [turnMark(pair)], rigid);
@@ -94,7 +97,8 @@ function unscrew(pair: Pair): Test {
             return overlay(`Turn ${(given * p).toFixed(1)} of ${turns.toFixed(1)}`, move(rise * p, given * p), marks);
           }
           const q = easeOut(clamp01((ms - twist) / LIFTOFF));
-          if (ms < twist + LIFTOFF + HOLD) return overlay(stuck ? `Still on after ${MAX_TURNS} turns` : `Off in ${turns.toFixed(1)} turns`, move(rise + free * q, given), marks);
+          if (ms < twist + LIFTOFF + HOLD)
+            return overlay(stuck ? `Still on after ${MAX_TURNS} turns` : `Off in ${turns.toFixed(1)} turns`, move(rise + free * q, given), marks);
           const p = smooth(clamp01((ms - twist - LIFTOFF - HOLD) / BACK));
           return overlay("Screwing it back on", move((rise + free) * (1 - p), given * (1 - p)), marks);
         },

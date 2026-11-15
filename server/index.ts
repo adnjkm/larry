@@ -41,7 +41,8 @@ const app = new Hono()
       photos.push({ mediaType: file.type as Photo["mediaType"], base64: Buffer.from(await file.arrayBuffer()).toString("base64") });
     }
 
-    const events = (signal: AbortSignal) => streamKit(photos, { onStats: (s) => console.log(`kit: first part ${s.firstPartMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}`), signal });
+    const events = (signal: AbortSignal) =>
+      streamKit(photos, { onStats: (s) => console.log(`kit: first part ${s.firstPartMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}`), signal });
     return ndjson(c, events, (error) => (error instanceof KitError ? "Larry built an inconsistent kit" : "Larry couldn't build this one"));
   })
   .post("/api/lessons", async (c) => {

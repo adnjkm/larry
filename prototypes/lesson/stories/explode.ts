@@ -72,7 +72,10 @@ export function explodePlanOf(kit: Kit): ExplodePlan | undefined {
       const turns = twisted(a.part);
       return {
         id: a.part.id,
-        at: (s) => ({ offset: scale(a.out, a.d * s), turns: turns ? [{ axis: a.out, pivot, deg: -360 * UNSCREW_TURNS * Math.min(1, s / UNSCREW_SHARE) }] : [] }),
+        at: (s) => ({
+          offset: scale(a.out, a.d * s),
+          turns: turns ? [{ axis: a.out, pivot, deg: -360 * UNSCREW_TURNS * Math.min(1, s / UNSCREW_SHARE) }] : [],
+        }),
       };
     }),
   };

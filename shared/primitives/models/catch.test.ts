@@ -137,7 +137,11 @@ describe("catch", () => {
       } else assert.equal(furthest, 0, `force ${v.force}: the door shuts onto the post`);
       if (kind === "gust-opens") assert.ok(end < TOUCH_AT, `force ${v.force}: the gust leaves it open`);
       if (kind === "pass") assert.equal(end, 0, `force ${v.force}: still shut at the end`);
-      assert.equal((run.cues ?? []).some((c) => c.kind === "snap"), kind !== "wont-shut", `force ${v.force}: snaps only if it shuts`);
+      assert.equal(
+        (run.cues ?? []).some((c) => c.kind === "snap"),
+        kind !== "wont-shut",
+        `force ${v.force}: snaps only if it shuts`,
+      );
     }
   });
 });

@@ -99,7 +99,10 @@ const blockAt = (b: Bar, phi: number) => onBar(b, phi, b.aLoad, BAR_T + BLOCK / 
 function build(v: Values): Part[] {
   const s = settle(v);
   const bar = onBar(s, s.phi, (s.aLoad - s.aEff) / 2, BAR_T / 2);
-  const pad = { ...pushDisc("pad", padAt(s, s.phi, PAD_T / 2), "y", { name: "Press pad", role: "Where one finger pushes the effort end down.", on: on("bar", "glue") }), rotation: v3(0, 0, s.deg) };
+  const pad = {
+    ...pushDisc("pad", padAt(s, s.phi, PAD_T / 2), "y", { name: "Press pad", role: "Where one finger pushes the effort end down.", on: on("bar", "glue") }),
+    rotation: v3(0, 0, s.deg),
+  };
   const block = blockAt(s, s.phi);
   const load = part("load", "Load", "The weight being lifted.", box(BLOCK, BLOCK, BLOCK, 1.5), block, look.stone, on("bar", "glue"), v3(0, 0, s.deg));
   // The weight arrow stands over the block's highest corner.
@@ -107,26 +110,63 @@ function build(v: Values): Part[] {
 
   const parts: Part[] = [
     plate(84.6, 30),
-    part("pivot", "Pivot", "The bar rests on its point and turns about it.", { kind: "extrusion", outline: [{ x: -PIVOT_W, y: 0 }, { x: PIVOT_W, y: 0 }, { x: 0, y: PIVOT_H }], depth: PIVOT_DEPTH }, v3(s.xp, PLATE_TOP + PIVOT_H / 2, 0), look.structure, on("plate", "weld")),
-    part("bar", "Bar", "Carries the push on one side of the pivot and the load on the other.", box(SPAN + 2 * EXT, BAR_T, BAR_DEPTH, 1), bar, look.focus, on("pivot", "hinge"), v3(0, 0, s.deg)),
+    part(
+      "pivot",
+      "Pivot",
+      "The bar rests on its point and turns about it.",
+      {
+        kind: "extrusion",
+        outline: [
+          { x: -PIVOT_W, y: 0 },
+          { x: PIVOT_W, y: 0 },
+          { x: 0, y: PIVOT_H },
+        ],
+        depth: PIVOT_DEPTH,
+      },
+      v3(s.xp, PLATE_TOP + PIVOT_H / 2, 0),
+      look.structure,
+      on("plate", "weld"),
+    ),
+    part(
+      "bar",
+      "Bar",
+      "Carries the push on one side of the pivot and the load on the other.",
+      box(SPAN + 2 * EXT, BAR_T, BAR_DEPTH, 1),
+      bar,
+      look.focus,
+      on("pivot", "hinge"),
+      v3(0, 0, s.deg),
+    ),
     pad,
     load,
-    ...arrow("load-arrow", v3(block.x, blockTop, 0), -90, arrowLength(LOAD, LOAD, 36), "push", { name: "Arrow", role: "The block's weight, pulling down.", on: on("load", "glue") }),
+    ...arrow("load-arrow", v3(block.x, blockTop, 0), -90, arrowLength(LOAD, LOAD, 36), "push", {
+      name: "Arrow",
+      role: "The block's weight, pulling down.",
+      on: on("load", "glue"),
+    }),
   ];
   // The finger holds the bar only once it is pushing: at rest the plate carries the load.
   if (s.push > 1e-9) {
-    parts.push(...arrow("effort-arrow", padAt(s, s.phi, PAD_T), -90, Math.max(FINGER_MIN, s.effort * MM_PER_N), "push", { name: "Arrow", role: s.weak ? "A finger's whole push: 20 N, not enough." : "The push that balances the block, to the same scale.", on: on("pad", "glue") }));
+    parts.push(
+      ...arrow("effort-arrow", padAt(s, s.phi, PAD_T), -90, Math.max(FINGER_MIN, s.effort * MM_PER_N), "push", {
+        name: "Arrow",
+        role: s.weak ? "A finger's whole push: 20 N, not enough." : "The push that balances the block, to the same scale.",
+        on: on("pad", "glue"),
+      }),
+    );
   }
   return parts;
 }
 
 function readouts(v: Values) {
   const s = settle(v);
-  const state =
-    s.weak ? `${fmt(s.hold, 1)} N needed, finger has ${FINGER}: it strains ${fmt(s.limit, 1)} mm`
-    : s.push < 1e-9 ? `block rests on the plate; ${fmt(s.hold, 1)} N would hold it level`
-    : s.push >= s.limit - 1e-9 ? `finger at the end of its ${TRAVEL} mm; ${fmt(s.hold, 1)} N holds the block ${fmt(s.rise, 1)} mm up`
-    : `${fmt(s.hold, 1)} N holds the block ${fmt(s.rise, 1)} mm up`;
+  const state = s.weak
+    ? `${fmt(s.hold, 1)} N needed, finger has ${FINGER}: it strains ${fmt(s.limit, 1)} mm`
+    : s.push < 1e-9
+      ? `block rests on the plate; ${fmt(s.hold, 1)} N would hold it level`
+      : s.push >= s.limit - 1e-9
+        ? `finger at the end of its ${TRAVEL} mm; ${fmt(s.hold, 1)} N holds the block ${fmt(s.rise, 1)} mm up`
+        : `${fmt(s.hold, 1)} N holds the block ${fmt(s.rise, 1)} mm up`;
   return [
     { label: "Push", value: `F = ${LOAD} N ÷ ${fmt(s.ratio, 1)} = ${fmt(s.hold, 1)} N` },
     { label: "Travel", value: `your end down ${fmt(s.push, 1)} mm, block up ${fmt(s.push, 1)} ÷ ${fmt(s.ratio, 1)} = ${fmt(s.rise, 1)} mm` },
@@ -153,11 +193,26 @@ function judge(v: Values): Verdict {
   const r = lift(v);
   switch (r.kind) {
     case "weak":
-      return { pass: false, outcome: "too-heavy", headline: "Too heavy to lift", detail: "Your arm is too short: without a long arm, one finger cannot push hard enough." };
+      return {
+        pass: false,
+        outcome: "too-heavy",
+        headline: "Too heavy to lift",
+        detail: "Your arm is too short: without a long arm, one finger cannot push hard enough.",
+      };
     case "short":
-      return { pass: false, outcome: "out-of-room", headline: "Not enough travel", detail: "Your arm is too long: the finger runs out of room before the block reaches the line." };
+      return {
+        pass: false,
+        outcome: "out-of-room",
+        headline: "Not enough travel",
+        detail: "Your arm is too long: the finger runs out of room before the block reaches the line.",
+      };
     case "pass":
-      return { pass: true, outcome: "block-lifted", headline: "Block lifted", detail: "The lever makes the push easy, and the finger still has room to reach the line." };
+      return {
+        pass: true,
+        outcome: "block-lifted",
+        headline: "Block lifted",
+        detail: "The lever makes the push easy, and the finger still has room to reach the line.",
+      };
   }
 }
 
@@ -233,7 +288,11 @@ function scene(v: Values): Part[] {
   const at = markHeight(valueOf(RATIO, v));
   return [
     post(`${SCENE}mark-post`, MARK_X, MARK_Z, at + 4, { name: "Mark post", role: "Carries the line the block has to reach." }),
-    tick(`${SCENE}mark`, v3(MARK_X - 5 - MARK_LEN / 2, at, MARK_Z), MARK_LEN, "x", { name: "Mark", role: "How high the top of the block has to get.", on: on(`${SCENE}mark-post`, "weld") }),
+    tick(`${SCENE}mark`, v3(MARK_X - 5 - MARK_LEN / 2, at, MARK_Z), MARK_LEN, "x", {
+      name: "Mark",
+      role: "How high the top of the block has to get.",
+      on: on(`${SCENE}mark-post`, "weld"),
+    }),
   ];
 }
 

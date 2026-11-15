@@ -6,7 +6,13 @@ import { drawSweep, drawSwell, reachedTop, sweepAt, swellFor } from "./light.ts"
 
 const raster = (cols: number, rows: number): Raster => {
   const data = new Uint8ClampedArray(cols * rows * 4);
-  return { cols, rows, image: { data } as unknown as ImageData, px: new Uint32Array(data.buffer), ctx: { putImageData() {} } as unknown as CanvasRenderingContext2D };
+  return {
+    cols,
+    rows,
+    image: { data } as unknown as ImageData,
+    px: new Uint32Array(data.buffer),
+    ctx: { putImageData() {} } as unknown as CanvasRenderingContext2D,
+  };
 };
 
 test("the sweep climbs, reaches the top before it ends, and ends", () => {
@@ -32,7 +38,10 @@ test("the band lights cells round its front and none far ahead of it", () => {
   r.px.forEach((p, i) => p && litRows.add(Math.floor(i / 60)));
   const frontRow = (1 - f.front) * 100;
   assert.ok(litRows.size > 10);
-  assert.ok([...litRows].every((y) => y > frontRow - 45), "nothing lit far ahead of the front");
+  assert.ok(
+    [...litRows].every((y) => y > frontRow - 45),
+    "nothing lit far ahead of the front",
+  );
 });
 
 test("before it eases in, the swell is the grey photo in the bone tones only", () => {

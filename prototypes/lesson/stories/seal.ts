@@ -35,8 +35,16 @@ export function flipTest(seal: Piece, closer: Closure): Test {
       const count = leaks ? LEAK_DROPS : 0;
       const hold = Math.max(1000, 500 + count * DROP_GAP + 700);
       // Drops gather on the ring of the joint, lowest side first once it is upside down.
-      const ring = ringOf(seal.child, seal).map((p) => rigidPoint(ctx.centre, held, p)).sort((a, b) => a.y - b.y);
-      const falling: Drop[] = Array.from({ length: count }, (_, i) => ({ spawn: FLIP_UP + 150 + i * DROP_GAP, origin: ring[(i * 3) % Math.min(5, ring.length)]!, vx: 0, vy: 0, vz: 0 }));
+      const ring = ringOf(seal.child, seal)
+        .map((p) => rigidPoint(ctx.centre, held, p))
+        .sort((a, b) => a.y - b.y);
+      const falling: Drop[] = Array.from({ length: count }, (_, i) => ({
+        spawn: FLIP_UP + 150 + i * DROP_GAP,
+        origin: ring[(i * 3) % Math.min(5, ring.length)]!,
+        vx: 0,
+        vy: 0,
+        vz: 0,
+      }));
       const moves = closer.moves(value, ctx);
       return {
         verdict,
@@ -44,9 +52,11 @@ export function flipTest(seal: Piece, closer: Closure): Test {
         at: (ms) => {
           const back = smooth(clamp01((ms - FLIP_UP - hold) / FLIP_BACK));
           const rigid: Rigid =
-            ms < FLIP_UP ? { dx: 0, dy: lift * smooth(ms / FLIP_UP), angle: 180 * smooth(ms / FLIP_UP) }
-            : ms < FLIP_UP + hold ? held
-            : { dx: 0, dy: lift * (1 - back), angle: 180 + 180 * back };
+            ms < FLIP_UP
+              ? { dx: 0, dy: lift * smooth(ms / FLIP_UP), angle: 180 * smooth(ms / FLIP_UP) }
+              : ms < FLIP_UP + hold
+                ? held
+                : { dx: 0, dy: lift * (1 - back), angle: 180 + 180 * back };
           const marks = drops.marks(falling, ms);
           const live = ms < FLIP_UP ? "Flipping…" : leaks ? (marks.length > 0 ? "Dripping…" : "Upside down") : "Dry";
           return overlay(live, moves, marks, rigid);
@@ -76,7 +86,16 @@ export function sealModule(seal: Piece, closer: Closure, produces: readonly stri
     },
     learn: {
       say: "Squeeze it. The rubber fills the gaps.",
-      rigs: { seal: { controls: { squeeze: "Squeeze" }, why: ["A seal is soft, so it changes shape when you squeeze it.", "Pressed between two hard faces, it spreads into every tiny gap.", "That closes the path a leak would take."] } },
+      rigs: {
+        seal: {
+          controls: { squeeze: "Squeeze" },
+          why: [
+            "A seal is soft, so it changes shape when you squeeze it.",
+            "Pressed between two hard faces, it spreads into every tiny gap.",
+            "That closes the path a leak would take.",
+          ],
+        },
+      },
     },
     uses: { seal: `Squeezed, the ${seal.name} fills the tiny gaps so nothing leaks.` },
     assemble: {
@@ -86,7 +105,11 @@ export function sealModule(seal: Piece, closer: Closure, produces: readonly stri
     },
     target: targetFor(seal),
     enter: { x: 60 * seal.k, y: 0, z: 0 },
-    play: { say: twist ? fit((n) => `Twist the ${n} snug. Then flip it.`, c.name) : fit((n) => `Press the ${n} in. Then flip it.`, c.name), control: closer.control, tests: [flip, closer.open] },
+    play: {
+      say: twist ? fit((n) => `Twist the ${n} snug. Then flip it.`, c.name) : fit((n) => `Press the ${n} in. Then flip it.`, c.name),
+      control: closer.control,
+      tests: [flip, closer.open],
+    },
     hints: [
       "Watch where the drops come from: the joint.",
       `The ${c.name} has to press the ${seal.name}. ${twist ? "Twist" : "Press"} it further.`,

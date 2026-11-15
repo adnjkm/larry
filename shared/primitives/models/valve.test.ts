@@ -137,7 +137,8 @@ describe("valve", () => {
       // A stalled stroke never lifts the ball, though the thumb pushes all the way.
       r.list.forEach((s, n) => {
         if (s.gain > 0) return;
-        for (let t = 0; t < rig.STROKE; t += 5) assert.equal(settle({ ...v, open: r.open, ...pick(strokeAt(r, n, t)) }).lift, 0, `open ${v.open}, stroke ${n + 1}`);
+        for (let t = 0; t < rig.STROKE; t += 5)
+          assert.equal(settle({ ...v, open: r.open, ...pick(strokeAt(r, n, t)) }).lift, 0, `open ${v.open}, stroke ${n + 1}`);
       });
       assert.ok(Math.abs((run.at(run.durationMs).values.bag ?? 0) - r.final) < 1e-9);
     }
@@ -193,8 +194,14 @@ describe("valve", () => {
     const tick = find(game.scene!(startValues(valve)), "game-mark");
     assert.ok(tick.shape.kind === "box" && tick.shape.width >= 10, "the mark is at least 10 mm long");
     const post = find(game.scene!(startValues(valve)), "game-mark-post");
-    assert.ok(post.shape.kind === "box" && Math.abs(tick.position.x - tick.shape.width / 2 - (post.position.x + post.shape.width / 2)) < 1e-9, "the mark meets its post");
-    const tickLine: [Pt, Pt] = [[tick.position.x - tick.shape.width / 2, tick.position.y], [tick.position.x + tick.shape.width / 2, tick.position.y]];
+    assert.ok(
+      post.shape.kind === "box" && Math.abs(tick.position.x - tick.shape.width / 2 - (post.position.x + post.shape.width / 2)) < 1e-9,
+      "the mark meets its post",
+    );
+    const tickLine: [Pt, Pt] = [
+      [tick.position.x - tick.shape.width / 2, tick.position.y],
+      [tick.position.x + tick.shape.width / 2, tick.position.y],
+    ];
     for (const v of [startValues(valve), ...numberSweep(valve).filter((q) => [20, 50, 80, 120, 160].includes(q.open ?? 0))]) {
       for (const { ms, frame } of sample(game.play(v))) {
         assert.ok(inBody(frame.values, "ball") <= 1e-6, `open ${v.open} at ${ms} ms: ball in the body`);

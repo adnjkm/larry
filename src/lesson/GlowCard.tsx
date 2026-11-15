@@ -5,7 +5,19 @@ import { notes } from "../ui/styles.ts";
 
 const styles = stylex.create({
   wrap: { position: "relative", marginBlock: 10 },
-  glow: { position: "absolute", top: -20, bottom: -20, left: -18, right: -18, opacity: 0.6, backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat", imageRendering: "pixelated", pointerEvents: "none" },
+  glow: {
+    position: "absolute",
+    top: -20,
+    bottom: -20,
+    left: -18,
+    right: -18,
+    opacity: 0.6,
+    backgroundSize: "contain",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    imageRendering: "pixelated",
+    pointerEvents: "none",
+  },
   card: { position: "relative" },
 });
 
