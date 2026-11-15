@@ -1,4 +1,4 @@
-import { dither, hex, type Method, ordered } from "ditherdance";
+import { hex, ordered } from "ditherdance";
 
 /*
  * ditherdance does the dithering itself. This file only decides what gets dithered:
@@ -6,7 +6,6 @@ import { dither, hex, type Method, ordered } from "ditherdance";
  */
 
 export type PhotoFit = "cover" | "contain";
-export type DitherMethod = Extract<Method, "bayer" | "atkinson" | "floyd-steinberg">;
 
 /** Portrait photos fill the viewfinder; landscape ones sit inside it over a blurred copy, the way the feed shows them. */
 export function fitFor(image: { width: number; height: number }, box: { width: number; height: number }): PhotoFit {
@@ -18,43 +17,27 @@ function rectFor(fit: PhotoFit, iw: number, ih: number, w: number, h: number) {
   return { x: (w - iw * scale) / 2, y: (h - ih * scale) / 2, w: iw * scale, h: ih * scale };
 }
 
-const photoScratch = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+/** A photo in grey, one value per dither cell, before dithering. */
+export type GreyField = { cols: number; rows: number; dpr: number; cell: number; lum: Float32Array };
 
 /**
- * The viewfinder's photo in grey, dithered the way the rest of the screen is: one cell per `cellCss` CSS px at the
- * device's resolution, in the surfaces' greys (the wheel's four plus white), so it reads as the same material as the
- * wheel and the shutter rather than a two-colour print. `zoom` matches the viewfinder's zoom, about the centre.
- * `bias` brightens or darkens before dithering.
+ * The viewfinder's photo in grey at the dither's grain: one value per `cellCss` CSS px cell, 0 to 1, stretched to the
+ * photo's own range so a dark object on a mid-tone wall still separates. `zoom` matches the viewfinder's zoom, about
+ * the centre. Laid out once; drawAmbient dithers it each frame.
  */
-export function ditherPhoto(
-  canvas: HTMLCanvasElement,
-  image: HTMLImageElement,
-  box: { width: number; height: number },
-  cellCss: number,
-  { method = "bayer", bias = 0, zoom = 1 }: { method?: DitherMethod; bias?: number; zoom?: number } = {},
-) {
-  const dpr = Math.min(3, window.devicePixelRatio || 1);
-  const W = Math.round(box.width * dpr);
-  const H = Math.round(box.height * dpr);
-  if (canvas.width !== W || canvas.height !== H) {
-    canvas.width = W;
-    canvas.height = H;
-  }
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+export function greyField(image: HTMLImageElement, box: { width: number; height: number }, cellCss: number, { bias = 0, zoom = 1 }: { bias?: number; zoom?: number } = {}): GreyField | null {
+  // The phone is drawn small, so this stops at 2x: more cells would cost frames, not detail.
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
   const cell = Math.max(2, Math.round(cellCss * dpr));
+  const W = box.width * dpr;
+  const H = box.height * dpr;
   const cols = Math.ceil(W / cell);
   const rows = Math.ceil(H / cell);
-  let scratch = photoScratch.get(canvas);
-  if (!scratch) {
-    scratch = document.createElement("canvas");
-    photoScratch.set(canvas, scratch);
-  }
+  const scratch = document.createElement("canvas");
   scratch.width = cols;
   scratch.height = rows;
   const small = scratch.getContext("2d", { willReadFrequently: true });
-  if (!small) return;
-  // The cells cover a little more than the box when it isn't a whole number of cells; the photo is laid out over the box.
+  if (!small) return null;
   const bw = (W / cell) * zoom;
   const bh = (H / cell) * zoom;
   const ox = (W / cell - bw) / 2;
@@ -68,15 +51,11 @@ export function ditherPhoto(
   }
   const r = rectFor(fit, image.naturalWidth, image.naturalHeight, bw, bh);
   small.drawImage(image, ox + r.x, oy + r.y, r.w, r.h);
-
   const data = small.getImageData(0, 0, cols, rows);
   stretchToGray(data.data, bias);
-  if (method === "bayer") ordered(data, { palette: PHOTO_TONES });
-  else dither(data, { method, palette: PHOTO_TONES });
-  small.putImageData(data, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, W, H);
-  ctx.drawImage(scratch, 0, 0, cols * cell, rows * cell);
+  const lum = new Float32Array(cols * rows);
+  for (let i = 0; i < lum.length; i++) lum[i] = (data.data[i * 4] ?? 0) / 255;
+  return { cols, rows, dpr, cell, lum };
 }
 
 /** Greys the image and stretches its own range to full black and white, so a dark object on a mid-tone wall still separates. */
@@ -462,100 +441,134 @@ export function ditherBand(
   return front / rows;
 }
 
-// ---------------------------------------------------------------- develop light
+// ---------------------------------------------------------------- develop ambient
 
-/** One ring of the develop wave: how far out its leading edge is, how thick it is, both in CSS px, and how strong, 0 to 1. */
-export type Ring = { radius: number; band: number; strength: number };
+const LITTLE = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+const pack = ([r, g, b]: readonly number[]) => (LITTLE ? (255 << 24) | ((b ?? 0) << 16) | ((g ?? 0) << 8) | (r ?? 0) : ((r ?? 0) << 24) | ((g ?? 0) << 16) | ((b ?? 0) << 8) | 255) >>> 0;
+const GREY_LUM = Float32Array.from(PHOTO_TONES, ([v]) => v / 255);
+const GREY_PACKED = Uint32Array.from(PHOTO_TONES, pack);
+const SYNTH_PACKED = Uint32Array.from(SYNTHWAVE, pack);
 
-/** How far a ring's edge wanders in and out with noise, in CSS px, and how many steps round it's worked out at. */
-const WOBBLE = 7;
-const WOBBLE_STEPS = 360;
+/** How the ambient moves. Sizes in CSS px. */
+export type AmbientLook = {
+  /** How far the photo sways, at most. */
+  wave: number;
+  /** How strongly the synthwave light shows, 0 to 1. */
+  light: number;
+  /** 1 is the resting pace. */
+  speed: number;
+};
 
 /**
- * The light of the develop wave over the photo, as synthwave dither: rings travelling out from `origin` across a
- * `width` x `height` box with `radius` corners. Each ring is gold at its leading edge, falling through coral and pink
- * to indigo behind, its edge wobbling a little with noise, like glimm's band bent into a circle.
+ * The surface of a liquid, as waves that add: wavenumbers in radians per 100 CSS px, speeds in radians per second,
+ * heights in crests. They run in different directions, and some against each other, so where they meet they stand and
+ * slosh instead of all marching one way.
  */
-export function drawDevelopLight(
-  out: HTMLCanvasElement,
-  width: number,
-  height: number,
-  radius: number,
-  origin: [number, number],
-  rings: readonly Ring[],
-  cellCss: number,
-  seconds: number,
-  scratch: HTMLCanvasElement,
-) {
-  // The phone is drawn small, so this stops at 2x: a third more cells would cost frames, not detail.
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const W = Math.round(width * dpr);
-  const H = Math.round(height * dpr);
-  if (out.width !== W || out.height !== H) {
-    out.width = W;
-    out.height = H;
+const SWELL = [
+  { kx: 0.9, ky: 2.4, w: 0.8, a: 0.32, p: 0 },
+  { kx: -1.4, ky: 2.0, w: -0.6, a: 0.28, p: 1.7 },
+  { kx: 2.7, ky: 0.8, w: 1.15, a: 0.14, p: 4.1 },
+  { kx: -0.6, ky: -3.2, w: 0.95, a: 0.18, p: 2.6 },
+  { kx: 3.6, ky: -1.9, w: -1.4, a: 0.08, p: 5.3 },
+];
+/** CSS px between crests of the light, before the swell bends them. */
+const CREST_GAP = 190;
+
+/**
+ * The grey photo while Larry works, alive: the capture sweep's light, but on a liquid surface rocking in a tub rather
+ * than a band rising. Crests of synthwave light, gold at the front falling through pink to indigo as glimm's band
+ * does, ride a swell of waves crossing at different angles and speeds, while the whole surface tilts back and forth
+ * and bobs. The light comes and goes in patches, and the photo bends under the surface's slope as if seen through
+ * water. Everything is ordered dither at the photo's grain, so the cells crawl as it moves. `amount` (0 to 1) eases
+ * the whole effect in. `out` is sized to the field's cells and shown pixelated.
+ */
+export function drawAmbient(out: HTMLCanvasElement, field: GreyField, look: AmbientLook, seconds: number, amount: number) {
+  const { cols, rows, lum, cell, dpr } = field;
+  if (out.width !== cols || out.height !== rows) {
+    out.width = cols;
+    out.height = rows;
   }
   const ctx = out.getContext("2d");
   if (!ctx) return;
-  ctx.clearRect(0, 0, W, H);
-  if (rings.every((r) => r.strength <= 0)) return;
-  const cell = Math.max(1, Math.round(cellCss * dpr));
-  const cols = Math.ceil(W / cell);
-  const rows = Math.ceil(H / cell);
-  if (scratch.width !== cols || scratch.height !== rows) {
-    scratch.width = cols;
-    scratch.height = rows;
+  const image = ctx.createImageData(cols, rows);
+  const px = new Uint32Array(image.data.buffer);
+  const size = cell / dpr; // CSS px per cell
+  const t = seconds * look.speed;
+  const bend = (look.wave * amount) / size; // cells of displacement per unit of slope
+  const light = look.light * amount;
+  const last = GREY_LUM.length - 1;
+  const n = SWELL.length;
+
+  // Each wave is sin(kx·x + ky·y − w·t + p), split into a column part and a row part so the cell loop only multiplies.
+  const colSin = new Float32Array(n * cols);
+  const colCos = new Float32Array(n * cols);
+  const rowSin = new Float32Array(n * rows);
+  const rowCos = new Float32Array(n * rows);
+  for (let k = 0; k < n; k++) {
+    const wave = SWELL[k];
+    if (!wave) continue;
+    for (let x = 0; x < cols; x++) {
+      const v = (wave.kx * x * size) / 100;
+      colSin[k * cols + x] = Math.sin(v);
+      colCos[k * cols + x] = Math.cos(v);
+    }
+    for (let y = 0; y < rows; y++) {
+      const v = (wave.ky * y * size) / 100 - wave.w * t + wave.p;
+      rowSin[k * rows + y] = Math.sin(v);
+      rowCos[k * rows + y] = Math.cos(v);
+    }
   }
-  const small = scratch.getContext("2d", { willReadFrequently: true });
-  if (!small) return;
-  const image = small.createImageData(cols, rows);
-  const { data } = image;
-  const size = cell / dpr;
-  // The wobble depends only on the angle around the origin, so it's worked out once per frame for each step round.
-  const wobble = new Float32Array(WOBBLE_STEPS);
-  for (let i = 0; i < WOBBLE_STEPS; i++) wobble[i] = (valueNoise(((i / WOBBLE_STEPS) * 2 * Math.PI - Math.PI) * 4 + 20, seconds * 0.6) - 0.5) * 2 * WOBBLE;
+  // The tub rocks: the surface tilts one way and back, and bobs, on slow periods that don't line up.
+  const tilt = 0.55 * Math.sin(t * 0.42) + 0.2 * Math.sin(t * 0.17 + 2);
+  const bob = 0.3 * Math.sin(t * 0.29 + 1) + 0.12 * Math.sin(t * 0.71);
+  const mid = cols / 2;
 
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
-      const px = (x + 0.5) * size;
-      const py = (y + 0.5) * size;
-      if (insetDistance(px, py, width, height, radius) < -size * 0.5) continue;
-      const dx = px - origin[0];
-      const dy = py - origin[1];
-      const plain = Math.hypot(dx, dy);
-      // Most cells are nowhere near a ring and have nothing to draw.
-      let nearRing = false;
-      for (const ring of rings) if (ring.strength > 0 && plain > ring.radius - ring.band - WOBBLE && plain < ring.radius + WOBBLE) nearRing = true;
-      if (!nearRing) continue;
-      const d = plain + (wobble[Math.round(((Math.atan2(dy, dx) + Math.PI) / (2 * Math.PI)) * WOBBLE_STEPS) % WOBBLE_STEPS] ?? 0);
-      let a = 0;
-      let tone = 0.5;
-      for (const ring of rings) {
-        if (ring.strength <= 0) continue;
-        // 0 at the leading edge, 1 at the back of the band.
-        const k = (ring.radius - d) / ring.band;
-        if (k < 0 || k > 1) continue;
-        // A crisp leading edge, then a long soft tail, as glimm's band has.
-        const shape = k < 0.1 ? k / 0.1 : (1 - k) ** 1.4;
-        const v = shape * ring.strength;
-        if (v > a) {
-          a = v;
-          tone = 1 - k;
-        }
+      // The swell's height here, and its slope across and down.
+      let h = 0;
+      let sx = 0;
+      let sy = 0;
+      for (let k = 0; k < n; k++) {
+        const wave = SWELL[k];
+        if (!wave) continue;
+        const cs = colSin[k * cols + x] ?? 0;
+        const cc = colCos[k * cols + x] ?? 0;
+        const rs = rowSin[k * rows + y] ?? 0;
+        const rc = rowCos[k * rows + y] ?? 0;
+        // sin(a + b) and cos(a + b) from the column's a and the row's b.
+        const sin = cs * rc + cc * rs;
+        const cos = cc * rc - cs * rs;
+        h += wave.a * sin;
+        sx += wave.a * wave.kx * cos;
+        sy += wave.a * wave.ky * cos;
       }
-      // Ordered dither done here rather than by ditherdance: the cell's place along the palette is already known, so
-      // the threshold picks between the two stops either side of it, and keeps or drops the cell by its strength.
-      const threshold = ((BAYER4[(y % 4) * 4 + (x % 4)] ?? 0) + 0.5) / 16;
-      if (a <= threshold) continue;
-      const stop = SYNTHWAVE[Math.min(SYNTHWAVE.length - 1, Math.floor(tone * (SYNTHWAVE.length - 1) + threshold))] ?? [0, 0, 0];
-      const i = (y * cols + x) * 4;
-      data[i] = stop[0];
-      data[i + 1] = stop[1];
-      data[i + 2] = stop[2];
-      data[i + 3] = 255;
+      const along = (y * size) / CREST_GAP + h + (tilt * (x - mid) * size) / 200 + bob;
+      const phase = along - Math.floor(along);
+      // The crest: sharp at its front, a tail behind, as the band is.
+      const crest = phase < 0.06 ? phase / 0.06 : (1 - phase) ** 3;
+      // Patches: the light gathers where the swell runs high and thins where it runs low.
+      const patch = Math.min(1, Math.max(0, 0.55 + h * 0.9));
+      const i = y * cols + x;
+      const threshold = ((BAYER4[(y & 3) * 4 + (x & 3)] ?? 0) + 0.5) / 16;
+
+      const a = crest * patch * light;
+      if (a > threshold) {
+        const k = Math.min(SYNTH_PACKED.length - 1, Math.floor((1 - phase) * (SYNTH_PACKED.length - 1) + threshold));
+        px[i] = SYNTH_PACKED[k] ?? 0;
+        continue;
+      }
+      // Otherwise the photo, seen through the surface: bent by its slope, a touch brighter under a crest.
+      const gx = Math.min(cols - 1, Math.max(0, Math.round(x + sx * bend)));
+      const gy = Math.min(rows - 1, Math.max(0, Math.round(y + sy * bend)));
+      const g = Math.min(1, Math.max(0, (lum[gy * cols + gx] ?? 0) + crest * patch * light * 0.15));
+      let s = 0;
+      while (s < last && g > (GREY_LUM[s + 1] ?? 1)) s++;
+      const lo = GREY_LUM[s] ?? 0;
+      const hi = GREY_LUM[Math.min(last, s + 1)] ?? 1;
+      const f = hi > lo ? (g - lo) / (hi - lo) : 0;
+      px[i] = GREY_PACKED[f > threshold ? Math.min(last, s + 1) : s] ?? 0;
     }
   }
-  small.putImageData(image, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(scratch, 0, 0, cols * cell, rows * cell);
+  ctx.putImageData(image, 0, 0);
 }
