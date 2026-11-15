@@ -95,6 +95,7 @@ export function App() {
 
   function showKit(kit: Kit, lesson?: Lesson) {
     prefetchLessonPlayer();
+    void import("./primitives/stage/looks.ts").then(({ warmUpStage }) => warmUpStage());
     setState({ phase: "viewing", kit, lesson: lesson ? { status: "complete", lesson } : planning() });
     if (!lesson) void planLesson(kit);
   }

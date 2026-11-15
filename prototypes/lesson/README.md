@@ -93,7 +93,7 @@ kit's joints and words, otherwise Inspect (take it apart and name each part's jo
 | `DragBuild.tsx`, `lens.ts`, `outline.ts` | Build by dragging: the step, screen to kit and back through the viewer's camera, the ghost outline |
 | `Story.tsx`, `Play.tsx` | The story lesson's flow and its test screens (without it, make it work, final) |
 | `Inspect.tsx` | The take-apart lesson |
-| `ui.tsx`, `dither.tsx`, `anim.ts`, `ease.ts` | Shared UI, the dithered photo, animation helpers |
+| `ui.tsx`, `dither.tsx`, `anim.ts` | Shared UI, the dithered photo, animation helpers |
 | `base.css`, `lesson.css` | Styles |
 | `explode.ts`, `useExplode.ts` | The explode's springs (pure, replayed by verify) and the screen's hook |
 | `lessons/bottle-kit.ts` | The bottle lesson's hand-made model |

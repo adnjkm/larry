@@ -3,7 +3,7 @@
 // A jaw is a long child lying along its parent with a spring part beside it (a part the kit itself
 // names or describes as a spring, like a clothes peg's coil): pinching its back end, on the spring's
 // side, opens its front end, and the spring pushes the back ends apart again, which closes the front.
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { type Axis, AXIS, type PartMove, type Run, type TestCtx, type Values, type Vec, vec, type Window } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";
 import { add, arrowMark, carry, farFace, outBy, overlay, type Pair, scale, sub, targetOf, type Template, tenth } from "./pair.ts";

@@ -1,7 +1,7 @@
 // The stapler: drive the staple (lever arm ratio), spring back open (spring stiffness).
 // The head (channel, arm, pad, pin) is one rigid body that turns about the hinge pin, resting open.
 import type { Kit, Part, Shape } from "../../../shared/kit.ts";
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { AXIS, type Ctx, defineLesson, type Mark, type Overlay, type PartMove, type Scene, STILL, type Test, type Values, vec, type Vec, type Window } from "../model.ts";
 import { extents } from "../pose.ts";
 

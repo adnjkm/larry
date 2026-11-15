@@ -12,8 +12,8 @@ import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
 import { DEFAULT_LOOK, type DitherLook } from "../kit3d/ditherLook.ts";
-import { type DitherMethod, ditherBand, drawDitherBar, fitFor } from "./dither.ts";
-import { type DevelopLook, useDevelop } from "./Develop.tsx";
+import { ditherBand, drawDitherBar, fitFor } from "./dither.ts";
+import { type DevelopLook, type SweepNow, useDevelop } from "./Develop.tsx";
 import { Surface } from "../surface/Surface.tsx";
 import { circle, drum, type Relief, rrect } from "../surface/relief.ts";
 import { thumbwheel } from "./thumbwheel.ts";
@@ -78,7 +78,7 @@ type Layout = {
   wheel: { width: number; height: number; ridges: number; rim: number };
   shot: ShotLook;
   /** `glow` is the frame glow's opacity, 0 to 1, and `reach` its blur in CSS px. */
-  develop: DevelopLook & { from: "shutter" | "centre"; glow: number; reach: number };
+  develop: DevelopLook & { glow: number; reach: number };
 };
 
 /** How a shot's sweep looks: glimm's band, redrawn as dither. */
@@ -343,9 +343,9 @@ const s = stylex.create({
   fill: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
   overlay: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" },
 
-  pixelated: { imageRendering: "pixelated" },
-  // The grey photo starts hidden; the develop wave opens it as a growing circle.
-  unrevealed: { clipPath: "circle(0px at 0px 0px)" },
+  // The grey photo, sized by useDevelop to whole cells, so it can run a little past the frame's edge.
+  grey: { position: "absolute", top: 0, left: 0, pointerEvents: "none", imageRendering: "pixelated" },
+  hidden: { visibility: "hidden" },
   // While Larry works the frame glows like a lit screen: a tiny copy of what it shows, blurred, behind it, so each
   // part of its edge spills its own colour (see useDevelop).
   glow: (width: number, height: number, reach: number) => ({
@@ -552,16 +552,17 @@ export default function CameraMock() {
         grain: [1.5, 0.5, 4, 0.5],
         pageEffect: true,
       },
-      // After the last photo: a ring runs out across the frame turning the photo to grey dither, then fainter rings and
-      // a glow around the frame while Larry works, then the camera lifts away from the model.
+      // After the last photo: the capture sweep unveils the photo in grey dither, which then stays alive while Larry
+      // works (the sweep's light drifting over it, the photo swaying under it) with a glow round the frame, then the
+      // camera lifts away from the model.
       develop: {
-        from: { type: "select", options: ["shutter", "centre"], default: "shutter" },
-        waveMs: [1600, 600, 4000, 100],
-        pulseMs: [1400, 600, 4000, 100],
+        // How far the photo sways, in px; how strongly the synthwave light shows; how fast it all moves.
+        sway: [4, 0, 12, 0.5],
+        glimmer: [0.35, 0, 1, 0.05],
+        speed: [1, 0.2, 3, 0.1],
         // The frame's glow while Larry works, from what it shows, like a lit screen (renamed so earlier glows' values drop).
         screenGlow: [0.8, 0, 1, 0.05],
         screenGlowBlur: [18, 4, 48, 2],
-        method: { type: "select", options: ["bayer", "atkinson", "floyd-steinberg"], default: "bayer" },
       },
       result: {
         cardHeight: [392, 240, 560, 2],
@@ -594,7 +595,7 @@ export default function CameraMock() {
     },
     wheel: { width: camera.wheelWidth, height: camera.wheelHeight, ridges: camera.wheelRidges, rim: camera.wheelRim },
     shot: { sweepMs: shot.sweepMs, curve: shot.curve, grain: shot.grain, pageEffect: shot.pageEffect },
-    develop: { from: develop.from as "shutter" | "centre", waveMs: develop.waveMs, pulseMs: develop.pulseMs, glow: develop.screenGlow, reach: develop.screenGlowBlur },
+    develop: { wave: develop.sway, light: develop.glimmer, speed: develop.speed, settleMs: shot.sweepMs * 0.15, glow: develop.screenGlow, reach: develop.screenGlowBlur },
   };
 
   const frame = { width: DEVICE.width + 2 * device.bezel, height: DEVICE.height + 2 * device.bezel };
@@ -636,7 +637,6 @@ export default function CameraMock() {
             pace={dials.pace as Pace}
             startAt={run.startAt}
             layout={layout}
-            method={develop.method as DitherMethod}
             device={{ tab, usableTop, usableHeight, radius: device.screenRadius, hole: device.cameraHole ? device.holeSize : 0, showUsable: device.usableArea }}
             onLog={(line) => setLog((l) => [...l, line])}
             onRestart={() => restart("live")}
@@ -670,7 +670,6 @@ function Flow({
   pace,
   startAt,
   layout,
-  method,
   device,
   onLog,
   onRestart,
@@ -679,7 +678,6 @@ function Flow({
   pace: Pace;
   startAt: StartAt;
   layout: Layout;
-  method: DitherMethod;
   device: DeviceFrame;
   onLog: (line: string) => void;
   onRestart: () => void;
@@ -692,6 +690,8 @@ function Flow({
   // carried up into it.
   const [filled, setFilled] = useState(atEnd ? 1 : 0);
   const [angle, setAngle] = useState(0);
+  // The last shot's sweep has unveiled the grey photo.
+  const [developed, setDeveloped] = useState(false);
   const [frozen, setFrozen] = useState(atEnd);
   const [pressed, setPressed] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
@@ -736,16 +736,16 @@ function Flow({
     setFrozen(true);
     if (flashOn) setBurst((b) => b + 1);
     setShots(n);
-    // The last shot goes straight into the develop wave, which runs out from the shutter. Before it, the band climbs
-    // from the shutter and the next view is already behind it.
+    // The band climbs from the shutter with the next view already behind it. After the last shot that view is the
+    // photo in grey dither, and Larry starts reading.
+    unveil.current?.play(
+      () => (last ? setDeveloped(true) : setAngle(n)),
+      () => setFilled(n),
+    );
     if (last) {
       read();
       return;
     }
-    unveil.current?.play(
-      () => setAngle(n),
-      () => setFilled(n),
-    );
     later(650, () => setFrozen(false));
   }
 
@@ -788,17 +788,13 @@ function Flow({
   // Each new shot fakes a new angle on the same photo.
   const angleTransform = angle === 1 ? "scaleX(-1)" : angle === 2 ? "scale(1.12) translateY(3%)" : "none";
   const develop = useDevelop({
-    active: !live && sheet !== "gone",
+    active: developed && sheet !== "gone",
     photo: object.photo,
     box,
-    radius: layout.cardRadius,
     zoom,
     grain: layout.top.ditherGrain,
-    lightGrain: layout.shot.grain,
-    method,
-    origin: layout.develop.from === "shutter" ? [box.width / 2, box.height + layout.barHeight / 2] : [box.width / 2, box.height / 2],
     look: layout.develop,
-    onTop: () => setFilled(shots),
+    sweep: () => unveil.current?.now() ?? NO_SWEEP,
   });
 
   return (
@@ -870,13 +866,12 @@ function Flow({
               <canvas ref={develop.glow} aria-hidden {...stylex.props(s.glow(box.width, box.height, layout.develop.reach), !live && s.glowOn(layout.develop.glow))} />
               <div {...stylex.props(s.card(layout.cardWidth, layout.cardLive, layout.cardRadius))}>
                 <div {...stylex.props(s.feed(box.width, box.height), s.feedDrift, (frozen || !live) && s.feedFrozen)}>
-                  <Unveil ref={unveil} look={layout.shot}>
+                  <Unveil ref={unveil} look={layout.shot} under={<canvas ref={develop.grey} aria-hidden {...stylex.props(s.grey)} />}>
                     <div {...stylex.props(s.zoom(zoom))}>
                       <Photo src={object.photo} transform={angleTransform} box={box} />
                     </div>
+                    <canvas ref={develop.still} aria-hidden {...stylex.props(s.grey, !developed && s.hidden)} />
                   </Unveil>
-                  <canvas ref={develop.photo} aria-hidden {...stylex.props(s.overlay, s.pixelated, s.unrevealed)} />
-                  <canvas ref={develop.light} aria-hidden {...stylex.props(s.overlay)} />
                 </div>
                 {live && zoom > ZOOM.min + 0.04 && <span {...stylex.props(s.zoomChip)}>{zoom.toFixed(1)}×</span>}
               </div>
@@ -1155,14 +1150,16 @@ const BAND_BLEED = 24 / BAND_SCALE;
 const TOP_REACHED = 0.03;
 
 /** `onTop` runs once, when the band has climbed to the top of the frame. */
-type UnveilHandle = { play: (change?: () => void, onTop?: () => void) => void };
+type UnveilHandle = { play: (change?: () => void, onTop?: () => void) => void; now: () => SweepNow };
+const NO_SWEEP: SweepNow = { running: false, canvas: null, front: null };
 
 /**
  * glimm's sweep, as in its "Generate data" demo: a band rises from the bottom, curved at its ends, and whatever
  * `change` sets is unveiled behind it while the old view holds ahead of it. glimm draws the band; we keep its canvas
  * invisible and redraw each frame as synthwave dither (see ditherBand).
  */
-function Unveil({ ref, look, children }: { ref: Ref<UnveilHandle>; look: ShotLook; children: ReactNode }) {
+/** `under` sits over the scope but under the band: something that changes every frame, which glimm shouldn't watch. */
+function Unveil({ ref, look, under, children }: { ref: Ref<UnveilHandle>; look: ShotLook; under?: ReactNode; children: ReactNode }) {
   const scope = useRef<GlimmScopeHandle>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const out = useRef<HTMLCanvasElement>(null);
@@ -1170,6 +1167,7 @@ function Unveil({ ref, look, children }: { ref: Ref<UnveilHandle>; look: ShotLoo
   const loop = useRef(0);
   const playedAt = useRef(0);
   const reachedTop = useRef<(() => void) | undefined>(undefined);
+  const front = useRef<number | null>(null);
   const latest = useRef(look);
   latest.current = look;
 
@@ -1208,14 +1206,16 @@ function Unveil({ ref, look, children }: { ref: Ref<UnveilHandle>; look: ShotLoo
             loop.current = 0;
             return;
           }
-          const front = ditherBand(el, source, box.clientWidth, box.clientHeight, BAND_BLEED, latest.current.grain, scratch);
+          const edge = ditherBand(el, source, box.clientWidth, box.clientHeight, BAND_BLEED, latest.current.grain, scratch);
+          front.current = edge;
           const since = now - playedAt.current;
-          if (front !== null && front <= TOP_REACHED) {
+          if (edge !== null && edge <= TOP_REACHED) {
             reachedTop.current?.();
             reachedTop.current = undefined;
           }
           // Stop once the band has gone, or a beat after the sweep should have ended, whichever is first.
-          if ((front === null && since > 400) || since > latest.current.sweepMs + 1200) {
+          if ((edge === null && since > 400) || since > latest.current.sweepMs + 1200) {
+            front.current = null;
             reachedTop.current?.();
             reachedTop.current = undefined;
             el.getContext("2d")?.clearRect(0, 0, el.width, el.height);
@@ -1226,6 +1226,7 @@ function Unveil({ ref, look, children }: { ref: Ref<UnveilHandle>; look: ShotLoo
         };
         loop.current = requestAnimationFrame(tick);
       },
+      now: () => ({ running: loop.current !== 0, canvas: out.current, front: front.current }),
     }),
     [],
   );
@@ -1245,6 +1246,7 @@ function Unveil({ ref, look, children }: { ref: Ref<UnveilHandle>; look: ShotLoo
       >
         {children}
       </GlimmScope>
+      {under}
       <canvas ref={out} aria-hidden {...stylex.props(s.overlay)} />
     </div>
   );

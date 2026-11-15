@@ -1,7 +1,7 @@
 // A part the kit calls a seal (see templates/evidence.ts): without it the object drips at the joint
 // when flipped. It works by being squeezed, so the player drags the grip of whatever closes over it
 // (its closer, see templates/seal.ts): too loose leaves gaps, too far and it won't open.
-import { clamp01, smooth } from "../ease.ts";
+import { clamp01, smooth } from "../../../shared/primitives/motion/ease.ts";
 import type { Rigid, StoryModuleSpec, Test } from "../model.ts";
 import { rigidPoint } from "../pose.ts";
 import { flipFrame, ringOf } from "../templates/seal.ts";

@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
-import { type KitBounds, measureParts } from "../kit3d/buildKit.ts";
+import { type KitBounds, measureParts } from "../../shared/bounds.ts";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
 import { VIEWPORT_GRAIN, VIEWPORT_HEIGHT } from "../viewport.ts";
 
