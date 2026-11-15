@@ -491,7 +491,7 @@ function Works({ story, kit, screen, values, onValues, ...page }: Bench & PagePr
   const [results, setResults] = useState<Readonly<Record<string, Verdict>>>({});
   const done = tests.every((t) => results[t.id]?.pass);
   return (
-    <Page kind="works" {...page} say={screen.say} done={done} line={done ? screen.success : last?.line} bad={!done && last !== undefined && !last.pass} next={screen.last ? "Start Over" : "Continue"}>
+    <Page kind="works" {...page} say={screen.say} done={done} line={done ? undefined : last?.line} bad={last !== undefined && !last.pass} next={screen.last ? "Start Over" : "Continue"}>
       <ul className="goals">
         {screen.goals.map((g) => {
           const r = results[g.test.id];

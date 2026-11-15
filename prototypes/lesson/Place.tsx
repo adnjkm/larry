@@ -215,22 +215,29 @@ export function Place({ story, kit, index, next, onNext, header, instruction, tr
     setPhase({ kind: "loose" });
   };
 
-  // On arrival the test plays once with the piece still in the hand, so what the piece is for is seen before it is placed.
-  const opening = useRef<() => void>(undefined);
-  opening.current = () => {
-    if (!trial || phase.kind !== "loose") return;
-    const test = trial.test.run({ ...trial.fail }, setup.ctx);
-    setPhase({ kind: "running", spot: "" });
+  // The test as things stand: with the piece still in the hand it fails, and once the piece is found it passes. It
+  // plays on arrival, so what the piece is for is seen before it is placed, and again whenever Replay Test is pressed.
+  const [replaying, setReplaying] = useState(false);
+  const replay = useRef<() => void>(undefined);
+  replay.current = () => {
+    if (!trial || replaying || phase.kind === "running" || phase.kind === "held") return;
+    const done = phase.kind === "found";
+    const test = done ? trial.test.run({ ...trial.pass }, setup.wholeCtx) : trial.test.run({ ...trial.fail }, setup.ctx);
+    setReplaying(true);
+    if (!done) setPhase({ kind: "running", spot: "" });
     void play(test.durationMs, (ms) => setAnim(test.at(ms)), alive).then(() => {
       if (!alive()) return;
       setAnim(null);
+      setReplaying(false);
+      if (done) return;
       setLine({ text: test.verdict.line, bad: true });
       setPhase({ kind: "loose" });
     });
   };
+  // As soon as the screen is up: a wait here reads as the screen being slow.
   useEffect(() => {
-    const id = window.setTimeout(() => opening.current?.(), 700);
-    return () => clearTimeout(id);
+    const id = requestAnimationFrame(() => replay.current?.());
+    return () => cancelAnimationFrame(id);
   }, []);
 
   // The grip over the piece and a tap target over every spot follow them on screen every frame.
@@ -297,9 +304,15 @@ export function Place({ story, kit, index, next, onNext, header, instruction, tr
           </Why>
         )}
       >
-        {instruction && !found ? instruction : say}
+        {instruction ?? say}
       </Say>
-      <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live}>
+      {/* No status chip over the picture when a test answers each drop: the picture and the line under it say it. */}
+      <Viewer parts={parts} subject={subject} view={story.view} live={trial ? undefined : anim?.live}>
+        {trial ? (
+          <button type="button" className="replay" data-replay disabled={replaying || phase.kind === "running" || phase.kind === "held"} onClick={() => replay.current?.()}>
+            Replay Test
+          </button>
+        ) : null}
         {found ? null : (
           <>
             <button
@@ -352,9 +365,12 @@ export function Place({ story, kit, index, next, onNext, header, instruction, tr
         )}
       </Viewer>
       <Cheer text={FOUND} show={cheers} />
-      <p className="result" data-result-line data-bad={line?.bad ? "" : undefined}>
-        {line ? line.text : " "}
-      </p>
+      {/* With a test answering each drop, the picture is the feedback: no line of commentary under it. */}
+      {trial ? null : (
+        <p className="result" data-result-line data-bad={line?.bad ? "" : undefined}>
+          {line ? line.text : " "}
+        </p>
+      )}
       <Actions>
         <button type="button" className="btn" data-next disabled={!found} onClick={onNext}>
           <PillSurface>{next}</PillSurface>
