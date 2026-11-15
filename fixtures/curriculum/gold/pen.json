@@ -1,0 +1,120 @@
+{
+  "accept": [
+    "The ballpoint is preferred as a lesson (valve, or seal), but filing the ink tube and its ball as a given is acceptable: no primitive is exactly a rolling ball. Do not take points off for either choice. Any other primitive there is bent.",
+    "Retraction must use spring. Holding the tip out may be catch or ratchet. Alternating the press must be cam. Two sub-functions (spring, cam) are acceptable if the cam's step covers holding the tip out.",
+    "The pocket clip, the barrel, the nose cone and the ink tube are givens. Making any of them a lesson is wrong.",
+    "Nose cone as its own given, or the ink tube merged into the ballpoint lesson, is fine.",
+    "If the ballpoint is a lesson it comes before retraction. The barrel may come before or after it."
+  ],
+  "plan": {
+    "object": "Click pen",
+    "job": "Leaves a line of ink on paper and hides its tip between uses.",
+    "uses": [
+      "Click the button.",
+      "Write a line.",
+      "Click again and clip it in a pocket."
+    ],
+    "mechanisms": [
+      {
+        "id": "ink-tube",
+        "name": "Ink tube",
+        "does": "Holds enough ink to write for months.",
+        "parts": [
+          "refill"
+        ],
+        "needs": [],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      },
+      {
+        "id": "ballpoint",
+        "name": "Ballpoint tip",
+        "does": "Puts ink on paper only where the tip touches.",
+        "parts": [
+          "refill"
+        ],
+        "needs": [
+          "ink-tube"
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Hold the open tube tip down over paper.",
+          "fails": "The ink runs out in a blob instead of a line."
+        },
+        "subfunctions": [
+          {
+            "id": "meter-ink",
+            "does": "Let ink out only while the tip rolls",
+            "primitive": "valve"
+          }
+        ]
+      },
+      {
+        "id": "barrel",
+        "name": "Barrel",
+        "does": "Gives the hand a grip and keeps the tube straight.",
+        "parts": [
+          "barrel",
+          "nose-cone"
+        ],
+        "needs": [
+          "ink-tube"
+        ],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      },
+      {
+        "id": "retraction",
+        "name": "Retraction",
+        "does": "Hides the tip with one click and brings it back with the next.",
+        "parts": [
+          "plunger",
+          "barrel",
+          "refill"
+        ],
+        "needs": [
+          "ballpoint",
+          "barrel"
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Drop the pen in a shirt pocket.",
+          "fails": "The wet tip is always out and marks the cloth."
+        },
+        "subfunctions": [
+          {
+            "id": "return-tip",
+            "does": "Pull the tip back inside",
+            "primitive": "spring"
+          },
+          {
+            "id": "hold-out",
+            "does": "Hold the tip out while you write",
+            "primitive": "catch"
+          },
+          {
+            "id": "alternate",
+            "does": "Make the same press latch and release",
+            "primitive": "cam"
+          }
+        ]
+      },
+      {
+        "id": "clip",
+        "name": "Pocket clip",
+        "does": "Holds the pen in a pocket.",
+        "parts": [
+          "clip"
+        ],
+        "needs": [
+          "barrel"
+        ],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      }
+    ]
+  }
+}

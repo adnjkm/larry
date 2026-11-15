@@ -1,10 +1,12 @@
 import { serve } from "@hono/node-server";
 import { type Context, Hono } from "hono";
 import { stream } from "hono/streaming";
+import { CurriculumError, briefOf } from "../shared/curriculum.ts";
 import { KitError, parseKit } from "../shared/kit.ts";
 import { LessonError, Shown } from "../shared/lesson.ts";
 import { encodeEvent, failedEvent } from "../shared/ndjson.ts";
 import { MAX_PHOTOS } from "../shared/photos.ts";
+import { streamCurriculum } from "./streamCurriculum.ts";
 import { type Photo, streamKit } from "./streamKit.ts";
 import { streamLesson } from "./streamLesson.ts";
 
@@ -63,6 +65,26 @@ const app = new Hono()
         onStats: (s) => console.log(`lesson: first chapter ${s.firstChapterMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}, ${s.attempts} attempt(s)`),
       });
     return ndjson(c, events, (error) => (error instanceof LessonError ? "Larry's plan didn't hold together" : "Larry couldn't plan this one"));
+  })
+  // Replaces /api/lessons once the lesson screens read it: the plan first, then one lesson per mechanism.
+  .post("/api/curriculum", async (c) => {
+    const body: unknown = await c.req.json().catch(() => null);
+    let kit;
+    try {
+      kit = parseKit((body as { kit?: unknown } | null)?.kit);
+    } catch {
+      return c.json({ error: "Send the kit to plan a curriculum for" }, 400);
+    }
+    const sec = (ms: number | undefined) => `${((ms ?? NaN) / 1000).toFixed(1)}s`;
+    const events = (signal: AbortSignal) =>
+      streamCurriculum(briefOf(kit), {
+        signal,
+        onStats: (s) =>
+          console.log(
+            `curriculum: plan ${sec(s.plan.ms)} (${s.plan.attempts} attempt(s)), first lesson ${sec(s.firstLessonMs)}, lessons ${sec(s.lessons.ms)}, $${(s.plan.costUsd + s.lessons.costUsd).toFixed(3)}`,
+          ),
+      });
+    return ndjson(c, events, (error) => (error instanceof CurriculumError ? "Larry's plan didn't hold together" : "Larry couldn't plan this one"));
   });
 
 serve({ fetch: app.fetch, port: Number(process.env.LARRY_API_PORT ?? 8787) }, ({ port }) => console.log(`server on :${port}`));

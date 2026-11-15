@@ -1,0 +1,11 @@
+{
+  "name": "Bicycle floor pump",
+  "summary": "Pushing the handle down drives a plunger through the barrel and forces air down the hose into the tyre, and the air cannot come back out when you pull the handle up again.",
+  "parts": [
+    { "id": "barrel", "name": "Barrel", "role": "The long tube the plunger slides in, where the air is squeezed.", "parentId": null, "joint": null },
+    { "id": "handle", "name": "Handle and rod", "role": "The T-handle you push and pull, on a rod that carries the plunger.", "parentId": "barrel", "joint": "slide" },
+    { "id": "base", "name": "Foot plate", "role": "You stand on it to hold the pump still.", "parentId": "barrel", "joint": "weld" },
+    { "id": "hose", "name": "Hose", "role": "Carries the air from the barrel to the tyre.", "parentId": "barrel", "joint": "press-fit" },
+    { "id": "head", "name": "Pump head", "role": "Clamps onto the tyre's valve stem with a flip lever.", "parentId": "hose", "joint": "press-fit" }
+  ]
+}

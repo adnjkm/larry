@@ -1,0 +1,124 @@
+{
+  "accept": [
+    "Driving the staple needs lever. Folding the legs on the anvil is wedge. Folding the legs as its own lesson (wedge) instead of a sub-function of the drive is acceptable.",
+    "A spring that lifts the arm back up is an acceptable third sub-function of the drive, and may be left out.",
+    "Feeding the next staple is a lesson answered by spring.",
+    "The base, the rubber foot and the staple channel are givens. An opening top for reloading is a welcome given but not required, since the scan does not show it. The rubber foot as a grip lesson is wrong.",
+    "Feed comes after the drive, because its gap only shows on the second press."
+  ],
+  "plan": {
+    "object": "Desk stapler",
+    "job": "Pins sheets of paper together with a bent wire staple.",
+    "uses": [
+      "Slide the paper in.",
+      "Press the top.",
+      "Press again on the next stack.",
+      "Open it and drop in a new strip."
+    ],
+    "mechanisms": [
+      {
+        "id": "base",
+        "name": "Base",
+        "does": "Sits steady on the desk and holds the paper.",
+        "parts": [
+          "base",
+          "rubber-pad"
+        ],
+        "needs": [],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      },
+      {
+        "id": "channel",
+        "name": "Staple channel",
+        "does": "Holds a row of staples in line.",
+        "parts": [
+          "magazine"
+        ],
+        "needs": [
+          "base"
+        ],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      },
+      {
+        "id": "drive",
+        "name": "Staple drive",
+        "does": "Punches one staple through the paper and folds it flat.",
+        "parts": [
+          "top-arm",
+          "blue-cap",
+          "pivot-pin",
+          "anvil"
+        ],
+        "needs": [
+          "base",
+          "channel"
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Push a staple through a stack of paper with your thumb.",
+          "fails": "The legs buckle and nothing holds the sheets together."
+        },
+        "subfunctions": [
+          {
+            "id": "press-hard",
+            "does": "Turn a hand press into a hard, straight push",
+            "primitive": "lever"
+          },
+          {
+            "id": "fold-legs",
+            "does": "Fold the legs flat under the paper",
+            "primitive": "wedge"
+          },
+          {
+            "id": "lift-arm",
+            "does": "Lift the arm back up for the next press",
+            "primitive": "spring"
+          }
+        ]
+      },
+      {
+        "id": "feed",
+        "name": "Staple feed",
+        "does": "Brings the next staple under the blade by itself.",
+        "parts": [
+          "magazine"
+        ],
+        "needs": [
+          "channel",
+          "drive"
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Press the arm a second time.",
+          "fails": "Nothing comes out, because no staple is under the blade."
+        },
+        "subfunctions": [
+          {
+            "id": "push-strip",
+            "does": "Push the strip forward as each staple leaves",
+            "primitive": "spring"
+          }
+        ]
+      },
+      {
+        "id": "opening-top",
+        "name": "Opening top",
+        "does": "Swings open so a new strip can be dropped in.",
+        "parts": [
+          "top-arm",
+          "pivot-pin"
+        ],
+        "needs": [
+          "channel"
+        ],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      }
+    ]
+  }
+}

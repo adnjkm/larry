@@ -1,0 +1,11 @@
+{
+  "name": "Stick umbrella",
+  "summary": "Sliding the runner up the shaft pushes thin struts outward that stretch the fabric into a dome, and it stays open until you press a small button on the shaft.",
+  "parts": [
+    { "id": "shaft", "name": "Shaft", "role": "The pole everything hangs on.", "parentId": null, "joint": null },
+    { "id": "handle", "name": "Hook handle", "role": "Where you hold it.", "parentId": "shaft", "joint": "press-fit" },
+    { "id": "runner", "name": "Runner", "role": "The ring you slide up the shaft to open the umbrella.", "parentId": "shaft", "joint": "slide" },
+    { "id": "ribs", "name": "Ribs and struts", "role": "Thin arms hinged at the top of the shaft, pushed outward by struts from the runner.", "parentId": "shaft", "joint": "hinge" },
+    { "id": "canopy", "name": "Canopy", "role": "The fabric that keeps the rain off.", "parentId": "ribs", "joint": "glue" }
+  ]
+}

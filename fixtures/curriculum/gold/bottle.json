@@ -1,0 +1,94 @@
+{
+  "accept": [
+    "Two lessons is preferred: the screw cap (thread) and the leakproof seal (seal). One lesson with two sub-functions (thread, then seal) is acceptable.",
+    "The body and the double wall that keeps the drink hot or cold are givens; nothing in the catalogue teaches insulation. They may be one given or two.",
+    "The ring tab is a given, on its own or with the seal ring.",
+    "The seal comes after the cap: its gap is that a closed bottle still weeps along the thread."
+  ],
+  "plan": {
+    "object": "Insulated water bottle",
+    "job": "Carries a drink without spilling and keeps it hot or cold.",
+    "uses": [
+      "Fill it.",
+      "Screw the cap on.",
+      "Carry it in a bag.",
+      "Unscrew and drink."
+    ],
+    "mechanisms": [
+      {
+        "id": "body",
+        "name": "Body",
+        "does": "Holds the drink.",
+        "parts": [
+          "body"
+        ],
+        "needs": [],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      },
+      {
+        "id": "double-wall",
+        "name": "Double wall",
+        "does": "Keeps the drink hot or cold for hours.",
+        "parts": [
+          "body"
+        ],
+        "needs": [
+          "body"
+        ],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      },
+      {
+        "id": "screw-cap",
+        "name": "Screw cap",
+        "does": "Closes the mouth and stays shut while carried.",
+        "parts": [
+          "cap",
+          "body"
+        ],
+        "needs": [
+          "body"
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Put the open bottle in a bag and walk.",
+          "fails": "The drink slops out of the mouth."
+        },
+        "subfunctions": [
+          {
+            "id": "hold-cap",
+            "does": "Hold the cap down on the neck",
+            "primitive": "thread"
+          }
+        ]
+      },
+      {
+        "id": "leakproof-seal",
+        "name": "Leakproof seal",
+        "does": "Keeps every drop in, even lying on its side.",
+        "parts": [
+          "seal-ring",
+          "ring-tab"
+        ],
+        "needs": [
+          "screw-cap"
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Screw the cap on and lay the bottle on its side.",
+          "fails": "Water creeps out along the thread."
+        },
+        "subfunctions": [
+          {
+            "id": "close-gap",
+            "does": "Fill the gap between cap and neck",
+            "primitive": "seal"
+          }
+        ]
+      }
+    ]
+  }
+}

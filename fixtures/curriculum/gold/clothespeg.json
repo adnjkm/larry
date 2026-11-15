@@ -1,0 +1,62 @@
+{
+  "accept": [
+    "One lesson: the spring clamp, answered by spring and lever. grip as a third sub-function for the jaw tips holding cloth is acceptable.",
+    "The two arms are a given, alone or folded into the lesson. The lesson may be the first mechanism with no gap.",
+    "catch, ratchet and linkage are bent here."
+  ],
+  "plan": {
+    "object": "Clothespin",
+    "job": "Holds washing on a line until you pinch it open.",
+    "uses": [
+      "Pinch the back ends.",
+      "Slip it over the washing and the line.",
+      "Let go."
+    ],
+    "mechanisms": [
+      {
+        "id": "arms",
+        "name": "Two arms",
+        "does": "Two arms that meet at the tips around the line.",
+        "parts": [
+          "lower-arm",
+          "upper-arm"
+        ],
+        "needs": [],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      },
+      {
+        "id": "clamp",
+        "name": "Spring clamp",
+        "does": "Squeezes the tips shut by itself and opens with a pinch.",
+        "parts": [
+          "spring-coil",
+          "spring-leg",
+          "lower-arm",
+          "upper-arm"
+        ],
+        "needs": [
+          "arms"
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Hang a wet towel between the two loose arms.",
+          "fails": "The arms fall apart and the towel drops."
+        },
+        "subfunctions": [
+          {
+            "id": "squeeze-shut",
+            "does": "Keep the tips squeezed shut with no hand",
+            "primitive": "spring"
+          },
+          {
+            "id": "pinch-open",
+            "does": "Open the jaws with a light pinch",
+            "primitive": "lever"
+          }
+        ]
+      }
+    ]
+  }
+}

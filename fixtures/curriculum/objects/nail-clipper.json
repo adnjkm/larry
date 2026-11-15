@@ -1,0 +1,9 @@
+{
+  "name": "Nail clipper",
+  "summary": "Pressing the long handle squeezes two sharp curved jaws together so they bite through a fingernail, and the jaws spring back open when you let go.",
+  "parts": [
+    { "id": "body", "name": "Jaw strips", "role": "Two springy steel strips joined at the back, with sharpened front edges that meet to cut.", "parentId": null, "joint": null },
+    { "id": "pin", "name": "Centre pin", "role": "A post through both strips that the handle hooks onto and pulls against.", "parentId": "body", "joint": "rivet" },
+    { "id": "handle", "name": "Press handle", "role": "The long arm you push down to squeeze the jaws shut.", "parentId": "pin", "joint": "hinge" }
+  ]
+}

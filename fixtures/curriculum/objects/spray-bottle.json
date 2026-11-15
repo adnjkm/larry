@@ -1,0 +1,11 @@
+{
+  "name": "Trigger spray bottle",
+  "summary": "Squeezing the trigger forces a little liquid out of the nozzle as a mist, and letting go refills the pump through a tube that reaches the bottom of the bottle.",
+  "parts": [
+    { "id": "bottle", "name": "Bottle", "role": "Holds the liquid.", "parentId": null, "joint": null },
+    { "id": "sprayer", "name": "Sprayer head", "role": "The housing on top that holds the pump.", "parentId": "bottle", "joint": "thread" },
+    { "id": "trigger", "name": "Trigger", "role": "The lever you squeeze with two fingers.", "parentId": "sprayer", "joint": "hinge" },
+    { "id": "nozzle", "name": "Nozzle", "role": "The small cap the spray comes out of; twisting it shuts it off.", "parentId": "sprayer", "joint": "thread" },
+    { "id": "dip-tube", "name": "Dip tube", "role": "A thin tube from the pump down to the bottom of the bottle.", "parentId": "sprayer", "joint": "press-fit" }
+  ]
+}

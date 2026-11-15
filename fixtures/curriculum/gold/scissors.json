@@ -1,0 +1,63 @@
+{
+  "accept": [
+    "One lesson: cutting, answered by lever and wedge, in either order. Both are required.",
+    "The cutting lesson may be the first mechanism with no gap, or come second after a blade given, with a gap.",
+    "The finger loops and grips are givens. The rivet is part of the cutting lesson or a given.",
+    "linkage is bent here. A third sub-function about holding the blades together is questionable, not wrong, if its primitive is honest."
+  ],
+  "plan": {
+    "object": "Safety scissors",
+    "job": "Cuts paper along a line with one squeeze of the hand.",
+    "uses": [
+      "Put fingers through the loops.",
+      "Open the blades round the paper.",
+      "Squeeze."
+    ],
+    "mechanisms": [
+      {
+        "id": "shear",
+        "name": "Crossing blades",
+        "does": "Cuts paper between two blades that slide past each other.",
+        "parts": [
+          "blade-bottom",
+          "blade-top",
+          "rivet",
+          "grip-top",
+          "grip-bottom"
+        ],
+        "needs": [],
+        "lesson": true,
+        "gap": null,
+        "subfunctions": [
+          {
+            "id": "thin-edge",
+            "does": "Press on the paper along a thin line",
+            "primitive": "wedge"
+          },
+          {
+            "id": "squeeze-harder",
+            "does": "Squeeze harder than fingers can alone",
+            "primitive": "lever"
+          }
+        ]
+      },
+      {
+        "id": "loops",
+        "name": "Finger loops",
+        "does": "Give the thumb and fingers a comfortable hold.",
+        "parts": [
+          "ring-top",
+          "ring-bottom",
+          "grip-top",
+          "grip-bottom"
+        ],
+        "needs": [
+          "shear"
+        ],
+        "lesson": false,
+        "gap": null,
+        "subfunctions": []
+      }
+    ]
+  }
+}
