@@ -73,7 +73,7 @@ function setting(ctx: CanvasRenderingContext2D, text: string, maxW: number): Set
     ctx.font = FONT(size);
     const fat = size * FAT;
     const track = 2 * fat + size * 0.01;
-    const space = size * 0.42;
+    const space = size * 0.34;
     const wide = (word: string) => ctx.measureText(word).width + ([...word].length - 1) * track;
     const lines: { words: string[]; w: number }[] = [];
     for (const word of words) {

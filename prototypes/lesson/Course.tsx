@@ -1,6 +1,6 @@
 // A mechanism lesson, played: see course.ts for the shape. One screen at a time, in order; the header has a key per
 // mechanism, and the bubble under it names the one in hand.
-import { createContext, type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, lazy, type ReactNode, Suspense, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import { PRIMITIVES } from "../../shared/primitives/library.ts";
 import { type Course, FORMAT, type Screen } from "./course.ts";
@@ -9,6 +9,9 @@ import { MatchRow } from "./MatchRow.tsx";
 import { Place } from "./Place.tsx";
 import { Rig } from "./Rig.tsx";
 import { Advance } from "./Tip.tsx";
+import { End } from "./End.tsx";
+
+const LessonDials = import.meta.env.DEV ? lazy(() => import("./LessonDials.tsx")) : null;
 import { Turn } from "./Turn.tsx";
 import { Actions, Plain, Say, Shell, type Step } from "./ui.tsx";
 import { Mechanism, PrimitiveScreen } from "../primitives/PrimitiveScreen.tsx";
@@ -39,6 +42,7 @@ export function CourseFlow({
   onHome,
   onRestart,
   waiting = false,
+  dials,
 }: {
   course: Course;
   kit: Kit;
@@ -47,6 +51,8 @@ export function CourseFlow({
   onRestart: () => void;
   /** Drawn but not yet shown: nothing plays and no key steps it, so it begins when it arrives. */
   waiting?: boolean;
+  /** Dev only: a DialKit panel for jumping between pages. "own" brings its own panel root; "shared" joins one already on the page. */
+  dials?: "own" | "shared";
 }) {
   const { story, kit } = useMemo(() => bindStory(course.story, scanned), [course, scanned]);
   const screens = useMemo(() => course.mechanisms.flatMap((m, mechanism) => m.screens.map((screen) => ({ screen, mechanism }))), [course]);
@@ -54,7 +60,12 @@ export function CourseFlow({
   const [reached, setReached] = useState(0);
   const [values, setValues] = useState<Values>({});
 
+  // One past the last screen is the end: the object the mechanisms make together.
   const go = (i: number) => {
+    if (i === screens.length) {
+      setAt(i);
+      return;
+    }
     const next = screens[i];
     if (!next) return;
     const set = "set" in next.screen ? next.screen.set : undefined;
@@ -67,7 +78,7 @@ export function CourseFlow({
 
   // "]" and "[" step through the screens without doing them, for rehearsing a demo. The arrow keys belong to the sliders.
   const skip = useRef<(by: number) => void>(undefined);
-  skip.current = (by) => !waiting && go(Math.min(screens.length - 1, Math.max(0, at + by)));
+  skip.current = (by) => !waiting && go(Math.min(screens.length, Math.max(0, at + by)));
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -78,7 +89,18 @@ export function CourseFlow({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const { screen, mechanism } = screens[at]!;
+  const ended = at >= screens.length;
+  const { screen, mechanism } = ended ? { screen: null, mechanism: course.mechanisms.length } : screens[at]!;
+  const pages = useMemo(
+    () => [
+      ...screens.map(({ screen: s, mechanism: m }, i) => {
+        const what = s.kind === "demo" ? "Preview" : s.kind === "primitive" ? primitive(s.id).name : s.kind === "match" ? "Connect" : s.kind === "place" ? "Assemble" : s.kind;
+        return `${i + 1}. ${course.mechanisms[m]!.name}: ${what}`;
+      }),
+      `${screens.length + 1}. End`,
+    ],
+    [screens, course],
+  );
   const firstOf = (m: number) => screens.findIndex((s) => s.mechanism === m);
   const steps: Step[] = course.mechanisms.map((m, i) => ({
     key: m.id,
@@ -87,7 +109,7 @@ export function CourseFlow({
     enabled: firstOf(i) <= reached,
     go: () => go(firstOf(i)),
   }));
-  const name = course.mechanisms[mechanism]!.name;
+  const name = course.mechanisms[mechanism]?.name ?? "";
   // Everything learned so far, in the order it was met: what a "Who does this?" picks from.
   const learned = [...new Set(screens.slice(0, at).flatMap((s) => (s.screen.kind === "primitive" ? [s.screen.id] : [])))];
   const bench = { story, kit };
@@ -98,22 +120,32 @@ export function CourseFlow({
     return { ...kit, parts: kit.parts.map((p) => (p.finish === "clear" ? { ...p, color: outside.get(p.id)?.color ?? p.color, finish: outside.get(p.id)?.finish ?? ("glossy" as const) } : p)) };
   }, [kit, course]);
 
+  const panel = LessonDials && dials && !waiting ? (
+    <Suspense fallback={null}>
+      <LessonDials pages={pages} at={Math.min(at, pages.length - 1)} onGo={(page) => go(Math.min(screens.length, Math.max(0, page)))} own={dials === "own"} />
+    </Suspense>
+  ) : null;
+
   let body: ReactNode;
-  if (screen.kind === "primitive")
+  if (!screen) body = <End key="end" kit={course.reveal ?? kit} mechanisms={course.mechanisms.map((m) => m.name)} next="Start Over" onNext={onRestart} />;
+  else if (screen.kind === "primitive")
     return (
       <Plain.Provider value>
-        <PrimitiveScreen key={at} primitive={primitive(screen.id)} onBack={back} onDone={next} mechanism={{ name, key: mechanism }} steps={steps} />
+        <Waiting.Provider value={waiting}>
+          {panel}
+          <PrimitiveScreen key={at} primitive={primitive(screen.id)} onBack={back} onDone={next} mechanism={{ name, key: mechanism }} steps={steps} />
+      </Waiting.Provider>
       </Plain.Provider>
     );
-  if (screen.kind === "place" && screen.turn)
+  else if (screen.kind === "place" && screen.turn)
     body = (
       <Turn
         key={at}
         say={screen.say ?? ""}
         options={screen.turn}
         tip={screen.tip}
-        next={screen.last ? "Start Over" : "Continue"}
-        onNext={screen.last ? onRestart : next}
+        next="Continue"
+        onNext={next}
         header={
           <>
             <Mechanism name={name} step={mechanism} />
@@ -129,8 +161,8 @@ export function CourseFlow({
         story={story}
         kit={kit}
         index={screen.module}
-        next={screen.last ? "Start Over" : "Continue"}
-        onNext={screen.last ? onRestart : next}
+        next="Continue"
+        onNext={next}
         tip={screen.tip}
         instruction={screen.say}
         trial={screen.trial}
@@ -156,6 +188,7 @@ export function CourseFlow({
   return (
     <Plain.Provider value>
       <Waiting.Provider value={waiting}>
+        {panel}
         <Shell objectName={story.objectName} photo={photo} steps={steps} onHome={back}>
           {body}
         </Shell>

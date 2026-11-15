@@ -71,6 +71,14 @@ html, body { height: 100%; }
 .turn-chip:disabled { cursor: default; }
 .turn-chip[data-picked] > span { color: var(--pink); }
 @media (prefers-reduced-motion: reduce) { .turn-chip { transition: none; } }
+/* The end: each mechanism under its own key, then the object they make, as the result screen drew it. */
+.end-pair { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
+.end-part { min-width: 0; animation: end-in 420ms var(--ease-out) both; }
+.end-part:nth-child(2) { animation-delay: 90ms; }
+.end-part:nth-child(n + 3) { animation-delay: 180ms; }
+.end-model { flex: 1 1 0; min-height: 200px; display: grid; place-items: center; }
+@keyframes end-in { from { opacity: 0; transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .end-part { animation-name: demo-fade; } }
 /* Replay Test: a ghost pill in the frame's bottom right corner. */
 .replay { position: absolute; right: 10px; bottom: 10px; z-index: 3; height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.86); box-shadow: 0 0 0 1.5px var(--rule) inset; color: var(--ink); font: inherit; font-size: 13px; line-height: 32px; font-weight: 600; cursor: pointer; transition: transform 160ms var(--ease-out), opacity 150ms ease-out; }
 .replay:active:not(:disabled) { transform: scale(0.97); }

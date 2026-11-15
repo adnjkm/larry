@@ -95,7 +95,7 @@ function Lesson({ screen, onCamera, shown }: { screen: PhoneScreen; onCamera: ()
           waiting={!shown}
         />
       ) : COURSE ? (
-        <CourseFlow key={run} course={COURSE} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} waiting={!shown} />
+        <CourseFlow key={run} course={COURSE} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} waiting={!shown} dials={PAGES} />
       ) : (
         <StoryFlow key={run} story={STORY} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} />
       )}
@@ -108,6 +108,8 @@ function Lesson({ screen, onCamera, shown }: { screen: PhoneScreen; onCamera: ()
  * (which remember the last screen picked) and the still phone beside it for comparing.
  */
 const TUNING = new URLSearchParams(location.search).has("dials");
+/** The lesson's page dial: with the tuning view it joins those panels; `?pages` shows it alone, over the plain demo. */
+const PAGES = TUNING ? ("shared" as const) : new URLSearchParams(location.search).has("pages") ? ("own" as const) : undefined;
 
 export function Demo() {
   return (
