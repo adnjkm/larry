@@ -8,14 +8,12 @@ import { HoldButton } from "../../ui/HoldButton.tsx";
 import { bars, buttons, type } from "../../ui/styles.ts";
 import { colors, fonts } from "../../tokens.stylex.ts";
 import { FigureStage } from "../stage/FigureStage.tsx";
-import { startValues } from "../stage/view.ts";
-import type { Cue, Primitive, Values, Verdict } from "../../../shared/primitives/types.ts";
+import { type Cue, type Primitive, type Values, type Verdict, startValues } from "../../../shared/primitives/types.ts";
 import { controlRows } from "./logic.ts";
 import { Divider, Meters, Readouts, Rows, SliderRow, ToggleRow, VerdictLine } from "./parts.tsx";
 import { GameStore } from "./store.ts";
 
 const STAGE_HEIGHT = 330;
-const DOT_OFF = "#DADADA";
 
 type Phase = "ready" | "playing" | "done";
 
@@ -41,7 +39,7 @@ const styles = stylex.create({
   heading: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 0 },
   name: { margin: 0, fontSize: 17, lineHeight: "22px", fontWeight: 600, textAlign: "center" },
   dots: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, width: 44, height: 44 },
-  dot: { width: 6, height: 6, borderRadius: 999, backgroundColor: DOT_OFF },
+  dot: { width: 6, height: 6, borderRadius: 999, backgroundColor: colors.dotOff },
   dotOn: { backgroundColor: colors.ink },
   challenge: { display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 },
   kicker: { color: colors.pinkText },
@@ -70,7 +68,7 @@ const styles = stylex.create({
     minWidth: 44,
     borderRadius: 999,
     color: colors.ink,
-    backgroundColor: "#FFFFFFD9",
+    backgroundColor: colors.paperGlass,
     outline: { default: "none", ":focus-visible": `2px solid ${colors.pink}` },
   },
   // The verdict and the action stay in reach above the home indicator; the page's own bottom padding already clears it.
@@ -79,17 +77,13 @@ const styles = stylex.create({
   hidden: { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" },
 });
 
-const buzz = (_cue: Cue) => {
-  try {
-    if ("vibrate" in navigator) navigator.vibrate(10);
-  } catch {
-    // No haptics here.
-  }
-};
+/** What each cue feels like, as a vibration pattern in ms. */
+const BUZZ: Record<Cue["kind"], number | number[]> = { click: 6, snap: [12, 24, 12], thud: 18, pop: 10, slip: [6, 20, 6], drip: 4, ring: [8, 30, 8] };
+const buzz = (cue: Cue) => navigator.vibrate?.(BUZZ[cue.kind]);
 
 export function GameScreen({ primitive, kicker, onBack, children }: { primitive: Primitive; kicker: string; onBack: () => void; children?: ReactNode }) {
-  const game = primitive.game!;
-  const store = useMemo(() => new GameStore(startValues(primitive, "game")), [primitive]);
+  const game = primitive.game;
+  const store = useMemo(() => new GameStore(startValues(primitive)), [primitive]);
   const [phase, setPhaseState] = useState<Phase>("ready");
   // What the verdict line shows instead of the live judge: frozen while a run plays, then the run's own.
   const [fixed, setFixed] = useState<Verdict>();

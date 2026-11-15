@@ -1,9 +1,14 @@
 // The figure's values over time: set, play a Run, sweep. Pure: the stage calls tick(now) from its frame loop and
 // receives every pose through `apply`, so this runs under node --test with a fake clock.
 import type { Part } from "../../../shared/kit.ts";
-import type { Cue, Run, Slider, Values } from "../../../shared/primitives/types.ts";
+import { clamp } from "../../../shared/primitives/motion/ease.ts";
+import { sweepRun } from "../../../shared/primitives/motion/run.ts";
+import { type Cue, type Primitive, type Run, type Slider, type Values, allSliders } from "../../../shared/primitives/types.ts";
 
-/** What a page drives a figure with. See FigureStage.tsx for the whole API. */
+/**
+ * What a page drives a figure with: FigureStage's `controllerRef`, a new one whenever the primitive, mode or palette
+ * changes. Setting values never renders React; the figure is posed from here.
+ */
 export type StageController = {
   /** The values the figure shows now. Do not mutate. */
   get(): Values;
@@ -14,11 +19,15 @@ export type StageController = {
    * even when no value changes. For the game's reset after a run.
    */
   reset(values?: Values): void;
-  /** Plays a run from at(0) to at(durationMs). Resolves true when it finishes, false if a set, drag, stop or another play interrupts it. */
+  /**
+   * Plays a run from at(0) to at(durationMs). Resolves true when it finishes, false if a set, drag, stop or another play
+   * interrupts it. The figure stays on the run's last frame (props included) until the next set or play. Under reduced
+   * motion it jumps to at(durationMs), reports that frame's live text and the last cue, and resolves true.
+   */
   play(run: Run): Promise<boolean>;
-  /** Sweeps the motion slider low to high and back on a 4 s cosine until stopped. Does nothing under reduced motion. */
+  /** The play sweep (sweepRun): the handle's slider across its reach and back, starting from where it is, until stopped. Does nothing under reduced motion. */
   sweep(): void;
-  /** Stops a run (which resolves false) or a sweep, leaving the figure where it is. */
+  /** Stops a run or sweep, leaving the figure where it is. */
   stop(): void;
   /** Called with the values after every change (every frame of a run or sweep). Returns the unsubscribe. */
   subscribe(fn: (values: Values) => void): () => void;
@@ -32,21 +41,12 @@ export type MotionHost = {
   /** Ask for tick(now) on the next animation frame. */
   wake(): void;
   reducedMotion(): boolean;
-  /** Every slider and game control, for clamping. */
-  sliders(): readonly Slider[];
-  /** The game's run-only values (Game.poses): each goes back to its initial when a run hands its last frame back. */
-  poses(): readonly Slider[];
-  /** The slider the play sweep moves and the range it covers at these values. */
-  sweepRange(values: Values): { id: string; lo: number; hi: number } | undefined;
   onLive?(text: string): void;
   onCue?(cue: Cue): void;
 };
 
-/** One full low-high-low cycle of the play sweep. */
-export const SWEEP_MS = 4000;
-
 type Playing = { run: Run; cues: Cue[]; next: number; start: number | undefined; done: (finished: boolean) => void };
-type Sweeping = { id: string; lo: number; hi: number; phase: number; start: number | undefined };
+type Sweeping = { at: (ms: number) => Values; start: number | undefined };
 
 export class Motion implements StageController {
   private values: Values;
@@ -55,9 +55,13 @@ export class Motion implements StageController {
   private lastLive: string | undefined;
   private readonly listeners = new Set<(values: Values) => void>();
   private readonly host: MotionHost;
+  private readonly primitive: Primitive;
+  private readonly sliders: ReadonlyMap<string, Slider>;
 
-  constructor(host: MotionHost, initial: Values) {
+  constructor(host: MotionHost, primitive: Primitive, initial: Values) {
     this.host = host;
+    this.primitive = primitive;
+    this.sliders = new Map(allSliders(primitive).map((s) => [s.id, s]));
     this.values = { ...initial };
   }
 
@@ -107,12 +111,10 @@ export class Motion implements StageController {
 
   sweep = (): void => {
     if (this.host.reducedMotion() || this.sweeping) return;
-    const range = this.host.sweepRange(this.values);
-    if (!range || range.hi <= range.lo) return;
+    const run = sweepRun(this.primitive, this.values);
+    if (!run.moves) return;
     this.interrupt();
-    // Start the cosine where the slider already is, heading up, so the sweep never jumps.
-    const f = Math.min(1, Math.max(0, ((this.values[range.id] ?? range.lo) - range.lo) / (range.hi - range.lo)));
-    this.sweeping = { ...range, phase: (Math.acos(1 - 2 * f) / (2 * Math.PI)) * SWEEP_MS, start: undefined };
+    this.sweeping = { at: (ms) => run.at(ms).values, start: undefined };
     this.host.wake();
   };
 
@@ -147,10 +149,8 @@ export class Motion implements StageController {
     }
     const s = this.sweeping;
     if (s) {
-      s.start ??= now - s.phase;
-      const f = 0.5 - 0.5 * Math.cos((2 * Math.PI * (now - s.start)) / SWEEP_MS);
-      this.values = { ...this.values, [s.id]: s.lo + (s.hi - s.lo) * f };
-      this.show(this.values, undefined);
+      s.start ??= now;
+      this.show(s.at(now - s.start), undefined);
     }
     return this.moving;
   }
@@ -169,7 +169,7 @@ export class Motion implements StageController {
   /** `values` with every run-only pose back at its initial; the same object when none was off it. */
   private handBack(values: Values): Values {
     let out = values;
-    for (const s of this.host.poses()) {
+    for (const s of this.primitive.game.poses ?? []) {
       if (values[s.id] === undefined || values[s.id] === s.initial) continue;
       if (out === values) out = { ...values };
       out[s.id] = s.initial;
@@ -190,7 +190,7 @@ export class Motion implements StageController {
   }
 
   private clamp(id: string, value: number): number {
-    const s = this.host.sliders().find((x) => x.id === id);
-    return s ? Math.min(s.max, Math.max(s.min, value)) : value;
+    const s = this.sliders.get(id);
+    return s ? clamp(value, s.min, s.max) : value;
   }
 }

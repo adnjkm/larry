@@ -5,15 +5,16 @@ import type { Shape } from "../../../shared/kit.ts";
 import { buildGeometry } from "../../kit3d/geometry.ts";
 import { framePrimitive } from "./framing.ts";
 import { PRIMITIVES } from "../../../shared/primitives/library.ts";
-import type { Cue, Run, Values } from "../../../shared/primitives/types.ts";
-import { Motion, type MotionHost, SWEEP_MS } from "./controller.ts";
-import { fixtureSpring } from "./dev/fixture.ts";
+import { SWEEP_MS } from "../../../shared/primitives/motion/run.ts";
+import { spring } from "../../../shared/primitives/models/spring.ts";
+import { type Cue, type Run, type Values, initialValues, motionSlider, startValues } from "../../../shared/primitives/types.ts";
+import { Motion, type MotionHost } from "./controller.ts";
 import { StageScene, geometries } from "./scene.ts";
 import { Stretch, canStretch, sameShape, shapeKey } from "./shapes.ts";
 
 const material = new MeshBasicMaterial();
 const looks = { part: () => material, shadow: () => material };
-const sceneFor = (p = fixtureSpring) => new StageScene(framePrimitive(p), p.view, looks);
+const sceneFor = (p = spring) => new StageScene(framePrimitive(p), p.view, looks);
 
 function maxGap(a: ArrayLike<number>, b: ArrayLike<number>): number {
   assert.equal(a.length, b.length);
@@ -83,20 +84,20 @@ describe("stage shapes", () => {
 describe("stage scene", () => {
   it("keeps one mesh per part id and hides parts that leave", () => {
     const scene = sceneFor();
-    const run = fixtureSpring.game!.play(fixtureSpring.game!.start!);
+    const run = spring.game.play(startValues(spring));
     const lead = run.at(200);
-    scene.setFrame(fixtureSpring.build(lead.values), undefined, lead.marks);
+    scene.setFrame(spring.build(lead.values), undefined, lead.marks);
     const withArrow = scene.meshCount;
     const rest = run.at(0);
-    scene.setFrame(fixtureSpring.build(rest.values), undefined, []);
+    scene.setFrame(spring.build(rest.values), undefined, []);
     assert.equal(scene.meshCount, withArrow, "the arrow's mesh is kept for when it comes back");
     scene.dispose();
   });
 
   it("builds no geometry while a motion slider sweeps, for every model", () => {
-    for (const p of [fixtureSpring, ...PRIMITIVES]) {
-      const s = p.sliders.find((x) => x.id === p.handle?.slider) ?? p.sliders.at(-1)!;
-      const start: Values = Object.fromEntries(p.sliders.map((x) => [x.id, x.initial]));
+    for (const p of PRIMITIVES) {
+      const s = motionSlider(p);
+      const start = initialValues(p);
       const scene = sceneFor(p);
       const sweep = (n: number) => {
         for (let i = 0; i <= n; i++) scene.setFrame(p.build({ ...start, [s.id]: s.min + ((s.max - s.min) * i) / n }));
@@ -115,7 +116,7 @@ describe("stage scene", () => {
   it("projects and unprojects the handle through the same camera", () => {
     const scene = sceneFor();
     scene.resize(350, 360, 351, 360);
-    const at = fixtureSpring.handle!.at({ stiffness: 1.5, press: 10 });
+    const at = spring.handle.at({ stiffness: 1.5, force: 10 });
     const css = scene.project(at, { x: 0, y: 0 });
     assert.ok(css.x > 0 && css.x < 351 && css.y > 0 && css.y < 360);
     const back = scene.unproject(css.x, css.y, at.z);
@@ -125,23 +126,20 @@ describe("stage scene", () => {
 });
 
 type Log = { applied: Values[]; live: string[]; cues: Cue[] };
-function motion(reduced = false, initial: Values = { stiffness: 1.5, press: 0 }): { m: Motion; log: Log } {
+function motion(reduced = false, initial: Values = { stiffness: 1.5, force: 0 }): { m: Motion; log: Log } {
   const log: Log = { applied: [], live: [], cues: [] };
   const host: MotionHost = {
     apply: (v) => log.applied.push(v),
     wake: () => {},
     reducedMotion: () => reduced,
-    sliders: () => fixtureSpring.sliders,
-    poses: () => [],
-    sweepRange: () => ({ id: "press", lo: 0, hi: 20 }),
     onLive: (t) => log.live.push(t),
     onCue: (c) => log.cues.push(c),
   };
-  return { m: new Motion(host, initial), log };
+  return { m: new Motion(host, spring, initial), log };
 }
 
 describe("stage controller", () => {
-  const run = (): Run => fixtureSpring.game!.play({ stiffness: 1, press: 0 });
+  const run = (): Run => spring.game.play({ ...startValues(spring), stiffness: 1, force: 0 });
 
   it("plays a run to its end, firing each cue once and each caption once", async () => {
     const { m, log } = motion();
@@ -149,7 +147,7 @@ describe("stage controller", () => {
     const done = m.play(r);
     for (let t = 1000; t <= 1000 + r.durationMs + 50; t += 16) m.tick(t);
     assert.equal(await done, true);
-    assert.deepEqual(log.cues, r.cues);
+    assert.deepEqual(log.cues, [...r.cues!].sort((a, b) => a.ms - b.ms), "cues fire in time order");
     assert.deepEqual(m.get(), r.at(r.durationMs).values);
     for (let i = 1; i < log.live.length; i++) assert.notEqual(log.live[i], log.live[i - 1]);
     assert.equal(m.state(), "idle");
@@ -160,9 +158,9 @@ describe("stage controller", () => {
     const done = m.play(run());
     m.tick(0);
     m.tick(500);
-    m.set({ press: 3 });
+    m.set({ force: 3 });
     assert.equal(await done, false);
-    assert.equal(m.get().press, 3);
+    assert.equal(m.get().force, 3);
   });
 
   it("ignores a set that changes nothing, so a re-render cannot stop a run", () => {
@@ -186,39 +184,35 @@ describe("stage controller", () => {
 
   it("hands a run back without its run-only poses, keeping its last props", async () => {
     const applied: { v: Values; marks: unknown }[] = [];
-    const bounce = { id: "bounce", label: "Bounce", min: -5, max: 5, step: 0.1, initial: 0 };
-    const m = new Motion(
-      { apply: (v, marks) => applied.push({ v, marks }), wake: () => {}, reducedMotion: () => false, sliders: () => [bounce], poses: () => [bounce], sweepRange: () => undefined },
-      { press: 0, bounce: 0 },
-    );
-    const marks = fixtureSpring.build({ press: 0 }).slice(0, 1);
-    const done = m.play({ verdict: { pass: true, outcome: "pass", headline: "", detail: "" }, durationMs: 100, at: (ms) => ({ values: { press: ms / 10, bounce: 3 }, live: "", marks }) });
+    const m = new Motion({ apply: (v, marks) => applied.push({ v, marks }), wake: () => {}, reducedMotion: () => false }, spring, { force: 0, bounce: 0 });
+    const marks = spring.build({ force: 0 }).slice(0, 1);
+    const done = m.play({ verdict: { pass: true, outcome: "pass", headline: "", detail: "" }, durationMs: 100, at: (ms) => ({ values: { force: ms / 10, bounce: 3 }, live: "", marks }) });
     m.tick(0);
     m.tick(200);
     assert.equal(await done, true);
-    assert.deepEqual(m.get(), { press: 10, bounce: 0 });
+    assert.deepEqual(m.get(), { force: 10, bounce: 0 });
     assert.equal(applied.at(-1)!.marks, marks);
   });
 
   it("reset clears a finished run's props even when no value changes", async () => {
     const applied: unknown[] = [];
-    const m = new Motion({ apply: (_v, marks) => applied.push(marks), wake: () => {}, reducedMotion: () => true, sliders: () => fixtureSpring.sliders, poses: () => [], sweepRange: () => undefined }, { press: 0 });
-    const marks = fixtureSpring.build({ press: 0 }).slice(0, 1);
-    await m.play({ verdict: { pass: true, outcome: "pass", headline: "", detail: "" }, durationMs: 100, at: () => ({ values: { press: 0 }, live: "", marks }) });
-    m.set({ press: 0 });
+    const m = new Motion({ apply: (_v, marks) => applied.push(marks), wake: () => {}, reducedMotion: () => true }, spring, { force: 0 });
+    const marks = spring.build({ force: 0 }).slice(0, 1);
+    await m.play({ verdict: { pass: true, outcome: "pass", headline: "", detail: "" }, durationMs: 100, at: () => ({ values: { force: 0 }, live: "", marks }) });
+    m.set({ force: 0 });
     assert.equal(applied.at(-1), marks, "a set that changes nothing keeps the run's props");
     m.reset();
     assert.equal(applied.at(-1), undefined, "reset clears them");
   });
 
   it("sweeps from where the slider is, without a jump, and clamps sets to the slider", () => {
-    const { m } = motion(false, { stiffness: 1.5, press: 10 });
+    const { m } = motion(false, { stiffness: 1.5, force: 10 });
     m.sweep();
     m.tick(0);
-    assert.ok(Math.abs(m.get().press! - 10) < 1e-9);
+    assert.ok(Math.abs(m.get().force! - 10) < 1e-9);
     m.tick(SWEEP_MS / 8);
-    assert.ok(m.get().press! > 10, "heads up first");
-    m.set({ press: 99 });
-    assert.equal(m.get().press, 40);
+    assert.ok(m.get().force! > 10, "heads up first");
+    m.set({ force: 99 });
+    assert.equal(m.get().force, 50);
   });
 });

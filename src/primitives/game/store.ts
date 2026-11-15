@@ -19,7 +19,7 @@ export class GameStore {
     this.off?.();
     this.off = undefined;
     this.controller = controller;
-    (window as unknown as { __stage?: StageController | null }).__stage = controller;
+    if (import.meta.env.DEV) (window as unknown as { __stage?: StageController | null }).__stage = controller;
     if (controller) {
       this.values = controller.get();
       // The controller calls this at most once per tick of its frame loop, so a run costs one pass over the subscribers per frame.

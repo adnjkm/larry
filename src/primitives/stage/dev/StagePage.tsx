@@ -1,15 +1,13 @@
-// Test harness for the stage, at ?stage=<id> (default: the fixture). Not the product page.
+// Test harness for the stage, at ?stage=<id> (default: spring). Not the product page.
 // window.__stage is the controller; window.__stageMany(n) mounts n still figures below (0 unmounts them).
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 import { buttons, layout, type } from "../../../ui/styles.ts";
 import { colors, fonts } from "../../../tokens.stylex.ts";
 import { PRIMITIVES, formatSlider } from "../../../../shared/primitives/library.ts";
-import type { Primitive, Values, Verdict } from "../../../../shared/primitives/types.ts";
+import { type Values, type Verdict, startValues } from "../../../../shared/primitives/types.ts";
 import { FigureStage, type StageController } from "../FigureStage.tsx";
 import { stageStats } from "../renderer.ts";
-import { startValues } from "../view.ts";
-import { fixtureSpring } from "./fixture.ts";
 
 const styles = stylex.create({
   row: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" },
@@ -21,15 +19,12 @@ const styles = stylex.create({
   many: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
 });
 
-const ALL: Primitive[] = [fixtureSpring, ...PRIMITIVES];
-
 export default function StagePage() {
-  // The first library model with a game and a handle, else the fixture.
-  const id = new URLSearchParams(location.search).get("stage") || (PRIMITIVES.find((p) => p.game && p.handle) ?? fixtureSpring).id;
-  const primitive = ALL.find((p) => p.id === id) ?? fixtureSpring;
+  const id = new URLSearchParams(location.search).get("stage");
+  const primitive = PRIMITIVES.find((p) => p.id === id) ?? PRIMITIVES.find((p) => p.id === "spring")!;
   const game = primitive.game;
   const controller = useRef<StageController | null>(null);
-  const [values, setValues] = useState<Values>(() => startValues(primitive, "game"));
+  const [values, setValues] = useState<Values>(() => startValues(primitive));
   const [live, setLive] = useState("");
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [sweeping, setSweeping] = useState(false);
@@ -71,7 +66,7 @@ export default function StagePage() {
 
   const act = async () => {
     const c = controller.current;
-    if (!c || !game) return;
+    if (!c) return;
     setSweeping(false);
     setVerdict(null);
     setCues([]);
@@ -80,7 +75,7 @@ export default function StagePage() {
     if (finished) setVerdict(run.verdict);
   };
 
-  const number = game ? [...primitive.sliders, ...(game.controls ?? [])].find((s) => s.id === game.number) : undefined;
+  const number = [...primitive.sliders, ...(game.controls ?? [])].find((s) => s.id === game.number);
 
   return (
     <main {...stylex.props(layout.page)}>
@@ -114,11 +109,9 @@ export default function StagePage() {
         >
           {sweeping ? "Stop" : "Play"}
         </button>
-        {game && (
-          <button type="button" data-action="game" {...stylex.props(buttons.base, buttons.primary)} onClick={act}>
-            {game.action}
-          </button>
-        )}
+        <button type="button" data-action="game" {...stylex.props(buttons.base, buttons.primary)} onClick={act}>
+          {game.action}
+        </button>
       </div>
       {verdict && (
         <div data-verdict={verdict.outcome} {...stylex.props(styles.verdict)}>
@@ -142,14 +135,12 @@ export default function StagePage() {
           />
         </label>
       )}
-      {game && (
-        <p {...stylex.props(styles.mono)}>
-          {game
-            .meters(values)
-            .map((m) => `${m.label} ${m.value.toFixed(m.digits ?? 0)} / ${m.target} ${m.unit}`)
-            .join(" · ")}
-        </p>
-      )}
+      <p {...stylex.props(styles.mono)}>
+        {game
+          .meters(values)
+          .map((m) => `${m.label} ${m.value.toFixed(m.digits ?? 0)} / ${m.target} ${m.unit}`)
+          .join(" · ")}
+      </p>
       <p data-perf {...stylex.props(styles.mono)}>
         {perf}
       </p>
@@ -158,7 +149,7 @@ export default function StagePage() {
       </p>
       <div {...stylex.props(styles.many)}>
         {Array.from({ length: many }, (_, i) => (
-          <FigureStage key={i} primitive={ALL[(i % (ALL.length - 1)) + 1]!} height={120} />
+          <FigureStage key={i} primitive={PRIMITIVES[i % PRIMITIVES.length]!} height={120} />
         ))}
       </div>
       <div {...stylex.props(styles.spacer)} />

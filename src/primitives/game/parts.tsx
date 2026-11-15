@@ -9,11 +9,6 @@ import type { Game, Meter, Verdict } from "../../../shared/primitives/types.ts";
 import { headlineText, meterFraction, meterMet, meterText, meterTextWidth, togglesLabel } from "./logic.ts";
 import { type GameStore, useSelect } from "./store.ts";
 
-// From the Paper design: the meter's red and its darker text, and the unlit toggle / dot grey.
-const RED = "#E0432B";
-const RED_TEXT = "#C2331D";
-const TRACK = "#EFEFEF";
-
 const styles = stylex.create({
   // One grid per group of rows, so the label, bar and value columns line up from row to row.
   grid: { display: "grid", gridTemplateColumns: "96px minmax(48px, 1fr) auto", columnGap: 12, rowGap: 10, alignItems: "center" },
@@ -22,11 +17,11 @@ const styles = stylex.create({
   labelInk: { color: colors.ink },
   value: { fontFamily: fonts.mono, fontSize: 13, lineHeight: "16px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: colors.ink },
   valueWidth: (ch: number) => ({ minWidth: `${ch}ch` }),
-  valueBad: { color: RED_TEXT },
+  valueBad: { color: colors.redText },
   bar: { position: "relative", height: 20 },
-  barTrack: { position: "absolute", left: 0, right: 0, top: 7, height: 6, borderRadius: 3, backgroundColor: TRACK },
+  barTrack: { position: "absolute", left: 0, right: 0, top: 7, height: 6, borderRadius: 3, backgroundColor: colors.track },
   barFill: (width: string) => ({ position: "absolute", left: 0, top: 7, height: 6, width, borderRadius: 3, backgroundColor: colors.ink }),
-  barFillBad: { backgroundColor: RED },
+  barFillBad: { backgroundColor: colors.red },
   tick: (left: string) => ({ position: "absolute", top: 1, left, width: 2, height: 18, marginLeft: -1, borderRadius: 1, backgroundColor: colors.ink }),
   divider: { gridColumn: "1 / -1", height: 1, marginTop: 2, backgroundColor: colors.rule },
   sliderRow: { minHeight: 44, borderTopWidth: 0 },
