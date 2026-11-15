@@ -18,6 +18,7 @@ import type { Slider } from "../primitives/library.ts";
 import { type Mark, type ModuleSpec, type PartMove, type Run, type TestCtx, type Values, type Vec, vec, type Window } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";
 import { add, arrowMark, cross, dot, latheAxis, overlay, rotate, scale, sub, tenth } from "./pair.ts";
+import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
 const G = 9.8;
 /** Game numbers: the knock's energy, the wrist torque held steady by a handle, and a comfortable one-hand lift. */
@@ -37,7 +38,6 @@ const HANDLE_NAME = /\bhandles?\b/i;
 const HANDLE_ROLE = /\b(lift|lifts|lifting|carry|carries|carrying)\b/i;
 
 const UP = vec(0, 1, 0);
-const DEG = Math.PI / 180;
 
 /** The face an object stands on: its centre on the table, and its half-widths along x and z. */
 type Footing = { part: Part; centre: Vec; half: { x: number; z: number } };
@@ -151,7 +151,7 @@ export function standOf(kit: Kit): Stand | null {
   const max = Number((hi + 5 * STEP).toFixed(6));
   return {
     kit, root, footing, height, com, halfBase, tip, rise, handle,
-    balanceDeg: Math.atan(halfBase / com) / DEG,
+    balanceDeg: Math.atan(halfBase / com) / DEG_TO_RAD,
     slider: { label: "Mass", min: LIGHTEST, max, step: STEP, initial: Math.min(max, 2) },
     window: [lo, hi],
     start: Math.max(LIGHTEST, Number((Math.floor(lo / 2 / STEP) * STEP).toFixed(6))),
@@ -198,7 +198,7 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
 
   /** The angle it lies at once fallen: the first turn at which a corner beyond the edge reaches the table. */
   const lyingDeg = (present: readonly string[]) => {
-    const stops = kit.parts.filter((p) => present.includes(p.id)).flatMap(corners).map((c) => ({ u: dot(sub(c, edge), tip), y: c.y - edge.y })).filter((c) => c.u > 0.5 && c.y > 0).map((c) => Math.atan2(c.y, c.u) / DEG);
+    const stops = kit.parts.filter((p) => present.includes(p.id)).flatMap(corners).map((c) => ({ u: dot(sub(c, edge), tip), y: c.y - edge.y })).filter((c) => c.u > 0.5 && c.y > 0).map((c) => Math.atan2(c.y, c.u) / DEG_TO_RAD);
     return Math.min(88, ...stops);
   };
 
@@ -221,7 +221,7 @@ export function standModule(s: Stand, produces: readonly string[]): ModuleSpec {
       // How far the knock tips it: its centre of mass rises by the knock's energy over its weight.
       const lifts = (KNOCK_J / (kg * G)) * 1000;
       const r = Math.hypot(s.halfBase, s.com);
-      const reached = ok ? s.balanceDeg - Math.acos(Math.min(1, (s.com + lifts) / r)) / DEG : s.balanceDeg;
+      const reached = ok ? s.balanceDeg - Math.acos(Math.min(1, (s.com + lifts) / r)) / DEG_TO_RAD : s.balanceDeg;
       const lie = lyingDeg(ctx.present);
       const start = KNOCK_MS;
       return {

@@ -5,8 +5,8 @@ import type { Kit, Part, Shape } from "../../shared/kit.ts";
 import { hexRgb } from "../../src/surface/dither.ts";
 import { COLOR } from "./primitives/parts.ts";
 import { DEFAULT_VIEW, type ExplodePlan, familyOf, type Leave, type PartMove, type Rigid, type Scene, type Shares, STILL, type Vec, vec, type View } from "./model.ts";
+import { DEG_TO_RAD } from "../../shared/angles.ts";
 
-const DEG = Math.PI / 180;
 export const EXPLODE_STEP = 24;
 
 const T = (v: Vec) => new Matrix4().makeTranslation(v.x, v.y, v.z);
@@ -16,7 +16,7 @@ const scale = (a: Vec, k: number): Vec => vec(a.x * k, a.y * k, a.z * k);
 const neg = (a: Vec): Vec => scale(a, -1);
 
 function matrixOf(p: { position: Vec; rotation: Vec }): Matrix4 {
-  const q = new Quaternion().setFromEuler(new Euler(p.rotation.x * DEG, p.rotation.y * DEG, p.rotation.z * DEG, "XYZ"));
+  const q = new Quaternion().setFromEuler(new Euler(p.rotation.x * DEG_TO_RAD, p.rotation.y * DEG_TO_RAD, p.rotation.z * DEG_TO_RAD, "XYZ"));
   return new Matrix4().compose(new Vector3(p.position.x, p.position.y, p.position.z), q, unit);
 }
 
@@ -25,7 +25,7 @@ function withMatrix(p: Part, m: Matrix4): Part {
   const q = new Quaternion();
   m.decompose(pos, q, new Vector3());
   const e = new Euler().setFromQuaternion(q, "XYZ");
-  return { ...p, position: vec(pos.x, pos.y, pos.z), rotation: vec(e.x / DEG, e.y / DEG, e.z / DEG) };
+  return { ...p, position: vec(pos.x, pos.y, pos.z), rotation: vec(e.x / DEG_TO_RAD, e.y / DEG_TO_RAD, e.z / DEG_TO_RAD) };
 }
 
 function halfSize(shape: Shape): Vec {
@@ -130,8 +130,8 @@ const viewerZoom = (half: { x: number; z: number }, radius: number, height: numb
  * this box is sized so the viewer's own fit lands on the zoom the subject needs.
  */
 export function fitFrame(subject: readonly Part[], view: { elevation: number; azimuth: number }, width: number, tall: number): Part[] {
-  const el = view.elevation * DEG;
-  const az = view.azimuth * DEG;
+  const el = view.elevation * DEG_TO_RAD;
+  const az = view.azimuth * DEG_TO_RAD;
   const right = vec(Math.cos(az), 0, -Math.sin(az));
   const up = vec(-Math.sin(el) * Math.sin(az), Math.cos(el), -Math.sin(el) * Math.cos(az));
   const dot = (a: Vec, b: Vec) => a.x * b.x + a.y * b.y + a.z * b.z;
@@ -216,7 +216,7 @@ export function compose(a: Scene, b: Scene): Scene {
 }
 
 const rigidMatrix = (centre: Vec, rigid: Rigid) =>
-  T(vec(rigid.dx, rigid.dy, 0)).multiply(T(centre)).multiply(new Matrix4().makeRotationZ(rigid.angle * DEG)).multiply(T(neg(centre)));
+  T(vec(rigid.dx, rigid.dy, 0)).multiply(T(centre)).multiply(new Matrix4().makeRotationZ(rigid.angle * DEG_TO_RAD)).multiply(T(neg(centre)));
 
 /** Where a point fixed to the object ends up after a rigid move. */
 export function rigidPoint(centre: Vec, rigid: Rigid, p: Vec): Vec {
@@ -228,7 +228,7 @@ function moveMatrix(move: PartMove | undefined): Matrix4 {
   const m = T(move?.offset ?? vec());
   for (const t of [...(move?.turns ?? [])].reverse()) {
     const axis = new Vector3(t.axis.x, t.axis.y, t.axis.z).normalize();
-    m.multiply(T(t.pivot)).multiply(new Matrix4().makeRotationAxis(axis, t.deg * DEG)).multiply(T(neg(t.pivot)));
+    m.multiply(T(t.pivot)).multiply(new Matrix4().makeRotationAxis(axis, t.deg * DEG_TO_RAD)).multiply(T(neg(t.pivot)));
   }
   return m;
 }

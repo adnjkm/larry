@@ -3,6 +3,7 @@
 import type { Joint, Kit, Part, Shape } from "../../../shared/kit.ts";
 import { type Axis, AXIS, type Mark, type ModuleSpec, type Overlay, type PartMove, type Rigid, STILL, type Vec, vec } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";
+import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
 export type Pair = {
   kit: Kit;
@@ -42,7 +43,6 @@ export type Template = {
 };
 
 const AXES: readonly Axis[] = ["x", "y", "z"];
-const DEG = Math.PI / 180;
 
 export const add = (a: Vec, b: Vec): Vec => vec(a.x + b.x, a.y + b.y, a.z + b.z);
 export const scale = (a: Vec, k: number): Vec => vec(a.x * k, a.y * k, a.z * k);
@@ -53,7 +53,7 @@ export const cross = (a: Vec, b: Vec) => vec(a.y * b.z - a.z * b.y, a.z * b.x - 
 
 /** `p` turned `deg` degrees about `axis` through `pivot`, by Rodrigues' rotation formula. */
 export function rotate(p: Vec, pivot: Vec, axis: Vec, deg: number): Vec {
-  const [c, s] = [Math.cos(deg * DEG), Math.sin(deg * DEG)];
+  const [c, s] = [Math.cos(deg * DEG_TO_RAD), Math.sin(deg * DEG_TO_RAD)];
   const d = sub(p, pivot);
   const k = unit(axis);
   return add(pivot, add(add(scale(d, c), scale(cross(k, d), s)), scale(k, dot(k, d) * (1 - c))));
@@ -63,7 +63,7 @@ const dominant = (v: Vec): Axis => AXES.reduce((best, a) => (Math.abs(v[a]) > Ma
 
 /** A round part's own axis (a lathe's or a ring's local y), turned as the part is. */
 export function latheAxis(p: Part): Vec {
-  const [x, y, z] = [p.rotation.x * DEG, p.rotation.y * DEG, p.rotation.z * DEG];
+  const [x, y, z] = [p.rotation.x * DEG_TO_RAD, p.rotation.y * DEG_TO_RAD, p.rotation.z * DEG_TO_RAD];
   // Euler XYZ applied to (0, 1, 0).
   let v = vec(-Math.sin(z), Math.cos(z), 0);
   v = vec(v.x * Math.cos(y) + v.z * Math.sin(y), v.y, -v.x * Math.sin(y) + v.z * Math.cos(y));

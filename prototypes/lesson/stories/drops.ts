@@ -3,8 +3,8 @@
 import type { Shape } from "../../../shared/kit.ts";
 import { clamp01 } from "../../../shared/primitives/motion/ease.ts";
 import { type Mark, vec, type Vec } from "../model.ts";
+import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
-const DEG = Math.PI / 180;
 
 /** A drop's outline, round at the front and drawn out into a tail behind it, longer the faster it falls. */
 const teardrop = (r: number, tail: number): Shape => ({
@@ -67,7 +67,7 @@ export function dropsAt(k: number): Drops {
         const vy = d.vy - g * tau;
         const fast = Math.hypot(d.vx, vy, d.vz) > streakSpeed;
         // The tail trails the way it came from.
-        const lean = Math.atan2(d.vx, -vy) / DEG;
+        const lean = Math.atan2(d.vx, -vy) / DEG_TO_RAD;
         const at = vec(d.origin.x + d.vx * tau, d.origin.y + d.vy * tau - 0.5 * g * tau * tau, d.origin.z + d.vz * tau);
         return [{ id: `drop-${i}`, shape: fast ? streak : drop, at, rotation: vec(0, 0, lean), ride: null }];
       }

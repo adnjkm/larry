@@ -4,6 +4,7 @@ import type { Kit, Part, Shape } from "../../../shared/kit.ts";
 import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { AXIS, type Ctx, defineLesson, type Mark, type Overlay, type PartMove, type Scene, STILL, type Test, type Values, vec, type Vec, type Window } from "../model.ts";
 import { extents } from "../pose.ts";
+import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
 const BASE = "base";
 const FOOT = "rubber-pad";
@@ -13,7 +14,6 @@ const ARM = "top-arm";
 const PAD = "blue-cap";
 const PIN = "pivot-pin";
 const HEAD = [CHANNEL, ARM, PAD, PIN];
-const DEG = Math.PI / 180;
 
 /** Arm ratios that pass: hand distance from the hinge divided by the staple's distance from it. Below, 40 N cannot reach 100 N; above, the staple travels under 6 mm. */
 const RATIO_WINDOW: Window = [2.5, 4];
@@ -56,7 +56,7 @@ function find(kit: Kit, id: string): Part {
 }
 
 const turnPoint = (p: Vec, pivot: Vec, deg: number): Vec => {
-  const [c, s] = [Math.cos(deg * DEG), Math.sin(deg * DEG)];
+  const [c, s] = [Math.cos(deg * DEG_TO_RAD), Math.sin(deg * DEG_TO_RAD)];
   const [dx, dy] = [p.x - pivot.x, p.y - pivot.y];
   return vec(pivot.x + dx * c - dy * s, pivot.y + dx * s + dy * c, p.z);
 };

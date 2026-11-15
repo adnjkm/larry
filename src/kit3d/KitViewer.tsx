@@ -10,6 +10,7 @@ import { shapeKey } from "../primitives/stage/shapes.ts";
 import { DEFAULT_LOOK, type DitherLook } from "./ditherLook.ts";
 import { materialsFor } from "./ditherMaterial.ts";
 import { VIEWER_SELECTOR, markViewerReady, viewerProps } from "../viewport.ts";
+import { DEG_TO_RAD } from "../../shared/angles.ts";
 
 const MARGIN = 1.12;
 const SPIN_RADIANS_PER_SECOND = 0.5;
@@ -50,7 +51,6 @@ const styles = stylex.create({
   }),
 });
 
-const DEG = Math.PI / 180;
 
 const shapeKeys = new WeakMap<Part["shape"], string>();
 function keyOf(part: Part): string {
@@ -86,8 +86,8 @@ const cameraOffset = new Vector3();
 const FIT_KEYS = ["zoom", "targetY", "distance"] as const;
 
 function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimuth: number) {
-  const el = elevation * DEG;
-  const az = azimuth * DEG;
+  const el = elevation * DEG_TO_RAD;
+  const az = azimuth * DEG_TO_RAD;
   cameraTarget.set(0, fit.targetY, 0);
   cameraOffset.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(fit.distance);
   cam.position.copy(cameraTarget).add(cameraOffset);
@@ -159,7 +159,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, look }: { parts: Part[]
   useLayoutEffect(() => {
     // A viewer hidden with display: none measures 0 x 0, which would fit the camera to nothing.
     if (size.width === 0 || size.height === 0) return;
-    const el = elevation * DEG;
+    const el = elevation * DEG_TO_RAD;
     const height = bounds.maxY - bounds.minY;
     const halfWide = Math.max(bounds.radius, shadowReach * 0.85);
     const halfTall = (height / 2) * Math.cos(el) + bounds.radius * Math.sin(el);
@@ -249,7 +249,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, look }: { parts: Part[]
     }
   });
 
-  const az = azimuth * DEG;
+  const az = azimuth * DEG_TO_RAD;
   const shadowPosition: [number, number, number] = [
     Math.cos(az) * sideways - Math.sin(az) * away,
     Math.min(0, bounds.minY),
@@ -262,7 +262,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, look }: { parts: Part[]
       <group ref={pivot}>
         <group position={[-bounds.centerX, 0, -bounds.centerZ]}>
           {parts.map((part, i) => (
-            <mesh key={part.id} geometry={shapes[i]} material={materials[i]} position={[part.position.x, part.position.y, part.position.z]} rotation={[part.rotation.x * DEG, part.rotation.y * DEG, part.rotation.z * DEG]} />
+            <mesh key={part.id} geometry={shapes[i]} material={materials[i]} position={[part.position.x, part.position.y, part.position.z]} rotation={[part.rotation.x * DEG_TO_RAD, part.rotation.y * DEG_TO_RAD, part.rotation.z * DEG_TO_RAD]} />
           ))}
         </group>
       </group>

@@ -5,8 +5,8 @@ import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import type { Part, Shape } from "../../shared/kit.ts";
 import { vec } from "./model.ts";
 import { extents } from "./pose.ts";
+import { DEG_TO_RAD } from "../../shared/angles.ts";
 
-const DEG = Math.PI / 180;
 /** Line thickness in mm. */
 const LINE = 1.2;
 /** Lines down the side of a round part. */
@@ -74,7 +74,7 @@ function boxEdges(part: Part): Edge[] {
 /** Each part as edge lines in `color`, placed and turned as the part is. */
 export function outline(parts: readonly Part[], color: string): Part[] {
   return parts.flatMap((part) => {
-    const q = new Quaternion().setFromEuler(new Euler(part.rotation.x * DEG, part.rotation.y * DEG, part.rotation.z * DEG, "XYZ"));
+    const q = new Quaternion().setFromEuler(new Euler(part.rotation.x * DEG_TO_RAD, part.rotation.y * DEG_TO_RAD, part.rotation.z * DEG_TO_RAD, "XYZ"));
     const placed = new Matrix4().compose(new Vector3(part.position.x, part.position.y, part.position.z), q, new Vector3(1, 1, 1));
     const edges = part.shape.kind === "lathe" ? latheEdges(part.shape.profile) : boxEdges(part);
     return edges.map((edge, i): Part => {
@@ -84,7 +84,7 @@ export function outline(parts: readonly Part[], color: string): Part[] {
       const e = new Euler().setFromQuaternion(turn, "XYZ");
       return {
         id: `ghost-${part.id}-${i}`, name: "ghost", role: "", parentId: null, joint: null, shape: edge.shape,
-        position: vec(pos.x, pos.y, pos.z), rotation: vec(e.x / DEG, e.y / DEG, e.z / DEG), color, finish: "matte",
+        position: vec(pos.x, pos.y, pos.z), rotation: vec(e.x / DEG_TO_RAD, e.y / DEG_TO_RAD, e.z / DEG_TO_RAD), color, finish: "matte",
       };
     });
   });

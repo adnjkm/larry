@@ -7,11 +7,11 @@ import { AXIS, type Control, type Ctx, defineStory, EMPTY_SCENE, type ExplodePla
 import { extents, rigidPoint } from "../pose.ts";
 import { BOTTLE_KIT } from "./bottle-kit.ts";
 import { type Drop, dropsAt } from "../stories/drops.ts";
+import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
 const CAP = "cap";
 const RING = "seal-ring";
 const BODY = "body";
-const DEG = Math.PI / 180;
 const TWIST = "twist";
 
 /** Twist at which the cap first sits down on the neck (or on the seal). */
@@ -148,7 +148,7 @@ const flip: Test = {
     const hold = Math.max(1000, 500 + drops * DROP_GAP + 700);
     const held: Rigid = { dx: 0, dy: FLIP_LIFT, angle: 180 };
     const falling: Drop[] = Array.from({ length: drops }, (_, i) => {
-      const a = (-60 + (((i * 3) % 5) - 2) * 28) * DEG;
+      const a = (-60 + (((i * 3) % 5) - 2) * 28) * DEG_TO_RAD;
       return { spawn: FLIP_UP + 150 + i * DROP_GAP, origin: rigidPoint(ctx.centre, held, vec(NECK_RADIUS * Math.cos(a), rig.jointY + cap.dy, -NECK_RADIUS * Math.sin(a))), vx: 0, vy: 0, vz: 0 };
     });
     return {
@@ -304,7 +304,7 @@ export default defineStory({
     const mark: Mark = {
       id: "turn-mark", ride: CAP,
       shape: { kind: "box", width: 2, height: 12, depth: 2.6, cornerRadius: 0.6 },
-      at: vec(c.x + MARK_RADIUS * Math.cos(MARK_ANGLE * DEG), MARK_Y, c.z - MARK_RADIUS * Math.sin(MARK_ANGLE * DEG)),
+      at: vec(c.x + MARK_RADIUS * Math.cos(MARK_ANGLE * DEG_TO_RAD), MARK_Y, c.z - MARK_RADIUS * Math.sin(MARK_ANGLE * DEG_TO_RAD)),
       rotation: vec(0, MARK_ANGLE, 0),
     };
     return { moves: wholeCap(ctx, { offset: vec(0, -rig.seatDrop, 0) }), marks: [mark] };

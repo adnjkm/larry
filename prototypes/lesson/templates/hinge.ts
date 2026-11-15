@@ -7,6 +7,7 @@ import type { Part } from "../../../shared/kit.ts";
 import { type Axis, AXIS, type Mark, type Values, type Vec, type Window } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";
 import { add, arrowMark, carry, cross, dot, latheAxis, overlay, type Pair, rotate, scale, sub, targetOf, type Template, tenth, unit } from "./pair.ts";
+import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
 /** Arm ratios that pass. Game numbers. */
 const WINDOW: Window = [2.5, 4];
@@ -15,7 +16,6 @@ const HAND_MM = 24;
 const JOB_N = 50;
 const JOB_MM = 6;
 const OPEN_DEG = 15;
-const DEG = Math.PI / 180;
 
 const ratioOf = (v: Values) => tenth(v.ratio ?? 3);
 /** Compared in tenths so 20 × 2.5 lands exactly on 50. */
@@ -162,7 +162,7 @@ export const hingeTemplate: Template = {
             const r = ratioOf(values);
             const travel = tenth(HAND_MM / r);
             const ok = farEnough(r);
-            const deg = Math.min(30, HAND_MM / h.arm / DEG);
+            const deg = Math.min(30, HAND_MM / h.arm / DEG_TO_RAD);
             return {
               verdict: ok
                 ? { pass: true, line: `Your ${HAND_MM} mm became ${HAND_MM} ÷ ${r} = ${travel} mm at ${there}, enough for the ${JOB_MM} mm it has to move.` }

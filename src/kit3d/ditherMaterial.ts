@@ -1,6 +1,7 @@
 import { DoubleSide, ShaderMaterial, Vector3 } from "three";
 import type { Finish } from "../../shared/kit.ts";
 import { DEFAULT_LOOK, type DitherLook } from "./ditherLook.ts";
+import { DEG_TO_RAD } from "../../shared/angles.ts";
 
 type FinishParams = {
   /** Scales the shade around mid-grey. Above 1 is harder, below 1 is flatter. */
@@ -26,11 +27,10 @@ function srgb(hex: string): Vector3 {
   return new Vector3(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
 
-const RAD = Math.PI / 180;
 
 function lookValues(look: DitherLook) {
-  const angle = look.light.angle * RAD;
-  const height = look.light.height * RAD;
+  const angle = look.light.angle * DEG_TO_RAD;
+  const height = look.light.height * DEG_TO_RAD;
   return {
     uMatrix: look.pixels.matrix,
     uDither: look.pixels.dither,
