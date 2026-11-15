@@ -697,8 +697,7 @@ function Flow({
   }
 
   // Moving on with fewer than MAX_PHOTOS plays the same sweep as the last shot: the band climbs from the shutter and
-  // leaves the photo in grey dither, then Larry starts reading. (Fixed here only; src/mock/CameraMock.tsx went straight
-  // to read(), so its develop never showed for one or two photos.)
+  // leaves the photo in grey dither, then Larry starts reading.
   function use() {
     if (phase !== "live" || shots === 0 || frozen) return;
     setFrozen(true);
