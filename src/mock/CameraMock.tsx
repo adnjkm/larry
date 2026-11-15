@@ -749,8 +749,16 @@ function Flow({
     later(650, () => setFrozen(false));
   }
 
+  // Moving on with fewer than MAX_PHOTOS plays the same sweep as the last shot: the band climbs from the shutter and
+  // leaves the photo in grey dither, then Larry starts reading.
   function use() {
-    if (phase === "live" && shots > 0 && !frozen) read();
+    if (phase !== "live" || shots === 0 || frozen) return;
+    setFrozen(true);
+    unveil.current?.play(
+      () => setDeveloped(true),
+      () => setFilled(shots),
+    );
+    read();
   }
 
   const keys = useRef({ shoot, use });
