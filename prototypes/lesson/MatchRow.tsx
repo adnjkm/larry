@@ -8,6 +8,19 @@ import { Surface } from "../../src/surface/Surface.tsx";
 
 const BAND_RADIUS = 14;
 
+/** The job on two lines, the last two words on the second: a longer second line reads as cut off beside the slot. */
+function Does({ text }: { text: string }) {
+  const words = text.split(" ");
+  if (words.length < 4) return <span className="match-does">{text}</span>;
+  return (
+    <span className="match-does">
+      {words.slice(0, -2).join(" ")}
+      <br />
+      {words.slice(-2).join(" ")}
+    </span>
+  );
+}
+
 export function MatchRow({ index, does, filled, over = false, slot }: { index: number; does: string; filled: boolean; /** A preview is being held over this row. */ over?: boolean; slot: ReactNode }) {
   const box = useRef<HTMLLIElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
@@ -33,14 +46,14 @@ export function MatchRow({ index, does, filled, over = false, slot }: { index: n
           <span className="match-fill">
             <Surface shape={rrect(size.w, size.h, BAND_RADIUS)} relief="keycap" material="pink" ground="light" grain={CAMERA.grain} depth={CAMERA.relief} drift={CAMERA.idleDither} />
             <span className="match-gap" />
-            <span className="match-does">{does}</span>
+            <Does text={does} />
           </span>
         </span>
       ) : null}
       <span className="match-slot" data-slot={index}>
         {slot}
       </span>
-      <span className="match-does">{does}</span>
+      <Does text={does} />
     </li>
   );
 }

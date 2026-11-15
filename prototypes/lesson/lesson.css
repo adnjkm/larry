@@ -57,8 +57,8 @@ html, body { height: 100%; }
 .match-rows { flex: none; margin: 0 -8px auto; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
 /* A row is one band: a 60px slot and its job set on two lines of 30px, the same height. */
 .match-row { position: relative; display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 8px; border-radius: 14px; }
-/* The job is set like the lines on the preview's pink card (16/22, 600), held to two lines so it stands level with the slot. */
-.match-does { flex: 1; min-width: 0; max-width: 204px; font-size: 16px; line-height: 22px; font-weight: 600; text-wrap: balance; }
+/* The job is set like the lines on the preview's pink card (16/22, 600), on two lines (MatchRow breaks it), level with the slot. */
+.match-does { flex: 1; min-width: 0; font-size: 16px; line-height: 22px; font-weight: 600; white-space: nowrap; }
 .match-slot { position: relative; z-index: 2; flex: none; width: 52px; height: 52px; display: grid; place-items: center; }
 .match-slot .well { position: relative; display: block; width: 52px; height: 52px; border-radius: 14px; pointer-events: none; transition: box-shadow 150ms ease-out; }
 /* The row a held preview would land in says so. */
