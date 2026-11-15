@@ -21,7 +21,7 @@ const FINISHES: Record<Finish, FinishParams> = {
   clear: { contrast: 0.9, bias: 0.05, specular: 0.4, shininess: 40, clear: 1 },
 };
 
-export function srgb(hex: string): Vector3 {
+function srgb(hex: string): Vector3 {
   const n = Number.parseInt(hex.slice(1), 16);
   return new Vector3(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }

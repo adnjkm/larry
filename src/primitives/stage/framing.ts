@@ -59,7 +59,7 @@ function unionBounds(all: KitBounds[]): KitBounds {
   };
 }
 
-export type Mode = "still" | "game";
+type Mode = "still" | "game";
 
 /**
  * Bounds that hold every pose the figure can show, so the camera holds still while a slider moves the parts or a run
