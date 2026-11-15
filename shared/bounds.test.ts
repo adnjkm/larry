@@ -20,7 +20,7 @@ const TURNS = [{ x: 0, y: 0, z: 0 }, { x: 20, y: 35, z: -50 }, { x: 90, y: 0, z:
 const TOLERANCE = 0.05;
 
 function part(shape: Shape, rotation: Part["rotation"]): Part {
-  return { id: "p", name: "p", shape, color: "#000000", finish: "matte", position: { x: 7, y: -3, z: 11 }, rotation };
+  return { id: "p", name: "p", role: "", parentId: null, joint: null, shape, color: "#000000", finish: "matte", position: { x: 7, y: -3, z: 11 }, rotation };
 }
 
 function builtBounds(p: Part, around: { x: number; z: number }) {
