@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../../shared/kit.ts";
 import { checkDesign, checkGame, numberSweep, sample, steps } from "../checks.ts";
+import { SCENE } from "../motion/run.ts";
 import { FRICTION_DEG, geometry, HAND_R, jack, MEAN_R, PITCH_UNIT, ridgeWire, settle, TARGET, thread } from "./thread.ts";
 
 const game = thread.game!;
@@ -15,11 +16,11 @@ describe("thread", () => {
     checkDesign(thread);
   });
 
-  it("keeps to the simple-first budget: seven kinds of part at rest, one more in the game", () => {
+  it("keeps to the simple-first budget: five kinds of part at rest (the screw and the nut), two more in the game", () => {
     const kinds = new Set(thread.build({ pitch: 4, turns: 2.5 }).map((p) => p.id.replace(/-arrow$/, "arrow")));
     assert.ok(kinds.size <= 9, [...kinds].join(", "));
-    assert.equal(kinds.size, 7);
-    assert.equal(game.scene!({}).length, 1);
+    assert.deepEqual([...kinds].sort(), ["handle", "nut", "plate", "ridge", "rod"]);
+    assert.deepEqual(game.scene!({}).map((p) => p.id), [`${SCENE}load`, `${SCENE}mark`]);
   });
 
   it("climbs exactly one pitch per turn, whatever the pitch, and rests on the plate at turn 0", () => {
@@ -97,7 +98,7 @@ describe("thread", () => {
       let highest = 0;
       for (const { ms, frame } of sample(run)) {
         const parts = [...thread.build(frame.values), ...game.scene!(frame.values)];
-        const cube = find(parts, "load");
+        const cube = find(parts, `${SCENE}load`);
         assert.ok(cube.shape.kind === "box");
         const top = cube.position.y + cube.shape.height / 2;
         const nut = find(parts, "nut");
