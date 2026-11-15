@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, numberSweep, sample, worldOutline } from "../checks.ts";
 import { steps, type Values } from "../types.ts";
 import { COLOR } from "../parts.ts";
 import { beat, cam, geometry, JAM_RISE, LIMIT, rampAngle, rise, STRIKE } from "./cam.ts";
@@ -15,23 +15,13 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 type Pt = [number, number];
 const game = cam.game;
 const lift = cam.sliders[0]!;
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
-function world(part: Part): Pt[] {
-  assert.ok(part.shape.kind === "extrusion");
-  const xs = part.shape.outline.map((q) => q.x);
-  const ys = part.shape.outline.map((q) => q.y);
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-  const a = (part.rotation.z * Math.PI) / 180;
-  return part.shape.outline.map(({ x, y }): Pt => [part.position.x + (x - cx) * Math.cos(a) - (y - cy) * Math.sin(a), part.position.y + (x - cx) * Math.sin(a) + (y - cy) * Math.cos(a)]);
-}
 /** The follower's foot bottom, and the highest the rim reaches within the foot's width (edges included). */
 function foot(parts: Part[]): { bottom: number; rim: number } {
   const rod = find(parts, "follower");
   assert.ok(rod.shape.kind === "extrusion");
   const bottom = rod.position.y - FOOT_TOTAL / 2;
-  const o = world(find(parts, "cam"));
+  const o = worldOutline(find(parts, "cam"));
   const W = geometry.FOOT_W / 2;
   let rim = -Infinity;
   for (let i = 0; i < o.length; i++) {

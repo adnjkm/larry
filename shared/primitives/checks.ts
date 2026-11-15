@@ -3,14 +3,15 @@
 // its primitive. Test-only: imports node:assert.
 import assert from "node:assert/strict";
 import { Kit, kitProblems, type Part } from "../kit.ts";
+import { DEG_TO_RAD } from "../angles.ts";
 import { measurePoses } from "../bounds.ts";
 import { poses } from "./framing.ts";
 import { MARK, SCENE } from "./motion/run.ts";
-import { ARROW_MIN, COLOR, PLATE_T, PLATE_MARGIN, PLATE_TOP } from "./parts.ts";
-import { type Frame, type Primitive, type Run, type Slider, type Values, VIEW, allSliders, initialValues, startValues, steps } from "./types.ts";
+import { ARROW_MIN, COLOR, PLATE_T, PLATE_MARGIN, PLATE_TOP, type Pt } from "./parts.ts";
+import { type Frame, type Primitive, type Run, type Slider, type Values, VIEW, allSliders, initialValues, numberSlider, startValues, steps } from "./types.ts";
 
 /** Frames are sampled this far apart, as a 60 Hz screen would. */
-export const FRAME_MS = 16;
+const FRAME_MS = 16;
 /** The largest change a value may make between two frames FRAME_MS apart, as a share of its range, except at a cue. */
 const MAX_STEP = 0.2;
 const MAX_RUN_MS = 4500;
@@ -22,27 +23,133 @@ const fail = (p: Primitive, what: string, v?: Values) => `${p.id}: ${what}${v ? 
 /** Every value a frame may carry, with its range: sliders, game controls and run-only poses. */
 const ranges = (p: Primitive): Map<string, Slider> => new Map(allSliders(p).map((s) => [s.id, s]));
 
-const numberSlider = (p: Primitive): Slider => {
-  const g = p.game;
-  const s = [...p.sliders, ...(g.controls ?? [])].find((q) => q.id === g.number);
-  assert.ok(s, fail(p, `game.number "${g.number}" is not a slider or control`));
-  return s;
-};
-
 /** The game's start with its number set to each step of its slider. */
 export const numberSweep = (p: Primitive): Values[] => steps(numberSlider(p)).map((n) => ({ ...startValues(p), [numberSlider(p).id]: n }));
 
-/** A run's frames every FRAME_MS, and the last frame exactly at durationMs. */
+const sampled = new WeakMap<Run, { ms: number; frame: Frame }[]>();
+
+/** A run's frames every FRAME_MS, and the last frame exactly at durationMs. Kept per run, so every check reads one sampling. */
 export function sample(run: Run): { ms: number; frame: Frame }[] {
-  const out: { ms: number; frame: Frame }[] = [];
-  for (let ms = 0; ms < run.durationMs; ms += FRAME_MS) out.push({ ms, frame: run.at(ms) });
-  out.push({ ms: run.durationMs, frame: run.at(run.durationMs) });
+  let out = sampled.get(run);
+  if (!out) {
+    out = [];
+    for (let ms = 0; ms < run.durationMs; ms += FRAME_MS) out.push({ ms, frame: run.at(ms) });
+    out.push({ ms: run.durationMs, frame: run.at(run.durationMs) });
+    sampled.set(run, out);
+  }
   return out;
 }
 
+const plays = new WeakMap<Primitive, Map<string, { run: Run; frames: { ms: number; frame: Frame }[] }>>();
+
+/** The game's run at `v` and its sampled frames, played once per primitive and values. */
+function played(p: Primitive, v: Values) {
+  let byValues = plays.get(p);
+  if (!byValues) plays.set(p, (byValues = new Map()));
+  const key = JSON.stringify(v);
+  let hit = byValues.get(key);
+  if (!hit) {
+    const run = p.game.play(v);
+    byValues.set(key, (hit = { run, frames: sample(run) }));
+  }
+  return hit;
+}
+
+const framed = new WeakMap<Frame, { built: Part[]; scene: Part[] }>();
+
+/** What build and the game's scene draw at a frame's values, built once. */
+function partsAt(p: Primitive, frame: Frame) {
+  let hit = framed.get(frame);
+  if (!hit) framed.set(frame, (hit = { built: p.build(frame.values), scene: p.game.scene?.(frame.values) ?? [] }));
+  return hit;
+}
+
+/** The find helper for tests: the part with `id`, or a failure naming it. */
+export const find = (parts: Part[], id: string): Part => parts.find((q) => q.id === id) ?? assert.fail(`no part ${id}`);
+
+/** A part's extrusion outline in world x-y, placed as the renderer does: centred on its bounding box, turned about z, moved to the part's position. */
+export function worldOutline(part: Part): Pt[] {
+  assert.ok(part.shape.kind === "extrusion");
+  const xs = part.shape.outline.map((q) => q.x);
+  const ys = part.shape.outline.map((q) => q.y);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const a = part.rotation.z * DEG_TO_RAD;
+  const [cos, sin] = [Math.cos(a), Math.sin(a)];
+  return part.shape.outline.map(({ x, y }): Pt => [part.position.x + (x - cx) * cos - (y - cy) * sin, part.position.y + (x - cx) * sin + (y - cy) * cos]);
+}
+
+type Box = { x0: number; x1: number; y0: number; y1: number };
+const boxes = new WeakMap<Pt[], Box>();
+const boxOf = (poly: Pt[]): Box => {
+  let b = boxes.get(poly);
+  if (!b) {
+    const xs = poly.map((q) => q[0]);
+    const ys = poly.map((q) => q[1]);
+    boxes.set(poly, (b = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }));
+  }
+  return b;
+};
+
+/** Gaps wider than this are not measured: a point farther than this from the other outline's box is only known to be outside. */
+const CONTACT_REACH = 2;
+
+function insidePoly(p: Pt, poly: Pt[]): boolean {
+  let hit = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i]!;
+    const [xj, yj] = poly[j]!;
+    if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) hit = !hit;
+  }
+  return hit;
+}
+
+function edgeDistance(p: Pt, poly: Pt[]): number {
+  let d = Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [ax, ay] = poly[j]!;
+    const [bx, by] = poly[i]!;
+    const t = Math.max(0, Math.min(1, ((p[0] - ax) * (bx - ax) + (p[1] - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2 || 1)));
+    d = Math.min(d, Math.hypot(p[0] - ax - t * (bx - ax), p[1] - ay - t * (by - ay)));
+  }
+  return d;
+}
+
+/** Points on a polygon's edges, at most `spacing` apart. */
+function along(poly: Pt[], spacing: number): Pt[] {
+  return poly.flatMap((a, i) => {
+    const b = poly[(i + 1) % poly.length]!;
+    const k = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / spacing));
+    return Array.from({ length: k }, (_, s): Pt => [a[0] + ((b[0] - a[0]) * s) / k, a[1] + ((b[1] - a[1]) * s) / k]);
+  });
+}
+
+/**
+ * Deepest point of either outline inside the other (mm), and the smallest gap between them (0 when they touch or overlap;
+ * exact up to CONTACT_REACH, Infinity beyond), sampling each outline every `spacing` mm.
+ */
+export function contact(a: Pt[], b: Pt[], spacing: number): { depth: number; gap: number } {
+  let depth = 0;
+  let gap = Infinity;
+  for (const [from, into] of [[a, b], [b, a]] as const) {
+    const box = boxOf(into);
+    for (const p of along(from, spacing)) {
+      if (p[0] < box.x0 - CONTACT_REACH || p[0] > box.x1 + CONTACT_REACH || p[1] < box.y0 - CONTACT_REACH || p[1] > box.y1 + CONTACT_REACH) continue;
+      const d = edgeDistance(p, into);
+      // A point on the other's edge may test as inside: it is touching, so it closes the gap either way.
+      if (insidePoly(p, into)) {
+        depth = Math.max(depth, d);
+        gap = 0;
+      } else gap = Math.min(gap, d);
+    }
+  }
+  return { depth, gap };
+}
+
 /** judge passes somewhere, the passing steps are one window, and it fails on both sides with at least two steps clear of each end. The start fails. */
-export function checkTwoSided(p: Primitive): void {
+function checkTwoSided(p: Primitive): void {
   const g = p.game;
+  assert.ok(numberSlider(p), fail(p, `game.number "${g.number}" is not a slider or control`));
   const sweep = numberSweep(p);
   const pass = sweep.map((v) => g.judge(v).pass);
   const first = pass.indexOf(true);
@@ -55,13 +162,13 @@ export function checkTwoSided(p: Primitive): void {
 }
 
 /** play(v).verdict equals judge(v) at every step of the number slider. */
-export function checkVerdictIsJudge(p: Primitive): void {
+function checkVerdictIsJudge(p: Primitive): void {
   const g = p.game;
   for (const v of numberSweep(p)) assert.deepEqual(g.play(v).verdict, g.judge(v), fail(p, "play's verdict differs from judge", v));
 }
 
 /** Verdict and game words stay inside their limits. */
-export function checkWords(p: Primitive): void {
+function checkWords(p: Primitive): void {
   const g = p.game;
   const words = (s: string) => s.trim().split(/\s+/).length;
   assert.ok(words(g.rules) <= 30, fail(p, `rules run to ${words(g.rules)} words`));
@@ -81,13 +188,13 @@ export function checkWords(p: Primitive): void {
  * Every frame of every run (at each number step): known values inside their ranges, a short live caption, marks that
  * never clash with build's ids and make a valid kit with it, and a run under 4.5 s.
  */
-export function checkRunFrames(p: Primitive): void {
+function checkRunFrames(p: Primitive): void {
   const g = p.game;
   const known = ranges(p);
   for (const v of numberSweep(p)) {
-    const run = g.play(v);
+    const { run, frames } = played(p, v);
     assert.ok(run.durationMs > 0 && run.durationMs <= MAX_RUN_MS, fail(p, `run lasts ${run.durationMs} ms`, v));
-    for (const [i, { ms, frame }] of sample(run).entries()) {
+    for (const [i, { ms, frame }] of frames.entries()) {
       const at = `${ms} ms of the run`;
       for (const [id, x] of Object.entries(frame.values)) {
         const s = known.get(id);
@@ -97,8 +204,7 @@ export function checkRunFrames(p: Primitive): void {
       const words = frame.live.trim().split(/\s+/).filter(Boolean).length;
       assert.ok(words >= 1 && words <= 6, fail(p, `${at} caption "${frame.live}" is not 1 to 6 words`, v));
       assert.doesNotMatch(frame.live, /\d/, fail(p, `${at} caption "${frame.live}" shows a number`, v));
-      const built = p.build(frame.values);
-      const scene = g.scene?.(frame.values) ?? [];
+      const { built, scene } = partsAt(p, frame);
       const ids = new Set([...built, ...scene].map((q) => q.id));
       for (const m of frame.marks ?? []) {
         assert.ok(m.id.startsWith(MARK), fail(p, `${at} mark "${m.id}" does not start with "${MARK}"`, v));
@@ -115,7 +221,7 @@ export function checkRunFrames(p: Primitive): void {
  * The game's scene, at the start and across the slider grid: ids start with SCENE and never clash with build's, colours
  * are COLOR roles, and build plus scene is a valid kit.
  */
-export function checkScene(p: Primitive): void {
+function checkScene(p: Primitive): void {
   const scene = p.game.scene;
   if (!scene) return;
   const palette = new Set<string>(Object.values(COLOR));
@@ -133,16 +239,15 @@ export function checkScene(p: Primitive): void {
 }
 
 /** at(0) is the start pose, and no value jumps more than MAX_STEP of its range between frames FRAME_MS apart, except within a frame of a cue. */
-export function checkContinuity(p: Primitive): void {
+function checkContinuity(p: Primitive): void {
   const g = p.game;
   const known = ranges(p);
   for (const v of numberSweep(p)) {
-    const run = g.play(v);
-    const first = run.at(0).values;
+    const { run, frames } = played(p, v);
+    const first = frames[0]!.frame.values;
     for (const s of p.sliders) assert.ok(Math.abs((first[s.id] ?? s.initial) - (v[s.id] ?? s.initial)) < 1e-9, fail(p, `at(0) has ${s.id} = ${first[s.id]}, not the start's ${v[s.id]}`, v));
     for (const s of g.poses ?? []) assert.ok(Math.abs((first[s.id] ?? s.initial) - s.initial) < 1e-9, fail(p, `at(0) has run-only ${s.id} = ${first[s.id]}, not its initial ${s.initial}`, v));
     const cues = (run.cues ?? []).map((c) => c.ms);
-    const frames = sample(run);
     for (let i = 1; i < frames.length; i++) {
       const a = frames[i - 1]!;
       const b = frames[i]!;
@@ -160,7 +265,7 @@ export function checkContinuity(p: Primitive): void {
  * The handle's reach stays inside its slider's range, lowest first, across a grid of poses; and no run moves the handle's
  * slider outside the reach of the frame before it (beyond where the run started), except after a "snap": something broke.
  */
-export function checkReach(p: Primitive): void {
+function checkReach(p: Primitive): void {
   const h = p.handle;
   const reach = h.reach;
   if (!reach) return;
@@ -172,10 +277,9 @@ export function checkReach(p: Primitive): void {
     assert.ok(lo >= s.min - 1e-9 && hi <= s.max + 1e-9, fail(p, `reach [${lo}, ${hi}] leaves ${s.min}..${s.max}`, v));
   }
   for (const v of numberSweep(p)) {
-    const run = p.game.play(v);
+    const { run, frames } = played(p, v);
     const broke = Math.min(...(run.cues ?? []).filter((c) => c.kind === "snap").map((c) => c.ms));
     const start: number = v[s.id] ?? s.initial;
-    const frames = sample(run);
     for (let i = 1; i < frames.length; i++) {
       const b = frames[i]!;
       if (b.ms >= broke) break;
@@ -195,8 +299,9 @@ function shownPoses(p: Primitive): { label: string; values: Values; parts: Part[
   const scene = p.game.scene;
   if (scene) for (const v of poses(p, 3)) out.push({ label: `${JSON.stringify(v)} with the game's scene`, values: v, parts: [...p.build(v), ...scene(v)] });
   for (const v of numberSweep(p).filter((_, i, all) => i % Math.max(1, Math.floor(all.length / 6)) === 0)) {
-    for (const { ms, frame } of sample(p.game.play(v)).filter((_, i) => i % 8 === 0)) {
-      out.push({ label: `${ms} ms of the run at ${JSON.stringify(v)}`, values: frame.values, parts: [...p.build(frame.values), ...(scene?.(frame.values) ?? []), ...(frame.marks ?? [])] });
+    for (const { ms, frame } of played(p, v).frames.filter((_, i) => i % 8 === 0)) {
+      const drawn = partsAt(p, frame);
+      out.push({ label: `${ms} ms of the run at ${JSON.stringify(v)}`, values: frame.values, parts: [...drawn.built, ...drawn.scene, ...(frame.marks ?? [])] });
     }
   }
   return out;
@@ -272,7 +377,7 @@ const MARK_KINDS = 2;
 const kinds = (parts: Part[]) => [...new Set(parts.map((q) => q.name))];
 
 /** Simple first (design-language.md): the kinds of part at rest, in the game's scene, and in any run frame's marks stay in budget. */
-export function checkKinds(p: Primitive): void {
+function checkKinds(p: Primitive): void {
   const budget = KIND_BUDGET[p.level];
   const rests = [initialValues(p), startValues(p)];
   for (const v of rests) {
@@ -282,7 +387,7 @@ export function checkKinds(p: Primitive): void {
     assert.ok(scene.length <= SCENE_KINDS, fail(p, `the game's scene adds ${scene.length} kinds, over ${SCENE_KINDS}: ${scene.join(", ")}`, v));
   }
   for (const v of numberSweep(p)) {
-    for (const { ms, frame } of sample(p.game.play(v))) {
+    for (const { ms, frame } of played(p, v).frames) {
       const m = kinds(frame.marks ?? []);
       assert.ok(m.length <= MARK_KINDS, fail(p, `${ms} ms of the run shows ${m.length} kinds of mark, over ${MARK_KINDS}: ${m.join(", ")}`, v));
     }

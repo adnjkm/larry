@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, sample } from "../checks.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { startValues, steps, type Values } from "../types.ts";
 import { bobRadius, CONTACT, freed, freedAt, geometry, NEED, OMEGA, PERIOD, QUARTER, SNAP, strike, strikeOf, STRING_MM, weight, X0 } from "./weight.ts";
@@ -10,7 +10,6 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 const game = weight.game;
 const [mass, swing] = weight.sliders as [NonNullable<(typeof weight.sliders)[0]>, NonNullable<(typeof weight.sliders)[1]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const has = (parts: Part[], id: string) => parts.some((p) => p.id === id);
 
 type Pt = [number, number];

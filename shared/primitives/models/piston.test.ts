@@ -2,14 +2,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, sample } from "../checks.ts";
 import { startValues, steps } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { AIR, downFor, geometry, HAND, MARK, piston, settle, stop, TOLERANCE } from "./piston.ts";
 
 const game = piston.game;
 const [area, force] = piston.sliders as [NonNullable<(typeof piston.sliders)[0]>, NonNullable<(typeof piston.sliders)[1]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const dots = (parts: Part[]) => parts.filter((p) => p.id.startsWith("air-"));
 const arrowLen = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shape.outline.map((o) => o.x)) : 0);
 

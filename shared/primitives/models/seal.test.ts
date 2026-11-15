@@ -2,14 +2,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, sample } from "../checks.ts";
 import { startValues, steps } from "../types.ts";
 import { COLOR, PLATE_TOP } from "../parts.ts";
 import { geometry, seal, settle, SPLIT, T0, WEEP } from "./seal.ts";
 
 const game = seal.game;
 const [squeeze] = seal.sliders as [NonNullable<(typeof seal.sliders)[0]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const outerOf = (p: Part) => {
   assert.ok(p.shape.kind === "lathe");
   return Math.max(...p.shape.profile.map((q) => q.r));

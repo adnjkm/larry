@@ -5,14 +5,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, numberSweep, sample } from "../checks.ts";
 import { startValues, steps, type Values } from "../types.ts";
 import { bounds, FINGER, holdFor, lever, LOAD, lift, RISE, rig, settle, STRAIN, TRAVEL } from "./lever.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
 
 const game = lever.game;
 const [ratio, push] = lever.sliders as [NonNullable<(typeof lever.sliders)[0]>, NonNullable<(typeof lever.sliders)[1]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const EXT = rig.EXT;
 const SPAN_BAR = rig.SPAN + 2 * rig.EXT;
 

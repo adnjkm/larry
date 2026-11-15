@@ -5,13 +5,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, numberSweep, sample } from "../checks.ts";
 import { type Values, VIEW, startValues, steps } from "../types.ts";
 import { BREAK, cord, cordPath, LINE, rig, settle, STROKE, yank } from "./cord.ts";
 
 const game = cord.game;
 const [tension, pull] = cord.sliders as [NonNullable<(typeof cord.sliders)[0]>, NonNullable<(typeof cord.sliders)[1]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const len = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shape.outline.map((q) => q.x)) : 0);
 const edge = (p: Part) => (p.shape.kind === "box" ? p.shape.height : assert.fail());
 const hasArrow = (parts: Part[], id: string) => parts.some((p) => p.id === id);

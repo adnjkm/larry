@@ -2,14 +2,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, numberSweep, sample } from "../checks.ts";
 import { steps } from "../types.ts";
 import { SCENE } from "../motion/run.ts";
 import { FRICTION_DEG, geometry, HAND_R, jack, MEAN_R, PITCH_UNIT, ridgeWire, settle, TARGET, thread } from "./thread.ts";
 
 const game = thread.game;
 const pitch = thread.sliders[0]!;
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
 describe("thread", () => {
   it("passes the generic game and design checks", () => {

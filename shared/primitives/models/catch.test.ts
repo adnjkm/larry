@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { checkDesign, checkGame, contact, find, numberSweep, sample, worldOutline } from "../checks.ts";
 import { startValues, steps, type Values } from "../types.ts";
 import { catchLatch, GUST, PUSH, rig, settle, shutAndHold, springFor } from "./catch.ts";
 import { CLOSE_GAIN, FLAT_AT, HOLD_GAIN, LIP_AT, liftAt, THROW, TOUCH_AT } from "./catchGeometry.ts";
@@ -14,60 +14,10 @@ import { CLOSE_GAIN, FLAT_AT, HOLD_GAIN, LIP_AT, liftAt, THROW, TOUCH_AT } from 
 type Pt = [number, number];
 const game = catchLatch.game;
 const [force, door] = catchLatch.sliders as [NonNullable<(typeof catchLatch.sliders)[0]>, NonNullable<(typeof catchLatch.sliders)[1]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
-function world(part: Part): Pt[] {
-  assert.ok(part.shape.kind === "extrusion");
-  const xs = part.shape.outline.map((q) => q.x);
-  const ys = part.shape.outline.map((q) => q.y);
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-  assert.equal(part.rotation.z, 0);
-  return part.shape.outline.map(({ x, y }): Pt => [part.position.x + x - cx, part.position.y + y - cy]);
-}
-function insidePoly(p: Pt, poly: Pt[]): boolean {
-  let hit = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]!;
-    const [xj, yj] = poly[j]!;
-    if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) hit = !hit;
-  }
-  return hit;
-}
-function edgeDistance(p: Pt, poly: Pt[]): number {
-  let d = Infinity;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [ax, ay] = poly[j]!;
-    const [bx, by] = poly[i]!;
-    const t = Math.max(0, Math.min(1, ((p[0] - ax) * (bx - ax) + (p[1] - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2 || 1)));
-    d = Math.min(d, Math.hypot(p[0] - ax - t * (bx - ax), p[1] - ay - t * (by - ay)));
-  }
-  return d;
-}
-function along(poly: Pt[], spacing: number): Pt[] {
-  return poly.flatMap((a, i) => {
-    const b = poly[(i + 1) % poly.length]!;
-    const k = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / spacing));
-    return Array.from({ length: k }, (_, s): Pt => [a[0] + ((b[0] - a[0]) * s) / k, a[1] + ((b[1] - a[1]) * s) / k]);
-  });
-}
-/** Deepest point of either outline inside the other (mm), and the smallest gap between them when apart. */
-function contact(a: Pt[], b: Pt[]): { depth: number; gap: number } {
-  let depth = 0;
-  let gap = Infinity;
-  for (const [from, into] of [[a, b], [b, a]] as const) {
-    for (const p of along(from, 0.2)) {
-      const d = edgeDistance(p, into);
-      // A point on the other's edge may test as inside: it is touching, so it closes the gap either way.
-      if (insidePoly(p, into)) depth = Math.max(depth, d);
-      gap = Math.min(gap, insidePoly(p, into) ? 0 : d);
-    }
-  }
-  return { depth, gap };
-}
 const outlines = (v: Values) => {
   const parts = catchLatch.build(v);
-  return { bolt: world(find(parts, "bolt")), frame: world(find(parts, "frame")), door: world(find(parts, "door")) };
+  return { bolt: worldOutline(find(parts, "bolt")), frame: worldOutline(find(parts, "frame")), door: worldOutline(find(parts, "door")) };
 };
 
 const DOORS = steps(door);
@@ -82,12 +32,12 @@ describe("catch", () => {
     for (const f of FORCES) {
       for (const d of [...DOORS, ...KEY_DOORS]) {
         const o = outlines({ force: f, door: d });
-        const onDoor = contact(o.bolt, o.door);
+        const onDoor = contact(o.bolt, o.door, 0.2);
         assert.ok(onDoor.depth <= 0.03, `force ${f}, door ${d}: bolt ${onDoor.depth.toFixed(3)} mm into the door`);
         if (liftAt(d) > 1e-6) assert.ok(onDoor.gap <= 0.05 || onDoor.depth > 0, `force ${f}, door ${d}: lifted by a door ${onDoor.gap.toFixed(3)} mm away`);
-        const inFrame = contact(o.bolt, o.frame);
+        const inFrame = contact(o.bolt, o.frame, 0.2);
         assert.ok(inFrame.depth <= 0.03, `force ${f}, door ${d}: bolt ${inFrame.depth.toFixed(3)} mm into the frame`);
-        const doorFrame = contact(o.door, o.frame);
+        const doorFrame = contact(o.door, o.frame, 0.2);
         assert.ok(doorFrame.depth <= 0.03, `force ${f}, door ${d}: door ${doorFrame.depth.toFixed(3)} mm into the frame`);
       }
     }
@@ -108,9 +58,9 @@ describe("catch", () => {
   it("when shut, the flange sits on the lips, the steep face lies on the notch's wall, and the door rests on the post", () => {
     for (const f of FORCES) {
       const o = outlines({ force: f, door: 0 });
-      assert.ok(contact(o.bolt, o.frame).gap <= 0.05, "the flange rests on the lips");
-      assert.ok(contact(o.bolt, o.door).gap <= 0.05, "the steep face lies on the notch's wall");
-      assert.ok(contact(o.door, o.frame).gap <= 0.05, "the door rests on the post");
+      assert.ok(contact(o.bolt, o.frame, 0.2).gap <= 0.05, "the flange rests on the lips");
+      assert.ok(contact(o.bolt, o.door, 0.2).gap <= 0.05, "the steep face lies on the notch's wall");
+      assert.ok(contact(o.door, o.frame, 0.2).gap <= 0.05, "the door rests on the post");
     }
   });
 
@@ -128,7 +78,7 @@ describe("catch", () => {
         const solid = 2 * spring.shape.tube * (spring.shape.turns + 1);
         assert.ok(spring.shape.length >= solid - 1e-9, `force ${f}, door ${d}: spring ${spring.shape.length} mm, solid at ${solid}`);
         assert.ok(Math.abs(spring.shape.length - (rig.FITTED - liftAt(d))) < 1e-9, `force ${f}, door ${d}: the spring is as long as the bolt's lift leaves it`);
-        const flangeTop = Math.max(...world(find(parts, "bolt")).map(([, y]) => y));
+        const flangeTop = Math.max(...worldOutline(find(parts, "bolt")).map(([, y]) => y));
         assert.ok(Math.abs(spring.position.y - spring.shape.length / 2 - flangeTop) < 1e-9, `force ${f}, door ${d}: the spring stands on the flange`);
       }
     }
@@ -175,8 +125,8 @@ describe("catch", () => {
       const frames = sample(run);
       for (const { ms, frame } of frames.filter((_, i) => i % 3 === 0)) {
         const o = outlines(frame.values);
-        assert.ok(contact(o.bolt, o.door).depth <= 0.03, `force ${v.force} at ${ms} ms: bolt into the door`);
-        assert.ok(contact(o.bolt, o.frame).depth <= 0.03, `force ${v.force} at ${ms} ms: bolt into the frame`);
+        assert.ok(contact(o.bolt, o.door, 0.2).depth <= 0.03, `force ${v.force} at ${ms} ms: bolt into the door`);
+        assert.ok(contact(o.bolt, o.frame, 0.2).depth <= 0.03, `force ${v.force} at ${ms} ms: bolt into the frame`);
       }
       const doors = frames.map((f) => f.frame.values.door ?? 0);
       const end = doors[doors.length - 1]!;

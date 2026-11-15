@@ -2,14 +2,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, sample } from "../checks.ts";
 import { startValues, steps } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { CRACK, geometry, grip, hold, LOAD_END, MU, settle, SLIDE } from "./grip.ts";
 
 const game = grip.game;
 const [squeeze, load] = grip.sliders as [NonNullable<(typeof grip.sliders)[0]>, NonNullable<(typeof grip.sliders)[1]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const length = (p: Part) => {
   assert.ok(p.shape.kind === "extrusion");
   return Math.max(...p.shape.outline.map((o) => o.x));

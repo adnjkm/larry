@@ -2,13 +2,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, numberSweep, sample } from "../checks.ts";
 import { steps } from "../types.ts";
 import { ARROW_PER_N, cordLength, geometry, HAND, hoist, LOAD, pulley, RISE, ROPE, settle } from "./pulley.ts";
 
 const game = pulley.game;
 const [strands, pull] = pulley.sliders as [NonNullable<(typeof pulley.sliders)[0]>, NonNullable<(typeof pulley.sliders)[1]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
 /** A box part's extent in x and y (the parts here are unrotated except the cord bars and rings, which are handled apart). */
 const boxOf = (p: Part) => {

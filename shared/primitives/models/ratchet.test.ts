@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { checkDesign, checkGame, contact, find, numberSweep, sample, worldOutline } from "../checks.ts";
 import { startValues, type Values } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { LIFT_PER_TURN, MARK, ratchet, rig, stopAt, tabulatedLift, TOLERANCE } from "./ratchet.ts";
@@ -15,71 +15,13 @@ import { REST_LIFT } from "./ratchetTable.ts";
 
 type Pt = [number, number];
 const game = ratchet.game;
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
-/** A part's extrusion outline in world x-y, as geometry.ts and the renderer place it. */
-function world(part: Part): Pt[] {
-  assert.ok(part.shape.kind === "extrusion");
-  const xs = part.shape.outline.map((q) => q.x);
-  const ys = part.shape.outline.map((q) => q.y);
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-  const a = (part.rotation.z * Math.PI) / 180;
-  return part.shape.outline.map(({ x, y }): Pt => [part.position.x + (x - cx) * Math.cos(a) - (y - cy) * Math.sin(a), part.position.y + (x - cx) * Math.sin(a) + (y - cy) * Math.cos(a)]);
-}
 
-function insidePoly(p: Pt, poly: Pt[]): boolean {
-  let hit = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]!;
-    const [xj, yj] = poly[j]!;
-    if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) hit = !hit;
-  }
-  return hit;
-}
-function edgeDistance(p: Pt, poly: Pt[]): number {
-  let d = Infinity;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [ax, ay] = poly[j]!;
-    const [bx, by] = poly[i]!;
-    const t = Math.max(0, Math.min(1, ((p[0] - ax) * (bx - ax) + (p[1] - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2 || 1)));
-    d = Math.min(d, Math.hypot(p[0] - ax - t * (bx - ax), p[1] - ay - t * (by - ay)));
-  }
-  return d;
-}
-function along(poly: Pt[], spacing: number): Pt[] {
-  return poly.flatMap((a, i) => {
-    const b = poly[(i + 1) % poly.length]!;
-    const k = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / spacing));
-    return Array.from({ length: k }, (_, s): Pt => [a[0] + ((b[0] - a[0]) * s) / k, a[1] + ((b[1] - a[1]) * s) / k]);
-  });
-}
 
-/** Deepest point of either outline inside the other (mm), and the smallest gap between them when apart. */
-function contact(wheel: Pt[], pawl: Pt[]): { depth: number; gap: number } {
-  const near = (p: Pt, poly: Pt[]) => {
-    const xs = poly.map((q) => q[0]);
-    const ys = poly.map((q) => q[1]);
-    return p[0] > Math.min(...xs) - 1 && p[0] < Math.max(...xs) + 1 && p[1] > Math.min(...ys) - 1 && p[1] < Math.max(...ys) + 1;
-  };
-  let depth = 0;
-  let gap = Infinity;
-  for (const p of along(pawl, 0.25).filter((q) => near(q, wheel))) {
-    const d = edgeDistance(p, wheel);
-    if (insidePoly(p, wheel)) depth = Math.max(depth, d);
-    else gap = Math.min(gap, d);
-  }
-  for (const p of along(wheel, 0.25).filter((q) => near(q, pawl))) {
-    const d = edgeDistance(p, pawl);
-    if (insidePoly(p, pawl)) depth = Math.max(depth, d);
-    else gap = Math.min(gap, d);
-  }
-  return { depth, gap };
-}
 
 const outlines = (v: Values) => {
   const parts = ratchet.build(v);
-  return { wheel: world(find(parts, "wheel")), pawl: world(find(parts, "pawl")), parts };
+  return { wheel: worldOutline(find(parts, "wheel")), pawl: worldOutline(find(parts, "pawl")), parts };
 };
 const pawlAngle = (v: Values) => find(ratchet.build(v), "pawl").rotation.z;
 
@@ -92,7 +34,7 @@ describe("ratchet", () => {
     for (const n of TEETH) {
       for (const turn of turnsFor(n)) {
         const { wheel, pawl } = outlines({ teeth: n, turn });
-        const { depth, gap } = contact(wheel, pawl);
+        const { depth, gap } = contact(wheel, pawl, 0.25);
         assert.ok(depth <= 0.03, `n ${n}, turn ${turn}: pawl and wheel overlap by ${depth.toFixed(3)} mm`);
         assert.ok(depth > 0 || gap <= 0.3, `n ${n}, turn ${turn}: pawl floats ${gap.toFixed(3)} mm off the wheel`);
       }
@@ -122,7 +64,7 @@ describe("ratchet", () => {
       for (const k of [1, Math.floor(n / 2), n - 1]) {
         const seated = outlines({ teeth: n, turn: k / n }).pawl;
         const back = outlines({ teeth: n, turn: k / n - 0.5 / 360 }).wheel;
-        assert.ok(contact(back, seated).depth > 0.1, `n ${n}, landing ${k}: the wheel turns back through the pawl`);
+        assert.ok(contact(back, seated, 0.25).depth > 0.1, `n ${n}, landing ${k}: the wheel turns back through the pawl`);
       }
     }
   });
@@ -135,7 +77,7 @@ describe("ratchet", () => {
       const pin = { x: rig.W.x + PIVOT[0], y: rig.W.y + PIVOT[1] };
       assert.ok(Math.hypot(find(parts, "pivot").position.x - pin.x, find(parts, "pivot").position.y - pin.y) < 1e-9, "the pawl's stub sits at its pivot");
       // The cliff's outer end is the wheel's farthest point on that line: where it meets the nose's underside.
-      const tip = Math.max(...world(find(parts, "wheel")).map(([x, y]) => Math.hypot(x - rig.W.x, y - rig.W.y)));
+      const tip = Math.max(...worldOutline(find(parts, "wheel")).map(([x, y]) => Math.hypot(x - rig.W.x, y - rig.W.y)));
       const contactAt: Pt = [rig.W.x + tip, rig.W.y];
       // Moment of an upward push (0, 1) at the contact about the pin; negative is clockwise, which swings the nose in.
       const moment = contactAt[0] - pin.x;
@@ -273,7 +215,7 @@ describe("ratchet", () => {
     for (const v of [startValues(ratchet), ...numberSweep(ratchet).filter((q) => [10, 12, 16, 24].includes(q.teeth ?? 0)), { teeth: 12, turn: 0.95 }]) {
       for (const { ms, frame } of sample(game.play(v)).filter((_, i) => i % 2 === 0)) {
         const { wheel, pawl } = outlines(frame.values);
-        const { depth } = contact(wheel, pawl);
+        const { depth } = contact(wheel, pawl, 0.25);
         assert.ok(depth <= 0.03, `n ${v.teeth} at ${ms} ms: overlap ${depth.toFixed(3)} mm`);
       }
     }

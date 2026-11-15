@@ -2,14 +2,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { numberSweep, sample } from "../checks.ts";
+import { find, numberSweep, sample } from "../checks.ts";
 import { startValues, steps, type Values } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { BIND, geometry, HAND, launch, NEED, settle, spring } from "./spring.ts";
 
 const game = spring.game;
 const [stiffness, force] = spring.sliders as [NonNullable<(typeof spring.sliders)[0]>, NonNullable<(typeof spring.sliders)[1]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const discBottom = (parts: Part[]) => {
   const d = find(parts, "disc");
   return d.position.y - 2;

@@ -5,13 +5,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { checkDesign, checkGame, find, numberSweep, sample } from "../checks.ts";
 import { startValues, steps, type Values } from "../types.ts";
 import { BLOW, BLOWS, ELASTIC, GRIP, gripAt, LENGTH, OPEN, rig, settle, split, wedge } from "./wedge.ts";
 
 const game = wedge.game;
 const [slope, push] = wedge.sliders as [NonNullable<(typeof wedge.sliders)[0]>, NonNullable<(typeof wedge.sliders)[1]>];
-const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const box = (p: Part) => (p.shape.kind === "box" ? p.shape : assert.fail(`${p.id} is not a box`));
 const len = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shape.outline.map((q) => q.x)) : 0);
 
