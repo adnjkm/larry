@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Part } from "../../shared/kit.ts";
 import { type KitBounds, measureParts } from "../../shared/bounds.ts";
+import { DEFAULT_LOOK, type DitherLook } from "../../src/kit3d/ditherLook.ts";
 import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "./primitives/library.ts";
 import { SYNTHWAVE } from "./primitives/parts.ts";
@@ -9,6 +10,9 @@ import { Beam } from "./Beam.tsx";
 import { Dither } from "./dither.tsx";
 import { DEFAULT_VIEW, type View, type Zone, zoneAt as zoneOf } from "./model.ts";
 import { fitFrame, reuseParts } from "./pose.ts";
+
+/** The default dither with a Synthwave gradient for the shadow. */
+const LOOK: DitherLook = { ...DEFAULT_LOOK, shadow: { ...DEFAULT_LOOK.shadow, stops: SYNTHWAVE } };
 
 /** The camera frame for `subject` in a box, kept as the same object while it does not change, so the camera holds still. */
 function useFrame(subject: readonly Part[], view: View, width: number, height: number): KitBounds | null {
@@ -45,7 +49,7 @@ export function Viewer(props: { parts: Part[]; subject: readonly Part[]; view?: 
   const parts = reuseParts(previous.current, props.parts);
   return (
     <div className="viewer" ref={box}>
-      {frame ? <KitViewer parts={parts} frame={frame} elevation={view.elevation} azimuth={view.azimuth} height={size.height} pixelScale={1} shadowStops={SYNTHWAVE} /> : null}
+      {frame ? <KitViewer parts={parts} frame={frame} elevation={view.elevation} azimuth={view.azimuth} height={size.height} pixelScale={1} look={LOOK} /> : null}
       {props.live ? <span className="live" aria-live="polite">{props.live}</span> : null}
       {props.children}
       <span className="drag" aria-hidden="true">Drag to turn</span>
@@ -61,7 +65,7 @@ export function Inset({ parts, view }: { parts: Part[]; view?: View }) {
   const frame = useFrame(parts, v, INSET, INSET);
   return (
     <div className="inset" data-inset aria-hidden="true">
-      {frame ? <KitViewer parts={parts} frame={frame} elevation={v.elevation} azimuth={v.azimuth} height={INSET} pixelScale={1} shadowStops={SYNTHWAVE} /> : null}
+      {frame ? <KitViewer parts={parts} frame={frame} elevation={v.elevation} azimuth={v.azimuth} height={INSET} pixelScale={1} look={LOOK} /> : null}
     </div>
   );
 }

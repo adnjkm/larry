@@ -1,14 +1,14 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as stylex from "@stylexjs/stylex";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, Vector3 } from "three";
 import { type KitBounds, measureParts } from "../../shared/bounds.ts";
 import type { Part } from "../../shared/kit.ts";
 import { reducedMotion, velocityTracker } from "../motion.ts";
 import { geometries } from "../primitives/stage/scene.ts";
 import { shapeKey } from "../primitives/stage/shapes.ts";
 import { DEFAULT_LOOK, type DitherLook } from "./ditherLook.ts";
-import { applyLook, createDitherMaterial, createLookUniforms, createShadowMaterial } from "./ditherMaterial.ts";
+import { materialsFor } from "./ditherMaterial.ts";
 import { VIEWER_SELECTOR, markViewerReady, viewerProps } from "../viewport.ts";
 
 const MARGIN = 1.12;
@@ -34,8 +34,6 @@ type KitViewerProps = {
   frame?: KitBounds;
   /** CSS pixels per dither pixel, overriding the look's. 1 is the finest. */
   pixelScale?: number;
-  /** Colours for a gradient shadow, centre first (see createShadowMaterial). Unset keeps the look's shadow. */
-  shadowStops?: readonly string[];
   look?: DitherLook;
 };
 
@@ -53,40 +51,6 @@ const styles = stylex.create({
 });
 
 const DEG = Math.PI / 180;
-
-const lookKey = (part: Part) => `${part.color} ${part.finish}`;
-const disposeMaterial = (material: ShaderMaterial) => material.dispose();
-
-/**
- * One material per distinct colour and finish, shared by every part with that look and kept across rebuilds.
- * A slider tick builds new part objects, but most parts only move, so their looks are reused.
- */
-function useMaterials(parts: Part[], make: (part: Part) => ShaderMaterial): ShaderMaterial[] {
-  const cache = useRef(new Map<string, ShaderMaterial>());
-  const items = useMemo(
-    () =>
-      parts.map((part) => {
-        const k = lookKey(part);
-        let item = cache.current.get(k);
-        if (item === undefined) {
-          item = make(part);
-          cache.current.set(k, item);
-        }
-        return item;
-      }),
-    [parts, make],
-  );
-  useEffect(() => {
-    const live = new Set(parts.map(lookKey));
-    for (const [k, item] of cache.current) {
-      if (live.has(k)) continue;
-      disposeMaterial(item);
-      cache.current.delete(k);
-    }
-  }, [parts]);
-  useEffect(() => () => cache.current.forEach(disposeMaterial), [make]);
-  return items;
-}
 
 const shapeKeys = new WeakMap<Part["shape"], string>();
 function keyOf(part: Part): string {
@@ -134,7 +98,7 @@ function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimu
   cam.updateProjectionMatrix();
 }
 
-export const KitViewer = memo(function KitViewer({ parts, spin: wantsSpin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops, look = DEFAULT_LOOK }: KitViewerProps) {
+export const KitViewer = memo(function KitViewer({ parts, spin: wantsSpin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, look = DEFAULT_LOOK }: KitViewerProps) {
   const box = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
   useEffect(() => {
@@ -160,13 +124,13 @@ export const KitViewer = memo(function KitViewer({ parts, spin: wantsSpin = fals
         }}
       >
         <color attach="background" args={[look.colors.paper]} />
-        <Scene parts={parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} shadowStops={shadowStops} look={look} />
+        <Scene parts={parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} look={look} />
       </Canvas>
     </div>
   );
 });
 
-function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: KitBounds | undefined; shadowStops: readonly string[] | undefined; look: DitherLook }) {
+function Scene({ parts, spin, elevation, azimuth, frame, look }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: KitBounds | undefined; look: DitherLook }) {
   const { camera, size, gl, invalidate } = useThree();
   const shapes = useGeometries(parts);
   const bounds = useMemo(() => frame ?? measureParts(parts), [frame, parts]);
@@ -180,24 +144,11 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
   const fit = useRef<Fit>(undefined);
   const fitGoal = useRef<Fit>(undefined);
 
-  const lookUniforms = useMemo(() => createLookUniforms(), []);
-  useLayoutEffect(() => {
-    applyLook(lookUniforms, look);
-    invalidate();
-  }, [lookUniforms, look, invalidate]);
-
-  const makeMaterial = useCallback((part: Part) => createDitherMaterial(part.color, part.finish, lookUniforms), [lookUniforms]);
-  const materials = useMaterials(parts, makeMaterial);
-
+  const materialSet = useMemo(() => materialsFor(look), [look]);
+  const materials = useMemo(() => parts.map((part) => materialSet.part(part.color, part.finish)), [parts, materialSet]);
+  const shadowMaterial = materialSet.shadow();
   const shadowGeometry = useMemo(() => new PlaneGeometry(2, 2).rotateX(-Math.PI / 2), []);
-  const shadowMaterial = useMemo(() => createShadowMaterial(lookUniforms, shadowStops), [lookUniforms, shadowStops]);
-  useEffect(
-    () => () => {
-      shadowGeometry.dispose();
-      shadowMaterial.dispose();
-    },
-    [shadowGeometry, shadowMaterial],
-  );
+  useEffect(() => () => shadowGeometry.dispose(), [shadowGeometry]);
 
   const footprint = Math.max(bounds.halfX, bounds.halfZ);
   const shadowRadius = { x: bounds.halfX * 1.05 + 3, z: bounds.halfZ * 1.05 + 3 };
@@ -206,6 +157,8 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
   const shadowReach = sideways + Math.max(shadowRadius.x, shadowRadius.z);
 
   useLayoutEffect(() => {
+    // A viewer hidden with display: none measures 0 x 0, which would fit the camera to nothing.
+    if (size.width === 0 || size.height === 0) return;
     const el = elevation * DEG;
     const height = bounds.maxY - bounds.minY;
     const halfWide = Math.max(bounds.radius, shadowReach * 0.85);

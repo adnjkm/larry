@@ -43,6 +43,8 @@ export type DitherLook = {
     softness: number;
     /** Shadow strength above which it is drawn in ink instead of the accent colour. */
     core: number;
+    /** Colours for a gradient shadow, centre first (see createShadowMaterial). Unset draws the shadow in the accent and ink. */
+    stops?: readonly string[];
   };
   colors: { ink: string; paper: string; accent: string };
 };
