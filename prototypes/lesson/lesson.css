@@ -253,3 +253,6 @@ html, body { height: 100%; }
 @media (prefers-reduced-motion: reduce) { .tuning > *, .reveal { transform: none; } }
 /* On a short phone the plot gives up some height so the screen still fits without scrolling. */
 @media (max-height: 700px) { .plot-area, .plot svg { height: 52px; } }
+
+/* A free-play slider with end words ("Soft", "Stiff") needs no name, so it takes the whole width (as on the primitives bench). */
+.slider.strip[data-ends] { grid-template-columns: minmax(0, 1fr); }

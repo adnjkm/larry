@@ -1065,9 +1065,33 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
       }
       r.check(`${tag} learn: free play starts with Next locked, and the handle moves the machine`, lockedAtFirst && moved);
       const tune = '[data-stage="learn"] .tuning[data-shown] input[type="range"]';
-      if ((await r.page.locator(tune).count()) > 0) await r.setRange(tune, 150);
-      await r.page.waitForTimeout(300);
-      r.check(`${tag} learn: once moved and tuned, Next opens`, (await r.page.locator('[data-stage="learn"] [data-next]:not([disabled])').count()) === 1);
+      const open = async () => (await r.page.locator('[data-stage="learn"] [data-next]:not([disabled])').count()) === 1;
+      if ((await r.page.locator('[data-stage="learn"] .goal-card').count()) > 0) {
+        // Free play with goals (the spring's weight and green line): the first arrives on let-go, and each is met by the
+        // slider alone, with Next reading Continue until the last.
+        r.check(
+          `${tag} learn: the first goal arrives on let-go, Next locked`,
+          (await r.page.locator('[data-stage="learn"] .goal-card[data-shown]').count()) === 1 && !(await open()),
+        );
+        for (let goal = 0; goal < 5; goal++) {
+          const words = (await r.page.locator('[data-stage="learn"] .goal-card').textContent())?.trim();
+          const steps = Array.from({ length: 21 }, (_, i) => i * 50);
+          for (const v of [...steps, ...steps.reverse()]) {
+            if (await open()) break;
+            await r.setRange(tune, v);
+            await r.page.waitForTimeout(250);
+          }
+          await r.page.waitForTimeout(600);
+          r.check(`${tag} learn: "${words}" is met by its slider`, await open());
+          if ((await r.page.locator('[data-stage="learn"] [data-next]').textContent())?.trim() !== "Continue") break;
+          await r.page.click('[data-stage="learn"] [data-next]');
+          await r.page.waitForTimeout(1500);
+        }
+      } else {
+        if ((await r.page.locator(tune).count()) > 0) await r.setRange(tune, 150);
+        await r.page.waitForTimeout(300);
+        r.check(`${tag} learn: once moved and tuned, Next opens`, await open());
+      }
     } else {
       // The figure moves only by the control under it (no drag handle on the figure): a wheel by its keys, a bar by its range.
       r.check(`${tag} learn: no drag handle on the figure`, (await r.page.locator('[data-stage="learn"] [data-handle]').count()) === 0);
@@ -1084,8 +1108,9 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
         `${before} → ${after}`,
       );
     }
-    // Where the primitive can be tuned to meet the requirement, sliding up from the bottom gets there.
-    if ((await r.page.locator('[data-stage="learn"] [data-need][data-met]').count()) > 0) {
+    // Where the primitive can be tuned to meet the requirement, sliding up from the bottom gets there. (Free play's goals
+    // light the requirement too, and were met above.)
+    if (!story.freePlay && (await r.page.locator('[data-stage="learn"] [data-need][data-met]').count()) > 0) {
       const met = async () => (await r.page.getAttribute('[data-stage="learn"] [data-need]', "data-met")) === "yes";
       await r.setRange(row, 0);
       const startsUnmet = !(await met());
