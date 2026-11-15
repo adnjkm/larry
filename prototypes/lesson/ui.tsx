@@ -8,7 +8,7 @@ import { SYNTHWAVE } from "../../shared/primitives/parts.ts";
 import { DitherRange, TRACK, Wheel } from "./controls.tsx";
 import { CAMERA } from "../../src/camera/look.ts";
 import type { MaterialName } from "../../src/surface/look.ts";
-import { pill } from "../../src/surface/relief.ts";
+import { pill, rrect } from "../../src/surface/relief.ts";
 import { Surface } from "../../src/surface/Surface.tsx";
 import { Beam } from "./Beam.tsx";
 import { FunkyFrame } from "./FunkyFrame.tsx";
@@ -227,8 +227,31 @@ export function Say({ kicker, children, why, note, found }: { kicker: string; ch
  * now, where the screen lets you tune something to meet it; left off, the rule is only stated.
  */
 export function Need({ text, met }: { text: string; met?: boolean }) {
+  const box = useRef<HTMLParagraphElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const read = () => setSize({ width: el.offsetWidth, height: el.offsetHeight });
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   return (
-    <p className="need" data-need data-met={met === undefined ? undefined : met ? "yes" : "no"}>
+    <p ref={box} className="need" data-need data-met={met === undefined ? undefined : met ? "yes" : "no"}>
+      {/* The grey keycap the Why key and the model screen's progress keys use. */}
+      {size.width > 0 ? (
+        <Surface
+          shape={rrect(size.width, size.height, NEED_RADIUS)}
+          relief="keycap"
+          material={WHY_MATERIAL}
+          ground="light"
+          grain={CAMERA.grain}
+          depth={CAMERA.relief}
+          drift={CAMERA.idleDither}
+        />
+      ) : null}
       <span className="mono">Requirement</span>
       <span className="need-text">{text}</span>
       {met === undefined ? null : (
@@ -239,6 +262,9 @@ export function Need({ text, met }: { text: string; met?: boolean }) {
     </p>
   );
 }
+
+/** The requirement key's corner radius, as on the progress keys. */
+const NEED_RADIUS = 12;
 
 /** Everything explanatory on a screen, behind one button: a centred card that is closed until asked for. */
 /** The finish of the Why and Hint keys: the grey of the model screen's progress keys, secondary to the dark Next. */
