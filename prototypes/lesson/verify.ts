@@ -1075,11 +1075,19 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
         );
         for (let goal = 0; goal < 5; goal++) {
           const words = (await r.page.locator('[data-stage="learn"] .goal-card').textContent())?.trim();
+          // A goal with a button (the valve's Pump) is tried with a few presses at each setting; a motor (the cam) needs a moment.
+          const action = r.page.locator('[data-stage="learn"] [data-action]');
+          const pumps = (await action.count()) > 0 ? 8 : 0;
           const steps = Array.from({ length: 21 }, (_, i) => i * 50);
-          for (const v of [...steps, ...steps.reverse()]) {
+          const order = pumps ? [500, 400, 600, 300, 700, 200, 800, 100, 900] : [...steps, ...[...steps].reverse()];
+          for (const v of order) {
             if (await open()) break;
             await r.setRange(tune, v);
-            await r.page.waitForTimeout(250);
+            await r.page.waitForTimeout(pumps ? 300 : 400);
+            for (let k = 0; k < pumps && !(await open()); k++) {
+              await action.click();
+              await r.page.waitForTimeout(700);
+            }
           }
           await r.page.waitForTimeout(600);
           r.check(`${tag} learn: "${words}" is met by its slider`, await open());

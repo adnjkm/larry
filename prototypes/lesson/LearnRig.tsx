@@ -4,7 +4,7 @@
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GameStore, useSelect } from "../../src/primitives/game/store.ts";
 import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
-import type { Primitive, Slider } from "../../shared/primitives/types.ts";
+import { allSliders, type Primitive, type Slider, type Values as PlayValues } from "../../shared/primitives/types.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
 import { playMotion, playTuning, playValues, startValues } from "../../shared/primitives/types.ts";
 import { LawPlot, TuneRow } from "../primitives/PrimitiveScreen.tsx";
@@ -105,8 +105,11 @@ function Rig({ primitive, controls, children }: { primitive: Primitive; controls
   );
 }
 
-/** Where free play stands, for the Next pill under it: whether it may go on, and whether that opens another goal first. */
-type PlayState = { ready: boolean; more: boolean };
+/**
+ * Where free play stands, for the pills under it: whether it may go on, whether that opens another goal first, and the
+ * goal's own button (the valve's Pump, the catch's Pull), which sits beside Next.
+ */
+type PlayState = { ready: boolean; more: boolean; action?: { label: string; run: () => void } };
 
 /**
  * Free play, for a story with `freePlay`: the library's bare machine worked by a finger on its handle, doing what the
@@ -114,8 +117,9 @@ type PlayState = { ready: boolean; more: boolean };
  * pieces as the primitives bench). Ready once moved and, where it has sliders, one of them tried.
  *
  * A primitive whose free play has goals (`play.tasks`, the spring's weight and green line) plays them as the bench's
- * template lesson does: the first arrives the moment the hand first lets go, its words on the pink key over the slider,
- * and Next reads Continue, locked until the goal is met, until the last goal is met.
+ * template lesson does: the first arrives the moment the hand first lets go, having moved it; its words (or a live hint,
+ * "Too steep, so it jams.") sit on the pink key over the goal's own sliders; a motor or a button may work the machine
+ * meanwhile; and Next reads Continue, locked until the goal is met, until the last goal is met.
  */
 function PlayRig({
   primitive,
@@ -149,32 +153,33 @@ function PlayRig({
     if (t.arrive) void c.play(t.arrive(from === undefined ? c.get() : { ...c.get(), [motion.id]: from }));
   };
 
-  // The let-go puts the handle's slider straight back at rest: that is the moment the first goal begins.
-  const pressed = useRef<number>(undefined);
-  const begun = useRef(false);
   useEffect(
     () =>
       store.subscribe(() => {
         const now = store.snapshot();
         if (now[motion.id] !== start.current[motion.id]) setMoved(true);
         if (tuning.some((s) => now[s.id] !== start.current[s.id])) setTuned(true);
-        if (tasks.length === 0 || begun.current) return;
-        if (now[motion.id] !== start.current[motion.id]) {
-          pressed.current = now[motion.id];
-          return;
-        }
-        const from = pressed.current;
-        if (from === undefined) return;
-        begun.current = true;
-        queueMicrotask(() => begin(0, from));
       }),
     [store],
   );
 
+  // The first goal begins the moment the hand first lets go of the machine, having moved it, from where it let go.
+  const begun = useRef(false);
+  const onLetGo = (at: PlayValues) => {
+    if (tasks.length === 0 || begun.current || at[motion.id] === start.current[motion.id]) return;
+    begun.current = true;
+    begin(0, at[motion.id]);
+  };
+
   const met = useSelect(store, (v) => (current ? current.met(v) : false));
+  const hint = useSelect(store, (v) => current?.hint?.(v));
   const more = task !== undefined && task < tasks.length - 1;
   const ready = tasks.length > 0 ? met : moved && (tuned || tuning.length === 0);
-  useEffect(() => onState({ ready, more }), [ready, more]);
+  const act = current?.action;
+  useEffect(() => onState({ ready, more, action: act ? { label: act.label, run: () => store.controller?.set(act.set) } : undefined }), [ready, more, act]);
+  // A goal's own sliders, else the play's tuning; laid out for the first goal before it begins, so nothing moves then.
+  const ids = tasks.length > 0 ? (current ?? tasks[0]!).sliders : undefined;
+  const rows = ids ? ids.map((id) => allSliders(primitive).find((q) => q.id === id)!) : tuning;
   advance.current = () => {
     if (!more || !met) return false;
     begin(task! + 1);
@@ -196,7 +201,9 @@ function PlayRig({
   return (
     <>
       <div className="viewer" data-figure={primitive.id} data-moved={moved ? "" : undefined} data-task={task} ref={box}>
-        {height > 0 ? <FigureStage primitive={primitive} mode="play" palette="library" height={height} controllerRef={store.attach} task={task} /> : null}
+        {height > 0 ? (
+          <FigureStage primitive={primitive} mode="play" palette="library" height={height} controllerRef={store.attach} task={task} onLetGo={onLetGo} />
+        ) : null}
         {/* The sweep would fight the goal's weight, so it is free play's alone. */}
         {tasks.length === 0 ? (
           <button type="button" className="play" data-play aria-pressed={sweeping} onClick={toggle}>
@@ -208,13 +215,14 @@ function PlayRig({
       {tasks.length > 0 ? (
         // Laid out from the start with the first goal's words, so the figure keeps its size when it rises in.
         <div className="reveal goal-card" data-shown={current ? "" : undefined} data-met={met ? "" : undefined} aria-hidden={!current}>
-          <StepCard key={task ?? -1} text={(current ?? tasks[0]!).goal} />
+          {/* Keyed by what it says, so a new goal, or a hint coming or going, flashes in. */}
+          <StepCard key={`${task ?? -1}:${hint ?? ""}`} text={hint ?? (current ?? tasks[0]!).goal} />
         </div>
       ) : null}
       {/* Laid out from the start but hidden, so the figure keeps its size when they rise in. */}
       <div className="tuning rig-rows" data-rig={primitive.id} data-shown={shown ? "" : undefined} inert={!shown}>
         {plot ? <LawPlot store={store} plot={plot} /> : null}
-        {tuning.map((s) => (
+        {rows.map((s) => (
           <TuneRow key={s.id} store={store} slider={s} />
         ))}
       </div>
@@ -370,6 +378,11 @@ export function LearnRig({ module, kicker, next, inObject, view, freePlay = fals
         </Rig>
       )}
       <Actions>
+        {playing && played.action ? (
+          <button type="button" className="btn" data-action onClick={played.action.run}>
+            <PillSurface>{played.action.label}</PillSurface>
+          </button>
+        ) : null}
         {/* Locked until the requirement is met (where the primitive can be tuned to it), or until free play has been tried. */}
         <button
           type="button"
