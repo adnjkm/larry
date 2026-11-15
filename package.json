@@ -9,6 +9,7 @@
     "dev": "pnpm run --parallel \"/^dev:/\"",
     "dev:web": "vite --host",
     "dev:server": "node --watch --env-file-if-exists=.env server/index.ts",
+    "demo": "vite --config prototypes/demo/vite.config.ts",
     "build": "vite build",
     "typecheck": "tsrs --noEmit",
     "test": "node --test",
