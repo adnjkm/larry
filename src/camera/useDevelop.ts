@@ -71,6 +71,7 @@ export function useDevelop(options: DevelopOptions) {
     const start = performance.now();
     const scene = document.createElement("canvas");
     let swell: Swell | null = null;
+    let drawnStill = false;
 
     const draw = (now: number) => {
       const o = latest.current;
@@ -88,7 +89,9 @@ export function useDevelop(options: DevelopOptions) {
       const r = raster(greyEl, field.cols, field.rows);
       if (!r) return;
       const k = still ? 0 : Math.min(1, Math.max(0, (now - start - o.settleMs) / EASE_IN_MS));
-      drawSwell(r, swell, o.look, (now - start) / 1000, k * k * (3 - 2 * k));
+      // Until it eases in, the swell is the still grey photo: drawn once.
+      if (k > 0 || !drawnStill) drawSwell(r, swell, o.look, (now - start) / 1000, k * k * (3 - 2 * k));
+      drawnStill = true;
       drawGlow(glowEl, scene, img, greyEl, field.cols * (field.cell / field.dpr), o, o.framing);
     };
     // Now, before paint, so the grey photo is there as the sweep starts to unveil it.

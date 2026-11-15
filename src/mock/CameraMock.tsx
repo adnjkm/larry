@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { camera } from "../camera/camera.stylex.ts";
 import { Button } from "@ui-sdk/react/button";
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, type ReactNode, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { Camera } from "../camera/Camera.tsx";
 import { ACCENT, CAMERA } from "../camera/look.ts";
@@ -79,12 +79,33 @@ const dark = stylex.createTheme(screen, {
 
 const colorFade = "color 600ms ease, background-color 600ms ease";
 
-export default function CameraMock() {
-  const [settings, setSettings] = useState<MockSettings>(() => defaultSettings(OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? "")));
+/** Where a screen after the camera sits inside the phone: below the status bar, above the gesture bar, in CSS px. */
+export type PhoneScreen = { top: number; height: number; width: number };
+
+type Intro = { eyebrow: string; heading: string; blurb: string };
+
+const MOCK_INTRO: Intro = {
+  eyebrow: "Larry · mockup",
+  heading: "Photo to model",
+  blurb:
+    "Pixel 8a screen, 412 × 915. The status bar, gesture bar and handle are measured from the Android emulator. The camera is a still photo; tap the shutter one to three times, then Use. Everything else is in the dials.",
+};
+
+/**
+ * The camera in a phone, with the fake flow round it. On its own (camera.html) it has dials. Given `after`, it is a
+ * demo: no dials, and the result's "Build it" hands the phone over to whatever `after` draws, until `onCamera`.
+ */
+export default function CameraMock({ object: initialObject, intro = MOCK_INTRO, after }: { object?: string; intro?: Intro; after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode } = {}) {
+  const [settings, setSettings] = useState<MockSettings>(() => ({
+    ...defaultSettings(initialObject ?? (OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? ""))),
+    showUsable: !after,
+  }));
   const [run, setRun] = useState<{ id: number; startAt: StartAt }>({ id: 0, startAt: "live" });
+  const [built, setBuilt] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const restart = (startAt: StartAt) => {
     setLog([]);
+    setBuilt(false);
     setRun((r) => ({ id: r.id + 1, startAt }));
   };
 
@@ -99,15 +120,14 @@ export default function CameraMock() {
     <div {...stylex.props(s.shell)}>
       <div {...stylex.props(s.panel)}>
         <div {...stylex.props(s.group)}>
-          <p {...stylex.props(s.eyebrow)}>Larry · mockup</p>
-          <h1 {...stylex.props(s.heading)}>Photo to model</h1>
-          <p {...stylex.props(s.blurb)}>
-            Pixel 8a screen, 412 × 915. The status bar, gesture bar and handle are measured from the Android emulator. The camera is a still photo; tap the
-            shutter one to three times, then Use. Everything else is in the dials.
-          </p>
-          <p {...stylex.props(s.blurb)}>
-            Usable height: {usableHeight}px {settings.tab ? "in a Chrome tab" : "as an installed app"}.
-          </p>
+          <p {...stylex.props(s.eyebrow)}>{intro.eyebrow}</p>
+          <h1 {...stylex.props(s.heading)}>{intro.heading}</h1>
+          <p {...stylex.props(s.blurb)}>{intro.blurb}</p>
+          {!after && (
+            <p {...stylex.props(s.blurb)}>
+              Usable height: {usableHeight}px {settings.tab ? "in a Chrome tab" : "as an installed app"}.
+            </p>
+          )}
         </div>
         <div {...stylex.props(s.group)}>
           <p {...stylex.props(s.eyebrow)}>Stream</p>
@@ -123,20 +143,30 @@ export default function CameraMock() {
 
       <div {...stylex.props(s.phoneSlot(frame.width * scale, frame.height * scale))}>
         <div data-phone {...stylex.props(s.phone(scale))}>
-          <Flow
-            key={`${run.id}-${object.name}-${settings.pace}`}
-            object={object}
-            pace={settings.pace}
-            startAt={run.startAt}
-            settings={settings}
-            usableTop={usableTop}
-            usableHeight={usableHeight}
-            onLog={(line) => setLog((l) => [...l, line])}
-            onRestart={() => restart("live")}
-          />
+          {built && after ? (
+            <div data-after {...stylex.props(s.screen, light)}>
+              <div {...stylex.props(light, s.page)}>
+                <div {...stylex.props(s.viewport(usableTop, usableHeight))}>{after({ screen: { top: usableTop, height: usableHeight, width: DEVICE.width }, onCamera: () => restart("live") })}</div>
+              </div>
+              <SystemBars tab={settings.tab} />
+            </div>
+          ) : (
+            <Flow
+              key={`${run.id}-${object.name}-${settings.pace}`}
+              object={object}
+              pace={settings.pace}
+              startAt={run.startAt}
+              settings={settings}
+              usableTop={usableTop}
+              usableHeight={usableHeight}
+              onLog={(line) => setLog((l) => [...l, line])}
+              onRestart={() => restart("live")}
+              onBuild={after && (() => setBuilt(true))}
+            />
+          )}
         </div>
       </div>
-      {Dials && (
+      {Dials && !after && (
         <Suspense>
           <Dials objects={OBJECT_NAMES} initial={settings} onChange={setSettings} onAction={(action) => restart(action === "jump" ? "done" : "live")} />
         </Suspense>
@@ -168,6 +198,7 @@ function Flow({
   usableHeight,
   onLog,
   onRestart,
+  onBuild,
 }: {
   object: MockObject;
   pace: Pace;
@@ -177,6 +208,7 @@ function Flow({
   usableHeight: number;
   onLog: (line: string) => void;
   onRestart: () => void;
+  onBuild?: () => void;
 }) {
   const atEnd = startAt === "done";
   const { kit } = object;
@@ -265,7 +297,7 @@ function Flow({
                   ))}
                 </div>
                 <div {...stylex.props(s.footer)}>
-                  <Button disabled={!done} {...stylex.props(s.primary, done && s.primaryReady)}>
+                  <Button disabled={!done} data-build onClick={onBuild} {...stylex.props(s.primary, done && s.primaryReady)}>
                     {done ? "Build it" : "Laying out parts…"}
                   </Button>
                   <Button {...stylex.props(s.link)} onClick={onRestart}>

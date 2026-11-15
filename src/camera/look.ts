@@ -1,5 +1,3 @@
-import { SYNTHWAVE } from "../../shared/primitives/parts.ts";
-import { ramp } from "../surface/dither.ts";
 import { colors } from "../tokens.stylex.ts";
 
 /** The camera's settled design, in CSS px and ms. */
@@ -53,9 +51,6 @@ export const TUNING: Tuning = {
 
 /** The pink the primitives use for the part that matters. */
 export const ACCENT = colors.pink;
-
-/** funky-shadow's synthwave preset, packed for dithering: near-black, indigo, purple, pink, coral, gold. */
-export const SYNTHWAVE_RAMP = ramp(SYNTHWAVE);
 
 /** Rounds to the 2px half-step grid. */
 export const even = (n: number) => Math.round(n / 2) * 2;

@@ -12,9 +12,10 @@ const BUSY_FPS = 24;
 /**
  * A dithered bar (see bar.ts). With `reveal="sweep"` the fill eases toward `fill`, so each new third sweeps in from
  * the left. With `reveal="fade"` the whole fill cross-fades in place, for a switch whose knob already shows the motion.
+ * With `reveal="follow"` it keeps up with `fill` exactly, for a slider.
  * Redraws at full rate only while the fill moves; otherwise only the drift, a dozen times a second.
  */
-export function DitherBar({ fill, reveal = "sweep", speed = 0.8, ...bar }: Bar & { fill: number; reveal?: "sweep" | "fade"; speed?: number }) {
+export function DitherBar({ fill, reveal = "sweep", speed = 0.8, ...bar }: Bar & { fill: number; reveal?: "sweep" | "fade" | "follow"; speed?: number }) {
   const frame = useRef<HTMLCanvasElement>(null);
   const cells = useRef<HTMLCanvasElement>(null);
   const live = useRef({ fill, speed });
@@ -57,7 +58,7 @@ export function DitherBar({ fill, reveal = "sweep", speed = 0.8, ...bar }: Bar &
         const target = live.current.fill;
         // The fade matches the knob's 240 ms slide; the sweep is a little slower so a new third reads as filling.
         shown += (target - shown) * (1 - Math.exp(-dt / (reveal === "fade" ? 0.08 : 0.14)));
-        if (Math.abs(target - shown) < 1e-3) shown = target;
+        if (reveal === "follow" || Math.abs(target - shown) < 1e-3) shown = target;
         draw();
         return shown !== target ? 60 : live.current.speed > 1 ? BUSY_FPS : DRIFT_FPS;
       },

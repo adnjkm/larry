@@ -1,12 +1,12 @@
-// Aiden's camera, then the water bottle lesson inside the same phone screen. The camera is his (Camera.tsx, a copy of
-// src/mock/CameraMock.tsx with Build it wired up); the lesson is prototypes/lesson's StoryFlow, unchanged.
+// Aiden's camera, then the water bottle lesson inside the same phone screen. The camera is src/mock/CameraMock.tsx with
+// Build it handing over; the lesson is prototypes/lesson's StoryFlow, unchanged.
 import { useLayoutEffect, useRef, useState } from "react";
 import baseCss from "../lesson/base.css?inline";
 import lessonCss from "../lesson/lesson.css?inline";
 import { lessonFor } from "../lesson/lessons/index.ts";
 import { SAMPLES } from "../lesson/samples.ts";
 import { StoryFlow } from "../lesson/Story.tsx";
-import CameraDemo, { type PhoneScreen } from "./Camera.tsx";
+import CameraMock, { type PhoneScreen } from "../../src/mock/CameraMock.tsx";
 
 const SAMPLE = SAMPLES.find((s) => s.id === "bottle")!;
 const LESSON = lessonFor(SAMPLE.kit, SAMPLE.id);
@@ -58,12 +58,18 @@ function Lesson({ screen, onCamera }: { screen: PhoneScreen; onCamera: () => voi
   );
 }
 
+const INTRO = {
+  eyebrow: "Larry · demo",
+  heading: "Photo to lesson",
+  blurb: "Tap the shutter one to three times, then Use. When the model is ready, Build it starts the lesson.",
+};
+
 export function Demo() {
   return (
     <>
       <style>{LESSON_CSS}</style>
       <style>{DEMO_CSS}</style>
-      <CameraDemo objectName="bottle" after={(props) => <Lesson {...props} />} />
+      <CameraMock object="bottle" intro={INTRO} after={(props) => <Lesson {...props} />} />
     </>
   );
 }

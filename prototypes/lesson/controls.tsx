@@ -1,11 +1,11 @@
 // The lesson's two hand controls, both drawn with Aiden's dithered UI pieces so they match the camera screen:
-// - Wheel: a notched thumbwheel (src/mock/thumbwheel.ts behaviour, src/surface drum), for anything you turn.
-// - DitherRange: a pink dithered bar (src/mock/dither.ts drawDitherBar) with a baked cap for its thumb, for the rest.
+// - Wheel: a notched thumbwheel (src/camera/thumbwheel.ts behaviour, src/surface drum), for anything you turn.
+// - DitherRange: the camera's pink dithered bar (src/camera/DitherBar.tsx) with a baked cap for its thumb, for the rest.
 // Both work on a track position from 0 to TRACK, so a control with stiff zones can map it to its own value.
 import { createParts } from "@ui-sdk/react/primitive";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { drawDitherBar } from "../../src/mock/dither.ts";
-import { thumbwheel } from "../../src/mock/thumbwheel.ts";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { DitherBar } from "../../src/camera/DitherBar.tsx";
+import { thumbwheel } from "../../src/camera/thumbwheel.ts";
 import { Surface } from "../../src/surface/Surface.tsx";
 import { circle, drum, type Relief, rrect } from "../../src/surface/relief.ts";
 
@@ -16,9 +16,6 @@ export const TRACK = 1000;
 const GRAIN = 1.5;
 /** The camera's slow drifting grain on idle parts. */
 const DRIFT = 0.6;
-const PINK = "#FF0087";
-/** The bar's empty track, the camera screen's ink. */
-const TRACK_BASE = "#141414";
 
 /** The width a control has to fill, measured, since a baked surface needs its size in px. */
 function useWidth() {
@@ -96,6 +93,7 @@ export function Wheel({ label, position, valueText, disabled, onPosition }: Cont
 }
 
 const BAR_HEIGHT = 14;
+const NO_DIVIDERS: number[] = [];
 const THUMB = 26;
 
 /**
@@ -104,39 +102,17 @@ const THUMB = 26;
  */
 export function DitherRange({ label, position, valueText, disabled, onPosition }: ControlProps) {
   const [box, width] = useWidth();
-  const canvas = useRef<HTMLCanvasElement>(null);
   const fill = position / TRACK;
-  const live = useRef(fill);
-  live.current = fill;
   const travel = Math.max(0, width - THUMB);
-
-  // Redraw on every change, and a dozen times a second for the grain's slow drift.
-  useEffect(() => {
-    const el = canvas.current;
-    if (!el || width === 0) return;
-    const look = { cell: GRAIN, color: PINK, dividers: [], base: TRACK_BASE, glow: 0, idle: DRIFT };
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const start = performance.now();
-    let raf = 0;
-    let last = -Infinity;
-    let drawn = -1;
-    const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
-      const changed = live.current !== drawn;
-      if (!changed && (reduced || now - last < 1000 / 12)) return;
-      last = now;
-      drawn = live.current;
-      // The fill runs to the thumb's middle, so the thumb always sits on the end of the pink.
-      const reach = (THUMB / 2 + live.current * travel) / width;
-      drawDitherBar(el, width, BAR_HEIGHT, BAR_HEIGHT / 2, reach, look, reduced ? 0 : ((now - start) / 1000) * 0.8);
-    };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, [width, travel]);
 
   return (
     <div className="dither-range" ref={box} data-disabled={disabled ? "" : undefined}>
-      <canvas ref={canvas} className="dither-bar" style={{ width, height: BAR_HEIGHT }} />
+      {width > 0 ? (
+        <div className="dither-bar" style={{ width, height: BAR_HEIGHT }}>
+          {/* The fill runs to the thumb's middle, so the thumb always sits on the end of the pink. */}
+          <DitherBar fill={(THUMB / 2 + fill * travel) / width} reveal="follow" width={width} height={BAR_HEIGHT} radius={BAR_HEIGHT / 2} cell={GRAIN} dividers={NO_DIVIDERS} glow={0} idle={DRIFT} />
+        </div>
+      ) : null}
       {width > 0 ? (
         <span className="dither-thumb" style={{ transform: `translateX(${fill * travel}px)` }}>
           <Surface shape={circle(THUMB)} relief="cap" grain={GRAIN} pad={4} />
