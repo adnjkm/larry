@@ -1,19 +1,21 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@ui-sdk/react/button";
-import { type RefObject, useEffect, useEffectEvent, useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import { type RefObject, useEffect, useEffectEvent, useLayoutEffect, useReducer, useRef } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import type { Lesson } from "../../shared/lesson.ts";
 import { Chevron } from "../ui/Chevron.tsx";
 import { Dots } from "../ui/Dots.tsx";
 import { project, reducedMotion, rubberBand, spring, velocityTracker } from "../motion.ts";
 import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
+import { VIEWER_SELECTOR } from "../viewport.ts";
 import { PrimitiveFigure } from "../primitives/PrimitiveFigure.tsx";
 import { bars, buttons, layout, notes, type } from "../ui/styles.ts";
 import { BuildViewer } from "./BuildViewer.tsx";
 import { DownloadButton } from "./DownloadButton.tsx";
 import { GlowCard } from "./GlowCard.tsx";
 import { HoldButton } from "../ui/HoldButton.tsx";
-import { type Arrived, type LessonState, earnedParts, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
+import { type Arrived } from "./load.ts";
+import { type LessonState, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
 import { ProblemView } from "./ProblemViews.tsx";
 import { Roadmap } from "./Roadmap.tsx";
 
@@ -38,7 +40,6 @@ type Dispatch = (action: Parameters<typeof reduce>[1]) => void;
 /** Plays the lesson as far as it has arrived. A newer `arrived` is folded in without disturbing the steps that haven't changed. */
 export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; arrived: Arrived; stalled?: Stalled; onRestart: () => void }) {
   const [state, dispatch] = useReducer(reduce, arrived, startLesson);
-  const earned = useMemo(() => earnedParts(state), [state]);
   const finished = isFinished(state);
 
   useEffect(() => {
@@ -77,11 +78,11 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
       </div>
       <div ref={screen} {...stylex.props(styles.screen)}>
         {state.done && finished ? (
-          <Finish kit={kit} earned={earned} lesson={state.done} onRestart={onRestart} />
+          <Finish kit={kit} earned={state.earned} lesson={state.done} onRestart={onRestart} />
         ) : waiting ? (
           <Waiting stalled={stalled} />
         ) : (
-          <StepScreen key={state.at} kit={kit} earned={earned} state={state} dispatch={dispatch} enterFrom={enterFrom} />
+          <StepScreen kit={kit} earned={state.earned} state={state} dispatch={dispatch} enterFrom={enterFrom} />
         )}
       </div>
     </>
@@ -94,6 +95,7 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
   const current = state.steps[state.at];
   const complete = isComplete(state, state.at);
   useStepSwipe(article, {
+    stepKey: flat?.step.id,
     enterFrom,
     onNext: complete ? () => dispatch({ type: "next" }) : undefined,
     onBack: state.at > 0 ? () => dispatch({ type: "back" }) : undefined,
@@ -132,6 +134,7 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
             <BuildViewer kit={kit} earned={earned} />
           ) : (
             <PrimitiveFigure
+              key={step.id}
               primitive={primitive}
               values={current.values}
               onSlider={tune && ((id, value) => dispatch({ type: "slider", id, value }))}
@@ -151,7 +154,7 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
           ))}
         </GlowCard>
 
-        {step.problem && current.problem && <ProblemView problem={step.problem} state={current.problem} dispatch={(action) => dispatch({ type: "problem", action })} />}
+        {step.problem && current.problem && <ProblemView key={step.id} problem={step.problem} state={current.problem} dispatch={(action) => dispatch({ type: "problem", action })} />}
 
         {complete && (
           <div data-payoff {...stylex.props(layout.inset, layout.stack)}>
@@ -167,7 +170,7 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
       {(run || complete) && (
         <div data-action-bar {...stylex.props(bars.action)}>
           {run ? (
-            <HoldButton data-action="run" label={run.action} onHeld={() => dispatch({ type: "problem", action: { type: "run" } })} />
+            <HoldButton key={step.id} data-action="run" label={run.action} onHeld={() => dispatch({ type: "problem", action: { type: "run" } })} />
           ) : (
             <Button data-action="next" {...stylex.props(buttons.base, buttons.primary)} onClick={() => dispatch({ type: "next" })}>
               {last ? "Finish" : "Next"}
@@ -184,20 +187,23 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
  * A direction that isn't open rubber-bands. On release the flick's projected landing decides, and the step leaves at the finger's speed.
  * Mouse drags are left alone so text stays selectable on a desktop.
  */
-function useStepSwipe(ref: RefObject<HTMLElement | null>, { enterFrom, onNext, onBack }: { enterFrom: number; onNext?: () => void; onBack?: () => void }) {
+function useStepSwipe(ref: RefObject<HTMLElement | null>, { stepKey, enterFrom, onNext, onBack }: { stepKey: string | undefined; enterFrom: number; onNext?: () => void; onBack?: () => void }) {
   const next = useEffectEvent(() => onNext?.());
   const back = useEffectEvent(() => onBack?.());
   const can = useEffectEvent((direction: number) => (direction < 0 ? onNext : onBack) !== undefined);
 
-  // Only on mount: the screen is keyed by step, and a later render must not cut the entrance short.
-  const enter = useRef(enterFrom);
+  // The screen outlives its steps so the viewer on its stage does too; each new step enters from the side it came from.
+  const enter = useEffectEvent(() => enterFrom);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || enter.current === 0) return;
+    if (!el) return;
+    el.style.transform = "";
+    const from = enter();
+    if (from === 0) return;
     el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
     if (reducedMotion.matches) return;
-    return spring(enter.current * el.offsetWidth * 0.3, 0, 0, (x) => (el.style.transform = x ? `translateX(${x}px)` : ""), { response: 0.4 });
-  }, [ref]);
+    return spring(from * el.offsetWidth * 0.3, 0, 0, (x) => (el.style.transform = x ? `translateX(${x}px)` : ""), { response: 0.4 });
+  }, [ref, stepKey]);
 
   useEffect(() => {
     const el = ref.current;
@@ -215,7 +221,7 @@ function useStepSwipe(ref: RefObject<HTMLElement | null>, { enterFrom, onNext, o
 
     const down = (e: PointerEvent) => {
       if (e.pointerType === "mouse" || !e.isPrimary) return;
-      if (e.target instanceof Element && e.target.closest("input, [data-kit-viewer]")) return;
+      if (e.target instanceof Element && e.target.closest(`input, ${VIEWER_SELECTOR}`)) return;
       stop?.();
       start = { x: e.clientX - x, y: e.clientY, id: e.pointerId };
       axis = undefined;
@@ -263,7 +269,7 @@ function useStepSwipe(ref: RefObject<HTMLElement | null>, { enterFrom, onNext, o
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", up);
     };
-  }, [ref]);
+  }, [ref, stepKey]);
 }
 
 function Waiting({ stalled }: { stalled?: Stalled }) {

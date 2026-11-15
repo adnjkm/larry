@@ -1,6 +1,4 @@
 /* Page-wide rules. Imported by main.tsx so the build emits a stylesheet, which the StyleX plugin appends its rules to. */
-@font-face { font-family: "Geist"; font-style: normal; font-weight: 200 700; font-display: swap; src: url(/fonts/Geist-latin.woff2) format("woff2"); }
-@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url(/fonts/GeistMono-latin.woff2) format("woff2"); }
 /* Pull-to-refresh would reload the page and lose the kit and lesson, which only live in memory. */
 html { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
 body { margin: 0; }

@@ -4,7 +4,8 @@ import { describe, it } from "node:test";
 import { parseKit } from "../../shared/kit.ts";
 import { parseLesson } from "../../shared/lesson.ts";
 import { CATALOG, PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
-import { type Action, type Arrived, type LessonState, arrivedWhole, chapterStatus, earnedParts, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
+import { type Arrived, arrivedWhole } from "./load.ts";
+import { type Action, type LessonState, chapterStatus, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
 
 const kit = parseKit(JSON.parse(readFileSync(new URL("../../fixtures/kits/pen.json", import.meta.url), "utf8")));
 
@@ -116,10 +117,10 @@ describe("lesson player", () => {
 
   it("earns parts only from completed steps the player has reached", () => {
     let s = startLesson(whole);
-    assert.deepEqual([...earnedParts(s)], []);
+    assert.deepEqual([...s.earned], []);
     s = run(s, { type: "problem", action: { type: "run" } });
-    assert.deepEqual([...earnedParts(s)].sort(), ["barrel", "plunger", "refill"]);
-    assert.equal(earnedParts(s).has("clip"), false, "the casing step has no problem but is not reached yet");
+    assert.deepEqual([...s.earned].sort(), ["barrel", "plunger", "refill"]);
+    assert.equal(s.earned.has("clip"), false, "the casing step has no problem but is not reached yet");
   });
 
   it("walks to the finish and keeps earned parts when going back", () => {
@@ -137,10 +138,10 @@ describe("lesson player", () => {
     assert.equal(chapterStatus(s, 1), "current");
     s = run(s, { type: "next" });
     assert.equal(isFinished(s), true);
-    assert.equal(earnedParts(s).size, kit.parts.length);
+    assert.equal(s.earned.size, kit.parts.length);
     const back = run(s, { type: "back" }, { type: "back" });
     assert.equal(back.at, 2);
-    assert.equal(earnedParts(back).size, kit.parts.length);
+    assert.equal(back.earned.size, kit.parts.length);
     assert.equal(reduce(back, { type: "next" }).at, 3);
   });
 
@@ -180,7 +181,7 @@ describe("lesson player", () => {
       const repaired = { ...moduleChapter, steps: [{ ...first, earns: ["barrel"] }, ...rest] };
       const grown = reduce(s, grow({ chapters: [repaired, casingChapter], done: null }));
       assert.equal(isComplete(grown, 0), true);
-      assert.deepEqual([...earnedParts(grown)], ["barrel"]);
+      assert.deepEqual([...grown.earned], ["barrel"]);
     });
 
     it("waits at the end of a partial lesson and moves on by itself when the next chapter arrives", () => {
@@ -203,7 +204,7 @@ describe("lesson player", () => {
       assert.equal(isWaiting(atEnd), true);
       const done = reduce(atEnd, grow(whole));
       assert.equal(isFinished(done), true);
-      assert.equal(earnedParts(done).size, kit.parts.length);
+      assert.equal(done.earned.size, kit.parts.length);
     });
 
     it("clamps its place when the lesson shrinks", () => {

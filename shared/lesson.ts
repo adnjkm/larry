@@ -1,20 +1,13 @@
 import { z } from "zod";
 import type { Kit } from "./kit.ts";
-
-/** Word budgets for the text a reader sees. `aim` is what the prompt asks for; `max` is the hard limit, well above it so a draft that runs a little long is kept and only a rambling one is sent back. */
-export const WORDS = {
-  story: { aim: 35, max: 75 },
-  payoff: { aim: 40, max: 60 },
-  hook: { aim: 50, max: 75 },
-  closing: { aim: 40, max: 60 },
-} as const;
+import { RULES, WORDS } from "./rules.ts";
 
 const Paragraphs = z.array(z.string()).describe("Short paragraphs, 1 to 3 sentences each.");
 
 const Run = z
   .object({
     type: z.literal("run"),
-    action: z.string().describe("Button label for trying the build as it stands, 2 to 4 words, e.g. 'Draw a line'."),
+    action: z.string().describe(`Button label for trying the build as it stands, ${RULES.runActionWords.min} to ${RULES.runActionWords.max} words, e.g. 'Draw a line'.`),
     outcome: z.string().describe("What happens when it runs, with a concrete number. This is a failure that motivates the next step, or the payoff of a join."),
   })
   .describe("Try the current build and watch what happens.");
@@ -31,7 +24,7 @@ const Pick = z
           outcome: z.string().describe("What happens if you try this one, in one or two sentences. Wrong options fail for a specific physical reason, not because they are 'wrong'."),
         }),
       )
-      .describe("2 or 3 options. Exactly one works, and it is the step's primitive."),
+      .describe(`${RULES.options.min} or ${RULES.options.max} options. Exactly one works, and it is the step's primitive.`),
   })
   .describe("Choose which primitive answers the failure. Every choice plays out.");
 
@@ -54,7 +47,7 @@ export type ProblemType = Problem["type"];
 
 export const Step = z.object({
   id: z.string(),
-  title: z.string().describe("3 to 6 words."),
+  title: z.string().describe(`${RULES.stepTitleWords.min} to ${RULES.stepTitleWords.max} words.`),
   story: Paragraphs.describe(`One short paragraph of about ${WORDS.story.aim} words. Leads from the previous failure to this step's problem. Explain only what this step needs, and introduce a principle just before it is used.`),
   primitive: z.string().nullable().describe("The catalogue primitive this step is about, or null when no primitive is involved yet (a naive build)."),
   problem: Problem.nullable(),
@@ -104,9 +97,6 @@ export type LessonHeader = z.infer<typeof LessonHeader>;
 export const Shown = z.object({ header: LessonHeader.optional(), chapters: z.array(Chapter) });
 export type Shown = z.infer<typeof Shown>;
 
-const { $schema: _dialect, ...lessonSchemaBody } = z.toJSONSchema(Lesson);
-export const lessonJsonSchema: Record<string, unknown> = lessonSchemaBody;
-
 export type CatalogEntry = { id: string; sliders: { id: string; min: number; max: number; initial: number }[] };
 
 export class LessonError extends Error {}
@@ -154,7 +144,7 @@ export function chapterProblems(chapter: Chapter, catalog: CatalogEntry[]): stri
       if (working.length !== 1) problems.push(`${where} pick needs exactly one working option`);
       else if (working[0]?.primitive !== step.primitive) problems.push(`${where} pick's working option must be the step's primitive`);
       for (const o of problem.options) if (!primitives.has(o.primitive)) problems.push(`${where} pick offers unknown primitive ${o.primitive}`);
-      if (problem.options.length < 2 || problem.options.length > 3) problems.push(`${where} pick needs 2 or 3 options`);
+      if (problem.options.length < RULES.options.min || problem.options.length > RULES.options.max) problems.push(`${where} pick needs ${RULES.options.min} or ${RULES.options.max} options`);
     }
     if (problem?.type === "tune") {
       const slider = primitive?.sliders.find((s) => s.id === problem.slider);
