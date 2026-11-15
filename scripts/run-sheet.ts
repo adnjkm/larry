@@ -7,7 +7,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
-import { type Frame, type Primitive, type Values, startValues, steps } from "../shared/primitives/types.ts";
+import { type Frame, type Primitive, type Values, numberSlider, startValues, steps } from "../shared/primitives/types.ts";
 import { launch, root } from "./browser.ts";
 
 const args = process.argv.slice(2);
@@ -22,7 +22,7 @@ const wanted = args.filter((a, i) => !a.startsWith("--") && !args[i - 1]?.starts
 /** The number at its lowest step, the middle passing step, and its highest step. */
 function settings(p: Primitive): Values[] {
   const g = p.game;
-  const s = [...p.sliders, ...(g.controls ?? [])].find((q) => q.id === g.number)!;
+  const s = numberSlider(p);
   const all = steps(s).map((n) => ({ ...startValues(p), [s.id]: n }));
   const passing = all.filter((v) => g.judge(v).pass);
   return [all[0]!, passing[Math.floor(passing.length / 2)] ?? all[Math.floor(all.length / 2)]!, all.at(-1)!];

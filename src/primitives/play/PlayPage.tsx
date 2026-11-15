@@ -6,15 +6,10 @@ import "dialkit/styles.css";
 import { useEffect, useRef, useState } from "react";
 import { layout } from "../../ui/styles.ts";
 import { GameScreen } from "../game/GameScreen.tsx";
-import { PRIMITIVES, type Primitive } from "../../../shared/primitives/library.ts";
+import { PRIMITIVES } from "../../../shared/primitives/library.ts";
+import { startingId } from "../startingId.ts";
 
-const GAMES = PRIMITIVES.filter((p) => p.game);
-const options = GAMES.map((p, i) => ({ value: p.id, label: `${String(i + 1).padStart(2, "0")} ${p.name} · ${p.game?.name ?? ""}` }));
-
-function startingId(): string {
-  const asked = new URLSearchParams(location.search).get("play");
-  return GAMES.some((p) => p.id === asked) ? (asked as string) : ((GAMES[0] as Primitive | undefined)?.id ?? "");
-}
+const options = PRIMITIVES.map((p, i) => ({ value: p.id, label: `${String(i + 1).padStart(2, "0")} ${p.name} · ${p.game.name}` }));
 
 export default function PlayPage() {
   // The action handler is given to the hook that returns the controller, so it reaches the controller through a ref.
@@ -23,7 +18,7 @@ export default function PlayPage() {
   const controller = useDialKitController(
     "Games",
     {
-      game: { type: "select", options, default: startingId() },
+      game: { type: "select", options, default: startingId("play") },
       next: { type: "action", label: "Next game  ]" },
       previous: { type: "action", label: "Previous game  [" },
       restart: { type: "action", label: "Start this one over" },
@@ -34,17 +29,16 @@ export default function PlayPage() {
 
   const index = Math.max(
     0,
-    GAMES.findIndex((p) => p.id === controller.values.game),
+    PRIMITIVES.findIndex((p) => p.id === controller.values.game),
   );
-  const primitive = GAMES[index];
+  const primitive = PRIMITIVES[index]!;
   step.current = (by) => {
-    const next = GAMES[(index + by + GAMES.length) % GAMES.length];
-    if (next) controller.setValue("game", next.id);
+    const next = PRIMITIVES[(index + by + PRIMITIVES.length) % PRIMITIVES.length]!;
+    controller.setValue("game", next.id);
   };
 
-  const id = primitive?.id;
+  const id = primitive.id;
   useEffect(() => {
-    if (!id) return;
     const url = new URL(location.href);
     url.searchParams.set("play", id);
     history.replaceState(null, "", url);
@@ -61,12 +55,10 @@ export default function PlayPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (!primitive) return <main {...stylex.props(layout.page)}>No primitive has a game yet.</main>;
-
   return (
     <main {...stylex.props(layout.page)}>
       {/* Keyed so a new game, or "start over", is a new screen: its own controller, phase and verdict. */}
-      <GameScreen key={`${primitive.id}:${round}`} primitive={primitive} kicker={`${primitive.level} · game ${index + 1} of ${GAMES.length}`} onBack={() => step.current?.(-1)} />
+      <GameScreen key={`${primitive.id}:${round}`} primitive={primitive} kicker={`${primitive.level} · game ${index + 1} of ${PRIMITIVES.length}`} onBack={() => step.current?.(-1)} />
       <DialRoot defaultOpen position="top-right" />
     </main>
   );

@@ -22,6 +22,12 @@ export type Slider = {
 
 export type Values = Record<string, number>;
 
+/** A slider's value as the reader sees it: scaled, rounded to its step, with its unit. */
+export const formatSlider = (s: Slider, value: number) => {
+  const shown = value * (s.displayScale ?? 1);
+  return `${shown.toFixed(s.step * (s.displayScale ?? 1) < 1 ? 1 : 0)}${s.unit ?? ""}`;
+};
+
 /** Every value on a slider's step grid, min to max. */
 export function steps(s: Slider): number[] {
   const n = Math.round((s.max - s.min) / s.step);
@@ -190,6 +196,9 @@ export const allSliders = (p: Primitive): Slider[] => [...p.sliders, ...(p.game.
 
 /** The slider the handle and the play sweep move: the handle's, else the last slider (the first is the number). */
 export const motionSlider = (p: Primitive): Slider => allSliders(p).find((s) => s.id === p.handle.slider) ?? p.sliders.at(-1)!;
+
+/** The slider the player sets before acting: the game's `number`, among the sliders and the game's controls. */
+export const numberSlider = (p: Primitive): Slider => [...p.sliders, ...(p.game.controls ?? [])].find((s) => s.id === p.game.number)!;
 
 /** Each slider's initial value. */
 export const initialValues = (p: Primitive): Values => Object.fromEntries(p.sliders.map((s) => [s.id, s.initial]));

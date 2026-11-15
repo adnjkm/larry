@@ -1,5 +1,6 @@
 import type { CatalogEntry } from "../lesson.ts";
-import { PRIMITIVES, type Primitive } from "./library.ts";
+import { PRIMITIVES } from "./library.ts";
+import type { Primitive } from "./types.ts";
 
 export const PRIMITIVE_BY_ID: ReadonlyMap<string, Primitive> = new Map(PRIMITIVES.map((p) => [p.id, p]));
 

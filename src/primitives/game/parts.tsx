@@ -4,7 +4,7 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, memo } from "react";
 import { type } from "../../ui/styles.ts";
 import { colors, fonts } from "../../tokens.stylex.ts";
-import type { Primitive, Slider } from "../../../shared/primitives/library.ts";
+import type { Primitive, Slider } from "../../../shared/primitives/types.ts";
 import type { Game, Meter, Verdict } from "../../../shared/primitives/types.ts";
 import { headlineText, meterFraction, meterMet, togglesLabel } from "./logic.ts";
 import { type GameStore, useSelect } from "./store.ts";

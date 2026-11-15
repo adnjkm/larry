@@ -4,8 +4,9 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 import { buttons, layout, type } from "../../../ui/styles.ts";
 import { colors, fonts } from "../../../tokens.stylex.ts";
-import { PRIMITIVES, formatSlider } from "../../../../shared/primitives/library.ts";
-import { type Values, type Verdict, startValues } from "../../../../shared/primitives/types.ts";
+import { startingId } from "../../startingId.ts";
+import { PRIMITIVES } from "../../../../shared/primitives/library.ts";
+import { type Values, type Verdict, formatSlider, numberSlider, startValues } from "../../../../shared/primitives/types.ts";
 import { FigureStage, type StageController } from "../FigureStage.tsx";
 import { stageStats } from "../renderer.ts";
 
@@ -20,8 +21,8 @@ const styles = stylex.create({
 });
 
 export default function StagePage() {
-  const id = new URLSearchParams(location.search).get("stage");
-  const primitive = PRIMITIVES.find((p) => p.id === id) ?? PRIMITIVES.find((p) => p.id === "spring")!;
+  const id = startingId("stage");
+  const primitive = PRIMITIVES.find((p) => p.id === id)!;
   const game = primitive.game;
   const controller = useRef<StageController | null>(null);
   const [values, setValues] = useState<Values>(() => startValues(primitive));
@@ -75,7 +76,7 @@ export default function StagePage() {
     if (finished) setVerdict(run.verdict);
   };
 
-  const number = [...primitive.sliders, ...(game.controls ?? [])].find((s) => s.id === game.number);
+  const number = numberSlider(primitive);
 
   return (
     <main {...stylex.props(layout.page)}>
@@ -119,22 +120,20 @@ export default function StagePage() {
           <p {...stylex.props(type.body)}>{verdict.detail}</p>
         </div>
       )}
-      {number && (
-        <label data-slider={number.id}>
-          <span {...stylex.props(type.label)}>
-            {number.label} {formatSlider(number, values[number.id] ?? number.initial)}
-          </span>
-          <input
-            type="range"
-            min={number.min}
-            max={number.max}
-            step={number.step}
-            value={values[number.id] ?? number.initial}
-            onChange={(e) => controller.current?.set({ [number.id]: Number(e.currentTarget.value) })}
-            {...stylex.props(styles.range)}
-          />
-        </label>
-      )}
+      <label data-slider={number.id}>
+        <span {...stylex.props(type.label)}>
+          {number.label} {formatSlider(number, values[number.id] ?? number.initial)}
+        </span>
+        <input
+          type="range"
+          min={number.min}
+          max={number.max}
+          step={number.step}
+          value={values[number.id] ?? number.initial}
+          onChange={(e) => controller.current?.set({ [number.id]: Number(e.currentTarget.value) })}
+          {...stylex.props(styles.range)}
+        />
+      </label>
       <p {...stylex.props(styles.mono)}>
         {game
           .meters(values)

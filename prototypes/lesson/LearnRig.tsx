@@ -4,7 +4,7 @@
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GameStore, useSelect } from "../../src/primitives/game/store.ts";
 import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
-import type { Primitive, Slider } from "../../shared/primitives/library.ts";
+import type { Primitive, Slider } from "../../shared/primitives/types.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
 import { startValues } from "../../shared/primitives/types.ts";
 import { framingParts, type InObject } from "./Learn.tsx";

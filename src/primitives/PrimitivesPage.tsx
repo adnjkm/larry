@@ -3,10 +3,11 @@ import { useRef, useState } from "react";
 import { chips, layout, type } from "../ui/styles.ts";
 import { colors, fonts } from "../tokens.stylex.ts";
 import { reducedMotion } from "../motion.ts";
-import { PRIMITIVES, type Primitive } from "../../shared/primitives/library.ts";
+import { PRIMITIVES } from "../../shared/primitives/library.ts";
+import { startingId } from "./startingId.ts";
 import { madeOfPrimitives } from "./PrimitiveFigure.tsx";
 import { GameScreen } from "./game/GameScreen.tsx";
-import type { Level } from "../../shared/primitives/types.ts";
+import type { Level, Primitive } from "../../shared/primitives/types.ts";
 
 const styles = stylex.create({
   idea: { margin: 0, fontSize: 17, lineHeight: 1.4 },
@@ -38,13 +39,8 @@ const styles = stylex.create({
   rowKind: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: colors.graphite },
 });
 
-function startingId(): string {
-  const asked = new URLSearchParams(location.search).get("primitives");
-  return PRIMITIVES.some((p) => p.id === asked) ? (asked as string) : (PRIMITIVES[0] as Primitive).id;
-}
-
 export default function PrimitivesPage() {
-  const [id, setId] = useState(startingId);
+  const [id, setId] = useState(() => startingId("primitives"));
   const primitive = PRIMITIVES.find((p) => p.id === id) ?? (PRIMITIVES[0] as Primitive);
 
   const select = (next: string) => {

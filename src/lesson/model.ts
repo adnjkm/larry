@@ -3,7 +3,7 @@
 // next chapter before) and `reached` is the furthest `at` so far, so going back keeps what was earned.
 import type { Chapter, Lesson, Step } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
-import { initialValues } from "../../shared/primitives/library.ts";
+import { initialValues } from "../../shared/primitives/types.ts";
 import type { Values } from "../../shared/primitives/types.ts";
 import type { Arrived } from "./load.ts";
 import { type ProblemAction, type ProblemState, initProblem, problemSolved, reduceProblem } from "./problems.ts";

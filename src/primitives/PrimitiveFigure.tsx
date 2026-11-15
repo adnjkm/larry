@@ -4,7 +4,7 @@ import { chips, layout, notes, type } from "../ui/styles.ts";
 import { colors, fonts } from "../tokens.stylex.ts";
 import { VIEWPORT_HEIGHT } from "../viewport.ts";
 import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
-import { type Primitive, type Values, formatSlider } from "../../shared/primitives/library.ts";
+import { type Primitive, type Values, formatSlider } from "../../shared/primitives/types.ts";
 import { FigureStage, type StageController } from "./stage/FigureStage.tsx";
 
 const thumb = { boxSizing: "border-box", width: 24, height: 24, borderRadius: 999, borderWidth: 0, backgroundColor: colors.paper, boxShadow: `0 0 0 1px ${colors.shadow}, 0 2px 6px ${colors.shadow}` } as const;

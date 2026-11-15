@@ -2,7 +2,8 @@ import type { Kit } from "../shared/kit.ts";
 import { Chapter, chapterProblems, headerProblems, Lesson, LessonError, LessonHeader, type Shown, type LessonEvent, lessonProblems, parseLesson } from "../shared/lesson.ts";
 import { RULES, WORDS } from "../shared/rules.ts";
 import { CATALOG } from "../shared/primitives/catalog.ts";
-import { PRIMITIVES, formatSlider, initialValues } from "../shared/primitives/library.ts";
+import { PRIMITIVES } from "../shared/primitives/library.ts";
+import { formatSlider, initialValues } from "../shared/primitives/types.ts";
 import { type Brain, streamStructured } from "./claude.ts";
 import { lessonJsonSchema } from "./schemas.ts";
 

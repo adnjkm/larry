@@ -8,7 +8,7 @@ import { HoldButton } from "../../ui/HoldButton.tsx";
 import { bars, buttons, type } from "../../ui/styles.ts";
 import { colors, fonts } from "../../tokens.stylex.ts";
 import { FigureStage } from "../stage/FigureStage.tsx";
-import { type Cue, type Primitive, type Values, type Verdict, startValues } from "../../../shared/primitives/types.ts";
+import { type Cue, type Primitive, type Values, type Verdict, numberSlider, startValues } from "../../../shared/primitives/types.ts";
 import { controlRows } from "./logic.ts";
 import { Divider, Meters, Rows, SliderRow, ToggleRow, VerdictLine } from "./parts.tsx";
 import { GameStore } from "./store.ts";
@@ -114,7 +114,7 @@ export function GameScreen({ primitive, kicker, onBack, children }: { primitive:
     [store],
   );
 
-  const number = [...primitive.sliders, ...(game.controls ?? [])].find((s) => s.id === game.number);
+  const number = numberSlider(primitive);
   const rows = controlRows(game.controls ?? [], game.number);
   const others = primitive.sliders.filter((s) => s.id !== game.number);
 
@@ -199,7 +199,7 @@ export function GameScreen({ primitive, kicker, onBack, children }: { primitive:
         <Rows>
           <Meters store={store} game={game} />
           <Divider />
-          {number && <SliderRow store={store} slider={number} ink />}
+          <SliderRow store={store} slider={number} ink />
           {rows.map((row) =>
             row.kind === "slider" ? <SliderRow key={row.slider.id} store={store} slider={row.slider} ink /> : <ToggleRow key={row.sliders[0]!.id} store={store} sliders={row.sliders} />,
           )}

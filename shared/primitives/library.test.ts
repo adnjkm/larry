@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Kit, kitProblems } from "../kit.ts";
-import { PRIMITIVES, initialValues, type Values } from "./library.ts";
+import { PRIMITIVES } from "./library.ts";
+import { initialValues, type Values } from "./types.ts";
 import { COLOR, SYNTHWAVE } from "./parts.ts";
 
 /** Each slider at its minimum, start and maximum, with the others at their start. */

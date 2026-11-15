@@ -8,18 +8,18 @@ import { join } from "node:path";
 import type { Page } from "playwright-core";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { verdictText as shown } from "../src/primitives/game/logic.ts";
-import { type Values, startValues, steps } from "../shared/primitives/types.ts";
+import { type Values, numberSlider, startValues, steps } from "../shared/primitives/types.ts";
 import { launch, root } from "./browser.ts";
 
 const id = process.argv[2] ?? "spring";
 const primitive = PRIMITIVES.find((p) => p.id === id) ?? assert.fail(`no primitive ${id}`);
 const game = primitive.game;
-const numberSlider = [...primitive.sliders, ...(game.controls ?? [])].find((s) => s.id === game.number)!;
+const number = numberSlider(primitive);
 const outDir = join(root, "out", "game");
 mkdirSync(outDir, { recursive: true });
 
-const numbers = steps(numberSlider);
-const withNumber = (n: number): Values => ({ ...startValues(primitive), [numberSlider.id]: n });
+const numbers = steps(number);
+const withNumber = (n: number): Values => ({ ...startValues(primitive), [number.id]: n });
 const failing = numbers.find((n) => !game.judge(withNumber(n)).pass);
 const passing = [...numbers].reverse().find((n) => game.judge(withNumber(n)).pass);
 assert(failing !== undefined, "no failing value for the number");
@@ -46,7 +46,7 @@ async function check(page: Page, url: string, tag: string) {
   for (const [name, n] of [["fail", failing!], ["pass", passing!]] as const) {
     await page.reload({ waitUntil: "networkidle" });
     await page.waitForSelector("[data-kit-viewer][data-ready]", { timeout: 90_000 });
-    await page.locator(`[data-slider="${numberSlider.id}"] input`).fill(String(n));
+    await page.locator(`[data-slider="${number.id}"] input`).fill(String(n));
     await page.waitForTimeout(400);
     const expected = game.judge(withNumber(n));
     assert.equal(expected.pass, name === "pass");
@@ -65,7 +65,7 @@ async function check(page: Page, url: string, tag: string) {
 
     await action.click();
     assert.equal(await page.locator("[data-game]").getAttribute("data-phase"), "ready", `${name}: the next press resets`);
-    assert.equal(await page.locator(`[data-slider="${numberSlider.id}"] input`).inputValue(), String(n), `${name}: the number is kept`);
+    assert.equal(await page.locator(`[data-slider="${number.id}"] input`).inputValue(), String(n), `${name}: the number is kept`);
     assert.equal((await action.innerText()).trim(), game.action);
     assert.equal(await verdictText(page), shown(expected), `${name}: back to the live verdict`);
   }
