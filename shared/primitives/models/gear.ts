@@ -17,7 +17,7 @@ import { arrow, fmt, gearOutline, knob, look, on, part, pin, pivoted, plate, pos
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
 // Geometry, millimetres.
-export const MODULE = 3;
+const MODULE = 3;
 export const DRIVER_TEETH = 12;
 const GEAR_T = 8;
 /** The axles' height above the plate: tall enough for the biggest gear (24 teeth) to clear it. */
@@ -43,7 +43,7 @@ export const GHOST = 0.75;
 export const TOLERANCE = 20;
 
 /** The angle a gear B must have to mesh with gear A, when B lies in direction `phi` (degrees) from A: a tooth meets a gap at the contact. */
-export const meshAngle = (phi: number, thetaA: number, zA: number, zB: number) => phi + 180 - 180 / zB + (zA / zB) * (phi - thetaA);
+const meshAngle = (phi: number, thetaA: number, zA: number, zB: number) => phi + 180 - 180 / zB + (zA / zB) * (phi - thetaA);
 
 /** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {

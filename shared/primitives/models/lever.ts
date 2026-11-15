@@ -223,7 +223,7 @@ const MARK_X = 49;
 const MARK_Z = 10;
 
 /** The height of the block's highest corner when the bar has lifted the load point RISE mm, at this ratio: the line the block must reach. */
-export function markHeight(ratio: number): number {
+function markHeight(ratio: number): number {
   const b = bounds(ratio);
   const phi = Math.asin(clamp(b.s0 + (RISE * b.ratio) / b.aEff, -1, 1));
   return blockAt(b, phi).y + (BLOCK / 2) * (Math.cos(phi) + Math.abs(Math.sin(phi)));

@@ -101,7 +101,7 @@ export function springFor(open: number) {
 }
 
 /** How far the ball lifts for a pressure difference `across` (under minus over): the extra over the opening pressure squeezes the spring past its preload. */
-export function liftFor(open: number, across: number) {
+function liftFor(open: number, across: number) {
   return clamp((PRELOAD_MM * (across - open)) / open, 0, springFor(open).liftMax);
 }
 

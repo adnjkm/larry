@@ -153,7 +153,7 @@ const PEG_R = 3;
 const PEG_LENGTH = 20;
 const PEG_AT_DEG = STOP_LO - Math.asin((BAR / 2 + PEG_R) / STOP_R) * DEG;
 /** The peg's centre, in x and y. */
-export const PEG: Pt = [D[0] + STOP_R * Math.cos(PEG_AT_DEG * RAD), D[1] + STOP_R * Math.sin(PEG_AT_DEG * RAD)];
+const PEG: Pt = [D[0] + STOP_R * Math.cos(PEG_AT_DEG * RAD), D[1] + STOP_R * Math.sin(PEG_AT_DEG * RAD)];
 /** How close to the stop the wiper has to come to count as wiping it clean, degrees. */
 export const TOLERANCE = 4;
 

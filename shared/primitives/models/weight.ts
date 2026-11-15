@@ -320,7 +320,6 @@ const swingTo = (a0: number, angle: number) => Math.acos(clamp(angle / a0, -1, 1
 function play(v: Values): Run {
   const verdict = judge(v);
   const r = strike(v);
-  const s0 = settle(v);
   const a0 = swingOf(v);
   const snaps = r.kind === "snap";
   const slowMs = SLOW * 1000;

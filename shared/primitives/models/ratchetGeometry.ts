@@ -11,7 +11,7 @@ import type { Pt } from "../parts.ts";
 export const ROOT = 20;
 /** Teeth are 0.8 of their pitch at the root tall, up to 7 mm: many teeth are small teeth. */
 export const toothHeight = (n: number) => Math.min(7, (0.8 * 2 * Math.PI * ROOT) / n);
-export const tipRadius = (n: number) => ROOT + toothHeight(n);
+const tipRadius = (n: number) => ROOT + toothHeight(n);
 /** What is left of a tooth that has sheared off. */
 export const STUMP = 1.5;
 /** Straight pieces per ramp. */
@@ -42,7 +42,7 @@ export const PAWL: Pt[] = (() => {
 /** Lifted this far the pawl clears every tooth of every wheel. */
 export const LIFT_CLEAR = 24;
 /** Penetration up to this, in mm, counts as touching. */
-export const TOUCH = 0.01;
+const TOUCH = 0.01;
 
 const DEG = Math.PI / 180;
 
@@ -55,7 +55,7 @@ export function turnAbout(p: Pt, deg: number, c: Pt = [0, 0]): Pt {
 }
 
 /** The pawl outline at lift `psi` (degrees anticlockwise about the pivot; positive swings the nose out). */
-export const pawlAt = (psi: number): Pt[] => PAWL.map((p) => turnAbout(p, psi, PIVOT));
+const pawlAt = (psi: number): Pt[] => PAWL.map((p) => turnAbout(p, psi, PIVOT));
 
 /** The wheel's turn, in degrees anticlockwise, at `turn` whole turns of winding (winding is clockwise). */
 export const wheelDeg = (turn: number) => -360 * turn;
@@ -65,10 +65,10 @@ export const wheelDeg = (turn: number) => -360 * turn;
  * that shears the teeth strips every cliff whose landing it is dragged back through.
  */
 export type Stripped = (cliff: number) => boolean;
-export const NONE: Stripped = () => false;
+const NONE: Stripped = () => false;
 
 /** The wheel's outline in its own frame, anticlockwise: for each tooth j = 1..n a ramp from the root at cliff j - 1 up to cliff j. */
-export function wheelOutline(n: number, stripped: Stripped = NONE): Pt[] {
+function wheelOutline(n: number, stripped: Stripped = NONE): Pt[] {
   const step = (2 * Math.PI) / n;
   const h = toothHeight(n);
   const pts: Pt[] = [];
@@ -107,7 +107,7 @@ export function inside(p: Pt, poly: Pt[]): boolean {
 }
 
 /** How far `p` is inside `poly` (0 when outside): the distance to its nearest edge. */
-export function depthIn(p: Pt, poly: Pt[]): number {
+function depthIn(p: Pt, poly: Pt[]): number {
   if (!inside(p, poly)) return 0;
   let d = Infinity;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) d = Math.min(d, distToSegment(p, poly[j]!, poly[i]!));
@@ -115,7 +115,7 @@ export function depthIn(p: Pt, poly: Pt[]): number {
 }
 
 /** Points along a closed outline no more than `spacing` apart, corners included. */
-export function densify(poly: Pt[], spacing: number): Pt[] {
+function densify(poly: Pt[], spacing: number): Pt[] {
   return poly.flatMap((a, i) => {
     const b = poly[(i + 1) % poly.length]!;
     const k = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / spacing));
@@ -176,7 +176,7 @@ const ahead = (a: number, from: number) => (((a - from) % (2 * Math.PI)) + 2 * M
  * wheel, or wheel corner inside the pawl. 0 means apart or just touching. With `from` (a wheel-frame angle, radians),
  * only the wheel within the half turn anticlockwise of it counts: the material on the ramp side of a cliff.
  */
-export function penetration(wheel: Wheel, turn: number, psi: number, from?: number): number {
+function penetration(wheel: Wheel, turn: number, psi: number, from?: number): number {
   const counts = (q: Pt) => from === undefined || ahead(Math.atan2(q[1], q[0]), from);
   // Pawl frame to wheel frame: turn by psi about the pivot, then undo the wheel's turn about the centre.
   const [c1, s1] = [Math.cos(psi * DEG), Math.sin(psi * DEG)];

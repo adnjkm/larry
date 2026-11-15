@@ -1,34 +1,22 @@
 // One image of the screens a person meets, 390 px wide each: node scripts/contact-sheet.ts [lesson]
 // Writes out/contact-sheet/sheet.png. The capture and generating screens come from the real app with the kit request held open.
-import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
-import { type Page, chromium } from "playwright-core";
-import { createServer } from "vite";
+import { mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { Page } from "playwright-core";
 import { parseKit } from "../shared/kit.ts";
-import { type Step, parseLesson } from "../shared/lesson.ts";
+import { parseLesson } from "../shared/lesson.ts";
 import { CATALOG, PRIMITIVE_BY_ID } from "../shared/primitives/catalog.ts";
+import { launch, root } from "./stage-lib.ts";
 
-const root = resolve(import.meta.dirname, "..");
 const name = process.argv[2] ?? "pen";
 const outDir = join(root, "out", "contact-sheet");
-const cache = join(homedir(), "Library", "Caches", "ms-playwright");
-const executable = ["chromium_headless_shell-", "chromium-"].flatMap((prefix) =>
-  readdirSync(cache)
-    .filter((n) => n.startsWith(prefix))
-    .sort()
-    .reverse()
-    .flatMap((n) => ["chrome-headless-shell-mac-arm64/chrome-headless-shell", "chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium"].map((e) => join(cache, n, e)))
-).find(existsSync);
-if (!executable) throw new Error(`No chromium in ${cache}`);
 
 const kit = parseKit(JSON.parse(readFileSync(join(root, "fixtures", "kits", `${name}.json`), "utf8")));
 const lesson = parseLesson(JSON.parse(readFileSync(join(root, "fixtures", "lessons", `${name}.json`), "utf8")), kit, CATALOG);
 
 mkdirSync(outDir, { recursive: true });
 const shots: { label: string; file: string }[] = [];
-const server = await createServer({ root, logLevel: "warn", server: { port: 0, host: "127.0.0.1" } });
-const browser = await chromium.launch({ executablePath: executable, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-webgl"] });
+const { browser, close, url } = await launch();
 
 async function shoot(page: Page, label: string) {
   await page.waitForFunction(() => [...document.querySelectorAll("[data-kit-viewer]")].every((v) => v.hasAttribute("data-ready")), undefined, { timeout: 90_000 });
@@ -50,9 +38,6 @@ async function setSlider(page: Page, slider: { id: string; min: number; max: num
 }
 
 try {
-  await server.listen();
-  const url = server.resolvedUrls?.local[0];
-  if (!url) throw new Error("Vite did not report a URL");
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const page = await context.newPage();
   page.setDefaultTimeout(20_000);
@@ -131,6 +116,5 @@ try {
   await sheet.screenshot({ path: join(outDir, "sheet.png"), fullPage: true });
   console.log(`${join(outDir, "sheet.png")}: ${shots.map((s) => s.label).join(", ")}`);
 } finally {
-  await browser.close();
-  await server.close();
+  await close();
 }

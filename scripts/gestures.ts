@@ -1,20 +1,9 @@
 // Real touch input through CDP, at phone size: node scripts/gestures.ts
 // Swipes between steps on the mug demo, then flicks a figure on the primitives page.
 import assert from "node:assert/strict";
-import { existsSync, readdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
-import { chromium } from "playwright-core";
-import { createServer } from "vite";
+import { launch } from "./stage-lib.ts";
 
-const root = resolve(import.meta.dirname, "..");
-const cache = join(homedir(), "Library", "Caches", "ms-playwright");
-const executable = ["chromium_headless_shell-", "chromium-"].flatMap((p) => readdirSync(cache).filter((n) => n.startsWith(p)).sort().reverse().flatMap((n) => ["chrome-headless-shell-mac-arm64/chrome-headless-shell", "chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium"].map((e) => join(cache, n, e)))).find(existsSync);
-const server = await createServer({ root, logLevel: "warn", server: { port: 0, host: "127.0.0.1" } });
-await server.listen();
-const url = server.resolvedUrls?.local[0];
-if (!url) throw new Error("Vite did not report a URL");
-const browser = await chromium.launch({ executablePath: executable, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--enable-webgl"] });
+const { url, browser, close } = await launch();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await context.newPage();
@@ -99,6 +88,5 @@ try {
   console.log("fling: keeps turning after release, then rests");
   assert.deepEqual(errors, []);
 } finally {
-  await browser.close();
-  await server.close();
+  await close();
 }

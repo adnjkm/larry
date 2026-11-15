@@ -52,7 +52,7 @@ export const BLOW = BLOW_FOR_SCALE;
 /** What the log pushes back with before it has given anything. */
 export const GRIP = 100;
 /** And what it adds for every mm each half gives. */
-export const STIFF = 5;
+const STIFF = 5;
 /** Each half must open this far for the log to split. */
 export const OPEN = 9;
 export const BLOWS = 5;

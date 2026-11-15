@@ -27,7 +27,7 @@ const GASKET_R0 = 36;
 export const WEEP = 0.15;
 export const SPLIT = 0.3;
 /** The flange is as wide as the gasket gets at SPLIT, so the gasket reaches its edge exactly there: volume conservation, not a typed number. */
-export const wideAt = (s: number, r0 = GASKET_R0) => Math.sqrt(BORE_R ** 2 + (r0 ** 2 - BORE_R ** 2) / (1 - s));
+const wideAt = (s: number, r0 = GASKET_R0) => Math.sqrt(BORE_R ** 2 + (r0 ** 2 - BORE_R ** 2) / (1 - s));
 const FLANGE_R = wideAt(SPLIT);
 const FLANGE_T = 10;
 const PIPE_H = 48;

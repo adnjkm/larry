@@ -61,14 +61,14 @@ export const LOAD = 80;
  * On this game's wheel a tooth holds about TOOTH ÷ n newtons: finer teeth are thinner at the root, so weaker. The
  * constant is chosen so the game's window sits mid-range; it is a simplification, not a property of any real steel.
  */
-export const TOOTH = 1100;
+const TOOTH = 1100;
 /** The mark is this far above the bucket's start. */
 export const MARK = 32;
 /** The bucket must come to rest no further than this under the mark. */
 export const TOLERANCE = 1.5;
 
 /** The last landing the pawl has dropped into at this turn: landings are at whole multiples of 1 / n. */
-export const landingBelow = (turn: number, n: number) => Math.floor(turn * n + 1e-9) / n;
+const landingBelow = (turn: number, n: number) => Math.floor(turn * n + 1e-9) / n;
 
 /** Cliffs stripped by a run that began shearing at landing `from` and has been dragged back to `turn`. */
 function strippedBetween(n: number, turn: number, from: number): Stripped {
