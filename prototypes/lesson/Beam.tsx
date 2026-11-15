@@ -12,8 +12,8 @@ export const BEAM_PAD = 10;
 /** CSS px per dither cell: the 1 px dither the rest of the lesson uses. */
 const CELL = 1;
 /**
- * Each lap the beam winds up and whooshes once round on easings.dev's Anticipate, cubic-bezier(1, -0.4, 0.35, 0.95):
- * a small pull back, a fast run, an easy stop. It then rests a beat before the next lap.
+ * Each lap the beam creeps off and then races once round on easings.dev's In Expo, cubic-bezier(0.95, 0.05, 0.795, 0.035):
+ * barely moving at first, fastest as it arrives back at the top. It then rests a beat before the next lap.
  */
 const LAP_MS = 1500;
 const REST_MS = 550;
@@ -45,7 +45,7 @@ function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
     return at(y1, y2, (lo + hi) / 2);
   };
 }
-const ANTICIPATE = cubicBezier(1, -0.4, 0.35, 0.95);
+const IN_EXPO = cubicBezier(0.95, 0.05, 0.795, 0.035);
 
 /** Where the beam's head is at `t` ms, in turns (it only ever grows, a whole turn a lap), and its speed in turns per lap. */
 function headAt(t: number) {
@@ -53,8 +53,8 @@ function headAt(t: number) {
   const lap = Math.floor(t / cycle);
   const into = Math.min(1, (t - lap * cycle) / LAP_MS);
   const step = 1 / 60;
-  const speed = Math.abs(ANTICIPATE(Math.min(1, into + step)) - ANTICIPATE(Math.max(0, into - step))) / (2 * step);
-  return { head: lap + ANTICIPATE(into), speed };
+  const speed = Math.abs(IN_EXPO(Math.min(1, into + step)) - IN_EXPO(Math.max(0, into - step))) / (2 * step);
+  return { head: lap + IN_EXPO(into), speed };
 }
 
 /** For each cell: its turn round the button's centre (0 to 1, clockwise from up) and its distance outside the pill's outline. */
@@ -83,7 +83,7 @@ function paint({ cols, rows, px, ctx, image }: Raster, f: ReturnType<typeof fiel
   const { turn, out } = f;
   const now = headAt(t);
   const head = ((now.head % 1) + 1) % 1;
-  // Anticipate's run peaks near twice the lap's average speed; the arc stretches with it.
+  // In Expo ends near five times the lap's average speed; the arc is at its longest from about twice that average.
   const arc = ARC * (ARC_REST + (ARC_FAST - ARC_REST) * Math.min(1, now.speed / 2.2));
   const last = STOPS.length - 1;
   px.fill(0);
