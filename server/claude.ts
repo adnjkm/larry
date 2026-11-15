@@ -1,7 +1,7 @@
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { createArrayScanner, type ScannedEvent } from "./jsonStream.ts";
 
-export type Model = "claude-opus-5-5" | "claude-sonnet-5-5";
+export type Model = "claude-opus-5-5" | "claude-sonnet-5-5" | "claude-haiku-5-5";
 export type Effort = "low" | "medium" | "high";
 export type Brain = { model: Model; effort: Effort };
 

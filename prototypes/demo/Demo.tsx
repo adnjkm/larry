@@ -1,6 +1,6 @@
 // Aiden's camera, then the object's lesson inside the same phone screen. The camera is src/mock/CameraMock.tsx with
 // Build it handing over; the lesson is prototypes/lesson's StoryFlow, unchanged.
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import baseCss from "../lesson/base.css?inline";
 import lessonCss from "../lesson/lesson.css?inline";
 import { lessonFor } from "../lesson/lessons/index.ts";
@@ -11,6 +11,9 @@ import { CourseFlow } from "../lesson/Course.tsx";
 import flaskPhoto from "../../fixtures/photos/flask.jpg?url";
 import bottleCourse from "../lesson/lessons/bottle-course.ts";
 import penCourse from "../lesson/lessons/pen-course.ts";
+import { courseFromGen } from "../lesson/gen/index.ts";
+import { GenCourse } from "../../shared/course/gen.ts";
+import { useLiveCourse } from "./live/useLiveCourse.ts";
 import { CoursePlusFlow } from "../combined/CoursePlus.tsx";
 import penPlus from "../combined/pen-plus.ts";
 import { TEMPLATE_CSS } from "../primitives/template.css.ts";
@@ -33,6 +36,55 @@ const COURSE = PLUS ? penPlus : COURSES[__DEMO_OBJECT__];
 const PHOTOS: Readonly<Record<string, string>> = { bottle: flaskPhoto };
 
 /**
+ * A generated course: fixtures/courses/<name>.json, a GenCourse, fitted with its works by the rig and played as the
+ * pen's is. `?course=<name>` picks the file on any demo; LARRY_DEMO=gen plays pen.gen when none is named.
+ */
+const GEN_FILES = import.meta.glob<{ default: unknown }>("../../fixtures/courses/*.json");
+const GEN_NAME = new URLSearchParams(location.search).get("course") ?? (__DEMO_VARIANT__ === "gen" ? "pen.gen" : null);
+async function loadGen(name: string): Promise<Course> {
+  const load = GEN_FILES[`../../fixtures/courses/${name}.json`];
+  if (!load) {
+    const found = Object.keys(GEN_FILES).map((path) => path.slice(path.lastIndexOf("/") + 1, -".json".length));
+    throw new Error(`fixtures/courses/${name}.json is not there.\nCourses found: ${found.join(", ") || "none"}`);
+  }
+  return courseFromGen(GenCourse.parse((await load()).default));
+}
+/**
+ * `?live` generates the course from the sample photo when the page opens (POST /api/course, the server beside vite),
+ * so it is being made while the shot is framed and scanned. `?live=fresh` skips the server's cache.
+ */
+const LIVE = new URLSearchParams(location.search).get("live");
+function useLive(): { course?: Course; error?: string } {
+  const live = useLiveCourse(LIVE === null ? null : SAMPLE.photo, { staged: true, fresh: LIVE === "fresh" });
+  return useMemo(() => {
+    if (live.status === "failed") return { error: `live: ${live.error}` };
+    if (!live.course) return {};
+    try {
+      return { course: courseFromGen(live.course) };
+    } catch (error) {
+      return { error: `live: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }, [live.status, live.course, live.error]);
+}
+
+/** The generated course once it is loaded, or why it could not be. */
+function useGen(): { course?: Course; error?: string } {
+  const [gen, setGen] = useState<{ course?: Course; error?: string }>({});
+  useEffect(() => {
+    if (GEN_NAME === null) return;
+    let live = true;
+    loadGen(GEN_NAME).then(
+      (course) => live && setGen({ course }),
+      (error: unknown) => live && setGen({ error: `${GEN_NAME}: ${error instanceof Error ? error.message : String(error)}` }),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  return gen;
+}
+
+/**
  * The lesson's stylesheets, scoped to the lesson so their element rules (box-sizing, button fonts) never reach the
  * camera. Keyframes stay global, since they're looked up by name; the page rules for html and body are dropped.
  */
@@ -50,7 +102,20 @@ ${css
 const ARRIVE_MS = 900;
 
 /** The lesson in the phone: it fills the screen between the status bar and the gesture bar. */
-function Lesson({ screen, onCamera, shown }: { screen: PhoneScreen; onCamera: () => void; shown: boolean }) {
+function Lesson({
+  screen,
+  onCamera,
+  shown,
+  course,
+  pending,
+}: {
+  screen: PhoneScreen;
+  onCamera: () => void;
+  shown: boolean;
+  course: Course | undefined;
+  /** A course is still being generated: nothing plays until it lands. */
+  pending: boolean;
+}) {
   const [run, setRun] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   // Its rows come in one after another when it first arrives (DEMO_CSS); not on every step after.
@@ -98,8 +163,8 @@ function Lesson({ screen, onCamera, shown }: { screen: PhoneScreen; onCamera: ()
           onRestart={() => setRun((r) => r + 1)}
           waiting={!shown}
         />
-      ) : COURSE ? (
-        <CourseFlow key={run} course={COURSE} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} waiting={!shown} dials={PAGES} />
+      ) : pending ? null : course ? (
+        <CourseFlow key={run} course={course} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} waiting={!shown} dials={PAGES} />
       ) : (
         <StoryFlow key={run} story={STORY} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} />
       )}
@@ -116,24 +181,32 @@ const TUNING = new URLSearchParams(location.search).has("dials");
 const PAGES = TUNING ? ("shared" as const) : new URLSearchParams(location.search).has("pages") ? ("own" as const) : undefined;
 
 export function Demo() {
+  const gen = useGen();
+  const live = useLive();
+  const error = LIVE !== null ? live.error : GEN_NAME !== null ? gen.error : undefined;
+  if (error) return <pre className="demo-error">{error}</pre>;
+  if (LIVE === null && GEN_NAME !== null && !gen.course) return null;
+  const course = LIVE !== null ? live.course : GEN_NAME !== null ? gen.course : COURSE;
+  const pending = LIVE !== null && !live.course;
   return (
     <>
       <style>{LESSON_CSS}</style>
       <style>{DEMO_CSS}</style>
       <CameraMock
         object={__DEMO_OBJECT__}
-        after={(props) => <Lesson {...props} />}
+        after={(props) => <Lesson {...props} course={course} pending={pending} />}
         dials={TUNING}
         compare={TUNING}
-        mechanisms={COURSE?.mechanisms.length}
-        kit={COURSE?.reveal ?? COURSE?.story.kit}
-        photo={PHOTOS[__DEMO_OBJECT__]}
+        mechanisms={course?.mechanisms.length}
+        kit={course?.reveal ?? course?.story.kit}
+        photo={course === COURSE ? PHOTOS[__DEMO_OBJECT__] : undefined}
       />
     </>
   );
 }
 
 const DEMO_CSS = `
+.demo-error { margin: 0; padding: 24px; white-space: pre-wrap; font: 14px/1.5 ui-monospace, Menlo, monospace; color: #141414; background: #fff; }
 .demo-lesson { position: relative; width: 100%; height: 100%; overflow: hidden; background: #fff; color: #141414; font-family: Geist, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 .demo-lesson .screen { height: 100%; max-width: none; }
 /* The Why card sits in the middle of the phone's screen, at the phone's scale. */

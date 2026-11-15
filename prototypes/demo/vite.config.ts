@@ -12,6 +12,8 @@ const DEMOS = {
   bottle: { port: 5176, cacheDir: `${repo}node_modules/.vite-demo` },
   pen: { port: 5177, cacheDir: `${repo}node_modules/.vite-demo-pen` },
   "pen-plus": { port: 5178, cacheDir: `${repo}node_modules/.vite-demo-pen-plus`, object: "pen", variant: "plus" },
+  // A generated course (fixtures/courses/<name>.json, `?course=<name>`, pen.gen when none is named), at http://localhost:5179/.
+  gen: { port: 5179, cacheDir: `${repo}node_modules/.vite-demo-gen`, object: "pen", variant: "gen" },
 } as const;
 
 const object = process.env.LARRY_DEMO ?? "bottle";

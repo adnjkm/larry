@@ -3,7 +3,7 @@
 // button is down, how far a loose ball sags), and one function turns a Pose into a Scene. Every rest pose,
 // control pose and test frame goes through it; the tests then play the outcome decided from the zone of each
 // control and the parts present.
-import type { Shape } from "../../../shared/kit.ts";
+import type { Kit, Shape } from "../../../shared/kit.ts";
 import { clamp01, lerp, smooth } from "../../../shared/primitives/motion/ease.ts";
 import {
   DEFAULT_VIEW,
@@ -26,7 +26,7 @@ import {
   zoneAt,
 } from "../model.ts";
 import { type Drop, dropsAt } from "../stories/drops.ts";
-import { PEN, PEN_KIT, springAt } from "./pen-kit.ts";
+import { PEN as GOLD, PEN_KIT as GOLD_KIT, type PenDims, springOf } from "./pen-kit.ts";
 
 const BARREL = "barrel";
 const NOSE = "nose";
@@ -37,6 +37,14 @@ const CAM = "cam";
 const PLUNGER = "plunger";
 const LUGS = [1, 2, 3, 4].map((k) => `cam-lug-${k}`);
 
+/**
+ * The pen's story and rig for a pen of dimensions `PEN` drawn as `PEN_KIT`. The kit must use the ids above for its
+ * assemblies. The hand-made pen is this applied to its own dimensions (below); a scanned pen is measured first
+ * (prototypes/lesson/gen).
+ */
+// oxlint-disable-next-line no-shadow
+export function penStory(PEN: PenDims, PEN_KIT: Kit, about: { objectName?: string } = {}) {
+const springAt = springOf(PEN);
 const T = PEN.TRAVEL;
 /** How far a loose ball sits lower in its socket, in mm. */
 const SAG = 1.2;
@@ -649,11 +657,11 @@ const FRAMES = {
 } as const;
 const CAM_MID = (PEN.camBottom + PEN.camTop) / 2;
 
-export default defineStory({
+const story = defineStory({
   id: "pen",
   view: { ...DEFAULT_VIEW, shadow: false },
   freePlay: true,
-  objectName: "Click pen",
+  objectName: about.objectName ?? "Click pen",
   match: /\bpen\b/i,
   build: "drag",
   kit: PEN_KIT,
@@ -680,8 +688,8 @@ export default defineStory({
             line: "Right there. It rolls where pen meets paper.",
           },
           // The wrong spots are inside the pen too, up the ink's own path: a ball lodged there is seen as a bead in the tube.
-          { id: "neck", at: vec(0, drawnY(ballCtx, REFILL, 34), 0), radius: PEN.refillR + 0.6, line: "Lodged in the neck, it never meets the paper." },
-          { id: "tube", at: vec(0, drawnY(ballCtx, REFILL, 70), 0), radius: PEN.refillR + 0.8, line: "Up in the ink tube, it never meets the paper." },
+          { id: "neck", at: vec(0, drawnY(ballCtx, REFILL, PEN.refillBottom - 8), 0), radius: PEN.refillR + 0.6, line: "Lodged in the neck, it never meets the paper." },
+          { id: "tube", at: vec(0, drawnY(ballCtx, REFILL, PEN.refillBottom + 28), 0), radius: PEN.refillR + 0.8, line: "Up in the ink tube, it never meets the paper." },
         ],
         frame: FRAMES.tip,
       },
@@ -740,8 +748,8 @@ export default defineStory({
             right: true,
             line: "Right there. It pushes the tip back up.",
           },
-          { id: "middle", at: vec(0, drawnY(springCtx, REFILL, 92), 0), radius: PEN.springR, line: "Nothing to push against there." },
-          { id: "top", at: vec(0, drawnY(springCtx, REFILL, 132), 0), radius: PEN.springR, line: "Nothing to push against there either." },
+          { id: "middle", at: vec(0, drawnY(springCtx, REFILL, PEN.springTop + 36), 0), radius: PEN.springR, line: "Nothing to push against there." },
+          { id: "top", at: vec(0, drawnY(springCtx, REFILL, PEN.springTop + 76), 0), radius: PEN.springR, line: "Nothing to push against there either." },
         ],
         frame: FRAMES.low,
       },
@@ -840,7 +848,7 @@ export default defineStory({
 });
 
 /** The pen's controls and tests by name, for the mechanism lesson (pen-mechanisms.ts), which asks its own questions of the same model. */
-export const PEN_RIG = {
+const rig = {
   keys: { squeeze: SQUEEZE, stiffness: STIFFNESS, press: PRESS, pressure: PRESSURE, notch: NOTCH },
   controls: { squeeze, stiffness, pressing, pressure, notch },
   tests: { write, wait, lift, press, letgo, again, clickOut, clickIn, push, clickTwice },
@@ -848,3 +856,10 @@ export const PEN_RIG = {
   demos: { writing: write, clicking },
   frames: FRAMES,
 } as const;
+return { story, rig };
+}
+
+const gold = penStory(GOLD, GOLD_KIT);
+export default gold.story;
+/** The pen's controls and tests by name, for the mechanism lesson (pen-course.ts). */
+export const PEN_RIG = gold.rig;

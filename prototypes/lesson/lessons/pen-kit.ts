@@ -7,7 +7,7 @@
 //
 // PEN_KIT is the lesson's pen, its barrel and nose see-through so the works inside can be watched. PEN_SHELL is the
 // same pen as it looks in the hand, for the result screen.
-import { type Kit, parseKit, type Shape } from "../../../shared/kit.ts";
+import { type Kit, type Part, parseKit, type Shape } from "../../../shared/kit.ts";
 import { coil, lathe, type Look, part, type Pt, v3 } from "../primitives/parts.ts";
 
 const COAT = { color: "#c6c8cc", finish: "clear" } as const;
@@ -65,10 +65,30 @@ export const PEN = {
   clipR: 20,
   /** Where the clip faces, in degrees round the axis from +x toward the camera. */
   clipAngle: 50,
+  /** The works' own sizes, named so a pen of other dimensions can be fitted with the same works. */
+  tipR: 3.9,
+  /** The brass tip's taper between its bottom and the refill. */
+  tipMid: [
+    { r: 4.4, y: 16 },
+    { r: 5.1, y: 26 },
+    { r: 5.9, y: 35 },
+  ],
+  collarR: 11.2,
+  camIn: 3,
+  lug: 3,
+  lugR: 8.4,
+  stemR: 5,
 } as const;
 
+/** The same dimensions for any pen: the hand-made one is PEN, a scanned one is measured (prototypes/lesson/gen). */
+export type PenDims = { readonly [K in keyof typeof PEN]: (typeof PEN)[K] extends number ? number : readonly { r: number; y: number }[] };
+
 /** The spring when the refill is `out` mm below its retracted place: the same coil, shorter by that much. */
-export const springAt = (out: number): Shape => coil(PEN.springR, PEN.springTube, PEN.springTop - PEN.springBottom - out, PEN.springTurns);
+export const springOf =
+  (P: PenDims) =>
+  (out: number): Shape =>
+    coil(P.springR, P.springTube, P.springTop - P.springBottom - out, P.springTurns);
+export const springAt = springOf(PEN);
 
 const at = (y: number) => v3(0, y);
 /** A lathe placed so its profile keeps its own heights. */
@@ -107,10 +127,11 @@ const dimple = lathe([
   [DIMPLES.r - 0.5, DIMPLES.proud * 0.8],
   [0, DIMPLES.proud],
 ]).shape;
-const dimples = DIMPLES.rows.flatMap((y, row) =>
+const dimplesOf = (P: PenDims) =>
+  DIMPLES.rows.flatMap((y, row) =>
   Array.from({ length: DIMPLES.around }, (_, k) => {
     const way = round((360 / DIMPLES.around) * (k + (row % 2) / 2));
-    const r = PEN.barrelR + DIMPLES.proud / 2 - 0.1;
+    const r = P.barrelR + DIMPLES.proud / 2 - 0.1;
     // The disc's flat axis is y; z = -90 lays it along +x, and the turn about y then faces it out from the barrel.
     return part(
       `dimple-${row + 1}-${k + 1}`,
@@ -137,9 +158,9 @@ function sphere(r: number, y: number, steps = 8): Pt[] {
  * The clip seen from the side: a strip of pressed steel fixed to the top of the barrel. It bows away from the barrel,
  * comes back in to touch it near its lower end, and flares out again so a pocket's edge can slide under.
  */
-function clipShape(): { shape: Shape; centre: Pt } {
-  const [top, bottom] = [PEN.clipTop, PEN.clipBottom];
-  const R = PEN.barrelR;
+function clipShape(P: PenDims): { shape: Shape; centre: Pt } {
+  const [top, bottom] = [P.clipTop, P.clipBottom];
+  const R = P.barrelR;
   const half = 0.65;
   // The strip's middle line, top to bottom.
   const line: Pt[] = [
@@ -169,29 +190,26 @@ function clipShape(): { shape: Shape; centre: Pt } {
   };
 }
 
-const clip = clipShape();
-const clipWay = round(PEN.clipAngle);
-/** The red panel: a strip let into the barrel beside the clip, its middle standing just proud of the round. */
-const PANEL_BOX = { bottom: 245, top: 359, width: 11, thick: 1.2, angle: PEN.clipAngle + 78 } as const;
-const panelWay = round(PANEL_BOX.angle);
-const panelR = PEN.barrelR - 0.2;
+const LUG_AT = [0, 1, 2, 3] as const;
 
-const LUG = 3;
-const lugAt = (k: number) => {
-  const a = (Math.PI / 4) * (1 + 2 * k);
-  return v3(8.4 * Math.cos(a), (PEN.camBottom + PEN.camTop) / 2, -8.4 * Math.sin(a));
-};
-
-const parts = [
+/** The pen's case as the hand-made pen has it: barrel, nose and their details. */
+function caseParts(P: PenDims): Part[] {
+  const clip = clipShape(P);
+  const clipWay = round(P.clipAngle);
+  /** The red panel: a strip let into the barrel beside the clip, its middle standing just proud of the round. */
+  const PANEL_BOX = { bottom: 245, top: 359, width: 11, thick: 1.2, angle: P.clipAngle + 78 } as const;
+  const panelWay = round(PANEL_BOX.angle);
+  const panelR = P.barrelR - 0.2;
+  return [
   // Barrel: a hollow silver tube open at both ends, with dimples for the fingers, a red panel, a clip and a cap at the top.
   turnedPart(
     "barrel",
     "barrel",
     "The tube you hold; everything else is built into or onto it.",
-    band(PEN.barrelIn, PEN.barrelR, PEN.barrelBottom, PEN.barrelTop),
+    band(P.barrelIn, P.barrelR, P.barrelBottom, P.barrelTop),
     COAT,
   ),
-  ...dimples,
+  ...dimplesOf(P),
   part(
     "panel",
     "red panel",
@@ -208,7 +226,7 @@ const parts = [
       `seam-${i + 1}`,
       "seam ring",
       "A fine ring that marks where the nose screws on.",
-      band(PEN.barrelR - 0.2, PEN.barrelR + 0.35, y, y + 1.2),
+      band(P.barrelR - 0.2, P.barrelR + 0.35, y, y + 1.2),
       CHROME,
       on("barrel", "molded"),
     ),
@@ -229,12 +247,12 @@ const parts = [
     "top cap",
     "A steel cap that finishes the barrel's top and holds the button in.",
     [
-      [PEN.buttonR + 0.8, PEN.barrelTop - 8],
-      [PEN.barrelR + 0.5, PEN.barrelTop - 8],
-      [PEN.barrelR + 0.5, PEN.barrelTop - 2.2],
-      [PEN.barrelR - 1.8, PEN.barrelTop],
-      [PEN.buttonR + 0.8, PEN.barrelTop],
-      [PEN.buttonR + 0.8, PEN.barrelTop - 8],
+      [P.buttonR + 0.8, P.barrelTop - 8],
+      [P.barrelR + 0.5, P.barrelTop - 8],
+      [P.barrelR + 0.5, P.barrelTop - 2.2],
+      [P.barrelR - 1.8, P.barrelTop],
+      [P.buttonR + 0.8, P.barrelTop],
+      [P.buttonR + 0.8, P.barrelTop - 8],
     ],
     CHROME,
     on("barrel", "weld"),
@@ -252,12 +270,12 @@ const parts = [
       [10.2, 14],
       [12.6, 24],
       [15, 36],
-      [PEN.barrelR, PEN.noseCone],
-      [PEN.barrelIn - 0.2, PEN.noseCone],
-      [PEN.barrelIn - 0.2, PEN.noseTop],
-      [11.6, PEN.noseTop],
-      [11.6, PEN.ledge],
-      [7, PEN.ledge],
+      [P.barrelR, P.noseCone],
+      [P.barrelIn - 0.2, P.noseCone],
+      [P.barrelIn - 0.2, P.noseTop],
+      [11.6, P.noseTop],
+      [11.6, P.ledge],
+      [7, P.ledge],
       [5.6, 10],
       [5, 0],
     ],
@@ -265,33 +283,43 @@ const parts = [
     { parentId: "barrel", joint: "thread" },
   ),
   part("nose-thread", "nose thread", "The spiral ridge that screws the nose into the barrel.", coil(14.2, 0.55, 4, 2), at(52), NOSE, on("nose", "molded")),
+  ];
+}
 
+/**
+ * The hidden works, sized by `P` and standing where `P` says: refill, tip, collar, ball, spring, cam and lugs. The
+ * refill hangs off `caseId`.
+ */
+export function penWorks(P: PenDims, caseId = "barrel"): Part[] {
+  const lugAt = (k: number) => {
+    const a = (Math.PI / 4) * (1 + 2 * k);
+    return v3(P.lugR * Math.cos(a), (P.camBottom + P.camTop) / 2, -P.lugR * Math.sin(a));
+  };
+  return [
   // Refill: the ink tube, with a brass tip that ends in a socket, and a collar the spring pushes up against.
   turnedPart(
     "refill",
     "ink refill",
     "The tube of ink that slides up and down inside the barrel.",
     [
-      [0, PEN.refillBottom],
-      [PEN.refillR, PEN.refillBottom],
-      [PEN.refillR, PEN.refillTop],
-      [0, PEN.refillTop],
+      [0, P.refillBottom],
+      [P.refillR, P.refillBottom],
+      [P.refillR, P.refillTop],
+      [0, P.refillTop],
     ],
     TUBE,
-    { parentId: "barrel", joint: "slide" },
+    { parentId: caseId, joint: "slide" },
   ),
   turnedPart(
     "tip",
     "brass tip",
     "Narrows the refill to a socket that holds the ball.",
     [
-      [0, PEN.tipBottom],
-      [3.9, PEN.tipBottom],
-      [4.4, 16],
-      [5.1, 26],
-      [5.9, 35],
-      [PEN.refillR, PEN.refillBottom],
-      [0, PEN.refillBottom],
+      [0, P.tipBottom],
+      [P.tipR, P.tipBottom],
+      ...P.tipMid.map(({ r, y }): Pt => [r, y]),
+      [P.refillR, P.refillBottom],
+      [0, P.refillBottom],
     ],
     BRASS,
     on("refill", "weld"),
@@ -300,56 +328,65 @@ const parts = [
     "refill-collar",
     "refill collar",
     "A ring the spring pushes up against.",
-    band(PEN.refillR - 0.5, 11.2, PEN.collarBottom, PEN.collarTop),
+    band(P.refillR - 0.5, P.collarR, P.collarBottom, P.collarTop),
     STEEL,
     on("refill", "weld"),
   ),
-  turnedPart("ball", "ball", "A tiny ball in the tip's socket that rolls ink onto the page.", sphere(BALL_R, BALL_Y), BALL, {
+  turnedPart("ball", "ball", "A tiny ball in the tip's socket that rolls ink onto the page.", sphere(P.ballR, P.ballY), BALL, {
     parentId: "tip",
     joint: "press-fit",
   }),
 
   // Spring: a coil round the refill's lower end, between the nose pocket's ledge and the collar.
-  part("spring", "spring", "Pushes the refill back up so the tip tucks inside.", springAt(0), at((PEN.springBottom + PEN.springTop) / 2), STEEL, {
+  part("spring", "spring", "Pushes the refill back up so the tip tucks inside.", springOf(P)(0), at((P.springBottom + P.springTop) / 2), STEEL, {
     parentId: "refill",
     joint: "spring",
   }),
 
   // Cam: a ring on top of the refill with four lugs on its rim.
-  turnedPart("cam", "cam ring", "Turns a notch with each click to hold the tip out or let it back.", band(3, PEN.camR, PEN.camBottom, PEN.camTop), CAMLOOK, {
+  turnedPart("cam", "cam ring", "Turns a notch with each click to hold the tip out or let it back.", band(P.camIn, P.camR, P.camBottom, P.camTop), CAMLOOK, {
     parentId: "refill",
     joint: "hinge",
   }),
-  ...[0, 1, 2, 3].map((k) =>
+  ...LUG_AT.map((k) =>
     part(
       `cam-lug-${k + 1}`,
       "cam lug",
       "A small tooth on the cam's rim.",
-      { kind: "box", width: LUG, height: LUG, depth: LUG, cornerRadius: 0.4 },
+      { kind: "box", width: P.lug, height: P.lug, depth: P.lug, cornerRadius: 0.4 },
       lugAt(k),
       CAMLOOK,
       on("cam", "molded"),
     ),
   ),
 
+  ];
+}
+
+/** The hand-made pen's button. */
+function buttonPart(P: PenDims): Part {
   // Plunger: the button, a plain round post with a bevelled top. Its stem hides in the barrel, so pressing sinks it into the cap.
-  turnedPart(
+  return turnedPart(
     "plunger",
     "button",
     "The button you press with your thumb.",
     [
-      [0, PEN.stemBottom],
-      [5, PEN.stemBottom],
-      [5, PEN.buttonBottom],
-      [PEN.buttonR, PEN.buttonBottom],
-      [PEN.buttonR, PEN.top - 1.8],
-      [PEN.buttonR - 1.6, PEN.top],
-      [0, PEN.top],
+      [0, P.stemBottom],
+      [P.stemR, P.stemBottom],
+      [P.stemR, P.buttonBottom],
+      [P.buttonR, P.buttonBottom],
+      [P.buttonR, P.top - 1.8],
+      [P.buttonR - 1.6, P.top],
+      [0, P.top],
     ],
     CHROME,
     { parentId: "barrel", joint: "slide" },
-  ),
-];
+  );
+}
+
+/** Every part of the hand-made pen at dimensions `P`, in the order the lesson draws them. */
+export const penParts = (P: PenDims): Part[] => [...caseParts(P), ...penWorks(P), buttonPart(P)];
+const parts = penParts(PEN);
 
 const about = { name: "Click Pen", summary: "A ball at the tip rolls ink onto the page; a spring tucks the tip away and a cam holds it out each click." };
 

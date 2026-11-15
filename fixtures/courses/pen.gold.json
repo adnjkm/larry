@@ -1,0 +1,1770 @@
+{
+ "object": "Click Pen",
+ "kit": {
+  "name": "Click Pen",
+  "summary": "A ball at the tip rolls ink onto the page; a spring tucks the tip away and a cam holds it out each click.",
+  "parts": [
+   {
+    "id": "barrel",
+    "name": "barrel",
+    "role": "The tube you hold; everything else is built into or onto it.",
+    "parentId": null,
+    "joint": null,
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 5,
+       "y": 16
+      },
+      {
+       "r": 5.667,
+       "y": 16
+      },
+      {
+       "r": 5.667,
+       "y": 133.333
+      },
+      {
+       "r": 5,
+       "y": 133.333
+      },
+      {
+       "r": 5,
+       "y": 16
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 74.667,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": 0,
+     "z": 0
+    },
+    "color": "#dcdee1",
+    "finish": "glossy"
+   },
+   {
+    "id": "dimple-1-1",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 5.708,
+     "y": 37.333,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": 0,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-1-2",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 4.036,
+     "y": 37.333,
+     "z": 4.036
+    },
+    "rotation": {
+     "x": 0,
+     "y": -45,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-1-3",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 37.333,
+     "z": 5.708
+    },
+    "rotation": {
+     "x": 0,
+     "y": -90,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-1-4",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -4.036,
+     "y": 37.333,
+     "z": 4.036
+    },
+    "rotation": {
+     "x": 0,
+     "y": -135,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-1-5",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -5.708,
+     "y": 37.333,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": -180,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-1-6",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -4.036,
+     "y": 37.333,
+     "z": -4.036
+    },
+    "rotation": {
+     "x": 0,
+     "y": -225,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-1-7",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 37.333,
+     "z": -5.708
+    },
+    "rotation": {
+     "x": 0,
+     "y": -270,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-1-8",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 4.036,
+     "y": 37.333,
+     "z": -4.036
+    },
+    "rotation": {
+     "x": 0,
+     "y": -315,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-2-1",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 5.274,
+     "y": 42,
+     "z": 2.184
+    },
+    "rotation": {
+     "x": 0,
+     "y": -22.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-2-2",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 2.184,
+     "y": 42,
+     "z": 5.274
+    },
+    "rotation": {
+     "x": 0,
+     "y": -67.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-2-3",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -2.184,
+     "y": 42,
+     "z": 5.274
+    },
+    "rotation": {
+     "x": 0,
+     "y": -112.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-2-4",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -5.274,
+     "y": 42,
+     "z": 2.184
+    },
+    "rotation": {
+     "x": 0,
+     "y": -157.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-2-5",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -5.274,
+     "y": 42,
+     "z": -2.184
+    },
+    "rotation": {
+     "x": 0,
+     "y": -202.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-2-6",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -2.184,
+     "y": 42,
+     "z": -5.274
+    },
+    "rotation": {
+     "x": 0,
+     "y": -247.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-2-7",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 2.184,
+     "y": 42,
+     "z": -5.274
+    },
+    "rotation": {
+     "x": 0,
+     "y": -292.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-2-8",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 5.274,
+     "y": 42,
+     "z": -2.184
+    },
+    "rotation": {
+     "x": 0,
+     "y": -337.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-3-1",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 5.708,
+     "y": 46.667,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": 0,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-3-2",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 4.036,
+     "y": 46.667,
+     "z": 4.036
+    },
+    "rotation": {
+     "x": 0,
+     "y": -45,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-3-3",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 46.667,
+     "z": 5.708
+    },
+    "rotation": {
+     "x": 0,
+     "y": -90,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-3-4",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -4.036,
+     "y": 46.667,
+     "z": 4.036
+    },
+    "rotation": {
+     "x": 0,
+     "y": -135,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-3-5",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -5.708,
+     "y": 46.667,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": -180,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-3-6",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -4.036,
+     "y": 46.667,
+     "z": -4.036
+    },
+    "rotation": {
+     "x": 0,
+     "y": -225,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-3-7",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 46.667,
+     "z": -5.708
+    },
+    "rotation": {
+     "x": 0,
+     "y": -270,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-3-8",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 4.036,
+     "y": 46.667,
+     "z": -4.036
+    },
+    "rotation": {
+     "x": 0,
+     "y": -315,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-4-1",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 5.274,
+     "y": 51.333,
+     "z": 2.184
+    },
+    "rotation": {
+     "x": 0,
+     "y": -22.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-4-2",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 2.184,
+     "y": 51.333,
+     "z": 5.274
+    },
+    "rotation": {
+     "x": 0,
+     "y": -67.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-4-3",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -2.184,
+     "y": 51.333,
+     "z": 5.274
+    },
+    "rotation": {
+     "x": 0,
+     "y": -112.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-4-4",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -5.274,
+     "y": 51.333,
+     "z": 2.184
+    },
+    "rotation": {
+     "x": 0,
+     "y": -157.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-4-5",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -5.274,
+     "y": 51.333,
+     "z": -2.184
+    },
+    "rotation": {
+     "x": 0,
+     "y": -202.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-4-6",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": -2.184,
+     "y": 51.333,
+     "z": -5.274
+    },
+    "rotation": {
+     "x": 0,
+     "y": -247.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-4-7",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 2.184,
+     "y": 51.333,
+     "z": -5.274
+    },
+    "rotation": {
+     "x": 0,
+     "y": -292.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "dimple-4-8",
+    "name": "grip dimple",
+    "role": "A shallow dimple that gives the fingers something to hold.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 0
+      },
+      {
+       "r": 0.767,
+       "y": 0
+      },
+      {
+       "r": 0.6,
+       "y": 0.12
+      },
+      {
+       "r": 0,
+       "y": 0.15
+      }
+     ]
+    },
+    "position": {
+     "x": 5.274,
+     "y": 51.333,
+     "z": -2.184
+    },
+    "rotation": {
+     "x": 0,
+     "y": -337.5,
+     "z": -90
+    },
+    "color": "#8b8e94",
+    "finish": "matte"
+   },
+   {
+    "id": "panel",
+    "name": "red panel",
+    "role": "A coloured strip set into the barrel.",
+    "parentId": "barrel",
+    "joint": "glue",
+    "shape": {
+     "kind": "box",
+     "width": 0.4,
+     "height": 38,
+     "depth": 3.667,
+     "cornerRadius": 0.167
+    },
+    "position": {
+     "x": -3.448,
+     "y": 100.667,
+     "z": 4.413
+    },
+    "rotation": {
+     "x": 0,
+     "y": -128,
+     "z": 0
+    },
+    "color": "#b0212b",
+    "finish": "glossy"
+   },
+   {
+    "id": "seam-1",
+    "name": "seam ring",
+    "role": "A fine ring that marks where the nose screws on.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 5.6,
+       "y": 16.667
+      },
+      {
+       "r": 5.783,
+       "y": 16.667
+      },
+      {
+       "r": 5.783,
+       "y": 17.067
+      },
+      {
+       "r": 5.6,
+       "y": 17.067
+      },
+      {
+       "r": 5.6,
+       "y": 16.667
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 16.867,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": 0,
+     "z": 0
+    },
+    "color": "#d6d8dc",
+    "finish": "metal"
+   },
+   {
+    "id": "seam-2",
+    "name": "seam ring",
+    "role": "A fine ring that marks where the nose screws on.",
+    "parentId": "barrel",
+    "joint": "molded",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 5.6,
+       "y": 17.867
+      },
+      {
+       "r": 5.783,
+       "y": 17.867
+      },
+      {
+       "r": 5.783,
+       "y": 18.267
+      },
+      {
+       "r": 5.6,
+       "y": 18.267
+      },
+      {
+       "r": 5.6,
+       "y": 17.867
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 18.067,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": 0,
+     "z": 0
+    },
+    "color": "#d6d8dc",
+    "finish": "metal"
+   },
+   {
+    "id": "clip",
+    "name": "pocket clip",
+    "role": "Holds the pen to a pocket.",
+    "parentId": "barrel",
+    "joint": "weld",
+    "shape": {
+     "kind": "extrusion",
+     "outline": [
+      {
+       "x": 5.4,
+       "y": 132.333
+      },
+      {
+       "x": 7.083,
+       "y": 132.333
+      },
+      {
+       "x": 7.45,
+       "y": 119
+      },
+      {
+       "x": 7.25,
+       "y": 105.333
+      },
+      {
+       "x": 6.783,
+       "y": 98
+      },
+      {
+       "x": 6.133,
+       "y": 94.667
+      },
+      {
+       "x": 6.517,
+       "y": 92.667
+      },
+      {
+       "x": 6.083,
+       "y": 92.667
+      },
+      {
+       "x": 5.7,
+       "y": 94.667
+      },
+      {
+       "x": 6.35,
+       "y": 98
+      },
+      {
+       "x": 6.817,
+       "y": 105.333
+      },
+      {
+       "x": 7.017,
+       "y": 119
+      },
+      {
+       "x": 6.65,
+       "y": 130.667
+      },
+      {
+       "x": 5.4,
+       "y": 130.667
+      }
+     ],
+     "depth": 2.333
+    },
+    "position": {
+     "x": 4.13,
+     "y": 112.5,
+     "z": 4.922
+    },
+    "rotation": {
+     "x": 0,
+     "y": -50,
+     "z": 0
+    },
+    "color": "#d6d8dc",
+    "finish": "metal"
+   },
+   {
+    "id": "barrel-band",
+    "name": "top cap",
+    "role": "A steel cap that finishes the barrel's top and holds the button in.",
+    "parentId": "barrel",
+    "joint": "weld",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 2.933,
+       "y": 130.667
+      },
+      {
+       "r": 5.833,
+       "y": 130.667
+      },
+      {
+       "r": 5.833,
+       "y": 132.6
+      },
+      {
+       "r": 5.067,
+       "y": 133.333
+      },
+      {
+       "r": 2.933,
+       "y": 133.333
+      },
+      {
+       "r": 2.933,
+       "y": 130.667
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 132,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": 0,
+     "z": 0
+    },
+    "color": "#d6d8dc",
+    "finish": "metal"
+   },
+   {
+    "id": "nose",
+    "name": "nose cone",
+    "role": "Guides the tip out of the pen and holds the spring in its pocket.",
+    "parentId": "barrel",
+    "joint": "thread",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 1.667,
+       "y": 0
+      },
+      {
+       "r": 2.133,
+       "y": 0
+      },
+      {
+       "r": 2.6,
+       "y": 1.667
+      },
+      {
+       "r": 3.4,
+       "y": 4.667
+      },
+      {
+       "r": 4.2,
+       "y": 8
+      },
+      {
+       "r": 5,
+       "y": 12
+      },
+      {
+       "r": 5.667,
+       "y": 16
+      },
+      {
+       "r": 4.933,
+       "y": 16
+      },
+      {
+       "r": 4.933,
+       "y": 18.667
+      },
+      {
+       "r": 3.867,
+       "y": 18.667
+      },
+      {
+       "r": 3.867,
+       "y": 7
+      },
+      {
+       "r": 2.333,
+       "y": 7
+      },
+      {
+       "r": 1.867,
+       "y": 3.333
+      },
+      {
+       "r": 1.667,
+       "y": 0
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 9.333,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": 0,
+     "z": 0
+    },
+    "color": "#c2c5c9",
+    "finish": "glossy"
+   },
+   {
+    "id": "nose-thread",
+    "name": "nose thread",
+    "role": "The spiral ridge that screws the nose into the barrel.",
+    "parentId": "nose",
+    "joint": "molded",
+    "shape": {
+     "kind": "helix",
+     "radius": 4.733,
+     "tube": 0.183,
+     "length": 1.333,
+     "turns": 2
+    },
+    "position": {
+     "x": 0,
+     "y": 17.333,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": 0,
+     "z": 0
+    },
+    "color": "#c2c5c9",
+    "finish": "glossy"
+   },
+   {
+    "id": "plunger",
+    "name": "button",
+    "role": "The button you press with your thumb.",
+    "parentId": "barrel",
+    "joint": "slide",
+    "shape": {
+     "kind": "lathe",
+     "profile": [
+      {
+       "r": 0,
+       "y": 132.667
+      },
+      {
+       "r": 1.667,
+       "y": 132.667
+      },
+      {
+       "r": 1.667,
+       "y": 133.533
+      },
+      {
+       "r": 2.667,
+       "y": 133.533
+      },
+      {
+       "r": 2.667,
+       "y": 140.067
+      },
+      {
+       "r": 2.133,
+       "y": 140.667
+      },
+      {
+       "r": 0,
+       "y": 140.667
+      }
+     ]
+    },
+    "position": {
+     "x": 0,
+     "y": 136.667,
+     "z": 0
+    },
+    "rotation": {
+     "x": 0,
+     "y": 0,
+     "z": 0
+    },
+    "color": "#d6d8dc",
+    "finish": "metal"
+   }
+  ]
+ },
+ "roles": {
+  "case": "barrel",
+  "nose": "nose",
+  "button": "plunger"
+ },
+ "mechanisms": [
+  {
+   "entry": "click-latch",
+   "name": "Retraction",
+   "does": "Each click sends the tip out or tucks it away.",
+   "words": {},
+   "tips": {
+    "spring": [
+     "A spring only pushes back while it is squeezed between two things.",
+     "Look for a ledge it can sit on, and a collar that comes down on it when the tip goes out."
+    ],
+    "cam": [
+     "The cam pushes the rod up only while a bump is under it.",
+     "This cam has two bumps, opposite each other.",
+     "A click that lands on a bump leaves the tip out. The next click has to land between bumps."
+    ]
+   }
+  },
+  {
+   "entry": "ball-tip",
+   "name": "Ball tip",
+   "does": "A ball that rolls a thin, even line of ink.",
+   "words": {},
+   "tips": {
+    "ball": [
+     "The ball can only roll if it touches the paper.",
+     "It also has to sit where the ink reaches it from behind."
+    ]
+   }
+  }
+ ]
+}

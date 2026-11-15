@@ -17,7 +17,9 @@
     "typecheck": "tsrs --noEmit",
     "test": "node --test",
     "kits": "node --env-file-if-exists=.env scripts/generate-kits.ts",
+    "course": "node --env-file-if-exists=.env scripts/generate-course.ts",
     "compare": "node scripts/compare.ts",
+    "eval:course": "node scripts/course-eval.ts",
     "lint": "oxlint",
     "format": "oxfmt",
     "format:check": "oxfmt --check"

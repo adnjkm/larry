@@ -6,6 +6,7 @@ import { KitError, parseKit } from "../shared/kit.ts";
 import { LessonError, Shown } from "../shared/lesson.ts";
 import { encodeEvent, failedEvent } from "../shared/ndjson.ts";
 import { MAX_PHOTOS } from "../shared/photos.ts";
+import { courseRoute } from "./courseRoute.ts";
 import { streamCurriculum } from "./streamCurriculum.ts";
 import { type Photo, streamKit } from "./streamKit.ts";
 import { streamLesson } from "./streamLesson.ts";
@@ -32,6 +33,7 @@ function ndjson(c: Context, events: (signal: AbortSignal) => AsyncGenerator<{ ty
 }
 
 const app = new Hono()
+  .route("/", courseRoute)
   .post("/api/kits", async (c) => {
     const form = await c.req.formData();
     const files = form.getAll("photo").filter((v): v is File => v instanceof File);

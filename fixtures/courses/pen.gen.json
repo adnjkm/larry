@@ -1,0 +1,1740 @@
+{
+  "object": "Click Pen",
+  "kit": {
+    "name": "Click Pen",
+    "summary": "Pressing the steel button slides it into the silver barrel to click the tip out of the tapered nose.",
+    "parts": [
+      {
+        "id": "barrel",
+        "name": "Barrel",
+        "role": "Hollow body holding the works.",
+        "parentId": null,
+        "joint": null,
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 5.2,
+              "y": 25
+            },
+            {
+              "r": 5.2,
+              "y": 129.5
+            },
+            {
+              "r": 4.55,
+              "y": 129.5
+            },
+            {
+              "r": 4.55,
+              "y": 25
+            },
+            {
+              "r": 5.2,
+              "y": 25
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "color": "#dcdee1",
+        "finish": "glossy",
+        "position": {
+          "x": 0,
+          "y": 77.25,
+          "z": 0
+        }
+      },
+      {
+        "id": "nose",
+        "name": "Nose Cone",
+        "role": "Tapered end the tip comes out of.",
+        "parentId": "barrel",
+        "joint": "thread",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 1.5,
+              "y": 0
+            },
+            {
+              "r": 1.9,
+              "y": 0
+            },
+            {
+              "r": 2.6,
+              "y": 6
+            },
+            {
+              "r": 3.5,
+              "y": 13
+            },
+            {
+              "r": 4.4,
+              "y": 20
+            },
+            {
+              "r": 5.2,
+              "y": 25
+            },
+            {
+              "r": 4.45,
+              "y": 25
+            },
+            {
+              "r": 4.45,
+              "y": 27.5
+            },
+            {
+              "r": 3.8,
+              "y": 27.5
+            },
+            {
+              "r": 3.8,
+              "y": 20
+            },
+            {
+              "r": 2.9,
+              "y": 13
+            },
+            {
+              "r": 2,
+              "y": 6
+            },
+            {
+              "r": 1.5,
+              "y": 0
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "color": "#c2c5c9",
+        "finish": "glossy",
+        "position": {
+          "x": 0,
+          "y": 13.75,
+          "z": 0
+        }
+      },
+      {
+        "id": "button",
+        "name": "Push Button",
+        "role": "Pressed to click the tip in and out.",
+        "parentId": "barrel",
+        "joint": "slide",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 128.5
+            },
+            {
+              "r": 1.5,
+              "y": 128.5
+            },
+            {
+              "r": 1.5,
+              "y": 129.8
+            },
+            {
+              "r": 2.6,
+              "y": 129.8
+            },
+            {
+              "r": 2.6,
+              "y": 135.5
+            },
+            {
+              "r": 2.1,
+              "y": 136
+            },
+            {
+              "r": 0,
+              "y": 136
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "color": "#d6d8dc",
+        "finish": "metal",
+        "position": {
+          "x": 0,
+          "y": 132.25,
+          "z": 0
+        }
+      },
+      {
+        "id": "cap-ring",
+        "name": "Top Collar",
+        "role": "Narrows the barrel top around the button.",
+        "parentId": "barrel",
+        "joint": "press-fit",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 2.8,
+              "y": 127
+            },
+            {
+              "r": 5.35,
+              "y": 127
+            },
+            {
+              "r": 5.35,
+              "y": 128.9
+            },
+            {
+              "r": 4.8,
+              "y": 129.5
+            },
+            {
+              "r": 2.8,
+              "y": 129.5
+            },
+            {
+              "r": 2.8,
+              "y": 127
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "color": "#d6d8dc",
+        "finish": "metal",
+        "position": {
+          "x": 0,
+          "y": 128.25,
+          "z": 0
+        }
+      },
+      {
+        "id": "clip",
+        "name": "Pocket Clip",
+        "role": "Holds the pen in a pocket.",
+        "parentId": "barrel",
+        "joint": "press-fit",
+        "shape": {
+          "kind": "extrusion",
+          "outline": [
+            {
+              "x": 4.9,
+              "y": 129
+            },
+            {
+              "x": 7,
+              "y": 129
+            },
+            {
+              "x": 7.2,
+              "y": 118
+            },
+            {
+              "x": 6.9,
+              "y": 98
+            },
+            {
+              "x": 6,
+              "y": 87
+            },
+            {
+              "x": 6.4,
+              "y": 85
+            },
+            {
+              "x": 5.95,
+              "y": 85
+            },
+            {
+              "x": 5.55,
+              "y": 87
+            },
+            {
+              "x": 6.45,
+              "y": 98
+            },
+            {
+              "x": 6.75,
+              "y": 118
+            },
+            {
+              "x": 6.55,
+              "y": 127.5
+            },
+            {
+              "x": 4.9,
+              "y": 127.5
+            }
+          ],
+          "depth": 2.8
+        },
+        "rotation": {
+          "x": 0,
+          "y": -180,
+          "z": 0
+        },
+        "color": "#d6d8dc",
+        "finish": "metal",
+        "position": {
+          "x": -6.05,
+          "y": 107,
+          "z": 0
+        }
+      },
+      {
+        "id": "panel",
+        "name": "Red Panel",
+        "role": "Decorative coloured stripe.",
+        "parentId": "barrel",
+        "joint": "glue",
+        "shape": {
+          "kind": "box",
+          "width": 0.4,
+          "height": 38.5,
+          "depth": 3.2,
+          "cornerRadius": 0.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": -110,
+          "z": 0
+        },
+        "color": "#b01218",
+        "finish": "glossy",
+        "position": {
+          "x": -1.761,
+          "y": 99.75,
+          "z": 4.839
+        }
+      },
+      {
+        "id": "dimples-1-1",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 5.25,
+          "y": 31,
+          "z": 0
+        }
+      },
+      {
+        "id": "dimples-1-2",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -45,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 3.712,
+          "y": 31,
+          "z": 3.712
+        }
+      },
+      {
+        "id": "dimples-1-3",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -90,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 0,
+          "y": 31,
+          "z": 5.25
+        }
+      },
+      {
+        "id": "dimples-1-4",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -135,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -3.712,
+          "y": 31,
+          "z": 3.712
+        }
+      },
+      {
+        "id": "dimples-1-5",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -180,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -5.25,
+          "y": 31,
+          "z": 0
+        }
+      },
+      {
+        "id": "dimples-1-6",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -225,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -3.712,
+          "y": 31,
+          "z": -3.712
+        }
+      },
+      {
+        "id": "dimples-1-7",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -270,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 0,
+          "y": 31,
+          "z": -5.25
+        }
+      },
+      {
+        "id": "dimples-1-8",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -315,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 3.712,
+          "y": 31,
+          "z": -3.712
+        }
+      },
+      {
+        "id": "dimples-2-1",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -22.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 4.85,
+          "y": 36,
+          "z": 2.009
+        }
+      },
+      {
+        "id": "dimples-2-2",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -67.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 2.009,
+          "y": 36,
+          "z": 4.85
+        }
+      },
+      {
+        "id": "dimples-2-3",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -112.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -2.009,
+          "y": 36,
+          "z": 4.85
+        }
+      },
+      {
+        "id": "dimples-2-4",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -157.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -4.85,
+          "y": 36,
+          "z": 2.009
+        }
+      },
+      {
+        "id": "dimples-2-5",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -202.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -4.85,
+          "y": 36,
+          "z": -2.009
+        }
+      },
+      {
+        "id": "dimples-2-6",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -247.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -2.009,
+          "y": 36,
+          "z": -4.85
+        }
+      },
+      {
+        "id": "dimples-2-7",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -292.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 2.009,
+          "y": 36,
+          "z": -4.85
+        }
+      },
+      {
+        "id": "dimples-2-8",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -337.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 4.85,
+          "y": 36,
+          "z": -2.009
+        }
+      },
+      {
+        "id": "dimples-3-1",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 5.25,
+          "y": 41,
+          "z": 0
+        }
+      },
+      {
+        "id": "dimples-3-2",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -45,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 3.712,
+          "y": 41,
+          "z": 3.712
+        }
+      },
+      {
+        "id": "dimples-3-3",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -90,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 0,
+          "y": 41,
+          "z": 5.25
+        }
+      },
+      {
+        "id": "dimples-3-4",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -135,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -3.712,
+          "y": 41,
+          "z": 3.712
+        }
+      },
+      {
+        "id": "dimples-3-5",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -180,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -5.25,
+          "y": 41,
+          "z": 0
+        }
+      },
+      {
+        "id": "dimples-3-6",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -225,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -3.712,
+          "y": 41,
+          "z": -3.712
+        }
+      },
+      {
+        "id": "dimples-3-7",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -270,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 0,
+          "y": 41,
+          "z": -5.25
+        }
+      },
+      {
+        "id": "dimples-3-8",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -315,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 3.712,
+          "y": 41,
+          "z": -3.712
+        }
+      },
+      {
+        "id": "dimples-4-1",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -22.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 4.85,
+          "y": 46,
+          "z": 2.009
+        }
+      },
+      {
+        "id": "dimples-4-2",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -67.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 2.009,
+          "y": 46,
+          "z": 4.85
+        }
+      },
+      {
+        "id": "dimples-4-3",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -112.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -2.009,
+          "y": 46,
+          "z": 4.85
+        }
+      },
+      {
+        "id": "dimples-4-4",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -157.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -4.85,
+          "y": 46,
+          "z": 2.009
+        }
+      },
+      {
+        "id": "dimples-4-5",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -202.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -4.85,
+          "y": 46,
+          "z": -2.009
+        }
+      },
+      {
+        "id": "dimples-4-6",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -247.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": -2.009,
+          "y": 46,
+          "z": -4.85
+        }
+      },
+      {
+        "id": "dimples-4-7",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -292.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 2.009,
+          "y": 46,
+          "z": -4.85
+        }
+      },
+      {
+        "id": "dimples-4-8",
+        "name": "Grip Dimples",
+        "role": "Give fingers grip.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 0.9,
+              "y": 0
+            },
+            {
+              "r": 0.72,
+              "y": 0.12
+            },
+            {
+              "r": 0,
+              "y": 0.15
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": -337.5,
+          "z": -90
+        },
+        "color": "#8b8e94",
+        "finish": "matte",
+        "position": {
+          "x": 4.85,
+          "y": 46,
+          "z": -2.009
+        }
+      },
+      {
+        "id": "seam-ring-1",
+        "name": "Seam Ring",
+        "role": "Marks the nose joint.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 4.9,
+              "y": 25.2
+            },
+            {
+              "r": 5.32,
+              "y": 25.2
+            },
+            {
+              "r": 5.32,
+              "y": 25.6
+            },
+            {
+              "r": 4.9,
+              "y": 25.6
+            },
+            {
+              "r": 4.9,
+              "y": 25.2
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "color": "#d6d8dc",
+        "finish": "metal",
+        "position": {
+          "x": 0,
+          "y": 25.4,
+          "z": 0
+        }
+      },
+      {
+        "id": "seam-ring-2",
+        "name": "Seam Ring",
+        "role": "Second band at the nose joint.",
+        "parentId": "barrel",
+        "joint": "molded",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 4.9,
+              "y": 26.4
+            },
+            {
+              "r": 5.32,
+              "y": 26.4
+            },
+            {
+              "r": 5.32,
+              "y": 26.8
+            },
+            {
+              "r": 4.9,
+              "y": 26.8
+            },
+            {
+              "r": 4.9,
+              "y": 26.4
+            }
+          ]
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "color": "#d6d8dc",
+        "finish": "metal",
+        "position": {
+          "x": 0,
+          "y": 26.6,
+          "z": 0
+        }
+      }
+    ]
+  },
+  "roles": {
+    "case": "barrel",
+    "nose": "nose",
+    "button": "button"
+  },
+  "mechanisms": [
+    {
+      "entry": "click-latch",
+      "name": "Retraction",
+      "does": "Each click sends the tip out or back.",
+      "words": {
+        "part": "the tip",
+        "button": "the button"
+      },
+      "tips": {
+        "spring": [
+          "A spring pushes the tip back as soon as nothing holds it.",
+          "Look for the ledge inside the nose, and the collar on the refill.",
+          "The collar moves down toward the ledge when the tip goes out."
+        ],
+        "cam": [
+          "A cam turns each push into a step, so the tip is held or freed.",
+          "Look at the two bumps on the rim, opposite each other.",
+          "The rod rises only while a bump sits under it."
+        ]
+      }
+    },
+    {
+      "entry": "ball-tip",
+      "name": "Ball tip",
+      "does": "The ball lays ink, and plugs when still.",
+      "words": {
+        "fluid": "the ink",
+        "surface": "the paper"
+      },
+      "tips": {
+        "ball": [
+          "A ball that fits its socket closely lets only a thin film past.",
+          "Watch the ink come down the refill from behind the tip.",
+          "The paper lies below the tip, and the ball rolls across it."
+        ]
+      }
+    }
+  ]
+}
