@@ -2,8 +2,11 @@ import * as stylex from "@stylexjs/stylex";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { bakeField } from "./bake.ts";
 import { LOOK, type MaterialName } from "./look.ts";
+import { raster } from "./dither.ts";
 import { paintField } from "./paint.ts";
+import { animate } from "./ticker.ts";
 import { RELIEF, type Field, type Relief, type ReliefName, type Scene, type Shape } from "./relief.ts";
+import { reducedMotion } from "../motion.ts";
 
 /**
  * The raised look for any part that should read as a physical key, knob, cap or wheel, drawn under the part's own
@@ -75,9 +78,6 @@ function stripFor({ shape, relief, frames = 1, material = "bone", pad = 6, depth
   return strip;
 }
 
-/** What paints a canvas: the offscreen cols x rows pixels, reused until the field's size changes. */
-type Scratch = { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; image: ImageData };
-
 export function Surface(props: SurfaceProps) {
   const { at = 0, smear = 0, grain, drift = 0, pad = 6 } = props;
   const dpr = Math.min(3, typeof window === "undefined" ? 1 : window.devicePixelRatio || 1);
@@ -95,30 +95,16 @@ export function Surface(props: SurfaceProps) {
   const { cols, rows } = first;
 
   const canvas = useRef<HTMLCanvasElement>(null);
-  const scratch = useRef<Scratch | null>(null);
   const origin = useRef<readonly [number, number]>([0, 0]);
   const clock = useRef(0);
-  // Always the latest paint, so the animation loop never restarts when `at` changes.
+  // Always the latest paint, so the drift loop never restarts when `at` changes.
   const paint = useRef<() => void>(() => {});
   paint.current = () => {
     const el = canvas.current;
-    if (!el) return;
-    let s = scratch.current;
-    if (!s || s.canvas.width !== cols || s.canvas.height !== rows) {
-      const off = document.createElement("canvas");
-      off.width = cols;
-      off.height = rows;
-      const offCtx = off.getContext("2d");
-      if (!offCtx) return;
-      s = scratch.current = { canvas: off, ctx: offCtx, image: offCtx.createImageData(cols, rows) };
-    }
-    paintField(shown, s.image, { origin: origin.current, drift, seconds: clock.current });
-    s.ctx.putImageData(s.image, 0, 0);
-    const ctx = el.getContext("2d");
-    if (!ctx) return;
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, el.width, el.height);
-    ctx.drawImage(s.canvas, 0, 0, el.width, el.height);
+    const r = el && raster(el, cols, rows);
+    if (!r) return;
+    paintField(shown, r.image, { origin: origin.current, drift, seconds: clock.current });
+    r.ctx.putImageData(r.image, 0, 0);
   };
 
   // Neighbouring parts take their Bayer phase from where they sit on the page, so their patterns line up.
@@ -143,27 +129,23 @@ export function Surface(props: SurfaceProps) {
     return () => cancel(handle);
   }, [strip]);
 
-  // Repaint when what is shown changes. Resizing the canvas clears it, so its pixel size is a dependency too.
-  useEffect(() => paint.current(), [shown, drift, deviceCell, cols, rows]);
+  useEffect(() => paint.current(), [shown, drift, cols, rows]);
 
-  // Drift: a dozen repaints a second with the seconds since mount. None under reduced motion, or with no drift.
+  // Drift: a dozen repaints a second, while the part is on screen. None under reduced motion, or with no drift.
   useEffect(() => {
-    if (drift <= 0 || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (drift <= 0 || reducedMotion.matches) return;
     const start = performance.now();
-    let raf = 0;
-    let last = -Infinity;
-    const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
-      if (now - last < 1000 / 12) return;
-      last = now;
-      clock.current = (now - start) / 4000;
-      paint.current();
-    };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return animate(
+      12,
+      (now) => {
+        clock.current = (now - start) / 4000;
+        paint.current();
+      },
+      canvas.current,
+    );
   }, [drift > 0]);
 
-  return <canvas ref={canvas} aria-hidden width={cols * deviceCell} height={rows * deviceCell} {...stylex.props(s.surface, s.place(cols * cellCss, rows * cellCss, pad))} />;
+  return <canvas ref={canvas} aria-hidden {...stylex.props(s.surface, s.place(cols * cellCss, rows * cellCss, pad))} />;
 }
 
 const s = stylex.create({

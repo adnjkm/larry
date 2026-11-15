@@ -1,3 +1,5 @@
+import type { Rgb } from "./dither.ts";
+
 /**
  * The raised look's tokens: the only place a look number lives. Every key, knob, cap and wheel is shaded from these,
  * so changing one here changes every part together. Only the bake reads them (see bake.ts), except `grain`, which the
@@ -44,8 +46,6 @@ export const LOOK = {
   /** The colour of a cast shadow falling on empty ground. */
   ink: [10, 10, 12],
 } satisfies Look;
-
-export type Rgb = readonly [number, number, number] | readonly number[];
 
 export type Material = {
   /** Dark to light. A cell's tone runs 0 to 1 along these. */

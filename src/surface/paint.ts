@@ -1,17 +1,11 @@
-import { LOOK, MATERIAL_NAMES, type Look, type Rgb } from "./look.ts";
+import { hash, ramp, smooth, snap, threshold } from "./dither.ts";
+import { LOOK, MATERIAL_NAMES, type Look } from "./look.ts";
 import type { Field } from "./relief.ts";
 
 /**
  * The cheap half of the raised look: turns baked per-cell data into pixels, one pixel per cell. It runs every frame
  * (for a turning wheel, a drifting grain), so it allocates nothing but a view and does no per-cell calls beyond the noise.
  */
-
-const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-
-// Pixels are written as one 32-bit word each. Which byte is red depends on the machine, so pack for it once.
-const LITTLE = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
-const pack = (r: number, g: number, b: number) => (LITTLE ? (255 << 24) | (b << 16) | (g << 8) | r : (r << 24) | (g << 16) | (b << 8) | 255) >>> 0;
-const packRgb = (c: Rgb) => pack(Math.round(c[0] ?? 0), Math.round(c[1] ?? 0), Math.round(c[2] ?? 0));
 
 type Palette = { tones: Uint32Array[]; ink: number };
 const palettes = new WeakMap<Look, Palette>();
@@ -20,27 +14,15 @@ const palettes = new WeakMap<Look, Palette>();
 function paletteOf(look: Look): Palette {
   let p = palettes.get(look);
   if (!p) {
-    p = {
-      tones: MATERIAL_NAMES.map((name) => Uint32Array.from(look.materials[name]?.tones.map(packRgb) ?? [0])),
-      ink: packRgb(look.ink),
-    };
+    p = { tones: MATERIAL_NAMES.map((name) => ramp(look.materials[name]?.tones ?? [[0, 0, 0]])), ink: ramp([look.ink])[0]! };
     palettes.set(look, p);
   }
   return p;
 }
 
-// Copied from src/mock/dither.ts so this file stands alone.
-function hash(x: number, y: number) {
-  let n = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263);
-  n = Math.imul(n ^ (n >>> 13), 1274126177);
-  return ((n ^ (n >>> 16)) & 16777215) / 16777216;
-}
-
-const smooth = (t: number) => t * t * (3 - 2 * t);
-
 const STEP = 0.4;
 
-// Value noise at (x * STEP + t, y * STEP), as dither.ts's valueNoise computes it, but split so the hashes are shared.
+// valueNoise(x * STEP + t, y * STEP) from dither.ts, split so the hashes are shared.
 // The noise moves 0.4 lattice steps per cell, so one lattice point's hash serves ~2.5 cells across and ~2.5 rows down.
 // Hashing each lattice point once per row pair, not four times per cell, is what keeps drift affordable.
 // Two lattice rows (this one and the next) live in one array reused between calls.
@@ -97,10 +79,9 @@ export function paintField(
       }
       v = smooth(y * STEP - yi);
     }
-    const bayerRow = ((y + oy) & 3) * 4;
     for (let x = 0; x < cols; x++) {
       const c = y * cols + x;
-      const th = (BAYER4[bayerRow + ((x + ox) & 3)]! + 0.5) / 16;
+      const th = threshold(x + ox, y + oy);
 
       let tone: number;
       let cover: number;
@@ -124,8 +105,6 @@ export function paintField(
 
       const o = owner[c]!;
       if (cover > th && o >= 0) {
-        const steps = tones[o]!;
-        const top = steps.length - 1;
         let t = tone;
         if (wobble > 0) {
           const xs = x * STEP + xFrac;
@@ -136,8 +115,7 @@ export function paintField(
           const noise = a + (lattice[xi + 1]! - a) * u + (c - a) * v + (a - lattice[xi + 1]! - c + lattice[lw + xi + 1]!) * u * v;
           t += (noise - 0.5) * wobble;
         }
-        const i = Math.floor(t * top + th);
-        px[c] = steps[i < 0 ? 0 : i > top ? top : i]!;
+        px[c] = snap(tones[o]!, t, th);
       } else if (cast > th * 0.9 + 0.05) {
         px[c] = ink;
       } else {

@@ -29,14 +29,6 @@ export const circle = (d: number): Shape => ({ w: d, h: d, r: d / 2 });
 export const pill = (w: number, h: number): Shape => ({ w, h, r: Math.min(w, h) / 2 });
 export const rrect = (w: number, h: number, r: number): Shape => ({ w, h, r });
 
-/** Distance from a point inside a rounded rectangle to its nearest edge; negative outside. */
-export function inset(x: number, y: number, w: number, h: number, r: number) {
-  const qx = Math.abs(x - w / 2) - (w / 2 - r);
-  const qy = Math.abs(y - h / 2) - (h / 2 - r);
-  const outside = Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
-  return -(outside + Math.min(Math.max(qx, qy), 0) - r);
-}
-
 /** A quarter round: 0 at the edge, 1 once `b` px in. */
 const round = (e: number, b: number) => Math.sqrt(1 - (1 - Math.min(1, Math.max(0, e / b))) ** 2);
 

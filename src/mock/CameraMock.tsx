@@ -1,28 +1,22 @@
 import * as stylex from "@stylexjs/stylex";
+import { camera } from "../camera/camera.stylex.ts";
 import { Button } from "@ui-sdk/react/button";
-import { Progress, ProgressTrack } from "@ui-sdk/react/progress";
-import { createParts } from "@ui-sdk/react/primitive";
-import { Switch, SwitchThumb } from "@ui-sdk/react/switch";
-import { DialRoot, useDialKitController } from "dialkit";
-import "dialkit/styles.css";
-import { accentChain } from "glimm";
-import { GlimmScope, type GlimmScopeHandle } from "glimm/react";
-import { type CSSProperties, type ReactNode, type Ref, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
+import { Camera } from "../camera/Camera.tsx";
+import { ACCENT, CAMERA } from "../camera/look.ts";
+import { screen } from "../camera/screen.stylex.ts";
+import { DEFAULT_LOOK, type DitherLook } from "../kit3d/ditherLook.ts";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
-import { DEFAULT_LOOK, type DitherLook } from "../kit3d/ditherLook.ts";
-import { ditherBand, drawDitherBar, fitFor } from "./dither.ts";
-import { type DevelopLook, type SweepNow, useDevelop } from "./Develop.tsx";
-import { Surface } from "../surface/Surface.tsx";
-import { circle, drum, type Relief, rrect } from "../surface/relief.ts";
-import { thumbwheel } from "./thumbwheel.ts";
-import { screen } from "./screen.stylex.ts";
+import { defaultSettings, type MockSettings, type Pace } from "./settings.ts";
 
 /*
- * Mockup of the camera and the move from photo to model. Nothing here talks to the server:
- * the camera is a fixture photo, and the kit's parts arrive on a timer copied from real runs.
+ * Mockup of the camera and the move from photo to model, in a phone frame. Nothing here talks to the server: the
+ * camera is a fixture photo, and the kit's parts arrive on a timer copied from real runs.
  */
+
+const Dials = import.meta.env.DEV ? lazy(() => import("./Dials.tsx")) : null;
 
 const photoUrls = import.meta.glob<string>("../../fixtures/photos/*.jpg", { eager: true, query: "?url", import: "default" });
 const kitJson = import.meta.glob<unknown>("../../fixtures/kits/*.json", { eager: true, import: "default" });
@@ -40,7 +34,7 @@ const OBJECT_NAMES = OBJECTS.map((o) => o.name);
  * Bar heights and the status bar and handle geometry were measured on the Android 15 emulator's Pixel 7 profile,
  * which has the same panel and density. Gesture navigation, the Pixel default.
  */
-const DEVICE = { width: 412, height: 915 };
+const DEVICE = { width: 412, height: 915, radius: 44, bezel: 10, hole: 12 };
 /** 136 device px. */
 const STATUS_BAR = 52;
 /** 63 device px. */
@@ -49,45 +43,12 @@ const GESTURE_BAR = 24;
 const CHROME_TOOLBAR = 56;
 const HANDLE = { x: 152, y: 900.5, width: 108, height: 3.5 };
 
-const TOP_BAR = 44;
-/** The pink the primitives use for the part that matters (larry-build's colors.pink). */
-const ACCENT = "#FF0087";
+const RESULT = { top: 44, cardHeight: 392 };
 /** The model's dithered shadow in the accent too. */
 const LOOK: DitherLook = { ...DEFAULT_LOOK, colors: { ...DEFAULT_LOOK.colors, accent: ACCENT.toLowerCase() } };
-/** Rounds to the 2px half-step grid. */
-const even = (n: number) => Math.round(n / 2) * 2;
 
-/** Sizes of the camera's top row: the photo bar and the flash switch share one height. `ditherGrain` is the dither's cell size in CSS px (renamed from ditherCell when its unit changed, so stale saved values are dropped). */
-type TopSizes = { height: number; barWidth: number; barRadius: number; flashWidth: number; ditherGrain: number; idleDither: number; relief: number };
-const MAX_PHOTOS = 3;
-
-type Pace = "demo" | "real";
 type Phase = "live" | "reading" | "building" | "done";
 type StartAt = "live" | "done";
-
-/** Every size the dials can change, already worked out for the current frame. */
-type Layout = {
-  cardWidth: number;
-  cardRadius: number;
-  cardLive: number;
-  cardResult: number;
-  /** Height of the band above the card and of the band below it, so the card is centred. */
-  barHeight: number;
-  shutter: number;
-  top: TopSizes;
-  wheel: { width: number; height: number; ridges: number; rim: number };
-  shot: ShotLook;
-  /** `glow` is the frame glow's opacity, 0 to 1, and `reach` its blur in CSS px. */
-  develop: DevelopLook & { glow: number; reach: number };
-};
-
-/** How a shot's sweep looks: glimm's band, redrawn as dither. */
-type ShotLook = { sweepMs: number; curve: number; grain: number; pageEffect: boolean };
-
-/** The zoom wheel: UI SDK's primitive for the behaviour, drawn by our canvas. */
-const { Root: Thumbwheel } = createParts(thumbwheel, { root: "div" });
-const ZOOM = { min: 1, max: 5, perPixel: 0.02 };
-
 
 /** Milliseconds after the photos are sent. "real" follows a low-effort run: header at 5 s, first part at 6.7 s, done at about 12 s. */
 const PACES: Record<Pace, { started: number; first: number; gap: number; tail: number }> = {
@@ -95,32 +56,22 @@ const PACES: Record<Pace, { started: number; first: number; gap: number; tail: n
   real: { started: 5000, first: 6700, gap: 1300, tail: 900 },
 };
 
-const EASE_OUT = "cubic-bezier(0.2, 0.8, 0.2, 1)";
-
-const drift = stylex.keyframes({
-  "0%": { transform: "translate(0, 0) scale(1.04) rotate(0deg)" },
-  "25%": { transform: "translate(-0.8%, 0.5%) scale(1.046) rotate(-0.3deg)" },
-  "50%": { transform: "translate(0.6%, -0.4%) scale(1.04) rotate(0.2deg)" },
-  "75%": { transform: "translate(-0.3%, -0.6%) scale(1.05) rotate(-0.1deg)" },
-  "100%": { transform: "translate(0, 0) scale(1.04) rotate(0deg)" },
-});
-const flashOut = stylex.keyframes({ "0%": { opacity: 0 }, "15%": { opacity: 0.9 }, "100%": { opacity: 0 } });
 const popIn = stylex.keyframes({ "0%": { opacity: 0, transform: "scale(0.5)" }, "100%": { opacity: 1, transform: "scale(1)" } });
 const riseIn = stylex.keyframes({ "0%": { opacity: 0, transform: "translateY(6px)" }, "100%": { opacity: 1, transform: "translateY(0)" } });
 const fadeIn = stylex.keyframes({ "0%": { opacity: 0 }, "100%": { opacity: 1 } });
 
 const light = stylex.createTheme(screen, {
-  bg: "#FFFFFF",
-  fg: "#141414",
-  muted: "#6B6B6B",
+  bg: colors.paper,
+  fg: colors.ink,
+  muted: colors.graphite,
   chrome: "rgba(20, 20, 20, 0.06)",
-  card: "#FFFFFF",
+  card: colors.paper,
 });
 
-/** The camera's own colours, the screen's defaults, set again on the camera so it stays dark over the light result as it lifts away. */
+/** The screen's defaults, set again on the camera so it stays dark while the screen under it turns light. */
 const dark = stylex.createTheme(screen, {
-  bg: "#141414",
-  fg: "#FFFFFF",
+  bg: colors.ink,
+  fg: colors.paper,
   muted: "#8C8C8C",
   chrome: "rgba(255, 255, 255, 0.1)",
   card: "#232323",
@@ -128,479 +79,20 @@ const dark = stylex.createTheme(screen, {
 
 const colorFade = "color 600ms ease, background-color 600ms ease";
 
-const s = stylex.create({
-  // Desktop shell
-  shell: {
-    minHeight: "100dvh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 64,
-    padding: 16,
-    // Room for the DialKit panel on the right.
-    paddingRight: 320,
-    boxSizing: "border-box",
-    backgroundColor: "#EFEFEF",
-    color: colors.ink,
-    fontFamily: fonts.sans,
-  },
-  panel: { width: 280, display: "flex", flexDirection: "column", gap: 24 },
-  group: { display: "flex", flexDirection: "column", gap: 8 },
-  eyebrow: { margin: 0, fontFamily: fonts.mono, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: colors.graphite },
-  heading: { margin: 0, fontSize: 32, lineHeight: "36px", fontWeight: 600, letterSpacing: "-0.02em" },
-  blurb: { margin: 0, fontSize: 14, lineHeight: "20px", color: colors.graphite },
-  log: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4, fontFamily: fonts.mono, fontSize: 12, lineHeight: "16px", minHeight: 120 },
-  logEmpty: { color: colors.graphite },
-
-  // Phone
-  phoneSlot: (width: number, height: number) => ({ width, height, flexShrink: 0 }),
-  // The frame has its own size, so it is not sized by the already-shrunk slot and then scaled a second time.
-  phone: (bezel: number, radius: number, scale: number) => ({
-    width: DEVICE.width + 2 * bezel,
-    height: DEVICE.height + 2 * bezel,
-    boxSizing: "border-box",
-    padding: bezel,
-    borderRadius: radius,
-    backgroundColor: "#0A0A0A",
-    boxShadow: "0 40px 80px -24px rgba(0, 0, 0, 0.35)",
-    transform: `scale(${scale})`,
-    transformOrigin: "top left",
-  }),
-
-  // Screen
-  screen: {
-    position: "relative",
-    width: DEVICE.width,
-    height: DEVICE.height,
-    overflow: "hidden",
-    backgroundColor: screen.bg,
-    color: screen.fg,
-    fontFamily: fonts.sans,
-    transition: colorFade,
-    userSelect: "none",
-  },
-  screenRadius: (radius: number) => ({ borderRadius: radius }),
-  statusBar: { position: "absolute", top: 0, left: 0, width: DEVICE.width, height: STATUS_BAR, transition: colorFade },
-  chromeLight: { backgroundColor: "#FFFFFF", color: "#1F1F1F" },
-  toolbar: { position: "absolute", top: STATUS_BAR, left: 0, width: DEVICE.width, height: CHROME_TOOLBAR, boxShadow: "inset 0 -1px 0 #E3E3E3" },
-  hole: (size: number) => ({
-    position: "absolute",
-    top: STATUS_BAR / 2 - size / 2,
-    left: DEVICE.width / 2 - size / 2,
-    width: size,
-    height: size,
-    borderRadius: radii.pill,
-    backgroundColor: "#000000",
-    boxShadow: "0 0 0 1px rgba(255, 255, 255, 0.06)",
-  }),
-  handle: {
-    position: "absolute",
-    top: HANDLE.y,
-    left: HANDLE.x,
-    width: HANDLE.width,
-    height: HANDLE.height,
-    borderRadius: radii.pill,
-    backgroundColor: screen.fg,
-    opacity: 0.9,
-    transition: colorFade,
-  },
-  usable: (top: number, height: number) => ({
-    position: "absolute",
-    top,
-    left: 0,
-    width: DEVICE.width,
-    height,
-    boxSizing: "border-box",
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: "#2F6BFF",
-    backgroundColor: "rgba(47, 107, 255, 0.06)",
-    pointerEvents: "none",
-  }),
-  usableLabel: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    paddingInline: 6,
-    borderRadius: 4,
-    backgroundColor: "#2F6BFF",
-    color: "#FFFFFF",
-    fontFamily: fonts.mono,
-    fontSize: 11,
-    lineHeight: "18px",
-  },
-  viewport: (top: number, height: number) => ({ position: "absolute", top, left: 0, width: DEVICE.width, height, display: "flex", flexDirection: "column" }),
-
-  // The band above the card; its row is centred in it, as the shutter is centred in the band below.
-  topBar: (height: number) => ({
-    height,
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingInline: 20,
-    transition: `height 700ms ${EASE_OUT}`,
-  }),
-  iconButton: {
-    width: 36,
-    height: 36,
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 0,
-    borderRadius: radii.pill,
-    padding: 0,
-    backgroundColor: screen.chrome,
-    color: screen.fg,
-    cursor: "pointer",
-    transition: colorFade,
-  },
-  side: (width: number) => ({ width, flexShrink: 0, display: "flex" }),
-  sideEnd: { justifyContent: "flex-end" },
-  flashToggle: (width: number, height: number) => ({
-    position: "relative",
-    width,
-    height,
-    flexShrink: 0,
-    padding: 0,
-    borderWidth: 0,
-    borderRadius: radii.pill,
-    // The bar's glow spills past the switch.
-    overflow: "visible",
-    backgroundColor: "transparent",
-    cursor: "pointer",
-  }),
-  // One canvas draws the whole control: track, fill, dither and outline.
-  // Larger than the bar by `pad` on every side, for the glow.
-  ditherBar: (width: number, height: number, pad: number) => ({
-    position: "absolute",
-    top: -pad,
-    left: -pad,
-    width: width + 2 * pad,
-    height: height + 2 * pad,
-    pointerEvents: "none",
-  }),
-  photoBar: (width: number, height: number) => ({ position: "relative", display: "block", width, height, flexShrink: 0 }),
-  knob: (size: number, inset: number) => ({
-    position: "absolute",
-    top: inset,
-    left: inset,
-    width: size,
-    height: size,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    // The knob's white circle is its dithered disc, pixelated at the edge; no smooth background behind it.
-    transition: `transform 240ms ${EASE_OUT}`,
-  }),
-  knobOn: (travel: number) => ({ transform: `translateX(${travel}px)` }),
-  screenFlash: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#FFFFFF",
-    pointerEvents: "none",
-    opacity: 0,
-    animationName: flashOut,
-    animationDuration: "420ms",
-  },
-  topLabel: (size: number, lineHeight: number) => ({
-    fontFamily: fonts.mono,
-    fontSize: size,
-    lineHeight: `${lineHeight}px`,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    whiteSpace: "nowrap",
-  }),
-
-  // Viewfinder card
-  cardWrap: { position: "relative", alignSelf: "center", flexShrink: 0 },
-  card: (width: number, height: number, radius: number) => ({
-    position: "relative",
-    width,
-    height,
-    borderRadius: radius,
-    overflow: "hidden",
-    backgroundColor: screen.card,
-    transition: `height 700ms ${EASE_OUT}, background-color 600ms ease`,
-  }),
-  feed: (width: number, height: number) => ({ position: "absolute", top: 0, left: 0, width, height }),
-  feedDrift: {
-    animationName: { default: null, "@media (prefers-reduced-motion: no-preference)": drift },
-    animationDuration: "7s",
-    animationTimingFunction: "ease-in-out",
-    animationIterationCount: "infinite",
-  },
-  feedFrozen: { animationPlayState: "paused" },
-  angle: (transform: string) => ({ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", transform, transition: "transform 300ms ease" }),
-  photo: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
-  photoCover: { objectFit: "cover" },
-  photoContain: { objectFit: "contain" },
-  photoBackdrop: { objectFit: "cover", filter: "blur(24px) brightness(0.55)", transform: "scale(1.2)" },
-  fill: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
-  overlay: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" },
-
-  // The grey photo, sized by useDevelop to whole cells, so it can run a little past the frame's edge.
-  grey: { position: "absolute", top: 0, left: 0, pointerEvents: "none", imageRendering: "pixelated" },
-  hidden: { visibility: "hidden" },
-  // While Larry works the frame glows like a lit screen: a tiny copy of what it shows, blurred, behind it, so each
-  // part of its edge spills its own colour (see useDevelop).
-  glow: (width: number, height: number, reach: number) => ({
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width,
-    height,
-    filter: `blur(${reach}px)`,
-    opacity: 0,
-    transition: "opacity 700ms ease",
-    pointerEvents: "none",
-  }),
-  glowOn: (strength: number) => ({ opacity: strength }),
-
-  // The two screens: the result underneath, the camera over it as a sheet that lifts away.
-  page: { position: "absolute", top: 0, left: 0, width: DEVICE.width, height: DEVICE.height, backgroundColor: screen.bg, color: screen.fg },
-  sheet: (radius: number) => ({
-    borderBottomLeftRadius: radius,
-    borderBottomRightRadius: radius,
-    overflow: "hidden",
-    transition: "transform 820ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 820ms ease",
-  }),
-  sheetUp: { transform: `translateY(${-DEVICE.height}px)`, boxShadow: "0 24px 48px rgba(0, 0, 0, 0.3)" },
-  // While Larry works the camera's controls dim, leaving the glowing frame to hold the eye.
-  dimmable: { flexShrink: 0, transition: "opacity 500ms ease" },
-  dimmed: { opacity: 0.3, pointerEvents: "none" },
-
-  viewer: { position: "absolute", top: 0, left: 0, width: "100%", animationName: fadeIn, animationDuration: "500ms", animationDelay: "150ms", animationFillMode: "both" },
-  pip: {
-    position: "absolute",
-    left: 14,
-    bottom: 14,
-    width: 40,
-    height: 52,
-    borderRadius: 10,
-    overflow: "hidden",
-    boxShadow: "0 0 0 2px #FFFFFF, 0 4px 12px rgba(0, 0, 0, 0.18)",
-    animationName: popIn,
-    animationDuration: "400ms",
-    animationTimingFunction: EASE_OUT,
-    animationDelay: "300ms",
-    animationFillMode: "both",
-  },
-  turnHint: { position: "absolute", right: 16, bottom: 16, fontFamily: fonts.mono, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: screen.muted },
-
-  // Below the card
-  lower: { position: "relative", flexGrow: 1 },
-  layer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", transition: `opacity 300ms ease, transform 400ms ${EASE_OUT}` },
-  label: { fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "0.08em", textTransform: "uppercase", color: screen.muted, transition: colorFade },
-  // The shutter is centred in the band below the card. The side slots keep it centred across too.
-  // Three columns, the outer two equal, so the shutter stays centred however wide the wheel gets.
-  // Inset like the frame and with no gap, so each side slot spans exactly from the frame's edge to the shutter.
-  controls: (inset: number) => ({ flexGrow: 1, display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", paddingInline: inset }),
-  shutter: (size: number) => ({
-    width: size,
-    height: size,
-    flexShrink: 0,
-    padding: 0,
-    borderWidth: 0,
-    borderRadius: radii.pill,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent",
-    cursor: "pointer",
-  }),
-  // The face's shape is drawn by its dithered disc, so the element itself has no background or rounding.
-  shutterFace: (size: number) => ({ position: "relative", width: size, height: size, transition: `transform 160ms ${EASE_OUT}` }),
-  // Above a Surface's canvas, which is positioned.
-  overSurface: { position: "relative", display: "flex" },
-  shutterPressed: { transform: "scale(0.94)" },
-  // Equal side slots keep the shutter in the middle.
-  slot: { minWidth: 0, display: "flex", justifyContent: "center" },
-  slotStart: { justifyContent: "flex-start" },
-  zoom: (k: number) => ({ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", transform: `scale(${k})`, transformOrigin: "center" }),
-  zoomChip: {
-    position: "absolute",
-    bottom: 12,
-    left: "50%",
-    transform: "translateX(-50%)",
-    paddingInline: 8,
-    height: 24,
-    display: "flex",
-    alignItems: "center",
-    borderRadius: radii.pill,
-    backgroundColor: "rgba(20, 20, 20, 0.72)",
-    color: "#FFFFFF",
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    pointerEvents: "none",
-  },
-  wheel: (width: number, height: number) => ({
-    position: "relative",
-    width,
-    height,
-    flexShrink: 0,
-    cursor: "ew-resize",
-    touchAction: "none",
-    userSelect: "none",
-    borderRadius: 10,
-    outline: { default: "none", ":focus-visible": "2px solid #FFFFFF" },
-    outlineOffset: 2,
-  }),
-  use: { padding: 0, borderWidth: 0, backgroundColor: "transparent", color: "#FFFFFF", fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
-
-  result: { paddingTop: 18, paddingInline: 24, gap: 2 },
-  name: { margin: 0, fontSize: 28, lineHeight: "34px", fontWeight: 600, letterSpacing: "-0.02em", animationName: riseIn, animationDuration: "350ms", animationTimingFunction: EASE_OUT },
-  countRow: { display: "flex", alignItems: "flex-end", gap: 12, marginTop: 10, height: 56 },
-  count: { fontFamily: fonts.mono, fontSize: 64, lineHeight: "56px", fontWeight: 200, letterSpacing: "-0.04em", fontVariantNumeric: "tabular-nums", animationName: riseIn, animationDuration: "250ms" },
-  countText: { display: "flex", flexDirection: "column", gap: 2, paddingBottom: 4 },
-  countWord: { fontSize: 18, lineHeight: "22px", fontWeight: 500 },
-  chips: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 14 },
-  chip: {
-    height: 28,
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    paddingInline: 10,
-    borderRadius: radii.pill,
-    backgroundColor: screen.chrome,
-    fontSize: 13,
-    fontWeight: 500,
-    animationName: riseIn,
-    animationDuration: "300ms",
-    animationTimingFunction: EASE_OUT,
-  },
-  swatch: (color: string) => ({ width: 8, height: 8, flexShrink: 0, backgroundColor: color, boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.12)" }),
-  footer: { marginTop: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingBottom: 16 },
-  primary: {
-    width: "100%",
-    height: 52,
-    borderWidth: 0,
-    borderRadius: radii.pill,
-    backgroundColor: screen.chrome,
-    color: screen.muted,
-    fontFamily: fonts.sans,
-    fontSize: 17,
-    fontWeight: 600,
-    transition: "background-color 300ms ease, color 300ms ease",
-  },
-  primaryReady: { backgroundColor: screen.fg, color: screen.bg, cursor: "pointer" },
-  link: { padding: 0, borderWidth: 0, backgroundColor: "transparent", color: screen.muted, fontFamily: fonts.sans, fontSize: 15, fontWeight: 500, cursor: "pointer" },
-});
-
-// ---------------------------------------------------------------- shell
-
 export default function CameraMock() {
+  const [settings, setSettings] = useState<MockSettings>(() => defaultSettings(OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? "")));
   const [run, setRun] = useState<{ id: number; startAt: StartAt }>({ id: 0, startAt: "live" });
   const [log, setLog] = useState<string[]>([]);
   const restart = (startAt: StartAt) => {
     setLog([]);
     setRun((r) => ({ id: r.id + 1, startAt }));
   };
-  const actions = useRef<(action: string) => void>(undefined);
-  actions.current = (action) => {
-    if (action === "replay") restart("live");
-    else if (action === "jump") restart("done");
-    else if (action === "reset") controller.resetValues();
-  };
 
-  const controller = useDialKitController(
-    "Camera mockup",
-    {
-      object: { type: "select", options: OBJECT_NAMES, default: OBJECT_NAMES.includes("bottle") ? "bottle" : OBJECT_NAMES[0] },
-      pace: { type: "select", options: ["demo", "real"], default: "demo" },
-      replay: { type: "action", label: "Back to camera" },
-      jump: { type: "action", label: "Jump to result" },
-      device: {
-        shell: { type: "select", options: ["installed app", "chrome tab"], default: "installed app" },
-        screenRadius: [44, 0, 72, 1],
-        cameraHole: true,
-        holeSize: [12, 6, 20, 0.5],
-        bezel: [10, 0, 24, 1],
-        usableArea: true,
-      },
-      camera: {
-        sideInset: [16, 0, 40, 2],
-        cardRadius: [32, 0, 56, 2],
-        barHeight: [120, 44, 280, 2],
-        // The shutter's face, which is now the whole button (renamed from shutter when the ring around it went).
-        shutterSize: [96, 52, 120, 2],
-        // 124 is the room beside a 100 px shutter.
-        wheelWidth: [112, 40, 124, 2],
-        wheelHeight: [64, 24, 100, 2],
-        wheelRidges: [19, 8, 40, 1],
-        wheelRim: [3, 0, 20, 1],
-      },
-      top: {
-        height: [48, 24, 80, 2],
-        // Widths are proportions of the height, so changing the height scales the row evenly.
-        barAspect: [3.65, 1.5, 8, 0.05],
-        barRadius: [12, 0, 40, 2],
-        switchAspect: [1.75, 1.2, 3, 0.05],
-        ditherGrain: [1.5, 0.5, 4, 0.5],
-        idleDither: [0.6, 0, 1, 0.05],
-        // How tall the raised parts (the switch knob, the shutter) stand; 1 keeps their preset.
-        relief: [1, 0, 2.5, 0.05],
-      },
-      // A shot sweeps glimm's band up the viewfinder from the shutter, unveiling the next view.
-      shot: {
-        sweepMs: [1200, 600, 4000, 100],
-        curve: [0.12, 0, 0.4, 0.01],
-        grain: [1.5, 0.5, 4, 0.5],
-        pageEffect: true,
-      },
-      // After the last photo: the capture sweep unveils the photo in grey dither, which then stays alive while Larry
-      // works (the sweep's light drifting over it, the photo swaying under it) with a glow round the frame, then the
-      // camera lifts away from the model.
-      develop: {
-        // How far the photo sways, in px; how strongly the synthwave light shows; how fast it all moves.
-        sway: [4, 0, 12, 0.5],
-        glimmer: [0.35, 0, 1, 0.05],
-        speed: [1, 0.2, 3, 0.1],
-        // The frame's glow while Larry works, from what it shows, like a lit screen (renamed so earlier glows' values drop).
-        screenGlow: [0.8, 0, 1, 0.05],
-        screenGlowBlur: [18, 4, 48, 2],
-      },
-      result: {
-        cardHeight: [392, 240, 560, 2],
-      },
-      reset: { type: "action", label: "Reset dials" },
-    },
-    { id: "larry-camera-mock", persist: true, onAction: (action) => actions.current?.(action) },
-  );
-  const dials = controller.values;
-  const { device, camera, top, result, develop, shot } = dials;
-
-  const tab = device.shell === "chrome tab";
-  const usableTop = STATUS_BAR + (tab ? CHROME_TOOLBAR : 0);
+  const usableTop = STATUS_BAR + (settings.tab ? CHROME_TOOLBAR : 0);
   const usableHeight = DEVICE.height - usableTop - GESTURE_BAR;
-  const layout: Layout = {
-    cardWidth: DEVICE.width - 2 * camera.sideInset,
-    cardRadius: camera.cardRadius,
-    cardLive: Math.max(160, usableHeight - 2 * camera.barHeight),
-    cardResult: result.cardHeight,
-    barHeight: camera.barHeight,
-    shutter: camera.shutterSize,
-    top: {
-      height: top.height,
-      barWidth: even(top.height * top.barAspect),
-      barRadius: top.barRadius,
-      flashWidth: even(top.height * top.switchAspect),
-      ditherGrain: top.ditherGrain,
-      idleDither: top.idleDither,
-      relief: top.relief,
-    },
-    wheel: { width: camera.wheelWidth, height: camera.wheelHeight, ridges: camera.wheelRidges, rim: camera.wheelRim },
-    shot: { sweepMs: shot.sweepMs, curve: shot.curve, grain: shot.grain, pageEffect: shot.pageEffect },
-    develop: { wave: develop.sway, light: develop.glimmer, speed: develop.speed, settleMs: shot.sweepMs * 0.15, glow: develop.screenGlow, reach: develop.screenGlowBlur },
-  };
-
-  const frame = { width: DEVICE.width + 2 * device.bezel, height: DEVICE.height + 2 * device.bezel };
+  const frame = { width: DEVICE.width + 2 * DEVICE.bezel, height: DEVICE.height + 2 * DEVICE.bezel };
   const scale = useFitScale(frame.height + 32);
-  const object = OBJECTS.find((o) => o.name === dials.object) ?? OBJECTS[0];
+  const object = OBJECTS.find((o) => o.name === settings.object) ?? OBJECTS[0];
   if (!object) return null;
 
   return (
@@ -614,7 +106,7 @@ export default function CameraMock() {
             shutter one to three times, then Use. Everything else is in the dials.
           </p>
           <p {...stylex.props(s.blurb)}>
-            Usable height: {usableHeight}px {tab ? "in a Chrome tab" : "as an installed app"}.
+            Usable height: {usableHeight}px {settings.tab ? "in a Chrome tab" : "as an installed app"}.
           </p>
         </div>
         <div {...stylex.props(s.group)}>
@@ -630,20 +122,25 @@ export default function CameraMock() {
       </div>
 
       <div {...stylex.props(s.phoneSlot(frame.width * scale, frame.height * scale))}>
-        <div {...stylex.props(s.phone(device.bezel, device.screenRadius + device.bezel, scale))}>
+        <div data-phone {...stylex.props(s.phone(scale))}>
           <Flow
-            key={`${run.id}-${object.name}-${dials.pace}`}
+            key={`${run.id}-${object.name}-${settings.pace}`}
             object={object}
-            pace={dials.pace as Pace}
+            pace={settings.pace}
             startAt={run.startAt}
-            layout={layout}
-            device={{ tab, usableTop, usableHeight, radius: device.screenRadius, hole: device.cameraHole ? device.holeSize : 0, showUsable: device.usableArea }}
+            settings={settings}
+            usableTop={usableTop}
+            usableHeight={usableHeight}
             onLog={(line) => setLog((l) => [...l, line])}
             onRestart={() => restart("live")}
           />
         </div>
       </div>
-      <DialRoot defaultOpen position="top-right" />
+      {Dials && (
+        <Suspense>
+          <Dials objects={OBJECT_NAMES} initial={settings} onChange={setSettings} onAction={(action) => restart(action === "jump" ? "done" : "live")} />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -660,25 +157,24 @@ function useFitScale(height: number) {
   return scale;
 }
 
-// ---------------------------------------------------------------- the phone screen
-
 type Header = { name: string; summary: string };
-type DeviceFrame = { tab: boolean; usableTop: number; usableHeight: number; radius: number; hole: number; showUsable: boolean };
 
 function Flow({
   object,
   pace,
   startAt,
-  layout,
-  device,
+  settings,
+  usableTop,
+  usableHeight,
   onLog,
   onRestart,
 }: {
   object: MockObject;
   pace: Pace;
   startAt: StartAt;
-  layout: Layout;
-  device: DeviceFrame;
+  settings: MockSettings;
+  usableTop: number;
+  usableHeight: number;
   onLog: (line: string) => void;
   onRestart: () => void;
 }) {
@@ -686,28 +182,18 @@ function Flow({
   const { kit } = object;
   const [phase, setPhase] = useState<Phase>(atEnd ? "done" : "live");
   const [shots, setShots] = useState(atEnd ? 1 : 0);
-  // The photo bar fills when the shot's light reaches the top of the frame, not on the press, so the photo looks
-  // carried up into it.
-  const [filled, setFilled] = useState(atEnd ? 1 : 0);
-  const [angle, setAngle] = useState(0);
-  // The last shot's sweep has unveiled the grey photo.
-  const [developed, setDeveloped] = useState(false);
-  const [frozen, setFrozen] = useState(atEnd);
-  const [pressed, setPressed] = useState(false);
-  const [flashOn, setFlashOn] = useState(false);
-  const [zoom, setZoom] = useState(ZOOM.min);
-  const [burst, setBurst] = useState(0);
   const [header, setHeader] = useState<Header | undefined>(atEnd ? kit : undefined);
   const [parts, setParts] = useState<Part[]>(atEnd ? kit.parts : []);
+  // The camera is a sheet over the result. Once the model is ready it slides up and away, revealing the result.
+  const [sheet, setSheet] = useState<"up" | "leaving" | "gone">(atEnd ? "gone" : "up");
 
-  const unveil = useRef<UnveilHandle>(null);
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   const later = (ms: number, run: () => void) => void timers.current.push(window.setTimeout(run, ms));
 
-  function read() {
+  function read(n: number) {
+    setShots(n);
     setPhase("reading");
-    setFrozen(true);
     const pacing = PACES[pace];
     const t0 = performance.now();
     const stamp = (what: string) => onLog(`${((performance.now() - t0) / 1000).toFixed(1).padStart(4)} s  ${what}`);
@@ -729,97 +215,38 @@ function Flow({
     });
   }
 
-  function shoot() {
-    if (phase !== "live" || frozen || shots >= MAX_PHOTOS) return;
-    const n = shots + 1;
-    const last = n >= MAX_PHOTOS;
-    setFrozen(true);
-    if (flashOn) setBurst((b) => b + 1);
-    setShots(n);
-    // The band climbs from the shutter with the next view already behind it. After the last shot that view is the
-    // photo in grey dither, and Larry starts reading.
-    unveil.current?.play(
-      () => (last ? setDeveloped(true) : setAngle(n)),
-      () => setFilled(n),
-    );
-    if (last) {
-      read();
-      return;
-    }
-    later(650, () => setFrozen(false));
-  }
-
-  function use() {
-    if (phase === "live" && shots > 0 && !frozen) read();
-  }
-
-  const keys = useRef({ shoot, use });
-  keys.current = { shoot, use };
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select, [contenteditable]")) return;
-      if (e.code === "Space") {
-        e.preventDefault();
-        setPressed(true);
-        keys.current.shoot();
-      } else if (e.code === "Enter") keys.current.use();
-    };
-    const up = (e: KeyboardEvent) => e.code === "Space" && setPressed(false);
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-    };
-  }, []);
-
-  const live = phase === "live";
-  const working = phase === "reading" || phase === "building";
   const done = phase === "done";
-  // The camera is a sheet over the result. Once the model is ready it slides up and away, revealing the result.
-  const [sheet, setSheet] = useState<"up" | "leaving" | "gone">(atEnd ? "gone" : "up");
   useEffect(() => {
     if (!done || sheet !== "up") return;
     // A beat on the finished light before the sheet lifts.
     const id = window.setTimeout(() => setSheet("leaving"), 450);
     return () => clearTimeout(id);
   }, [done, sheet]);
-  const box = { width: layout.cardWidth, height: layout.cardLive };
-  // Each new shot fakes a new angle on the same photo.
-  const angleTransform = angle === 1 ? "scaleX(-1)" : angle === 2 ? "scale(1.12) translateY(3%)" : "none";
-  const develop = useDevelop({
-    active: developed && sheet !== "gone",
-    photo: object.photo,
-    box,
-    zoom,
-    grain: layout.top.ditherGrain,
-    look: layout.develop,
-    sweep: () => unveil.current?.now() ?? NO_SWEEP,
-  });
+  const cardWidth = DEVICE.width - 2 * CAMERA.sideInset;
 
   return (
-    <div {...stylex.props(s.screen, s.screenRadius(device.radius), done && light)}>
+    <div {...stylex.props(s.screen, done && light)}>
       {/* The result, built underneath while Larry works, so it's whole when the camera lifts off it. */}
-      {/* Mounted once the first wave has passed, so mounting it doesn't hold up the wave's first frames. */}
       {(phase === "building" || done) && (
         <div {...stylex.props(light, s.page)}>
-          <div {...stylex.props(s.viewport(device.usableTop, device.usableHeight))}>
-            <TopBar result shots={shots} parts={parts.length} height={TOP_BAR} sizes={layout.top} flashOn={false} onFlash={setFlashOn} onBack={onRestart} />
+          <div {...stylex.props(s.viewport(usableTop, usableHeight))}>
+            <ResultHeader shots={shots} parts={parts.length} onBack={onRestart} />
             <div {...stylex.props(s.cardWrap)}>
-              <div {...stylex.props(s.card(layout.cardWidth, layout.cardResult, layout.cardRadius))}>
+              <div {...stylex.props(s.card(cardWidth, RESULT.cardHeight))}>
                 {parts.length > 0 && (
                   <div {...stylex.props(s.viewer)}>
-                    <KitViewer parts={parts} spin height={layout.cardResult} look={LOOK} />
+                    {/* Covered by the camera until it lifts, so it holds still until then. */}
+                    <KitViewer parts={parts} spin={sheet !== "up"} height={RESULT.cardHeight} look={LOOK} />
                   </div>
                 )}
                 <div {...stylex.props(s.pip)} title="Your photo">
-                  <img src={object.photo} alt="" {...stylex.props(s.photo, s.photoCover)} />
+                  <img src={object.photo} alt="" {...stylex.props(s.pipPhoto)} />
                 </div>
                 <span {...stylex.props(s.turnHint)}>Drag to turn</span>
               </div>
             </div>
             <div {...stylex.props(s.lower)}>
-              <div {...stylex.props(s.layer, s.result)}>
+              <div {...stylex.props(s.result)}>
                 <span {...stylex.props(s.label)}>Larry found a</span>
                 <h2 {...stylex.props(s.name)}>{header?.name ?? ""}</h2>
                 <div {...stylex.props(s.countRow)}>
@@ -851,78 +278,22 @@ function Flow({
         </div>
       )}
 
-      {/* The camera. While Larry works its controls dim and the frame glows; when the model is ready it lifts away. */}
       {sheet !== "gone" && (
         <div
-          {...stylex.props(dark, s.page, s.sheet(device.radius), sheet === "leaving" && s.sheetUp)}
+          {...stylex.props(dark, s.page, s.sheet, sheet === "leaving" && s.sheetUp)}
           onTransitionEnd={(e) => e.target === e.currentTarget && sheet === "leaving" && setSheet("gone")}
         >
-          <div {...stylex.props(s.viewport(device.usableTop, device.usableHeight))}>
-            <div {...stylex.props(s.dimmable, !live && s.dimmed)}>
-              <TopBar busy={working} shots={filled} parts={parts.length} height={layout.barHeight} sizes={layout.top} flashOn={flashOn} onFlash={setFlashOn} onBack={onRestart} />
-            </div>
-
-            <div {...stylex.props(s.cardWrap)}>
-              <canvas ref={develop.glow} aria-hidden {...stylex.props(s.glow(box.width, box.height, layout.develop.reach), !live && s.glowOn(layout.develop.glow))} />
-              <div {...stylex.props(s.card(layout.cardWidth, layout.cardLive, layout.cardRadius))}>
-                <div {...stylex.props(s.feed(box.width, box.height), s.feedDrift, (frozen || !live) && s.feedFrozen)}>
-                  <Unveil ref={unveil} look={layout.shot} under={<canvas ref={develop.grey} aria-hidden {...stylex.props(s.grey)} />}>
-                    <div {...stylex.props(s.zoom(zoom))}>
-                      <Photo src={object.photo} transform={angleTransform} box={box} />
-                    </div>
-                    <canvas ref={develop.still} aria-hidden {...stylex.props(s.grey, !developed && s.hidden)} />
-                  </Unveil>
-                </div>
-                {live && zoom > ZOOM.min + 0.04 && <span {...stylex.props(s.zoomChip)}>{zoom.toFixed(1)}×</span>}
-              </div>
-            </div>
-
-            <div {...stylex.props(s.lower, s.dimmable, !live && s.dimmed)}>
-              {/* Fills the band below the frame, so the controls are centred in it. */}
-              <div {...stylex.props(s.layer)}>
-                <div {...stylex.props(s.controls((DEVICE.width - layout.cardWidth) / 2))}>
-                  <div {...stylex.props(s.slot, s.slotStart)}>
-                    <ZoomWheel zoom={zoom} onZoom={setZoom} size={layout.wheel} cell={layout.top.ditherGrain} depth={layout.top.relief} drift={layout.top.idleDither} />
-                  </div>
-                  <Button
-                    aria-label="Take photo"
-                    disabled={!live}
-                    {...stylex.props(s.shutter(layout.shutter))}
-                    onPointerDown={() => setPressed(true)}
-                    onPointerUp={() => setPressed(false)}
-                    onPointerLeave={() => setPressed(false)}
-                    onClick={shoot}
-                  >
-                    <span {...stylex.props(s.shutterFace(layout.shutter), pressed && s.shutterPressed)}>
-                      <Surface
-                        shape={circle(layout.shutter)}
-                        relief={pressed ? "dishPressed" : "dish"}
-                        grain={layout.top.ditherGrain}
-                        depth={layout.top.relief}
-                        drift={layout.top.idleDither}
-                      />
-                    </span>
-                  </Button>
-                  <div {...stylex.props(s.slot)}>
-                    {shots > 0 && shots < MAX_PHOTOS && (
-                      <Button {...stylex.props(s.use)} onClick={use}>
-                        Use {shots} →
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div {...stylex.props(s.viewport(usableTop, usableHeight))}>
+            <Camera photo={object.photo} width={DEVICE.width} height={usableHeight} busy={phase === "reading" || phase === "building"} tuning={settings.tuning} onCapture={read} />
           </div>
         </div>
       )}
 
-      <SystemBars tab={device.tab} hole={device.hole} />
-      {burst > 0 && <div key={`burst-${burst}`} {...stylex.props(s.screenFlash)} />}
-      {device.showUsable && (
-        <div {...stylex.props(s.usable(device.usableTop, device.usableHeight))}>
+      <SystemBars tab={settings.tab} />
+      {settings.showUsable && (
+        <div {...stylex.props(s.usable(usableTop, usableHeight))}>
           <span {...stylex.props(s.usableLabel)}>
-            {DEVICE.width} × {device.usableHeight}
+            {DEVICE.width} × {usableHeight}
           </span>
         </div>
       )}
@@ -930,8 +301,29 @@ function Flow({
   );
 }
 
+/** The result's top row: back, a summary, and scan again. */
+function ResultHeader({ shots, parts, onBack }: { shots: number; parts: number; onBack: () => void }) {
+  return (
+    <div {...stylex.props(s.header)}>
+      <Button aria-label="Back to camera" {...stylex.props(s.iconButton)} onClick={onBack}>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+          <path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </Button>
+      <span {...stylex.props(s.summary)}>
+        {shots} {shots === 1 ? "photo" : "photos"} · {parts} parts
+      </span>
+      <Button aria-label="Scan again" {...stylex.props(s.iconButton)} onClick={onBack}>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+          <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </Button>
+    </div>
+  );
+}
+
 /** Android's status bar, Chrome's toolbar when in a tab, the camera hole and the gesture handle. */
-function SystemBars({ tab, hole }: { tab: boolean; hole: number }) {
+function SystemBars({ tab }: { tab: boolean }) {
   return (
     <>
       <div {...stylex.props(s.statusBar, tab && s.chromeLight)}>
@@ -942,13 +334,13 @@ function SystemBars({ tab, hole }: { tab: boolean; hole: number }) {
           <ChromeToolbar />
         </div>
       )}
-      {hole > 0 && <div {...stylex.props(s.hole(hole))} />}
+      <div {...stylex.props(s.hole)} />
       <div {...stylex.props(s.handle)} />
     </>
   );
 }
 
-/** Positions are the measured ones, so the icons sit where Android draws them. */
+/** Positions are the measured ones, so the icons sit where Android draws them. Android's own font, not ours. */
 function StatusBar() {
   return (
     <svg width={DEVICE.width} height={STATUS_BAR} viewBox={`0 0 ${DEVICE.width} ${STATUS_BAR}`} fill="currentColor" aria-hidden>
@@ -984,398 +376,199 @@ function ChromeToolbar() {
   );
 }
 
-function Photo({ src, transform, box }: { src: string; transform: string; box: { width: number; height: number } }) {
-  const [natural, setNatural] = useState<{ width: number; height: number }>();
-  const fit = natural ? fitFor(natural, box) : "cover";
-  return (
-    <div {...stylex.props(s.angle(transform))}>
-      {fit === "contain" && <img src={src} alt="" {...stylex.props(s.photo, s.photoBackdrop)} />}
-      <img
-        src={src}
-        alt=""
-        draggable={false}
-        {...stylex.props(s.photo, fit === "cover" ? s.photoCover : s.photoContain)}
-        onLoad={(e) => setNatural({ width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight })}
-      />
-    </div>
-  );
-}
+const s = stylex.create({
+  shell: {
+    minHeight: "100dvh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 64,
+    padding: 16,
+    // Room for the DialKit panel on the right.
+    paddingRight: 320,
+    boxSizing: "border-box",
+    backgroundColor: "#EFEFEF",
+    color: colors.ink,
+    fontFamily: fonts.sans,
+  },
+  panel: { width: 280, display: "flex", flexDirection: "column", gap: 24 },
+  group: { display: "flex", flexDirection: "column", gap: 8 },
+  eyebrow: { margin: 0, fontFamily: fonts.mono, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: colors.graphite },
+  heading: { margin: 0, fontSize: 32, lineHeight: "36px", fontWeight: 600, letterSpacing: "-0.02em" },
+  blurb: { margin: 0, fontSize: 14, lineHeight: "20px", color: colors.graphite },
+  log: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4, fontFamily: fonts.mono, fontSize: 12, lineHeight: "16px", minHeight: 120 },
+  logEmpty: { color: colors.graphite },
 
-/** The camera's top row (the photo bar and the flash switch), or on the result a back button, a summary and retake. */
-function TopBar({
-  result = false,
-  busy = false,
-  shots,
-  parts,
-  height,
-  sizes,
-  flashOn,
-  onFlash,
-  onBack,
-}: {
-  result?: boolean;
-  /** Larry is working: the photo bar's dither drifts faster, as a loader. */
-  busy?: boolean;
-  shots: number;
-  parts: number;
-  height: number;
-  sizes: TopSizes;
-  flashOn: boolean;
-  onFlash: (on: boolean) => void;
-  onBack: () => void;
-}) {
-  const side = result ? 36 : sizes.flashWidth;
-  return (
-    <div {...stylex.props(s.topBar(height))}>
-      <div {...stylex.props(s.side(side))}>
-        {result && (
-          <Button aria-label="Back to camera" {...stylex.props(s.iconButton)} onClick={onBack}>
-            <BackIcon />
-          </Button>
-        )}
-      </div>
-      {result ? (
-        <span {...stylex.props(s.topLabel(11, 14))}>
-          {shots} {shots === 1 ? "photo" : "photos"} · {parts} parts
-        </span>
-      ) : (
-        <PhotoBar shots={shots} busy={busy} sizes={sizes} />
-      )}
-      <div {...stylex.props(s.side(side), s.sideEnd)}>
-        {result ? (
-          <Button aria-label="Scan again" {...stylex.props(s.iconButton)} onClick={onBack}>
-            <RetakeIcon />
-          </Button>
-        ) : (
-          <FlashToggle on={flashOn} onChange={onFlash} width={sizes.flashWidth} height={sizes.height} cell={sizes.ditherGrain} idle={sizes.idleDither} relief={sizes.relief} />
-        )}
-      </div>
-    </div>
-  );
-}
+  phoneSlot: (width: number, height: number) => ({ width, height, flexShrink: 0 }),
+  // The frame has its own size, so it is not sized by the already-shrunk slot and then scaled a second time.
+  phone: (scale: number) => ({
+    width: DEVICE.width + 2 * DEVICE.bezel,
+    height: DEVICE.height + 2 * DEVICE.bezel,
+    boxSizing: "border-box",
+    padding: DEVICE.bezel,
+    borderRadius: DEVICE.radius + DEVICE.bezel,
+    backgroundColor: "#0A0A0A",
+    boxShadow: "0 40px 80px -24px rgba(0, 0, 0, 0.35)",
+    transform: `scale(${scale})`,
+    transformOrigin: "top left",
+  }),
 
-/**
- * Photos taken so far, as one bar that fills a third per photo, like a storage bar. While Larry reads the photos
- * the dither drifts faster, so the bar doubles as the loader.
- */
-function PhotoBar({ shots, busy, sizes }: { shots: number; busy: boolean; sizes: TopSizes }) {
-  return (
-    <Progress value={shots} max={MAX_PHOTOS} aria-label="Photos" getValueLabel={(value) => `${value ?? 0} of ${MAX_PHOTOS} photos`}>
-      <ProgressTrack {...stylex.props(s.photoBar(sizes.barWidth, sizes.height))}>
-        <DitherBar
-          fill={shots / MAX_PHOTOS}
-          width={sizes.barWidth}
-          height={sizes.height}
-          radius={sizes.barRadius}
-          cell={sizes.ditherGrain}
-          dividers={THIRDS}
-          idle={sizes.idleDither}
-          speed={busy ? 3 : 0.8}
-        />
-      </ProgressTrack>
-    </Progress>
-  );
-}
+  screen: {
+    position: "relative",
+    width: DEVICE.width,
+    height: DEVICE.height,
+    borderRadius: DEVICE.radius,
+    overflow: "hidden",
+    backgroundColor: screen.bg,
+    color: screen.fg,
+    fontFamily: fonts.sans,
+    transition: colorFade,
+    userSelect: "none",
+  },
+  statusBar: { position: "absolute", top: 0, left: 0, width: DEVICE.width, height: STATUS_BAR, transition: colorFade },
+  chromeLight: { backgroundColor: colors.paper, color: "#1F1F1F" },
+  toolbar: { position: "absolute", top: STATUS_BAR, left: 0, width: DEVICE.width, height: CHROME_TOOLBAR, boxShadow: "inset 0 -1px 0 #E3E3E3" },
+  hole: {
+    position: "absolute",
+    top: STATUS_BAR / 2 - DEVICE.hole / 2,
+    left: DEVICE.width / 2 - DEVICE.hole / 2,
+    width: DEVICE.hole,
+    height: DEVICE.hole,
+    borderRadius: radii.pill,
+    backgroundColor: "#000000",
+    boxShadow: "0 0 0 1px rgba(255, 255, 255, 0.06)",
+  },
+  handle: {
+    position: "absolute",
+    top: HANDLE.y,
+    left: HANDLE.x,
+    width: HANDLE.width,
+    height: HANDLE.height,
+    borderRadius: radii.pill,
+    backgroundColor: screen.fg,
+    opacity: 0.9,
+    transition: colorFade,
+  },
+  usable: (top: number, height: number) => ({
+    position: "absolute",
+    top,
+    left: 0,
+    width: DEVICE.width,
+    height,
+    boxSizing: "border-box",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.blue,
+    backgroundColor: "rgba(47, 107, 255, 0.06)",
+    pointerEvents: "none",
+  }),
+  usableLabel: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    paddingInline: 6,
+    borderRadius: 4,
+    backgroundColor: colors.blue,
+    color: colors.paper,
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    lineHeight: "18px",
+  },
+  viewport: (top: number, height: number) => ({ position: "absolute", top, left: 0, width: DEVICE.width, height, display: "flex", flexDirection: "column" }),
 
-const THIRDS = [1 / 3, 2 / 3];
-/** The camera screen's background. */
-const CAMERA_BG = "#141414";
-const GLOW_PAD = 8;
-const NO_DIVIDERS: number[] = [];
+  // The two screens: the result underneath, the camera over it as a sheet that lifts away.
+  page: { position: "absolute", top: 0, left: 0, width: DEVICE.width, height: DEVICE.height, backgroundColor: screen.bg, color: screen.fg },
+  sheet: {
+    borderBottomLeftRadius: DEVICE.radius,
+    borderBottomRightRadius: DEVICE.radius,
+    overflow: "hidden",
+    transition: "transform 820ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 820ms ease",
+  },
+  sheetUp: { transform: `translateY(${-DEVICE.height}px)`, boxShadow: "0 24px 48px rgba(0, 0, 0, 0.3)" },
 
-const BackIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-    <path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-const FlashIcon = ({ size, filled, color }: { size: number; filled: boolean; color: string }) => (
-  <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
-    <path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill={filled ? color : "none"} stroke={color} strokeWidth="1.4" strokeLinejoin="round" />
-  </svg>
-);
+  header: { height: RESULT.top, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", paddingInline: 20 },
+  iconButton: {
+    width: 36,
+    height: 36,
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 0,
+    borderRadius: radii.pill,
+    padding: 0,
+    backgroundColor: screen.chrome,
+    color: screen.fg,
+    cursor: "pointer",
+    transition: colorFade,
+  },
+  summary: { fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" },
+  cardWrap: { position: "relative", alignSelf: "center", flexShrink: 0 },
+  card: (width: number, height: number) => ({
+    position: "relative",
+    width,
+    height,
+    borderRadius: camera.cardRadius,
+    overflow: "hidden",
+    backgroundColor: screen.card,
+    transition: `height 700ms ${camera.easeOut}, background-color 600ms ease`,
+  }),
+  viewer: { position: "absolute", top: 0, left: 0, width: "100%", animationName: fadeIn, animationDuration: "500ms", animationDelay: "150ms", animationFillMode: "both" },
+  pip: {
+    position: "absolute",
+    left: 14,
+    bottom: 14,
+    width: 40,
+    height: 52,
+    borderRadius: 10,
+    overflow: "hidden",
+    boxShadow: `0 0 0 2px ${colors.paper}, 0 4px 12px rgba(0, 0, 0, 0.18)`,
+    animationName: popIn,
+    animationDuration: "400ms",
+    animationTimingFunction: camera.easeOut,
+    animationDelay: "300ms",
+    animationFillMode: "both",
+  },
+  pipPhoto: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" },
+  turnHint: { position: "absolute", right: 16, bottom: 16, fontFamily: fonts.mono, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: screen.muted },
 
-/**
- * Flash as a switch: a pill track with a circle knob carrying the flash icon. When on, the knob slides right and the
- * pink track carries a drifting dither (lit cells gather at its edge) that grows in from the edge rather than snapping.
- */
-function FlashToggle({
-  on,
-  onChange,
-  width,
-  height,
-  cell,
-  idle,
-  relief,
-}: {
-  on: boolean;
-  onChange: (on: boolean) => void;
-  width: number;
-  height: number;
-  cell: number;
-  idle: number;
-  relief: number;
-}) {
-  const knob = height - 6;
-  return (
-    <Switch checked={on} onCheckedChange={onChange} aria-label="Flash" {...stylex.props(s.flashToggle(width, height))}>
-      <DitherBar fill={on ? 1 : 0} reveal="fade" glow={0} width={width} height={height} radius={height / 2} cell={cell} dividers={NO_DIVIDERS} idle={idle} />
-      <SwitchThumb {...stylex.props(s.knob(knob, 3), on && s.knobOn(width - height))}>
-        <Surface shape={circle(knob)} relief="cap" grain={cell} depth={relief} drift={idle} />
-        <span {...stylex.props(s.overSurface)}>
-          <FlashIcon size={even(knob * 0.54)} filled={on} color={on ? ACCENT : "#6B6B6B"} />
-        </span>
-      </SwitchThumb>
-    </Switch>
-  );
-}
-
-
-/** The band's colours, synthwave from indigo to gold. The dither brings back its near-black as shade. */
-const UNVEIL_PALETTE = accentChain(["#23005F", "#8700AF", "#FF0087", "#FF5F37", "#FFD700"]);
-/** glimm's scope takes a style object, not a class. */
-const SCOPE_FILL: CSSProperties = { position: "absolute", inset: 0 };
-/**
- * glimm's band is never shown, only read back each frame and redrawn as dither, and reading a canvas back is slow. So
- * its canvas is shrunk by this much: glimm sizes it from its on-screen box, transforms included, and renders a
- * fraction of the pixels. The dither is coarser than that anyway.
- */
-const BAND_SCALE = 0.25;
-/**
- * glimm fades its band out over the last 24 px at each edge of its canvas, so a sweep inside a card doesn't end on a
- * hard border. Over the viewfinder that fade reads as an empty margin, so its canvas reaches this far past the frame
- * on every side and the fade falls outside it. The canvas is shrunk by BAND_SCALE, so its 24 px are this many here.
- */
-const BAND_BLEED = 24 / BAND_SCALE;
-/** The band counts as having reached the top once its edge is this far down the frame, as a share of its height. */
-const TOP_REACHED = 0.03;
-
-/** `onTop` runs once, when the band has climbed to the top of the frame. */
-type UnveilHandle = { play: (change?: () => void, onTop?: () => void) => void; now: () => SweepNow };
-const NO_SWEEP: SweepNow = { running: false, canvas: null, front: null };
-
-/**
- * glimm's sweep, as in its "Generate data" demo: a band rises from the bottom, curved at its ends, and whatever
- * `change` sets is unveiled behind it while the old view holds ahead of it. glimm draws the band; we keep its canvas
- * invisible and redraw each frame as synthwave dither (see ditherBand).
- */
-/** `under` sits over the scope but under the band: something that changes every frame, which glimm shouldn't watch. */
-function Unveil({ ref, look, under, children }: { ref: Ref<UnveilHandle>; look: ShotLook; under?: ReactNode; children: ReactNode }) {
-  const scope = useRef<GlimmScopeHandle>(null);
-  const wrap = useRef<HTMLDivElement>(null);
-  const out = useRef<HTMLCanvasElement>(null);
-  const band = useRef<HTMLCanvasElement | null>(null);
-  const loop = useRef(0);
-  const playedAt = useRef(0);
-  const reachedTop = useRef<(() => void) | undefined>(undefined);
-  const front = useRef<number | null>(null);
-  const latest = useRef(look);
-  latest.current = look;
-
-  useLayoutEffect(() => {
-    const canvas = wrap.current?.querySelector<HTMLCanvasElement>(":scope > div > canvas");
-    if (!canvas) return;
-    // glimm makes its WebGL context on the first play and reuses one that already exists. Making it first, with
-    // preserveDrawingBuffer, keeps each frame readable after it's shown, so the dither can copy it.
-    canvas.getContext("webgl", { alpha: true, antialias: false, premultipliedAlpha: true, preserveDrawingBuffer: true });
-    Object.assign(canvas.style, {
-      opacity: "0",
-      inset: `${-BAND_BLEED}px`,
-      width: `calc(100% + ${2 * BAND_BLEED}px)`,
-      height: `calc(100% + ${2 * BAND_BLEED}px)`,
-      transform: `scale(${BAND_SCALE})`,
-      transformOrigin: "0 0",
-    });
-    band.current = canvas;
-  }, []);
-  useEffect(() => () => cancelAnimationFrame(loop.current), []);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      play(change, onTop) {
-        scope.current?.play(change ? { change } : {});
-        playedAt.current = performance.now();
-        reachedTop.current = onTop;
-        if (loop.current) return;
-        const scratch = document.createElement("canvas");
-        const tick = (now: number) => {
-          const el = out.current;
-          const source = band.current;
-          const box = wrap.current;
-          if (!el || !source || !box) {
-            loop.current = 0;
-            return;
-          }
-          const edge = ditherBand(el, source, box.clientWidth, box.clientHeight, BAND_BLEED, latest.current.grain, scratch);
-          front.current = edge;
-          const since = now - playedAt.current;
-          if (edge !== null && edge <= TOP_REACHED) {
-            reachedTop.current?.();
-            reachedTop.current = undefined;
-          }
-          // Stop once the band has gone, or a beat after the sweep should have ended, whichever is first.
-          if ((edge === null && since > 400) || since > latest.current.sweepMs + 1200) {
-            front.current = null;
-            reachedTop.current?.();
-            reachedTop.current = undefined;
-            el.getContext("2d")?.clearRect(0, 0, el.width, el.height);
-            loop.current = 0;
-            return;
-          }
-          loop.current = requestAnimationFrame(tick);
-        };
-        loop.current = requestAnimationFrame(tick);
-      },
-      now: () => ({ running: loop.current !== 0, canvas: out.current, front: front.current }),
-    }),
-    [],
-  );
-
-  return (
-    <div ref={wrap} {...stylex.props(s.fill)}>
-      <GlimmScope
-        ref={scope}
-        palette={UNVEIL_PALETTE}
-        direction="btt"
-        origin={[0.5, 1]}
-        curve={look.curve}
-        span={1}
-        sweepMs={look.sweepMs}
-        pageEffect={look.pageEffect}
-        style={SCOPE_FILL}
-      >
-        {children}
-      </GlimmScope>
-      {under}
-      <canvas ref={out} aria-hidden {...stylex.props(s.overlay)} />
-    </div>
-  );
-}
-
-/**
- * The zoom wheel beside the shutter. Drag it sideways, or use the arrow keys, to zoom; let go mid-spin and it coasts.
- * The drum turns with the finger (one radius of drag is one radian), and its ridges smear by how far it turned
- * in the last frame, so a fast spin blurs.
- */
-function ZoomWheel({
-  zoom,
-  onZoom,
-  size,
-  cell,
-  depth,
-  drift,
-}: {
-  zoom: number;
-  onZoom: (zoom: number) => void;
-  size: { width: number; height: number; ridges: number; rim: number };
-  cell: number;
-  depth: number;
-  drift: number;
-}) {
-  const { width, height, ridges, rim } = size;
-  // One groove's turn, baked in WHEEL_FRAMES frames; the drum looks the same every groove, so that is every angle.
-  const pitch = (2 * Math.PI) / ridges;
-  const relief = useMemo(() => (t: number): Relief => [drum({ ridges, rim, turn: t * pitch })], [ridges, rim, pitch]);
-  return (
-    <Thumbwheel
-      aria-label="Zoom"
-      value={zoom}
-      min={ZOOM.min}
-      max={ZOOM.max}
-      perPixel={ZOOM.perPixel}
-      step={0.1}
-      valueText={`${zoom.toFixed(1)}× zoom`}
-      onValueChange={onZoom}
-      {...stylex.props(s.wheel(width, height))}
-    >
-      {(state) => {
-        const pixels = (state.value - ZOOM.min) / ZOOM.perPixel;
-        const radians = pixels / (width / 2);
-        // Velocity is value per ms; a frame is about 16 ms. A fast spin smears over the frames it turned through.
-        const turned = (Math.abs(state.velocity) / ZOOM.perPixel / (width / 2)) * 16;
-        const smear = Math.min(WHEEL_FRAMES * 0.6, turned / (pitch / WHEEL_FRAMES));
-        return (
-          <Surface
-            shape={rrect(width, height, 10)}
-            relief={relief}
-            bakeKey={`wheel-${ridges}-${rim}`}
-            frames={WHEEL_FRAMES}
-            at={radians / pitch}
-            smear={smear}
-            grain={cell}
-            depth={depth}
-            drift={drift}
-          />
-        );
-      }}
-    </Thumbwheel>
-  );
-}
-
-/** Frames baked per groove of the zoom wheel. More turns more smoothly, at a bake each. */
-const WHEEL_FRAMES = 18;
-
-/**
- * A dithered bar (see drawDitherBar). With `reveal="sweep"` the fill eases toward `fill`, so each new third sweeps in
- * from the left. With `reveal="fade"` the whole fill cross-fades in place, for a switch whose knob already shows the
- * motion.
- */
-function DitherBar({
-  fill,
-  reveal = "sweep",
-  glow = GLOW_PAD,
-  idle,
-  width,
-  height,
-  radius,
-  cell,
-  dividers,
-  speed = 0.8,
-}: {
-  fill: number;
-  reveal?: "sweep" | "fade";
-  glow?: number;
-  /** Strength of the grey dither on the empty track, 0 to 1. */
-  idle: number;
-  width: number;
-  height: number;
-  radius: number;
-  cell: number;
-  dividers: readonly number[];
-  speed?: number;
-}) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const live = useRef({ fill, speed });
-  live.current = { fill, speed };
-
-  useEffect(() => {
-    const el = canvas.current;
-    if (!el) return;
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let shown = live.current.fill;
-    let clock = 0;
-    let last = performance.now();
-    let raf = 0;
-    const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      clock += dt * live.current.speed;
-      // The fade matches the knob's 240 ms slide; the sweep is a little slower so a new third reads as filling.
-      shown += (live.current.fill - shown) * (reduced ? 1 : 1 - Math.exp(-dt / (reveal === "fade" ? 0.08 : 0.14)));
-      const look = { cell, color: ACCENT, dividers, base: CAMERA_BG, glow, idle };
-      if (reveal === "fade") drawDitherBar(el, width, height, radius, 1, look, reduced ? 0 : clock, shown);
-      else drawDitherBar(el, width, height, radius, shown, look, reduced ? 0 : clock);
-    };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, [width, height, radius, cell, dividers, reveal, glow, idle]);
-
-  return <canvas ref={canvas} {...stylex.props(s.ditherBar(width, height, glow))} />;
-}
-
-const RetakeIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-    <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
+  lower: { position: "relative", flexGrow: 1 },
+  result: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", paddingTop: 18, paddingInline: 24, gap: 2 },
+  label: { fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "0.08em", textTransform: "uppercase", color: screen.muted, transition: colorFade },
+  name: { margin: 0, fontSize: 28, lineHeight: "34px", fontWeight: 600, letterSpacing: "-0.02em", animationName: riseIn, animationDuration: "350ms", animationTimingFunction: camera.easeOut },
+  countRow: { display: "flex", alignItems: "flex-end", gap: 12, marginTop: 10, height: 56 },
+  count: { fontFamily: fonts.mono, fontSize: 64, lineHeight: "56px", fontWeight: 200, letterSpacing: "-0.04em", fontVariantNumeric: "tabular-nums", animationName: riseIn, animationDuration: "250ms" },
+  countText: { display: "flex", flexDirection: "column", gap: 2, paddingBottom: 4 },
+  countWord: { fontSize: 18, lineHeight: "22px", fontWeight: 500 },
+  chips: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 14 },
+  chip: {
+    height: 28,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    paddingInline: 10,
+    borderRadius: radii.pill,
+    backgroundColor: screen.chrome,
+    fontSize: 13,
+    fontWeight: 500,
+    animationName: riseIn,
+    animationDuration: "300ms",
+    animationTimingFunction: camera.easeOut,
+  },
+  swatch: (color: string) => ({ width: 8, height: 8, flexShrink: 0, backgroundColor: color, boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.12)" }),
+  footer: { marginTop: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingBottom: 16 },
+  primary: {
+    width: "100%",
+    height: 52,
+    borderWidth: 0,
+    borderRadius: radii.pill,
+    backgroundColor: screen.chrome,
+    color: screen.muted,
+    fontFamily: fonts.sans,
+    fontSize: 17,
+    fontWeight: 600,
+    transition: "background-color 300ms ease, color 300ms ease",
+  },
+  primaryReady: { backgroundColor: screen.fg, color: screen.bg, cursor: "pointer" },
+  link: { padding: 0, borderWidth: 0, backgroundColor: "transparent", color: screen.muted, fontFamily: fonts.sans, fontSize: 15, fontWeight: 500, cursor: "pointer" },
+});
