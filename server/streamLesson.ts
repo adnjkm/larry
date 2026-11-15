@@ -1,7 +1,7 @@
 import type { Kit } from "../shared/kit.ts";
 import { Chapter, chapterProblems, headerProblems, Lesson, LessonError, LessonHeader, type Shown, type LessonEvent, lessonJsonSchema, lessonProblems, parseLesson, WORDS } from "../shared/lesson.ts";
-import { CATALOG } from "../src/primitives/catalog.ts";
-import { PRIMITIVES, formatSlider, initialValues } from "../src/primitives/library.ts";
+import { CATALOG } from "../shared/primitives/catalog.ts";
+import { PRIMITIVES, formatSlider, initialValues } from "../shared/primitives/library.ts";
 import { type Brain, streamStructured } from "./claude.ts";
 
 const SYSTEM_PROMPT = `You are Larry. You write interactive lessons that let a curious adult reinvent an everyday object from first principles. The bar is Bartosz Ciechanowski's article on the mechanical watch: an unbroken chain of reasoning in which every part appears because something before it failed, so that by the end the object looks inevitable.

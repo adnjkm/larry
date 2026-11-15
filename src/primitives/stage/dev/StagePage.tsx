@@ -2,10 +2,10 @@
 // window.__stage is the controller; window.__stageMany(n) mounts n still figures below (0 unmounts them).
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
-import { buttons, layout, type } from "../../../styles.ts";
+import { buttons, layout, type } from "../../../ui/styles.ts";
 import { colors, fonts } from "../../../tokens.stylex.ts";
-import { PRIMITIVES, formatSlider } from "../../library.ts";
-import type { Primitive, Values, Verdict } from "../../types.ts";
+import { PRIMITIVES, formatSlider } from "../../../../shared/primitives/library.ts";
+import type { Primitive, Values, Verdict } from "../../../../shared/primitives/types.ts";
 import { FigureStage, type StageController } from "../FigureStage.tsx";
 import { stageStats } from "../renderer.ts";
 import { startValues } from "../view.ts";

@@ -7,7 +7,7 @@ import { type Page, chromium } from "playwright-core";
 import { createServer } from "vite";
 import { parseKit } from "../shared/kit.ts";
 import { type Step, parseLesson } from "../shared/lesson.ts";
-import { CATALOG, PRIMITIVE_BY_ID } from "../src/primitives/catalog.ts";
+import { CATALOG, PRIMITIVE_BY_ID } from "../shared/primitives/catalog.ts";
 
 const root = resolve(import.meta.dirname, "..");
 const name = process.argv[2] ?? "pen";

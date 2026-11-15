@@ -6,11 +6,11 @@ import { type BufferGeometry, MeshBasicMaterial } from "three";
 import type { Part } from "../shared/kit.ts";
 import { rotationOf } from "../src/kit3d/buildKit.ts";
 import { buildGeometry } from "../src/kit3d/geometry.ts";
-import { framePrimitive } from "../src/primitives/framing.ts";
-import { PRIMITIVES } from "../src/primitives/library.ts";
+import { framePrimitive } from "../src/primitives/stage/framing.ts";
+import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { fixtureSpring } from "../src/primitives/stage/dev/fixture.ts";
 import { StageScene } from "../src/primitives/stage/scene.ts";
-import type { Primitive, Values } from "../src/primitives/types.ts";
+import type { Primitive, Values } from "../shared/primitives/types.ts";
 
 const FRAMES = 600;
 const wanted = process.argv.slice(2);

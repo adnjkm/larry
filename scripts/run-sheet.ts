@@ -6,8 +6,8 @@
 // game does: run-only values, the game's scene and the frame's marks. The drag ring is hidden.
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { PRIMITIVES } from "../src/primitives/library.ts";
-import type { Frame, Primitive, Values } from "../src/primitives/types.ts";
+import { PRIMITIVES } from "../shared/primitives/library.ts";
+import type { Frame, Primitive, Values } from "../shared/primitives/types.ts";
 import { launch, root } from "./stage-lib.ts";
 
 const args = process.argv.slice(2);

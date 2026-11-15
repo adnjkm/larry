@@ -4,9 +4,9 @@ import * as stylex from "@stylexjs/stylex";
 import { DialRoot, useDialKitController } from "dialkit";
 import "dialkit/styles.css";
 import { useEffect, useRef, useState } from "react";
-import { layout } from "../../styles.ts";
+import { layout } from "../../ui/styles.ts";
 import { GameScreen } from "../game/GameScreen.tsx";
-import { PRIMITIVES, type Primitive } from "../library.ts";
+import { PRIMITIVES, type Primitive } from "../../../shared/primitives/library.ts";
 
 const GAMES = PRIMITIVES.filter((p) => p.game);
 const options = GAMES.map((p, i) => ({ value: p.id, label: `${String(i + 1).padStart(2, "0")} ${p.name} · ${p.game?.name ?? ""}` }));

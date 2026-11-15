@@ -1,5 +1,5 @@
 // The pure rules of the game page: how a game's data becomes rows on screen. No React, so node --test covers it.
-import type { Meter, Slider, Verdict } from "../types.ts";
+import type { Meter, Slider, Verdict } from "../../../shared/primitives/types.ts";
 
 /** A control with min 0, max 1, step 1 is a toggle. */
 export const isToggle = (s: Slider): boolean => s.min === 0 && s.max === 1 && s.step === 1;

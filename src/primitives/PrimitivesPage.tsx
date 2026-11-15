@@ -1,11 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import { useRef, useState } from "react";
-import { chips, layout, type } from "../styles.ts";
+import { chips, layout, type } from "../ui/styles.ts";
 import { colors, fonts } from "../tokens.stylex.ts";
-import { PRIMITIVES, type Primitive, type Values, initialValues } from "./library.ts";
+import { PRIMITIVES, type Primitive, type Values, initialValues } from "../../shared/primitives/library.ts";
 import { PrimitiveFigure, madeOfPrimitives } from "./PrimitiveFigure.tsx";
 import { GameScreen } from "./game/GameScreen.tsx";
-import type { Level } from "./types.ts";
+import type { Level } from "../../shared/primitives/types.ts";
 
 const VIEWER_HEIGHT = 360;
 

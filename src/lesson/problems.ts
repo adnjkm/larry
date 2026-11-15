@@ -1,7 +1,7 @@
 // The logic of each problem type. A new type is one entry in each of the three maps below
 // (StateOf, ActionOf, PROBLEMS) and one entry in ProblemViews.tsx; the compiler flags any that is missing.
 import type { Problem, ProblemType } from "../../shared/lesson.ts";
-import type { Values } from "../primitives/types.ts";
+import type { Values } from "../../shared/primitives/types.ts";
 
 type Of<T extends ProblemType> = Extract<Problem, { type: T }>;
 

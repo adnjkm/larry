@@ -1,9 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { type ComponentProps, useEffect, useEffectEvent, useRef } from "react";
-import { chips, layout, notes, type } from "../styles.ts";
+import { chips, layout, notes, type } from "../ui/styles.ts";
 import { colors, fonts } from "../tokens.stylex.ts";
-import { PRIMITIVE_BY_ID } from "./catalog.ts";
-import { type Primitive, type Values, formatSlider } from "./library.ts";
+import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
+import { type Primitive, type Values, formatSlider } from "../../shared/primitives/library.ts";
 import { FigureStage, type StageController } from "./stage/FigureStage.tsx";
 
 const FIGURE_HEIGHT = 270;

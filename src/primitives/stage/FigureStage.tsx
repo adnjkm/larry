@@ -37,7 +37,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { type Ref, useEffect, useLayoutEffect, useRef } from "react";
 import { colors, fonts } from "../../tokens.stylex.ts";
-import type { Cue, Primitive, Values } from "../types.ts";
+import type { Cue, Primitive, Values } from "../../../shared/primitives/types.ts";
 import type { StageController } from "./controller.ts";
 import { type Palette, RING_COLOR } from "./looks.ts";
 import { type Mode, StageView, motionSlider } from "./view.ts";

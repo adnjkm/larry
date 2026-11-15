@@ -3,7 +3,7 @@ import { Button } from "@ui-sdk/react/button";
 import { useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import { downloadGlb } from "../kit3d/exportGlb.ts";
-import { buttons, notes, type } from "../styles.ts";
+import { buttons, notes, type } from "../ui/styles.ts";
 
 export function DownloadButton({ kit, primary = false }: { kit: Kit; primary?: boolean }) {
   const [status, setStatus] = useState<"idle" | "busy" | "failed">("idle");

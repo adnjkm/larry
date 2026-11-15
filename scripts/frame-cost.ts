@@ -10,7 +10,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
 import { createServer } from "vite";
-import { PRIMITIVES } from "../src/primitives/library.ts";
+import { PRIMITIVES } from "../shared/primitives/library.ts";
 
 const root = resolve(import.meta.dirname, "..");
 const cache = join(homedir(), "Library", "Caches", "ms-playwright");

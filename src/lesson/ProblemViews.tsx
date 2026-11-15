@@ -2,9 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { Button } from "@ui-sdk/react/button";
 import { type ReactNode, useEffect, useRef } from "react";
 import type { Problem, ProblemType } from "../../shared/lesson.ts";
-import { PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
+import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
 import { reducedMotion } from "../motion.ts";
-import { layout, notes, type } from "../styles.ts";
+import { layout, notes, type } from "../ui/styles.ts";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
 import type { ProblemAction, ProblemState } from "./problems.ts";
 

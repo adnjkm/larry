@@ -2,7 +2,7 @@
 import { type Kit, parseKit } from "../../shared/kit.ts";
 import { type Chapter, type Lesson, LessonEvent, type LessonHeader, parseLesson, type Shown } from "../../shared/lesson.ts";
 import { readEvents } from "../ndjson.ts";
-import { CATALOG } from "../primitives/catalog.ts";
+import { CATALOG } from "../../shared/primitives/catalog.ts";
 import { type Arrived, arrivedWhole } from "./model.ts";
 
 const LESSON_TIMEOUT_MS = 240_000;

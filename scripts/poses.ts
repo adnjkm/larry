@@ -5,8 +5,8 @@
 // not show the same picture in every cell.
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { PRIMITIVES } from "../src/primitives/library.ts";
-import type { Slider } from "../src/primitives/types.ts";
+import { PRIMITIVES } from "../shared/primitives/library.ts";
+import type { Slider } from "../shared/primitives/types.ts";
 import { launch, root } from "./stage-lib.ts";
 
 const FRACTIONS = [0.07, 0.29, 0.5, 0.71, 0.93];

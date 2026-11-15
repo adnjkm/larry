@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Meter, Slider } from "../types.ts";
+import type { Meter, Slider } from "../../../shared/primitives/types.ts";
 import { controlRows, meterFraction, meterMet, meterText, meterTextWidth, togglesLabel } from "./logic.ts";
 
 const slider = (id: string, over: Partial<Slider> = {}): Slider => ({ id, label: id, min: 0, max: 10, step: 1, initial: 0, ...over });

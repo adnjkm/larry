@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseKit } from "../shared/kit.ts";
 import { Lesson, type LessonEvent, type Shown, WORDS, chapterProblems, lessonProblems } from "../shared/lesson.ts";
-import { CATALOG } from "../src/primitives/catalog.ts";
+import { CATALOG } from "../shared/primitives/catalog.ts";
 import type { StructuredEvent } from "./claude.ts";
 import { keepShown, streamLesson } from "./streamLesson.ts";
 

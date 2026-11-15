@@ -6,13 +6,13 @@ import type { Lesson } from "../shared/lesson.ts";
 import { CapturePicker } from "./capture/CapturePicker.tsx";
 import { preparePhoto } from "./capture/preparePhoto.ts";
 import { requestKit } from "./capture/requestKit.ts";
-import { Chevron } from "./Chevron.tsx";
-import { Dots } from "./Dots.tsx";
+import { Chevron } from "./ui/Chevron.tsx";
+import { Dots } from "./ui/Dots.tsx";
 import { KitViewer } from "./kit3d/KitViewer.tsx";
 import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
 import { type FailedLoad, type LessonLoad, addLessonEvent, arrivedOf, hookOf, loadDemo, planning, requestLesson, shownOf } from "./lesson/lessonSource.ts";
 import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
-import { bars, buttons, layout, notes, type } from "./styles.ts";
+import { bars, buttons, layout, notes, type } from "./ui/styles.ts";
 import { colors, fonts } from "./tokens.stylex.ts";
 
 type Header = { name: string; summary: string };

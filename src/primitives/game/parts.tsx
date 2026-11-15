@@ -2,10 +2,10 @@
 // so while a run plays only these re-render and the page around them does not.
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, memo } from "react";
-import { type } from "../../styles.ts";
+import { type } from "../../ui/styles.ts";
 import { colors, fonts } from "../../tokens.stylex.ts";
-import { type Primitive, type Slider, formatSlider } from "../library.ts";
-import type { Game, Meter, Verdict } from "../types.ts";
+import { type Primitive, type Slider, formatSlider } from "../../../shared/primitives/library.ts";
+import type { Game, Meter, Verdict } from "../../../shared/primitives/types.ts";
 import { headlineText, meterFraction, meterMet, meterText, meterTextWidth, togglesLabel } from "./logic.ts";
 import { type GameStore, useSelect } from "./store.ts";
 

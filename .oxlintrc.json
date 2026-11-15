@@ -1,6 +1,8 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "jsPlugins": ["./lint/larry.js"],
+  "jsPlugins": [
+    "./lint/larry.js"
+  ],
   "rules": {
     "larry/grid": "error",
     "larry/font-tokens": "error",
@@ -8,9 +10,21 @@
   },
   "overrides": [
     {
-      "files": ["prototypes/**", "src/primitives/**"],
-      "rules": { "larry/grid": "warn", "larry/font-tokens": "warn", "larry/ui-sdk": "warn" }
+      "files": [
+        "prototypes/**",
+        "src/primitives/**",
+        "shared/primitives/**"
+      ],
+      "rules": {
+        "larry/grid": "warn",
+        "larry/font-tokens": "warn",
+        "larry/ui-sdk": "warn"
+      }
     }
   ],
-  "ignorePatterns": ["dist", "fixtures", "out"]
+  "ignorePatterns": [
+    "dist",
+    "fixtures",
+    "out"
+  ]
 }

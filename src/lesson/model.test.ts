@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { parseKit } from "../../shared/kit.ts";
 import { parseLesson } from "../../shared/lesson.ts";
-import { CATALOG, PRIMITIVE_BY_ID } from "../primitives/catalog.ts";
+import { CATALOG, PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
 import { type Action, type Arrived, type LessonState, arrivedWhole, chapterStatus, earnedParts, isComplete, isFinished, isWaiting, reduce, startLesson } from "./model.ts";
 
 const kit = parseKit(JSON.parse(readFileSync(new URL("../../fixtures/kits/pen.json", import.meta.url), "utf8")));

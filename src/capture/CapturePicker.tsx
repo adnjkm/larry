@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { FileInput, FileInputTrigger } from "@ui-sdk/react/file-input";
 import { MAX_PHOTOS } from "../../shared/photos.ts";
-import { buttons, layout, type } from "../styles.ts";
+import { buttons, layout, type } from "../ui/styles.ts";
 
 const styles = stylex.create({
   screen: { flexGrow: 1, display: "flex", flexDirection: "column", gap: 20 },

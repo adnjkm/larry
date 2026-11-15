@@ -2,8 +2,8 @@
 // game mode's drag handle. React only mounts the elements (FigureStage.tsx); everything per frame happens here.
 import type { Part } from "../../../shared/kit.ts";
 import { reducedMotion, rubberBand, spring, velocityTracker } from "../../motion.ts";
-import { framePrimitive } from "../framing.ts";
-import type { Cue, Primitive, Slider, Values } from "../types.ts";
+import { framePrimitive } from "./framing.ts";
+import type { Cue, Primitive, Slider, Values } from "../../../shared/primitives/types.ts";
 import { Motion } from "./controller.ts";
 import { LESSON_COLOR, type Palette, looksFor } from "./looks.ts";
 import { type Drawable, hasWebGL, register, renderTo, schedule, stageStats } from "./renderer.ts";

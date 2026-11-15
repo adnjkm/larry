@@ -1,7 +1,7 @@
 // The figure's values over time: set, play a Run, sweep. Pure: the stage calls tick(now) from its frame loop and
 // receives every pose through `apply`, so this runs under node --test with a fake clock.
 import type { Part } from "../../../shared/kit.ts";
-import type { Cue, Run, Slider, Values } from "../types.ts";
+import type { Cue, Run, Slider, Values } from "../../../shared/primitives/types.ts";
 
 /** What a page drives a figure with. See FigureStage.tsx for the whole API. */
 export type StageController = {

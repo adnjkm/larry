@@ -1,8 +1,8 @@
 // A stand-in spring with a handle, a reach and a game, for developing and testing the stage before the real models
 // carry theirs. Not part of the library. A finger pushes at most FINGER N, so the plate only goes down F / k mm.
 import type { Part } from "../../../../shared/kit.ts";
-import { COLOR, coil, cylinder, look, part, v3 } from "../../parts.ts";
-import type { Primitive, Run, Values, Verdict } from "../../types.ts";
+import { COLOR, coil, cylinder, look, part, v3 } from "../../../../shared/primitives/parts.ts";
+import type { Primitive, Run, Values, Verdict } from "../../../../shared/primitives/types.ts";
 
 const BASE_T = 6;
 const FREE = 80;

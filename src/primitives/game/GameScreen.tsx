@@ -3,13 +3,13 @@
 // component renders on phase changes only, and the small components in parts.tsx follow the controller on their own.
 import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Chevron } from "../../Chevron.tsx";
-import { HoldButton } from "../../lesson/HoldButton.tsx";
-import { bars, buttons, type } from "../../styles.ts";
+import { Chevron } from "../../ui/Chevron.tsx";
+import { HoldButton } from "../../ui/HoldButton.tsx";
+import { bars, buttons, type } from "../../ui/styles.ts";
 import { colors, fonts } from "../../tokens.stylex.ts";
 import { FigureStage } from "../stage/FigureStage.tsx";
 import { startValues } from "../stage/view.ts";
-import type { Cue, Primitive, Values, Verdict } from "../types.ts";
+import type { Cue, Primitive, Values, Verdict } from "../../../shared/primitives/types.ts";
 import { controlRows } from "./logic.ts";
 import { Divider, Meters, Readouts, Rows, SliderRow, ToggleRow, VerdictLine } from "./parts.tsx";
 import { GameStore } from "./store.ts";

@@ -2,7 +2,7 @@
 // small components that show them (meters, value text, verdict), so the page itself never renders per animation frame.
 import { useSyncExternalStore } from "react";
 import type { StageController } from "../stage/FigureStage.tsx";
-import type { Values } from "../types.ts";
+import type { Values } from "../../../shared/primitives/types.ts";
 
 export class GameStore {
   controller: StageController | null = null;

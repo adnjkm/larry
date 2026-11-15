@@ -19,7 +19,7 @@ Every run is a few phases, each a named constant in milliseconds at the top of t
 Total under 4500 ms.
 
 ## Easing carries meaning
-Use the shared helpers in `src/primitives/motion/ease.ts`:
+Use the shared helpers in `shared/primitives/motion/ease.ts`:
 - `smooth(t)` (ease in and out) for anything a hand moves.
 - `easeOut(t)` for anything released, sprung or dropped onto a stop.
 - `fall(t)` (t squared) for anything gravity takes.

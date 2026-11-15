@@ -4,7 +4,7 @@ import type { Finish } from "../../../shared/kit.ts";
 import type { Material } from "three";
 import { createDitherMaterial, createShadowMaterial } from "./ditherMaterial.ts";
 import { colors } from "../../tokens.stylex.ts";
-import { COLOR, SYNTHWAVE } from "../parts.ts";
+import { COLOR, SYNTHWAVE } from "../../../shared/primitives/parts.ts";
 import type { Looks } from "./scene.ts";
 
 /** "library": the primitives page, Synthwave shadow and pink. "lesson": the app's palette, orange for the piece the step is about and blue for annotations. */

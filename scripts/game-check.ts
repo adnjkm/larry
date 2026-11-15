@@ -7,9 +7,9 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "playwright-core";
-import { PRIMITIVES } from "../src/primitives/library.ts";
+import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { verdictText as shown } from "../src/primitives/game/logic.ts";
-import type { Primitive, Values, Verdict } from "../src/primitives/types.ts";
+import type { Primitive, Values, Verdict } from "../shared/primitives/types.ts";
 import { launch, root } from "./stage-lib.ts";
 
 const id = process.argv[2] ?? "spring";

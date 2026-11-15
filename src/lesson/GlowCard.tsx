@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import glow from "../assets/glow-card.svg";
-import { notes } from "../styles.ts";
+import { notes } from "../ui/styles.ts";
 
 const styles = stylex.create({
   wrap: { position: "relative", marginBlock: 10 },

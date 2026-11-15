@@ -1,8 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@ui-sdk/react/button";
 import type { Kit } from "../../shared/kit.ts";
-import { Dots } from "../Dots.tsx";
-import { bars, buttons, layout, notes, type } from "../styles.ts";
+import { Dots } from "../ui/Dots.tsx";
+import { bars, buttons, layout, notes, type } from "../ui/styles.ts";
 import { colors, radii } from "../tokens.stylex.ts";
 import { DownloadButton } from "./DownloadButton.tsx";
 import { type LessonLoad, arrivedOf } from "./lessonSource.ts";
