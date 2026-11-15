@@ -279,6 +279,11 @@ export type Story = {
   kit?: Kit;
   view?: View;
   build?: BuildStyle;
+  /**
+   * Learn shows each library primitive's free play (shared/primitives `play`): a finger on its handle, what it does when
+   * let go, then its sliders and the line of its law. Next opens once it has been moved and a slider tried.
+   */
+  freePlay?: true;
 };
 
 export type StoryModuleSpec = Omit<StoryModule, "teach" | "main" | "enter"> & { primitive: string; teach?: readonly string[]; enter?: Vec };

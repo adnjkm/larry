@@ -99,6 +99,7 @@ export function StoryFlow({
           next={module.place ? "Next: find the spot" : "Next: build it"}
           inObject={(p) => objectFor(story, kit, module, p)}
           view={story.view}
+          freePlay={story.freePlay}
           onNext={() => setStage(module.id, module.place ? "place" : "assemble")}
         />
       );

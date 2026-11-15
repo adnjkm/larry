@@ -423,6 +423,7 @@ const CAM_MID = (PEN.camBottom + PEN.camTop) / 2;
 export default defineStory({
   id: "pen",
   view: { ...DEFAULT_VIEW, shadow: false },
+  freePlay: true,
   objectName: "Click pen",
   match: /\bpen\b/i,
   build: "drag",

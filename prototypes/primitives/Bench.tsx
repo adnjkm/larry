@@ -76,36 +76,6 @@ html, body { background: #efefef; }
 .bench-lesson { position: relative; width: 100%; height: 100%; overflow: hidden; background: #fff; color: #141414; font-family: Geist, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 .bench-lesson .screen { height: 100%; max-width: none; }
 
-/* The figure stands on the screen itself, no frame, and takes the height the screen leaves it. */
-.figure { position: relative; flex: 1 1 0; min-height: 150px; margin: 0 -16px; }
-.figure > :first-child { position: absolute; inset: 0; }
-
-/* The sliders keep their room from the start, hidden; once the figure has been moved they rise in, 40 ms apart. */
-.tuning { flex: none; display: flex; flex-direction: column; padding-bottom: 12px; }
-.tuning > * { opacity: 0; transform: translateY(12px); transition: opacity 280ms var(--ease-out), transform 360ms var(--ease-out); }
-.tuning[data-shown] > * { opacity: 1; transform: none; }
-.tuning[data-shown] > :nth-child(2) { transition-delay: 40ms; }
-.tuning[data-shown] > :nth-child(3) { transition-delay: 80ms; }
-
-/* A slider's end words sit under the bar's two ends. */
-.track-ends { position: relative; min-width: 0; }
-.slider[data-ends] { padding-bottom: 14px; }
-.ends { position: absolute; left: 0; right: 0; bottom: -12px; display: flex; justify-content: space-between; font-family: "Geist Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--graphite); pointer-events: none; }
-
-/* The law, one line: ink on white, a faint zero, a pink dot for where the machine is now. */
-.plot { margin: 0 0 8px; }
-/* Inset by half the ball, so it is whole at both ends of the line. */
-.plot-area { position: relative; height: 72px; margin: 0 7px; }
-.plot svg { display: block; width: 100%; height: 72px; overflow: visible; }
-.plot-line { fill: none; stroke: var(--ink); stroke-width: 1.5px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.plot-zero { stroke: var(--rule); stroke-width: 1px; vector-effect: non-scaling-stroke; }
-.plot-dot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; pointer-events: none; }
-.plot-dot > * { position: absolute; inset: 0; }
-.plot figcaption { margin-top: 4px; }
-
-/* Next rises in the same way once a slider has been tried. */
-.reveal { flex: none; opacity: 0; transform: translateY(12px); transition: opacity 280ms var(--ease-out), transform 360ms var(--ease-out); }
-.reveal[data-shown] { opacity: 1; transform: none; }
 /* Each step fades in as it takes the screen. */
 .step-in { animation: step-in 320ms var(--ease-out) both; }
 @keyframes step-in { from { opacity: 0; } }

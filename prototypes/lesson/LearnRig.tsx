@@ -6,7 +6,8 @@ import { GameStore, useSelect } from "../../src/primitives/game/store.ts";
 import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
 import type { Primitive, Slider } from "../../shared/primitives/types.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
-import { startValues } from "../../shared/primitives/types.ts";
+import { playMotion, playTuning, playValues, startValues } from "../../shared/primitives/types.ts";
+import { LawPlot, TuneRow } from "../primitives/PrimitiveScreen.tsx";
 import { framingParts, type InObject } from "./Learn.tsx";
 import { type Rig as RigSpec, type StoryModule, type View, zoneAt } from "./model.ts";
 import { initialValues, PRIMITIVES as FIRST_PASS, type Values } from "./primitives/library.ts";
@@ -103,6 +104,48 @@ function Rig({ primitive, controls, children }: { primitive: Primitive; controls
   );
 }
 
+/**
+ * Free play, for a story with `freePlay`: the library's bare machine worked by a finger on its handle, doing what the
+ * real thing does when let go. Once it has been moved, its sliders and the line of its law rise in under it (the same
+ * pieces as the primitives bench). Ready once moved and, where it has sliders, one of them tried.
+ */
+function PlayRig({ primitive, onReady, children }: { primitive: Primitive; onReady: (ready: boolean) => void; children: ReactNode }) {
+  const store = useMemo(() => new GameStore(playValues(primitive)), [primitive]);
+  const motion = playMotion(primitive);
+  const tuning = playTuning(primitive);
+  const plot = primitive.play?.plot;
+  const [moved, setMoved] = useState(false);
+  const [tuned, setTuned] = useState(false);
+  const start = useRef(playValues(primitive));
+  useEffect(
+    () =>
+      store.subscribe(() => {
+        const now = store.snapshot();
+        if (now[motion.id] !== start.current[motion.id]) setMoved(true);
+        if (tuning.some((s) => now[s.id] !== start.current[s.id])) setTuned(true);
+      }),
+    [store],
+  );
+  const ready = moved && (tuned || tuning.length === 0);
+  useEffect(() => onReady(ready), [ready]);
+  const [box, height] = useHeight();
+  return (
+    <>
+      <div className="viewer" data-figure={primitive.id} data-moved={moved ? "" : undefined} ref={box}>
+        {height > 0 ? <FigureStage primitive={primitive} mode="play" palette="library" height={height} controllerRef={store.attach} /> : null}
+      </div>
+      {children}
+      {/* Laid out from the start but hidden, so the figure keeps its size when they rise in. */}
+      <div className="tuning rig-rows" data-rig={primitive.id} data-shown={moved ? "" : undefined} inert={!moved}>
+        {plot ? <LawPlot store={store} plot={plot} /> : null}
+        {tuning.map((s) => (
+          <TuneRow key={s.id} store={store} slider={s} />
+        ))}
+      </div>
+    </>
+  );
+}
+
 const SWEEP_SECONDS = 4;
 
 /** A first-pass figure in the lesson's own viewer, with its rig's controls as the same slider rows, and the Play sweep. */
@@ -181,11 +224,13 @@ type Props = {
   next: string;
   inObject: (p: StoryModule["teach"][number]) => InObject;
   view?: View;
+  /** Learn as free play (Story `freePlay`). */
+  freePlay?: boolean;
   onNext: () => void;
 };
 
 /** One tab per taught primitive: its library figure with the handle on the part, what it does in this object, and its slider. */
-export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props) {
+export function LearnRig({ module, kicker, next, inObject, view, freePlay = false, onNext }: Props) {
   const [tab, setTab] = useState(0);
   const taught = module.teach;
   const p = taught[tab]!;
@@ -193,6 +238,9 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
   // LearnRig is keyed per module, so `inObject` answers the same for a primitive for as long as this screen lives.
   const here = useMemo(() => inObject(p), [p]);
   const [met, setMet] = useState(false);
+  const [played, setPlayed] = useState(false);
+  const library = libraryOf(p);
+  const playing = freePlay && library.play !== undefined;
 
   const use = (
     <section className="use" data-use={p.id}>
@@ -229,18 +277,22 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
           ))}
         </div>
       ) : null}
-      {FIRST_PASS_FIGURE.has(p.id) ? (
+      {playing ? (
+        <PlayRig key={p.id} primitive={library} onReady={setPlayed}>
+          {use}
+        </PlayRig>
+      ) : FIRST_PASS_FIGURE.has(p.id) ? (
         <FirstPassRig key={p.id} id={p.id} controls={rig.controls} goal={rig.goal} onMet={setMet}>
           {use}
         </FirstPassRig>
       ) : (
-        <Rig key={p.id} primitive={libraryOf(p)} controls={rig.controls}>
+        <Rig key={p.id} primitive={library} controls={rig.controls}>
           {use}
         </Rig>
       )}
       <Actions>
-        {/* Where the primitive can be tuned to meet the requirement, Next stays locked until it is met. */}
-        <button type="button" className="btn" data-next disabled={rig.goal !== undefined && !met} onClick={onNext}>
+        {/* Locked until the requirement is met (where the primitive can be tuned to it), or until free play has been tried. */}
+        <button type="button" className="btn" data-next disabled={(rig.goal !== undefined && !met) || (playing && !played)} onClick={onNext}>
           <PillSurface>{next}</PillSurface>
         </button>
       </Actions>

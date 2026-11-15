@@ -202,7 +202,8 @@ class Run {
     if (viewers) await this.page.waitForSelector(`[data-stage="${stage}"] .viewer [data-kit-viewer][data-ready]`, { timeout: READY });
     await this.page.waitForTimeout(300);
     const explode = await this.page.locator(`[data-stage="${stage}"] [data-explode]`).count();
-    const drawn = await this.page.locator("img, svg").count();
+    // A free-play law plot is a graph, not a drawing of the object, so it is the one svg allowed.
+    const drawn = await this.page.locator("img, svg:not([data-plot] svg)").count();
     // Learn shows a primitive, and Find the spot keeps the object whole to put a piece on it, so only they go without Explode.
     const bare = stage === "learn" || stage === "place";
     this.check(
@@ -1041,21 +1042,48 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
 
     await r.stage("learn");
     await r.noDigits(`${tag} learn`);
-    // The figure moves only by the control under it (no drag handle on the figure): a wheel by its keys, a bar by its range.
     const row = '[data-stage="learn"] [data-rig] .grip';
-    r.check(`${tag} learn: no drag handle on the figure`, (await r.page.locator('[data-stage="learn"] [data-handle]').count()) === 0);
-    const before = await r.gripAt(row);
-    if ((await r.page.locator(`${row}[role="slider"]`).count()) > 0) {
-      await r.page.focus(row);
-      for (let i = 0; i < 8; i++) await r.page.keyboard.press(Number(before) > 500 ? "ArrowLeft" : "ArrowRight");
-    } else await r.setRange(row, Number(before) > 500 ? 100 : 900);
-    await r.page.waitForTimeout(200);
-    const after = await r.gripAt(row);
-    r.check(
-      `${tag} learn: "${(await r.page.textContent('[data-stage="learn"] [data-rig] .mono')) ?? ""}" moves the figure`,
-      before !== after,
-      `${before} → ${after}`,
-    );
+    if (story.freePlay) {
+      // Free play: Next waits; a finger on the figure's handle moves the machine and brings in its sliders; trying one opens Next.
+      const lockedAtFirst = (await r.page.locator('[data-stage="learn"] [data-next]:disabled').count()) === 1;
+      const handle = '[data-stage="learn"] [data-handle]';
+      let moved = false;
+      for (const [dx, dy] of [
+        [60, 0],
+        [0, 60],
+        [-60, 0],
+        [0, -60],
+      ] as const) {
+        const at = await r.centreOf(handle);
+        await r.page.mouse.move(at.x, at.y);
+        await r.page.mouse.down();
+        await r.page.mouse.move(at.x + dx, at.y + dy, { steps: 10 });
+        moved = (await r.page.locator('[data-stage="learn"] [data-figure][data-moved]').count()) > 0;
+        await r.page.mouse.up();
+        await r.page.waitForTimeout(600);
+        if (moved) break;
+      }
+      r.check(`${tag} learn: free play starts with Next locked, and the handle moves the machine`, lockedAtFirst && moved);
+      const tune = '[data-stage="learn"] .tuning[data-shown] input[type="range"]';
+      if ((await r.page.locator(tune).count()) > 0) await r.setRange(tune, 150);
+      await r.page.waitForTimeout(300);
+      r.check(`${tag} learn: once moved and tuned, Next opens`, (await r.page.locator('[data-stage="learn"] [data-next]:not([disabled])').count()) === 1);
+    } else {
+      // The figure moves only by the control under it (no drag handle on the figure): a wheel by its keys, a bar by its range.
+      r.check(`${tag} learn: no drag handle on the figure`, (await r.page.locator('[data-stage="learn"] [data-handle]').count()) === 0);
+      const before = await r.gripAt(row);
+      if ((await r.page.locator(`${row}[role="slider"]`).count()) > 0) {
+        await r.page.focus(row);
+        for (let i = 0; i < 8; i++) await r.page.keyboard.press(Number(before) > 500 ? "ArrowLeft" : "ArrowRight");
+      } else await r.setRange(row, Number(before) > 500 ? 100 : 900);
+      await r.page.waitForTimeout(200);
+      const after = await r.gripAt(row);
+      r.check(
+        `${tag} learn: "${(await r.page.textContent('[data-stage="learn"] [data-rig] .mono')) ?? ""}" moves the figure`,
+        before !== after,
+        `${before} → ${after}`,
+      );
+    }
     // Where the primitive can be tuned to meet the requirement, sliding up from the bottom gets there.
     if ((await r.page.locator('[data-stage="learn"] [data-need][data-met]').count()) > 0) {
       const met = async () => (await r.page.getAttribute('[data-stage="learn"] [data-need]', "data-met")) === "yes";

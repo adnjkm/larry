@@ -252,7 +252,7 @@ function Figure({ primitive, mode, store }: { primitive: Primitive; mode: Figure
  * A slider as the lesson's pink dithered bar. No number on it: the figure shows what it does. Its two end words, when
  * it has them ("Soft", "Stiff"), sit under the bar's ends so the direction means something.
  */
-function TuneRow({ store, slider }: { store: GameStore; slider: Slider }) {
+export function TuneRow({ store, slider }: { store: GameStore; slider: Slider }) {
   const value = useSelect(store, (v) => v[slider.id] ?? slider.initial);
   const span = slider.max - slider.min || 1;
   const fraction = (value - slider.min) / span;
@@ -284,7 +284,7 @@ const BALL = 14;
 const PLOT_H = 72;
 
 /** The primitive's law as one line, reshaped live as the sliders move, with the dot where the machine is now. */
-function LawPlot({ store, plot }: { store: GameStore; plot: NonNullable<NonNullable<Primitive["play"]>["plot"]> }) {
+export function LawPlot({ store, plot }: { store: GameStore; plot: NonNullable<NonNullable<Primitive["play"]>["plot"]> }) {
   const p = useSelect(store, (v) => {
     const out = plot(v);
     return JSON.stringify(out);
@@ -303,7 +303,16 @@ function LawPlot({ store, plot }: { store: GameStore; plot: NonNullable<NonNulla
         {dot ? (
           <span className="plot-dot" style={{ left: `${dot[0] * 100}%`, top: `${(((1 - dot[1]) * (PLOT_H - 4) + 2) / PLOT_H) * 100}%` }}>
             {/* A pink ball, raised and dithered like the progress keys. */}
-            <Surface shape={circle(BALL)} relief="cap" material="pink" ground="light" grain={CAMERA.grain} depth={CAMERA.relief} drift={CAMERA.idleDither} pad={4} />
+            <Surface
+              shape={circle(BALL)}
+              relief="cap"
+              material="pink"
+              ground="light"
+              grain={CAMERA.grain}
+              depth={CAMERA.relief}
+              drift={CAMERA.idleDither}
+              pad={4}
+            />
           </span>
         ) : null}
       </div>
