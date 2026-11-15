@@ -24,7 +24,12 @@ export type Turn = { axis: Vec; pivot: Vec; deg: number };
 /** How one part sits away from its kit pose: turned in list order, then shifted by `offset`. */
 export type PartMove = { offset?: Vec; turns?: readonly Turn[] };
 /** One assembly leaving the object: part `id` and every part fixed to it (see familyOf) ride one spring, and `at` is where they sit a `share` of the way out, 0 home and 1 apart. */
-export type Leave = { id: string; at: (share: number) => PartMove };
+export type Leave = {
+  id: string;
+  at: (share: number) => PartMove;
+  /** Stays partly inside the assemblies round it when apart, like a refill in its barrel. */
+  sleeved?: true;
+};
 /** How an object comes apart: its assemblies in the order they leave, outside first. Parts in none of them stay put. */
 export type ExplodePlan = { order: readonly Leave[] };
 /** How far out each assembly of an ExplodePlan is right now, by its id. */
@@ -467,7 +472,7 @@ export function missingParts(lesson: Workshop | Story, kit: Kit): string[] {
     lesson.kind === "workshop"
       ? lesson.modules.flatMap((m) => [...m.produces, m.suspect, ...Object.keys(m.misses)])
       : lesson.modules.flatMap((m) => [...m.produces, ...m.without.adds]);
-  const ids = new Set(kit.parts.map((p) => p.id));
+  const ids = new Set((lesson.kind === "story" && lesson.kit ? lesson.kit : kit).parts.map((p) => p.id));
   return [...new Set(named)].filter((id) => !ids.has(id));
 }
 
