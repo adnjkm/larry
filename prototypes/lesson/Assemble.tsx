@@ -206,11 +206,9 @@ function TapBuild({ lesson, kit, index, next, onNext }: BuildProps & { next: str
         </div>
       )}
       <Actions>
-        {placed ? (
-          <button type="button" className="btn" data-next onClick={onNext}>
-            <PillSurface>{next}</PillSurface>
-          </button>
-        ) : null}
+        <button type="button" className="btn" data-next disabled={!placed} onClick={onNext}>
+          <PillSurface>{next}</PillSurface>
+        </button>
       </Actions>
     </main>
   );

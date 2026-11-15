@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Kit, Part, Shape } from "../../shared/kit.ts";
 import { play, useAlive } from "./anim.ts";
+import { PillSurface } from "../../src/ui/PillSurface.tsx";
 import { Cheer } from "./Cheer.tsx";
 import { cornersOf, cover, GHOST, MIN_HIT, screenBox } from "./DragBuild.tsx";
 import { lensOf, type Point } from "./lens.ts";
@@ -295,7 +296,7 @@ export function Place({ story, kit, index, next, onNext }: Props) {
       </p>
       <Actions>
         <button type="button" className="btn" data-next disabled={!found} onClick={onNext}>
-          {next}
+          <PillSurface>{next}</PillSurface>
         </button>
       </Actions>
     </main>

@@ -261,12 +261,12 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
               <PillSurface>Another object</PillSurface>
             </button>
           </>
-        ) : done ? (
-          // Only once the task is done: until then there's nothing to move on to.
-          <button type="button" className="btn" data-next onClick={onNext}>
+        ) : (
+          // Always there, so the way on is visible; it opens once the task is done.
+          <button type="button" className="btn" data-next disabled={!done} onClick={onNext}>
             <PillSurface>{nextLabel}</PillSurface>
           </button>
-        ) : null}
+        )}
       </Actions>
     </main>
   );

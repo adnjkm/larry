@@ -1001,7 +1001,10 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
     await r.stage("problem");
     await r.noDigits(`${tag} problem`);
     await r.framed("problem", `${tag} problem`, false);
-    r.check(`${tag} opens on "${m.without.say}" with no Next yet`, (await said()) === m.without.say && (await r.page.locator("[data-next]").count()) === 0);
+    r.check(
+      `${tag} opens on "${m.without.say}" with Next there but locked`,
+      (await said()) === m.without.say && (await r.page.locator("[data-next]:disabled").count()) === 1,
+    );
     if (m.need) r.check(`${tag} problem states the requirement "${m.need}"`, ((await r.page.textContent("[data-need] .need-text")) ?? "").trim() === m.need);
     const opener = await r.runTests([m.without.test.id], `${tag}-without`, true, LATER_MS);
     r.check(
