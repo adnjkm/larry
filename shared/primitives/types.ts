@@ -28,6 +28,12 @@ export function steps(s: Slider): number[] {
   return Array.from({ length: n + 1 }, (_, i) => Number((s.min + i * s.step).toFixed(10)));
 }
 
+/** `count` values spread from a slider's min to its max, each on the slider's own step grid. */
+export function sliderSamples(s: Slider, count: number): number[] {
+  const n = Math.round((s.max - s.min) / s.step);
+  return [...new Set(Array.from({ length: count }, (_, i) => Math.round((i * n) / (count - 1))))].map((k) => s.min + k * s.step);
+}
+
 /** `x` held inside the slider's range and snapped to its step grid. */
 export const snap = (s: Slider, x: number): number => clamp(Number((s.min + Math.round((x - s.min) / s.step) * s.step).toFixed(10)), s.min, s.max);
 
