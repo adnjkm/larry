@@ -195,7 +195,10 @@ class Run {
     await this.page.click("[data-why]");
     await this.page.waitForSelector("[data-sheet][open]");
     await inside();
-    await this.page.click("[data-sheet][open] [data-close]");
+    // A tap anywhere off the card shuts it.
+    await this.page.mouse.click(4, 4);
+    await this.page.waitForSelector("[data-sheet][open]", { state: "detached", timeout: 2000 }).catch(() => undefined);
+    this.check("a tap off the Why card closes it", (await this.page.locator("[data-sheet][open]").count()) === 0);
   }
 
   async open(sample: string, query: Query, url: string, plain = false) {

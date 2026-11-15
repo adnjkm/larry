@@ -6,6 +6,7 @@ import { type Slider, formatSlider } from "./primitives/library.ts";
 import { SYNTHWAVE } from "./primitives/parts.ts";
 import { DitherRange, TRACK, Wheel } from "./controls.tsx";
 import { Beam } from "./Beam.tsx";
+import { FunkyFrame } from "./FunkyFrame.tsx";
 import { Dither } from "./dither.tsx";
 import { DEFAULT_VIEW, type View, type Zone, zoneAt as zoneOf } from "./model.ts";
 import { fitFrame, reuseParts } from "./pose.ts";
@@ -185,6 +186,16 @@ export function Why({ label = WHY, title, children }: { label?: string; title: s
   // Once the sheet has been opened and closed on this screen, the button goes back to plain.
   const [seen, setSeen] = useState(false);
   const close = () => sheet.current?.close();
+  // The card's size, for its dithered frame. It is 0 while the sheet is shut and measured when it opens.
+  const card = useRef<HTMLDivElement>(null);
+  const [cardSize, setCardSize] = useState({ width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const el = card.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setCardSize({ width: el.offsetWidth, height: el.offsetHeight }));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   useLayoutEffect(() => {
     const el = button.current;
     if (!el) return;
@@ -202,12 +213,14 @@ export function Why({ label = WHY, title, children }: { label?: string; title: s
         {lit ? <Beam width={size.width} height={size.height} /> : null}
       </span>
       <dialog ref={sheet} className="sheet" data-sheet aria-label={title} onClick={(e) => e.target === sheet.current && close()} onClose={() => setSeen(true)}>
-        <div className="sheet-in">
-          <div className="sheet-head">
-            <strong>{title}</strong>
-            <button type="button" className="link" data-close onClick={close}>Close</button>
+        <div className="sheet-card" ref={card}>
+          {cardSize.width > 0 ? <FunkyFrame width={cardSize.width} height={cardSize.height} /> : null}
+          <div className="sheet-in">
+            <div className="sheet-head">
+              <strong>{title}</strong>
+            </div>
+            {children}
           </div>
-          {children}
         </div>
       </dialog>
     </>

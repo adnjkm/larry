@@ -38,6 +38,7 @@ function Lesson({ screen, onCamera }: { screen: PhoneScreen; onCamera: () => voi
       const root = document.documentElement.style;
       root.setProperty("--phone-left", `${r.left}px`);
       root.setProperty("--phone-bottom", `${window.innerHeight - r.bottom}px`);
+      root.setProperty("--phone-top", `${r.top}px`);
       root.setProperty("--phone-width", `${screen.width}px`);
       root.setProperty("--phone-height", `${screen.height}px`);
       root.setProperty("--phone-scale", String(scale));
@@ -71,12 +72,15 @@ export function Demo() {
 const DEMO_CSS = `
 .demo-lesson { position: relative; width: 100%; height: 100%; overflow: hidden; background: #fff; color: #141414; font-family: Geist, system-ui, sans-serif; -webkit-font-smoothing: antialiased; animation: demo-lesson-in 420ms cubic-bezier(0.23, 1, 0.32, 1); }
 .demo-lesson .screen { height: 100%; max-width: none; }
+/* The Why card sits in the middle of the phone's screen, at the phone's scale. */
 .demo-lesson dialog.sheet[open] {
-  position: fixed; inset: auto auto var(--phone-bottom) var(--phone-left); margin: 0;
-  width: var(--phone-width); max-width: none; max-height: calc(var(--phone-height) * 0.8);
-  transform: scale(var(--phone-scale)); transform-origin: bottom left;
+  position: fixed; inset: auto; margin: 0;
+  left: calc(var(--phone-left) + var(--phone-width) * var(--phone-scale) / 2);
+  top: calc(var(--phone-top) + var(--phone-height) * var(--phone-scale) / 2);
+  width: min(calc(var(--phone-width) - 40px), 380px);
+  translate: -50% -50%; scale: var(--phone-scale);
 }
-.demo-lesson dialog.sheet .sheet-in { max-height: calc(var(--phone-height) * 0.8); }
+.demo-lesson dialog.sheet .sheet-in { max-height: calc(var(--phone-height) * 0.64); }
 @keyframes demo-lesson-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .demo-lesson { animation: none; } }
 `;
