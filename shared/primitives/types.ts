@@ -124,6 +124,8 @@ export type Task = {
    * right (lift the plank to the green). Left out, the hand is put away and only the sliders can meet the goal.
    */
   hand?: boolean;
+  /** With `hand`: how far the hand can move the handle's slider during the task, inside its own reach. */
+  reach?: (v: Values) => [number, number];
   /**
    * The sliders shown while the task is on, by id: any of the play's, the hand's own included, since the hand is put
    * away during a task. Left out, the play's tuning sliders (all but the hand's).

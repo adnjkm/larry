@@ -399,7 +399,10 @@ export class StageView implements Drawable {
     let drag: { id: number; left: number; top: number; dx: number; dy: number; limited: boolean; raw: number } | undefined;
     const reach = (v: Values): [number, number] => {
       const [lo, hi] = handReach?.(v) ?? [slider.min, slider.max];
-      return [Math.max(slider.min, lo), Math.min(slider.max, hi)];
+      // A task the hand does may stop it short: the grip's plank stops at the green.
+      const task = this.task === undefined ? undefined : play?.tasks?.[this.task];
+      const [tlo, thi] = task?.reach?.(v) ?? [lo, hi];
+      return [Math.max(slider.min, lo, tlo), Math.min(slider.max, hi, thi)];
     };
     // Which way the hand is moving the slider, for the let-go: the short way round, so a turn wrapping past 1 to 0 is up.
     let way: 1 | -1 = 1;

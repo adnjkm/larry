@@ -329,8 +329,8 @@ function rampBuild(v: Values): Part[] {
 // has slid off sits on the plate a moment, then is carried back to its spot.
 const PLANK_FALL_MS = 420;
 const SLIDE_MS = 420;
-const LANDED_MS = 500;
-const CARRY_MS = 650;
+const LANDED_MS = 150;
+const CARRY_MS = 450;
 
 function letGo(v: Values): Motion {
   const r = ramp(v);
@@ -370,23 +370,16 @@ export const TARGET = 35;
 /** Within this of the green counts as there: half the tilt's step. */
 const NEAR = 0.5;
 
-/** How long the block has to stay put at the green, ms: a held second, not a lift that brushes past. */
-const HOLD_MS = 1000;
-
 /**
- * Watches the hand: `held` counts the time the plank has been at the green with the block still on its spot, and
- * `reached` is set once that has lasted HOLD_MS. A slide clears both: lifting on past the green until the block goes is
- * not the goal. `failed` records a slide, for the hint. It only records; the hand and the let-go move the machine.
+ * Watches the hand: `reached` once the plank has been lifted to the green (where it stops) with the block still on its
+ * spot; `failed` once the block has slid, for the hint. It only records; the hand and the let-go move the machine.
  */
-function watch(v: Values, _ms: number, dtMs: number): Values {
+function watch(v: Values): Values {
   const r = ramp(v);
-  const atGreen = r.tilt >= TARGET - NEAR && r.slid === 0 && r.put === 0;
-  const slid = r.slid > 0;
-  const held = slid ? 0 : atGreen ? (v.held ?? 0) + dtMs : 0;
-  const reached = slid ? 0 : held >= HOLD_MS ? 1 : (v.reached ?? 0);
-  const failed = slid ? 1 : (v.failed ?? 0);
-  if (held === (v.held ?? 0) && reached === (v.reached ?? 0) && failed === (v.failed ?? 0)) return v;
-  return { ...v, held, reached, failed };
+  const reached = r.tilt >= TARGET - NEAR && r.slid === 0 && r.put === 0 ? 1 : (v.reached ?? 0);
+  const failed = r.slid > 0 ? 1 : (v.failed ?? 0);
+  if (reached === (v.reached ?? 0) && failed === (v.failed ?? 0)) return v;
+  return { ...v, reached, failed };
 }
 
 /** The ghost plank at the green angle: a see-through sheet the plank's size, with a solid green rim. */
@@ -405,8 +398,10 @@ function ghost(): Part[] {
 
 const TASKS: Task[] = [
   {
-    goal: "Hold it at the green without it slipping.",
+    goal: "Lift it to the green without it slipping.",
     hand: true,
+    // The plank stops at the green: lift it as far as it goes, and the grip decides the rest.
+    reach: () => [0, TARGET],
     scene: ghost,
     // Reached by hand, and still a grip that holds there: turned down after, it no longer would.
     met: (v) => (v.reached ?? 0) > 0 && slipAngle(v.mu ?? GRIP.initial) >= TARGET,
