@@ -203,10 +203,11 @@ class Run {
     await this.page.waitForTimeout(300);
     const explode = await this.page.locator(`[data-stage="${stage}"] [data-explode]`).count();
     const drawn = await this.page.locator("img, svg").count();
-    // Learn shows a primitive, not the object, so only it may go without Explode.
+    // Learn shows a primitive, and Find the spot keeps the object whole to put a piece on it, so only they go without Explode.
+    const bare = stage === "learn" || stage === "place";
     this.check(
-      `${stage}: object in the 3D viewer${stage === "learn" ? "" : " with Explode"}, no <img> or <svg>`,
-      viewers === 1 && (stage === "learn" || explode === 1) && drawn === 0,
+      `${stage}: object in the 3D viewer${bare ? "" : " with Explode"}, no <img> or <svg>`,
+      viewers === 1 && (bare || explode === 1) && drawn === 0,
       `${viewers} viewers, ${explode} explode, ${drawn} img/svg`,
     );
     await this.fits(stage);
@@ -1059,15 +1060,49 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
     });
     await r.page.click("[data-next]");
 
-    await r.stage("assemble");
-    await r.noDigits(`${tag} build`);
-    await r.framed("assemble", `${tag} assemble`);
-    await r.dragBuild(tag, i === 0);
-    await r.page.waitForTimeout(SETTLE_MS);
-    await r.framed("assemble", `${tag} built`, true, shareOf(kit, m.produces));
-    await r.noDigits(`${tag} built`);
-    await r.shot(`${tag}-built`);
-    await r.page.click("[data-next]");
+    if (m.place) {
+      // Find the spot: every wrong spot goes wrong and says why, and only the right one opens Next.
+      await r.stage("place");
+      await r.noDigits(`${tag} place`);
+      await r.shot(`${tag}-place`);
+      const resultLine = async () => ((await r.page.textContent('[data-stage="place"] [data-result-line]')) ?? "").trim();
+      for (const spot of m.place.spots.filter((p) => !p.right)) {
+        await r.page.click(`[data-spot="${spot.id}"]`);
+        await r.page.waitForTimeout(MID_TEST_MS);
+        await r.noDigits(`${tag} place ${spot.id} mid-run`);
+        await r.shot(`${tag}-place-${spot.id}`);
+        await r.page.waitForSelector(`[data-spot="${spot.id}"][data-tried]`, { timeout: TEST_TIMEOUT });
+        r.check(
+          `${tag} place: the ${spot.id} spot goes wrong and says why, with Next still locked`,
+          (await resultLine()) === spot.line && (await r.page.locator('[data-stage="place"] [data-next]:disabled').count()) === 1,
+          await resultLine(),
+        );
+      }
+      const right = m.place.spots.find((p) => p.right)!;
+      await r.page.click(`[data-spot="${right.id}"]`);
+      await r.page.waitForTimeout(400);
+      r.check(
+        `${tag} place: the ${right.id} spot is right, meets the requirement and opens Next`,
+        (await resultLine()) === right.line &&
+          (await r.page.locator('[data-stage="place"] [data-need][data-met="yes"]').count()) === (m.need ? 1 : 0) &&
+          (await r.page.locator('[data-stage="place"] [data-next]:not([disabled])').count()) === 1,
+      );
+      await r.noDigits(`${tag} place found`);
+      await r.shot(`${tag}-place-found`);
+      await r.page.click("[data-next]");
+    }
+
+    if (!m.place?.builds) {
+      await r.stage("assemble");
+      await r.noDigits(`${tag} build`);
+      await r.framed("assemble", `${tag} assemble`);
+      await r.dragBuild(tag, i === 0);
+      await r.page.waitForTimeout(SETTLE_MS);
+      await r.framed("assemble", `${tag} built`, true, shareOf(kit, m.produces));
+      await r.noDigits(`${tag} built`);
+      await r.shot(`${tag}-built`);
+      await r.page.click("[data-next]");
+    }
 
     await r.stage("play");
     await r.noDigits(`${tag} play`);

@@ -387,6 +387,16 @@ export default defineStory({
       title: "Keep it closed",
       need: "Water must not slosh out.",
       primitive: "thread",
+      place: {
+        say: "Where does the thread go? Drag it on.",
+        piece: ["neck-thread"],
+        ride: BODY,
+        spots: [
+          { id: "base", at: vec(0, 22, 0), radius: 36.6, line: "Too low. The cap can't reach it." },
+          { id: "middle", at: vec(0, 96, 0), radius: 36.6, line: "The cap sits up top. Nothing grips it." },
+          { id: "neck", at: vec(0, 182, 0), radius: 24.3, right: true, line: "Right there. The cap screws onto the neck." },
+        ],
+      },
       produces: [CAP],
       without: { say: "Shake it. Watch the cap.", line: "A cap that just sits there falls off.", test: shake, adds: [CAP], values: { [TWIST]: 0 } },
       learn: {
@@ -429,6 +439,18 @@ export default defineStory({
       title: "Keep it dry",
       need: "Water must not leak.",
       primitive: "seal",
+      place: {
+        say: "Where does the seal go? Drag it on.",
+        piece: [RING, "ring-tab"],
+        ride: BODY,
+        builds: true,
+        hide: [CAP],
+        spots: [
+          { id: "base", at: vec(0, 9, 0), radius: 37.2, line: "Water leaks at the cap, not down there." },
+          { id: "middle", at: vec(0, 110, 0), radius: 37.2, line: "Still leaks. The gap is under the cap." },
+          { id: "ledge", at: vec(0, 173.7, 0), radius: 28.6, right: true, line: "Right there. The cap squeezes it shut." },
+        ],
+      },
       produces: [RING, "ring-tab"],
       without: { say: "Flip it. Any drips?", line: "Metal on metal leaves tiny gaps. Water finds them.", test: flip, adds: [], values: { [TWIST]: STOP_BARE } },
       learn: {

@@ -24,10 +24,10 @@ type Phase =
 type Landing = "screw" | "press" | "snap";
 
 /** The ghost is the piece's outline: faint purple where it goes, pink once the piece is close. */
-const GHOST = { idle: "#c7a6d9", held: "#a66cc6", lit: "#ff3d9e" } as const;
+export const GHOST = { idle: "#c7a6d9", held: "#a66cc6", lit: "#ff3d9e" } as const;
 
 const GAP = 24;
-const MIN_HIT = 56;
+export const MIN_HIT = 56;
 /** The piece snaps when the finger is within this many ghost radii of it, and starts to pull from further out. */
 const NEAR = 1.15;
 const REACH = 2.4;
@@ -47,9 +47,10 @@ const PRESS_DIP = 1.5;
 const add = (a: Vec, b: Vec) => vec(a.x + b.x, a.y + b.y, a.z + b.z);
 const sub = (a: Vec, b: Vec) => vec(a.x - b.x, a.y - b.y, a.z - b.z);
 const mix = (a: Vec, b: Vec, t: number) => vec(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t));
-const cornersOf = ({ min, max }: Extents): Vec[] => [min.x, max.x].flatMap((x) => [min.y, max.y].flatMap((y) => [min.z, max.z].map((z) => vec(x, y, z))));
+export const cornersOf = ({ min, max }: Extents): Vec[] =>
+  [min.x, max.x].flatMap((x) => [min.y, max.y].flatMap((y) => [min.z, max.z].map((z) => vec(x, y, z))));
 
-function screenBox(lens: Lens, points: readonly Vec[]) {
+export function screenBox(lens: Lens, points: readonly Vec[]) {
   const s = points.map(lens.toScreen);
   const xs = s.map((p) => p.x);
   const ys = s.map((p) => p.y);
@@ -62,7 +63,7 @@ function screenBox(lens: Lens, points: readonly Vec[]) {
  * differ when an ancestor is scaled (the demo shrinks its phone to fit a short window), so the box is divided by
  * `scale`. `min` is in the viewer's px, so a touch target keeps its size.
  */
-function cover(el: HTMLElement, viewer: DOMRect, scale: number, b: ReturnType<typeof screenBox>, min: number) {
+export function cover(el: HTMLElement, viewer: DOMRect, scale: number, b: ReturnType<typeof screenBox>, min: number) {
   const w = Math.max(min, (b.x1 - b.x0) / scale);
   const h = Math.max(min, (b.y1 - b.y0) / scale);
   const cx = ((b.x0 + b.x1) / 2 - viewer.left) / scale;

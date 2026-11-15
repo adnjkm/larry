@@ -3,12 +3,13 @@ import type { Kit } from "../../shared/kit.ts";
 import { Assemble } from "./Assemble.tsx";
 import { objectFor } from "./Learn.tsx";
 import { LearnRig } from "./LearnRig.tsx";
+import { Place } from "./Place.tsx";
 import { bindStory, type Story, type Values } from "./model.ts";
 import { Play } from "./Play.tsx";
 import { Plain, Shell, type Step } from "./ui.tsx";
 
-/** Each module: see it fail without the part, learn the primitive, build the part, make it work by hand. */
-type Stage = "problem" | "learn" | "assemble" | "play" | "earned";
+/** Each module: see it fail without the part, learn the primitive, find the spot it goes, build the part, make it work by hand. */
+type Stage = "problem" | "learn" | "place" | "assemble" | "play" | "earned";
 type Route = number | "final";
 
 const startValues = (story: Story): Values =>
@@ -95,10 +96,27 @@ export function StoryFlow({
           key={`${module.id}-learn`}
           module={module}
           kicker={`${module.title} · Learn`}
-          next="Next: build it"
+          next={module.place ? "Next: find the spot" : "Next: build it"}
           inObject={(p) => objectFor(story, kit, module, p)}
           view={story.view}
-          onNext={() => setStage(module.id, "assemble")}
+          onNext={() => setStage(module.id, module.place ? "place" : "assemble")}
+        />
+      );
+    else if (stage === "place")
+      body = (
+        <Place
+          key={`${module.id}-place`}
+          story={story}
+          kit={kit}
+          index={route}
+          next={module.place!.builds ? "Next: try it" : "Next: build it"}
+          onNext={() => {
+            if (!module.place!.builds) return setStage(module.id, "assemble");
+            // Putting the piece in the right spot was the build.
+            const c = module.play.control;
+            setValues((v) => ({ ...v, [c.key]: c.start }));
+            setStage(module.id, "play");
+          }}
         />
       );
     else if (stage === "assemble")

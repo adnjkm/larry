@@ -188,9 +188,43 @@ export type Rig = {
  * A module told as a story with no numbers: the object fails without this part, the primitive is
  * played with in words, the part is built, and the player makes it work with a direct control.
  */
+/** A place on the object the piece can be put in the "Find the spot" game, in the kit's own mm. */
+export type Spot = {
+  id: string;
+  /** Where the piece's middle goes, on the object's upright axis. */
+  at: Vec;
+  /** How far round the axis the piece reaches there: a ring is scaled to wrap the object at this spot. */
+  radius: number;
+  /** The one spot where the piece belongs. */
+  right?: true;
+  /** What happens there, in a few words: why it fails, or why it works. */
+  line: string;
+};
+
+/**
+ * "Find the spot": after Learn, the player drags the primitive's piece onto the object, choosing between a few
+ * outlined spots. A wrong spot runs the module's own failure (its `without` test) with the piece where it was put, so
+ * it visibly goes wrong; the right one seats it. The standard play step for a primitive (the project owner's call,
+ * 2026-11-14): every module should have one.
+ */
+export type Place = {
+  say: string;
+  /** The kit parts that make the piece, at their own home in the object. The first is the one its size is read from. */
+  piece: readonly string[];
+  /** The part a misplaced piece rides when a test moves the object. */
+  ride: string;
+  spots: readonly Spot[];
+  /** True when the piece is what the module builds, so placing it right is the Build step and that step is skipped. */
+  builds?: boolean;
+  /** Parts left off while the player looks for the spot because they would cover it (the cap over the seal). */
+  hide?: readonly string[];
+};
+
 export type StoryModule = Built & {
   /** The requirement this module meets, as a plain rule shown under the header: "Water must not leak." */
   need?: string;
+  /** The "Find the spot" game after Learn. */
+  place?: Place;
   /** One sentence per taught primitive, keyed by its id: what it does in this object. */
   uses: Readonly<Record<string, string>>;
   /**
@@ -378,6 +412,11 @@ export function defineStory(spec: StorySpec): Story {
     ] as const)
       short(`${m.id}: ${where}`, s);
     if (m.need !== undefined) short(`${m.id}: need`, m.need);
+    if (m.place) {
+      short(`${m.id}: place say`, m.place.say);
+      if (m.place.spots.filter((p) => p.right).length !== 1) problems.push(`${m.id}: the place game needs exactly one right spot`);
+      copy.push([`${m.id} place`, m.place.say], ...m.place.spots.map((p): [string, string] => [`${m.id} spot ${p.id}`, p.line]));
+    }
     copy.push(
       [`${m.id} title`, m.title],
       [`${m.id} without`, m.without.say],
