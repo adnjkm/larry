@@ -1,19 +1,20 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@ui-sdk/react/button";
-import { useEffect, useRef, useState } from "react";
-import type { Kit, KitEvent, Part } from "../shared/kit.ts";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { type Kit, KitEvent, type Part } from "../shared/kit.ts";
 import type { Lesson } from "../shared/lesson.ts";
 import { CapturePicker } from "./capture/CapturePicker.tsx";
 import { preparePhoto } from "./capture/preparePhoto.ts";
-import { requestKit } from "./capture/requestKit.ts";
 import { Chevron } from "./ui/Chevron.tsx";
 import { Dots } from "./ui/Dots.tsx";
-import { KitViewer } from "./kit3d/KitViewer.tsx";
-import { LessonPlayer } from "./lesson/LessonPlayer.tsx";
-import { type FailedLoad, type LessonLoad, addLessonEvent, arrivedOf, hookOf, loadDemo, planning, requestLesson, shownOf } from "./lesson/lessonSource.ts";
+import { KitViewer, LessonPlayer, prefetchKitViewer, prefetchLessonPlayer } from "./lazy.ts";
+import { requestLesson } from "./lesson/api.ts";
+import { type FailedLoad, type LessonLoad, addLessonEvent, arrivedOf, hookOf, planning, shownOf } from "./lesson/load.ts";
 import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
-import { bars, buttons, layout, notes, type } from "./ui/styles.ts";
+import { streamEvents } from "../shared/ndjson.ts";
 import { colors, fonts } from "./tokens.stylex.ts";
+import { bars, buttons, layout, notes, type } from "./ui/styles.ts";
+import { VIEWPORT_HEIGHT } from "./viewport.ts";
 
 type Header = { name: string; summary: string };
 
@@ -67,9 +68,7 @@ const messageOf = (error: unknown): string =>
 
 function addEvent(state: GeneratingState, event: Extract<KitEvent, { type: "started" | "part" }>): GeneratingState {
   if (event.type === "started") return { ...state, header: { name: event.name, summary: event.summary } };
-  // A schema retry on the server can send a part again, so a repeated id replaces the earlier copy.
-  const at = state.parts.findIndex((p) => p.id === event.part.id);
-  return { ...state, parts: at < 0 ? [...state.parts, event.part] : state.parts.with(at, event.part) };
+  return { ...state, parts: [...state.parts, event.part] };
 }
 
 export function App() {
@@ -95,6 +94,8 @@ export function App() {
   }
 
   function showKit(kit: Kit, lesson?: Lesson) {
+    prefetchLessonPlayer();
+    void import("./primitives/stage/looks.ts").then(({ warmUpStage }) => warmUpStage());
     setState({ phase: "viewing", kit, lesson: lesson ? { status: "complete", lesson } : planning() });
     if (!lesson) void planLesson(kit);
   }
@@ -102,10 +103,12 @@ export function App() {
   useEffect(() => {
     if (!DEMO) return;
     let live = true;
-    loadDemo(DEMO, LIVE).then(
-      ({ kit, lesson }) => live && showKit(kit, lesson),
-      (error: unknown) => live && setState({ phase: "failed", message: error instanceof Error ? error.message : String(error), retry: () => location.reload() }),
-    );
+    import("./lesson/demo.ts")
+      .then(({ loadDemo }) => loadDemo(DEMO, LIVE))
+      .then(
+        ({ kit, lesson }) => live && showKit(kit, lesson),
+        (error: unknown) => live && setState({ phase: "failed", message: error instanceof Error ? error.message : String(error), retry: () => location.reload() }),
+      );
     return () => {
       live = false;
     };
@@ -114,11 +117,14 @@ export function App() {
   async function generate(files: File[]) {
     const [first] = files;
     if (!first) return;
+    prefetchKitViewer();
     setState({ phase: "generating", first, parts: [] });
     const fail = (message: string) => setState({ phase: "failed", message, retry: () => void generate(files) });
     try {
       const photos = await Promise.all(files.map(preparePhoto));
-      for await (const event of requestKit(photos)) {
+      const form = new FormData();
+      photos.forEach((photo, i) => form.append("photo", photo, `photo-${i}.jpg`));
+      for await (const event of streamEvents("/api/kits", { body: form }, KitEvent)) {
         if (event.type === "done") showKit(event.kit);
         else if (event.type === "failed") fail(event.message);
         else setState((s) => (s.phase === "generating" ? addEvent(s, event) : s));
@@ -168,7 +174,9 @@ export function App() {
               <h1 {...stylex.props(type.title)}>{view.header.name}</h1>
             </div>
           )}
-          <KitViewer parts={view.parts} spin height={270} />
+          <Suspense fallback={<div style={{ height: VIEWPORT_HEIGHT }} />}>
+            <KitViewer parts={view.parts} spin height={VIEWPORT_HEIGHT} />
+          </Suspense>
           {view.header &&
             (hook ? (
               <div data-hook {...stylex.props(layout.inset, styles.hook)}>
@@ -201,12 +209,14 @@ export function App() {
         </>
       )}
       {state.phase === "building" && (
-        <LessonPlayer
-          kit={state.kit}
-          arrived={arrivedOf(state.lesson)}
-          stalled={failedLesson && { message: failedLesson.message, onRetry: () => void planLesson(state.kit, failedLesson) }}
-          onRestart={restart}
-        />
+        <Suspense fallback={null}>
+          <LessonPlayer
+            kit={state.kit}
+            arrived={arrivedOf(state.lesson)}
+            stalled={failedLesson && { message: failedLesson.message, onRetry: () => void planLesson(state.kit, failedLesson) }}
+            onRestart={restart}
+          />
+        </Suspense>
       )}
       {state.phase === "failed" && (
         <>

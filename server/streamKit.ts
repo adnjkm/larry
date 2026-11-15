@@ -1,5 +1,7 @@
-import { Kit, type KitEvent, kitJsonSchema, Part, parseKit } from "../shared/kit.ts";
+import { Kit, type KitEvent, Part, parseKit } from "../shared/kit.ts";
+import { RULES } from "../shared/rules.ts";
 import { type Brain, streamStructured } from "./claude.ts";
+import { kitJsonSchema } from "./schemas.ts";
 
 export type Photo = { mediaType: "image/jpeg" | "image/png" | "image/webp"; base64: string };
 
@@ -11,7 +13,7 @@ Work in this order.
 
 1. Name the object and estimate its real size in millimetres. Use what you know about this kind of object and any scale clues in the photo, like hands, tables or text.
 
-2. Choose the parts: the separate physical pieces it would come apart into, 3 to 8 of them. Pick the pieces that give the object its look and the ones that explain how it works, like a cap, a seal, a handle, a spring or a button. Parts made as one moulded piece are one part. Prints, stickers, labels and logos are not parts.
+2. Choose the parts: the separate physical pieces it would come apart into, ${RULES.parts.min} to ${RULES.parts.max} of them. Pick the pieces that give the object its look and the ones that explain how it works, like a cap, a seal, a handle, a spring or a button. Parts made as one moulded piece are one part. Prints, stickers, labels and logos are not parts.
 
 3. Give each part a shape and real dimensions. Match the silhouette in the photo: measure each part's proportions against the whole object, not from memory of a typical one. When a part's side view is not a rectangle, like a tapered stapler arm, trace that side view as an extrusion.
 
@@ -39,7 +41,7 @@ const Header = Kit.pick({ name: true, summary: true });
 export const KIT_BRAIN: Brain = { model: "claude-opus-5-5", effort: "low" };
 
 /** Yields the header and each part as Claude writes them, then the checked kit. `onStats` fires just before `done`. */
-export async function* streamKit(photos: Photo[], brain: Brain = KIT_BRAIN, onStats?: (stats: KitStats) => void): AsyncGenerator<KitEvent> {
+export async function* streamKit(photos: Photo[], brain: Brain = KIT_BRAIN, onStats?: (stats: KitStats) => void, signal?: AbortSignal): AsyncGenerator<KitEvent> {
   const started = Date.now();
   let firstPartMs: number | undefined;
 
@@ -48,7 +50,7 @@ export async function* streamKit(photos: Photo[], brain: Brain = KIT_BRAIN, onSt
     { type: "text" as const, text: photos.length === 1 ? "Build the kit for this object." : `Build the kit for this object. These ${photos.length} photos show it from different sides.` },
   ];
 
-  for await (const event of streamStructured({ system: SYSTEM_PROMPT, schema: kitJsonSchema, brain, content, streamKey: "parts" })) {
+  for await (const event of streamStructured({ system: SYSTEM_PROMPT, schema: kitJsonSchema, brain, content, streamKey: "parts", signal })) {
     if (event.type === "header") {
       const header = Header.safeParse(event.value);
       if (header.success) yield { type: "started", ...header.data };

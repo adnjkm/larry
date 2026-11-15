@@ -10,7 +10,7 @@
 // friction limit, so the rod slides down; squeeze too much and the glass cracks. One number, the squeeze, decides both.
 import type { Part } from "../../kit.ts";
 import { clamp01, fall } from "../motion/ease.ts";
-import { frame, phases, say } from "../motion/run.ts";
+import { frame, phases } from "../motion/run.ts";
 import { arrow, arrowLength, box, cylinder, fmt, knob, look, on, part, plate, PLATE_TOP, v3 } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -108,22 +108,21 @@ export function hold(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = hold(v);
-  const lim = `${MU} × 2 × ${fmt(r.squeeze)} = ${fmt(r.limit, 1)} N`;
   switch (r.kind) {
     case "slip":
-      return { pass: false, outcome: "slipped", headline: "The rod slipped", detail: `Friction holds ${lim}; the load passed it on the way to ${LOAD_END} N.` };
+      return { pass: false, outcome: "slipped", headline: "The rod slipped", detail: "Too loose: the pads cannot grip hard enough, so the rod slides out." };
     case "crack":
-      return { pass: false, outcome: "glass-cracked", headline: "The glass cracked", detail: `${fmt(r.squeeze)} N on each pad is over the ${CRACK} N the glass takes.` };
+      return { pass: false, outcome: "glass-cracked", headline: "The glass cracked", detail: "Too tight: the glass cannot take that squeeze and cracks." };
     case "pass":
-      return { pass: true, outcome: "held", headline: "It held", detail: `Friction holds ${lim}, over the ${LOAD_END} N load, and ${fmt(r.squeeze)} N is under the ${CRACK} N the glass takes.` };
+      return { pass: true, outcome: "held", headline: "It held", detail: "The pads gripped firmly enough, and the glass took the squeeze." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = hold(v);
   return [
-    { label: "Grip limit", value: r.limit, target: LOAD_END, max: 50, unit: "N", need: "atLeast", digits: 1 },
-    { label: "Pad squeeze", value: r.squeeze, target: CRACK, max: 60, unit: "N", need: "atMost" },
+    { label: "Grip", value: r.limit, target: LOAD_END, max: 50, unit: "N", need: "atLeast", digits: 1 },
+    { label: "Glass strain", value: r.squeeze, target: CRACK, max: 60, unit: "N", need: "atMost" },
   ];
 }
 
@@ -157,20 +156,20 @@ function play(v: Values): Run {
     cues,
     at: (ms) => {
       const { phase } = tl.at(ms);
-      if (phase === "lead") return frame(values(load0), `Squeezing ${say(r.squeeze)} N each`);
+      if (phase === "lead") return frame(values(load0), "Squeezing");
       if (phase === "reset") return frame(values(LOAD_END + (load0 - LOAD_END) * clamp01(tl.t("reset", ms))), "Putting it back");
       const load = loadAt(ms);
       const since = ms - Math.min(slipMs, crackMs);
       if (r.kind === "slip" && since >= 0) {
         const drop = SLIDE * fall(clamp01(since / FALL_MS));
-        return frame(values(load, { drop }), since < FALL_MS ? "Slipping" : `Slipped at ${say(r.limit)} N`);
+        return frame(values(load, { drop }), since < FALL_MS ? "Slipping" : "Slipped!");
       }
       if (r.kind === "crack" && since >= 0) {
         const drop = SLIDE * fall(clamp01(since / FALL_MS));
         return frame(values(load, { drop, crack: 1 }), since < FALL_MS ? "Glass cracks" : "Cracked");
       }
-      if (phase === "hold") return frame(values(load), `Held at ${say(load)} N`);
-      return frame(values(load), `Load ${say(load)} of ${LOAD_END} N`);
+      if (phase === "hold") return frame(values(load), "Holding");
+      return frame(values(load), "Load growing");
     },
   };
 }
@@ -200,8 +199,8 @@ export const grip: Primitive = {
   },
   game: {
     name: "Hold on",
-    goal: "Hold the glass rod while the load climbs, without cracking it.",
-    rules: `The load climbs to ${LOAD_END} N. Each pad's friction is ${MU} of its squeeze. The glass cracks at ${CRACK} N of squeeze on each pad.`,
+    goal: "Hold the glass rod as the load grows, without cracking it.",
+    rules: "A harder squeeze grips better, but glass cracks if squeezed too hard. The load keeps growing, so squeeze enough to hold to the end.",
     number: "squeeze",
     action: "Add the load",
     meters,

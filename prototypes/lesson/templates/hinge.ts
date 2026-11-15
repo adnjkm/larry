@@ -2,7 +2,7 @@
 // travel where the work is done. The hinge can sit at one end (a lid: hand at the far end, work at a
 // short end between) or, for a part on a pin, in the middle (scissors: hand on the handle, work on
 // the blade across the pivot).
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import type { Part } from "../../../shared/kit.ts";
 import { type Axis, AXIS, type Mark, type Values, type Vec, type Window } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";

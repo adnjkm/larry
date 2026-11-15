@@ -5,6 +5,7 @@ import type { Chapter, Lesson, Step } from "../../shared/lesson.ts";
 import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
 import { initialValues } from "../../shared/primitives/library.ts";
 import type { Values } from "../../shared/primitives/types.ts";
+import type { Arrived } from "./load.ts";
 import { type ProblemAction, type ProblemState, initProblem, problemSolved, reduceProblem } from "./problems.ts";
 
 type FlatStep = {
@@ -22,11 +23,6 @@ type StepState = {
   problem: ProblemState | null;
 };
 
-/** A lesson as far as it has been written. `done` is the finished lesson, null while chapters are still arriving. */
-export type Arrived = { chapters: Chapter[]; done: Lesson | null };
-
-export const arrivedWhole = (lesson: Lesson): Arrived => ({ chapters: lesson.chapters, done: lesson });
-
 export type LessonState = {
   chapters: Chapter[];
   done: Lesson | null;
@@ -34,6 +30,8 @@ export type LessonState = {
   at: number;
   reached: number;
   steps: StepState[];
+  /** Parts earned by completed steps the player has reached. The same Set until its contents change, so a slider drag leaves it alone. */
+  earned: ReadonlySet<string>;
 };
 
 export type Action =
@@ -62,7 +60,8 @@ function freshState({ step }: FlatStep): StepState {
 
 export function startLesson({ chapters, done }: Arrived): LessonState {
   const flat = flatten(chapters);
-  return { chapters, done, flat, at: 0, reached: 0, steps: flat.map(freshState) };
+  const start: LessonState = { chapters, done, flat, at: 0, reached: 0, steps: flat.map(freshState), earned: new Set() };
+  return { ...start, earned: earnedParts(start) };
 }
 
 /** `earns` is bookkeeping the server repairs when the lesson is finished, so it doesn't make a step a different step. */
@@ -77,10 +76,9 @@ function grow(s: LessonState, { chapters, done }: Arrived): LessonState {
     const old = before.get(`${chapters[f.chapter]?.id}/${f.step.id}`);
     return old?.state && sameStep(old.step, f.step) ? old.state : freshState(f);
   });
-  return { chapters, done, flat, steps, at: Math.min(s.at, flat.length), reached: Math.min(s.reached, flat.length) };
+  return { chapters, done, flat, steps, at: Math.min(s.at, flat.length), reached: Math.min(s.reached, flat.length), earned: s.earned };
 }
 
-/** Past the last step of a finished lesson. */
 export const isFinished = (s: LessonState) => s.done !== null && s.at >= s.flat.length;
 
 /** Past the last step written so far, with more still to come. */
@@ -92,8 +90,7 @@ export function isComplete(s: LessonState, i: number): boolean {
   return problem ? problemSolved(problem) : true;
 }
 
-/** Parts earned by completed steps that the player has reached. */
-export function earnedParts(s: LessonState): Set<string> {
+function earnedParts(s: LessonState): Set<string> {
   const earned = new Set<string>();
   s.flat.forEach(({ step }, i) => {
     if (i <= s.reached && isComplete(s, i)) for (const id of step.earns) earned.add(id);
@@ -111,6 +108,13 @@ export function chapterStatus(s: LessonState, chapter: number): ChapterStatus {
 }
 
 export function reduce(s: LessonState, action: Action): LessonState {
+  const next = transition(s, action);
+  if (next === s) return s;
+  const earned = earnedParts(next);
+  return { ...next, earned: earned.size === s.earned.size && [...earned].every((id) => s.earned.has(id)) ? s.earned : earned };
+}
+
+function transition(s: LessonState, action: Action): LessonState {
   switch (action.type) {
     case "problem": {
       const current = s.steps[s.at];

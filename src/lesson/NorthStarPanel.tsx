@@ -5,7 +5,7 @@ import { Dots } from "../ui/Dots.tsx";
 import { bars, buttons, layout, notes, type } from "../ui/styles.ts";
 import { colors, radii } from "../tokens.stylex.ts";
 import { DownloadButton } from "./DownloadButton.tsx";
-import { type LessonLoad, arrivedOf } from "./lessonSource.ts";
+import { type LessonLoad, arrivedOf } from "./load.ts";
 import { needText } from "./needText.ts";
 
 const styles = stylex.create({

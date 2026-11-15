@@ -1,6 +1,6 @@
 // Choreography shared by templates whose child comes straight off its parent: pulled until it holds
 // or lets go, and pushed back on until it seats or sticks.
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import type { Run, TestCtx, Verdict } from "../model.ts";
 import { add, arrowMark, carry, clearance, farFace, outBy, overlay, type Pair, scale, shudder } from "./pair.ts";
 

@@ -44,25 +44,41 @@ html, body { height: 100%; }
 .inset > [data-kit-viewer] { position: absolute; inset: 0; }
 
 .sliders { flex: none; display: flex; flex-direction: column; }
-.slider { flex: none; grid-template-columns: 84px minmax(0, 1fr) 76px; min-height: 40px; }
+/* Slider rows as on the library's game page (src/primitives/game/parts.tsx): a mono label in a fixed
+   column, then a pink track the full width of what is left, 44 px tall to take a thumb. */
+.slider { flex: none; grid-template-columns: 96px minmax(0, 1fr) 76px; column-gap: 12px; min-height: 44px; }
 .slider .mono { overflow-wrap: anywhere; }
 .slider .track { position: relative; display: block; }
 .slider .band { position: absolute; top: 50%; height: 10px; margin-top: -5px; border-radius: 5px; background: rgba(255, 0, 135, 0.22); pointer-events: none; }
-.slider input { position: relative; }
-.slider input:disabled { opacity: 0.35; }
+.slider input { position: relative; display: block; width: 100%; height: 44px; margin: 0; accent-color: var(--pink); cursor: pointer; touch-action: pan-y; }
+.slider input:disabled { opacity: 0.35; cursor: default; }
 
-.slider[data-plain] { grid-template-columns: 84px minmax(0, 1fr); }
+.slider[data-plain] { grid-template-columns: 96px minmax(0, 1fr); }
+.rig-rows { flex: none; }
 
-/* A grip dragged sideways, like rolling a cap under a thumb. The ridges move with the finger; the
-   faint fill says how far it has gone; the word beside it says how it feels. */
-.strip { flex: none; user-select: none; -webkit-user-select: none; display: grid; grid-template-columns: 84px minmax(0, 1fr) 76px; align-items: center; gap: 12px; min-height: 48px; }
-.strip[data-free] { grid-template-columns: 84px minmax(0, 1fr); }
-.grip { position: relative; display: block; height: 44px; border-radius: 12px; overflow: hidden; background-color: var(--soft); background-image: repeating-linear-gradient(90deg, rgba(20, 20, 20, 0.7) 0 3px, transparent 3px 11px); box-shadow: 0 0 0 1px var(--rule) inset; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
-.grip:active { cursor: grabbing; }
-.grip::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 12%, rgba(255, 255, 255, 0) 88%, rgba(255, 255, 255, 0.85)); pointer-events: none; }
-.grip .amount { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(20, 20, 20, 0.12); pointer-events: none; }
-.grip[aria-disabled] { opacity: 0.35; cursor: default; }
-.grip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* The hand control (twist the cap on): the same slider row, its label in ink as the one that matters,
+   and the word for how it feels beside it. */
+.strip { user-select: none; -webkit-user-select: none; }
+.strip[data-free] { grid-template-columns: 96px minmax(0, 1fr); }
+.strip .mono { color: var(--ink); }
+
+/* The pink dithered bar (controls.tsx): the canvas is the look, a baked cap is the thumb, and an invisible
+   native range on top does the work. Its thumb is the cap's width, so the cap sits under the finger. */
+.dither-range { position: relative; height: 44px; min-width: 0; }
+.dither-bar { position: absolute; left: 0; top: 15px; display: block; image-rendering: pixelated; pointer-events: none; }
+.dither-thumb { position: absolute; left: 0; top: 9px; width: 26px; height: 26px; pointer-events: none; will-change: transform; }
+.dither-range input { position: absolute; inset: 0; width: 100%; height: 44px; margin: 0; opacity: 0; cursor: pointer; -webkit-appearance: none; appearance: none; background: none; touch-action: pan-y; }
+.dither-range input::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 44px; }
+.dither-range input::-moz-range-thumb { width: 26px; height: 44px; border: 0; }
+.dither-range:has(input:focus-visible) .dither-thumb { outline: 2px solid var(--pink); outline-offset: 2px; border-radius: 999px; }
+.dither-range[data-disabled] { opacity: 0.35; }
+
+/* The notched wheel (controls.tsx): spin it sideways. */
+.wheel-box { height: 44px; min-width: 0; }
+.wheel { position: relative; border-radius: 10px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.wheel[data-dragging] { cursor: grabbing; }
+.wheel:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
+.wheel-box[data-disabled] { opacity: 0.35; pointer-events: none; }
 .zone { font-size: 15px; font-weight: 600; text-align: right; }
 .zone[data-zone="loose"] { color: var(--graphite); font-weight: 500; }
 [data-why-text] { display: flex; flex-direction: column; gap: 8px; }

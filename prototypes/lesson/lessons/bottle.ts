@@ -2,7 +2,7 @@
 // leaks. The player twists the cap on by hand; how far it is twisted decides Shake, Flip and Open.
 // Rules and choreography live here as pure functions of the twist and the parts present.
 import type { Kit, Part } from "../../../shared/kit.ts";
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { AXIS, type Control, type Ctx, defineStory, EMPTY_SCENE, type ExplodePlan, familyOf, type Mark, type Overlay, type PartMove, type Rigid, type Scene, type Test, type Values, vec, type Zone, zoneAt } from "../model.ts";
 import { extents, rigidPoint } from "../pose.ts";
 import { BOTTLE_KIT } from "./bottle-kit.ts";

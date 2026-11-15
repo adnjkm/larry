@@ -24,6 +24,9 @@ import { bindStory, familyOf, faultValues, fixedValues, midWindow, tidyKit, type
 import { corners, drawObject, extents, restCentre } from "./pose.ts";
 import { COLOR, SYNTHWAVE } from "./primitives/parts.ts";
 
+/** Steps along a lesson control's track (TRACK in controls.tsx, which node cannot import). */
+const TRACK = 1000;
+
 const root = resolve(import.meta.dirname, "../..");
 const outDir = join(root, "out", "lesson");
 const cache = join(homedir(), "Library", "Caches", "ms-playwright");
@@ -274,7 +277,7 @@ class Run {
     const base = await this.page.screenshot({ clip });
     let changed = 0;
     for (const v of [0.3, 0.8, 0.1, 1, 0]) {
-      await this.setRange(`[data-stage="${stage}"] [data-explode] input`, v);
+      await this.setRange(`[data-stage="${stage}"] [data-explode] input`, v * TRACK);
       for (const wait of [60, 180]) {
         await this.page.waitForTimeout(wait);
         if (!(await this.page.screenshot({ clip })).equals(base)) changed++;
@@ -387,7 +390,7 @@ class Run {
     }
 
     // Built while exploded: the drop must put the object back together before the piece seats.
-    await this.setRange('[data-stage="assemble"] [data-explode] input', 1);
+    await this.setRange('[data-stage="assemble"] [data-explode] input', TRACK);
     await this.page.waitForTimeout(SETTLE_MS);
     const from = await this.centreOf(piece);
     const to = await this.centreOf(ghost);
@@ -401,19 +404,25 @@ class Run {
     await mouse.up();
     await this.page.waitForTimeout(400);
     await this.shot(`${tag}-build-landing`);
-    const closing = Number(await this.page.inputValue('[data-stage="assemble"] [data-explode] input'));
+    const closing = Number(await this.page.inputValue('[data-stage="assemble"] [data-explode] input')) / TRACK;
     this.check(`${tag} dropping on an exploded object closes it up before the piece seats`, closing === 0, `explode ${closing} at 400 ms`);
     await this.page.waitForSelector('[data-stage="assemble"] [data-next]:not([disabled])', { timeout: 10_000 });
   }
 
-  /** Twists the play grip in short drags, one way, until it reads `word`. */
+  /** Moves the play grip a step at a time with the arrow keys (wheel or bar alike), one way, until it reads `word`. */
   async twistTo(word: string, dir: 1 | -1) {
     const grip = "[data-strip] .grip";
-    for (let i = 0; i < 120; i++) {
-      if ((await this.page.getAttribute(grip, "aria-valuetext")) === word) return this.check(`the grip reads ${word} after ${i} drags`, true);
-      await this.drag(grip, 20 * dir);
+    for (let i = 0; i < 160; i++) {
+      if ((await this.page.getAttribute(grip, "aria-valuetext")) === word) return this.check(`the grip reads ${word} after ${i} steps`, true);
+      await this.page.focus(grip);
+      await this.page.keyboard.press(dir > 0 ? "ArrowRight" : "ArrowLeft");
     }
     this.check(`the grip reaches ${word}`, false, (await this.page.getAttribute(grip, "aria-valuetext")) ?? "");
+  }
+
+  /** Where a control stands: a range's value, or a wheel's aria-valuenow. */
+  async gripAt(selector: string) {
+    return this.page.locator(selector).first().evaluate((el) => (el instanceof HTMLInputElement ? el.value : (el.getAttribute("aria-valuenow") ?? "")));
   }
 
   /** Runs each test, screenshotting it mid-move (and again `later` ms on), and returns the statuses. `plain` also checks no number shows mid-test. */
@@ -813,11 +822,20 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
 
     await r.stage("learn");
     await r.noDigits(`${tag} learn`);
-    const grip = '[data-stage="learn"] [data-strip] .grip';
-    const before = await r.page.getAttribute(grip, "aria-valuenow");
-    await r.drag(grip, 120);
-    const after = await r.page.getAttribute(grip, "aria-valuenow");
-    r.check(`${tag} learn grip "${(await r.page.textContent('[data-stage="learn"] [data-strip] .mono')) ?? ""}" moves the rig`, before !== after, `${before} → ${after}`);
+    // A library figure moves by its handle, and the slider row follows it; a first-pass figure (the seal) by its slider.
+    const row = '[data-stage="learn"] [data-rig] .grip';
+    const handle = '[data-stage="learn"] [data-handle]';
+    const before = await r.gripAt(row);
+    if (await r.page.locator(handle).count()) {
+      const ring = await r.centreOf(handle);
+      await r.page.mouse.move(ring.x, ring.y);
+      await r.page.mouse.down();
+      await r.page.mouse.move(ring.x - 40, ring.y + 10, { steps: 6 });
+      await r.page.mouse.up();
+    } else await r.setRange(row, Number(before) > 500 ? 100 : 900);
+    await r.page.waitForTimeout(200);
+    const after = await r.gripAt(row);
+    r.check(`${tag} learn: "${(await r.page.textContent(`${handle}, [data-stage="learn"] [data-rig] .mono`)) ?? ""}" moves the figure`, before !== after, `${before} → ${after}`);
     await r.noDigits(`${tag} learn after a drag`);
     await r.shot(`${tag}-learn`);
     await r.inSheet(async () => {
@@ -853,10 +871,11 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
       r.check(`${tag} each failed run reveals a hint`, hints === Math.min(fails, m.hints.length), `${hints} hints after ${fails} failures`);
       await r.shot(`${tag}-hint`);
     });
-    const end = await r.page.getAttribute("[data-strip] .grip", "aria-valuemax");
+    const end = await r.gripAt("[data-strip] .grip");
     if (want.over) {
       await r.twistTo(want.over, 1);
-      await r.drag("[data-strip] .grip", 400);
+      await r.page.focus("[data-strip] .grip");
+      await r.page.keyboard.press("End");
       await r.shot(`${tag}-over`);
       const tight = await r.runTests(ids, `${tag}-over`, true, LATER_MS);
       r.check(`${tag} ${want.over} fails differently from ${want.start}`, ids.some((id) => tight[id] === "fail") && ids.some((id) => tight[id] !== loose[id]), `${JSON.stringify(loose)} | ${JSON.stringify(tight)} (grip ends at ${end})`);
@@ -909,7 +928,7 @@ async function playInspect(r: Run, sample: string, query: Query, url: string) {
   r.check(lesson.teach.length === 0 ? "says plainly it has no mechanism" : "no structure note when it has mechanisms", plain === (lesson.teach.length === 0 ? 1 : 0));
   await r.framed("apart", "apart");
   await r.shot("apart");
-  await r.setRange("[data-explode] input", 1);
+  await r.setRange("[data-explode] input", TRACK);
   await r.page.waitForTimeout(SETTLE_MS);
   await r.framed("apart", "apart exploded");
   for (const p of kit.parts) {

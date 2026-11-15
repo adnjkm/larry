@@ -14,7 +14,7 @@
 // too heavy to move; too many and the cord runs out before the crate has risen.
 import type { Part } from "../../kit.ts";
 import { clamp, easeOut, shudder, smooth } from "../motion/ease.ts";
-import { frame, phases, say, SCENE } from "../motion/run.ts";
+import { frame, phases, SCENE } from "../motion/run.ts";
 import { ARROW_MIN, arrow, bar, box, fmt, lathe, loadEdge, look, on, part, plate, PLATE_TOP, pullRing, ring, shaped, tick, v3 } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -165,11 +165,11 @@ function judge(v: Values): Verdict {
   const r = hoist(v);
   switch (r.kind) {
     case "heavy":
-      return { pass: false, outcome: "too-heavy", headline: "Too heavy to lift", detail: `${LOAD} ÷ ${r.n} = ${fmt(r.need, 1)} N a strand, more than your ${HAND} N: the crate does not move.` };
+      return { pass: false, outcome: "too-heavy", headline: "Too heavy to lift", detail: "Too few strands: each one still carries more than you can pull, so the crate stays put." };
     case "short":
-      return { pass: false, outcome: "out-of-cord", headline: "Ran out of cord", detail: `${r.n} strands × ${RISE} mm = ${r.rope} mm of cord, but you only have ${ROPE} mm; the crate rose ${fmt(r.rise, 1)} mm.` };
+      return { pass: false, outcome: "out-of-cord", headline: "Ran out of cord", detail: "Too many strands: they eat all your cord before the crate reaches the mark." };
     case "pass":
-      return { pass: true, outcome: "crate-raised", headline: "Crate hoisted", detail: `${LOAD} ÷ ${r.n} = ${fmt(r.need, 1)} N is under ${HAND} N, and ${r.n} × ${RISE} = ${r.rope} mm of cord is under ${ROPE}.` };
+      return { pass: true, outcome: "crate-raised", headline: "Crate hoisted", detail: "Enough strands to lift it easily, and few enough that the cord lasts." };
   }
 }
 
@@ -177,7 +177,7 @@ function meters(v: Values): [Meter, Meter] {
   const r = hoist(v);
   return [
     { label: "Pull needed", value: r.need, target: HAND, max: 70, unit: "N", need: "atMost", digits: 1 },
-    { label: "Cord needed", value: r.rope, target: ROPE, max: 60, unit: "mm", need: "atMost" },
+    { label: "Cord used", value: r.rope, target: ROPE, max: 60, unit: "mm", need: "atMost" },
   ];
 }
 
@@ -211,13 +211,13 @@ function play(v: Values): Run {
           return frame(values(0), "Pull the ring");
         case "pull": {
           const t = tl.t("pull", ms);
-          if (heavy) return frame(values(2 * Math.abs(shudder(t))), `Strain: ${fmt(r.need, 1)} N is too much`);
+          if (heavy) return frame(values(2 * Math.abs(shudder(t))), "Too heavy!");
           const pull = r.pulled * easeOut(t);
-          return frame(values(pull), `Cord ${say(pull)} mm, up ${say(pull / r.n)} mm`);
+          return frame(values(pull), "Lifting");
         }
         case "hold":
           if (heavy) return frame(values(0), "It will not move");
-          return frame(values(r.pulled), r.kind === "short" ? `Cord out, up ${say(r.rise)} of ${RISE}` : `Up ${RISE} mm`);
+          return frame(values(r.pulled), r.kind === "short" ? "Out of cord" : "At the mark");
       }
     },
   };
@@ -262,7 +262,7 @@ export const pulley: Primitive = {
   game: {
     name: "Hoist",
     goal: "Raise the crate to the mark with the pull and the cord you have.",
-    rules: `The crate weighs ${LOAD} N and must rise ${RISE} mm. You pull with ${HAND} N and have ${ROPE} mm of cord. Each strand shares the load.`,
+    rules: "The crate is heavy and your cord is short. More strands make pulling easier but use up more cord. Without extra strands, you could not lift it.",
     number: "strands",
     action: "Hold to pull",
     meters,

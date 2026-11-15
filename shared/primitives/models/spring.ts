@@ -11,7 +11,7 @@
 // not the strongest launch.
 import type { Part } from "../../kit.ts";
 import { clamp, fall, ring, rockBack, smooth } from "../motion/ease.ts";
-import { frame, MARK, phases, say, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, MARK, phases, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, arrowLength, coil, cylinder, fmt, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3 } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -155,21 +155,20 @@ export function launch(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = launch(v);
-  const e = fmt(r.energy, 2);
   switch (r.kind) {
     case "stiff":
-      return { pass: false, outcome: "too-stiff", headline: "Too stiff to store it", detail: `${HAND} N squeezes it only ${HAND} ÷ ${fmt(r.k, 1)} = ${fmt(r.squeeze, 1)} mm, so it stores ½ × ${HAND} N × ${fmt(r.squeeze, 1)} mm = ${e} J; the bell needs ${NEED} J.` };
+      return { pass: false, outcome: "too-stiff", headline: "Too stiff", detail: "Too stiff: your pull barely squashes it, so it stores too little energy." };
     case "soft":
-      return { pass: false, outcome: "too-soft", headline: "Coils bottomed out", detail: `The coils touch after ${BIND} mm, at only ${fmt(r.force)} N, so it stores ½ × ${fmt(r.k, 1)} N/mm × (${BIND} mm)² = ${e} J; the bell needs ${NEED} J.` };
+      return { pass: false, outcome: "too-soft", headline: "Coils bottomed out", detail: "Too soft: the coils touch and stop it squashing, so it can never store enough." };
     case "pass":
-      return { pass: true, outcome: "rings-the-bell", headline: "Rang the bell", detail: `½ × ${fmt(r.k, 1)} N/mm × (${fmt(r.squeeze, 1)} mm)² = ${e} J, enough for the ${NEED} J the bell needs.` };
+      return { pass: true, outcome: "rings-the-bell", headline: "Rang the bell", detail: "It squashed far enough to store the energy that rings the bell." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = launch(v);
   return [
-    { label: "Squeeze", value: r.wanted, target: BIND, max: 50, unit: "mm", need: "atMost" },
+    { label: "Squash", value: r.wanted, target: BIND, max: 50, unit: "mm", need: "atMost" },
     { label: "Energy", value: r.energy, target: NEED, max: 0.7, unit: "J", need: "atLeast", digits: 2 },
   ];
 }
@@ -243,17 +242,16 @@ function play(v: Values): Run {
       const { phase } = tl.at(ms);
       if (phase === "lead") {
         const force = f0 + (pullFrom - f0) * smooth(tl.t("lead", ms));
-        return withPuck(values(force, 0), "Puck on the plate");
+        return withPuck(values(force, 0), "Puck waiting");
       }
       if (phase === "pull" || phase === "holdDown") {
         const force = pullTo(tl.t("pull", ms));
         const sinceBind = ms - bindMs;
         const bounce = sinceBind > 0 && sinceBind < REBOUND_MS ? REBOUND * rockBack(sinceBind / REBOUND_MS, 1) : 0;
-        const x = settle(values(force, 0)).squeeze;
         const live =
-          r.kind === "soft" && sinceBind >= 0 ? `Coils touch at ${BIND} mm`
-          : phase === "pull" ? `Pull ${say(force)} N, down ${say(x)} mm`
-          : `Holding ${say(x)} mm down`;
+          r.kind === "soft" && sinceBind >= 0 ? "Coils touching"
+          : phase === "pull" ? "Pulling down"
+          : "Holding down";
         return withPuck(values(force, bounce), live);
       }
       if (phase === "fly") {
@@ -263,11 +261,11 @@ function play(v: Values): Run {
         const live =
           t < f.quarter ? "Let go"
           : f.hits && t >= f.contact ? "Rang the bell"
-          : !f.hits && t >= f.top ? `Short by ${say(BELL_GAP - r.rise)} mm`
-          : `Up ${say(h)} of ${BELL_GAP} mm`;
+          : !f.hits && t >= f.top ? "Fell short"
+          : "Puck rising";
         return withPuck(values(0, bounce), live, LAUNCH_Y + h);
       }
-      if (phase === "hold") return withPuck(values(0, 0), f.hits ? "Rang the bell" : `Short by ${say(BELL_GAP - r.rise)} mm`);
+      if (phase === "hold") return withPuck(values(0, 0), f.hits ? "Rang the bell" : "Fell short");
       // The puck is lifted off and the plate goes back to where the player left it.
       const p = smooth(tl.t("reset", ms));
       return frame(values(f0 * p, 0), "Putting it back");
@@ -322,7 +320,7 @@ export const spring: Primitive = {
   game: {
     name: "Launch",
     goal: "Launch the puck high enough to ring the bell.",
-    rules: `You pull the plate down with ${HAND} N. Its coils touch after ${BIND} mm of squeeze. Ringing the bell takes ${NEED} J.`,
+    rules: "A softer spring squashes further and stores more energy, but once its coils touch it can squash no more. The bell needs plenty of energy.",
     number: "stiffness",
     action: "Let go",
     meters,

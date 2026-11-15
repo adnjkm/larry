@@ -1,11 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import glow from "../assets/glow-card.svg";
+import glow from "../assets/glow-card.png";
 import { notes } from "../ui/styles.ts";
 
 const styles = stylex.create({
   wrap: { position: "relative", marginBlock: 10 },
-  glow: { position: "absolute", top: -20, bottom: -20, left: -18, right: -18, opacity: 0.6, backgroundSize: "100% 100%", imageRendering: "pixelated", pointerEvents: "none" },
+  glow: { position: "absolute", top: -20, bottom: -20, left: -18, right: -18, opacity: 0.6, backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat", imageRendering: "pixelated", pointerEvents: "none" },
   card: { position: "relative" },
 });
 

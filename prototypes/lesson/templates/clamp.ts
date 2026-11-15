@@ -6,7 +6,7 @@
 // Read from the kit only: the turning parts are the pin's children in the kit tree, the finger pushes
 // on the one of them farthest from the pin, and friction acts at the pin's own radius.
 import type { Part } from "../../../shared/kit.ts";
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import type { PartMove, Run, TestCtx, Values, Vec } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";
 import { add, arrowMark, carry, dot, latheAxis, overlay, type Pair, rotate, scale, shudder, sub, targetOf, type Template, tenth, unit } from "./pair.ts";

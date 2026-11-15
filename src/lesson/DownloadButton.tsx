@@ -2,7 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 import { Button } from "@ui-sdk/react/button";
 import { useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
-import { downloadGlb } from "../kit3d/exportGlb.ts";
 import { buttons, notes, type } from "../ui/styles.ts";
 
 export function DownloadButton({ kit, primary = false }: { kit: Kit; primary?: boolean }) {
@@ -15,7 +14,9 @@ export function DownloadButton({ kit, primary = false }: { kit: Kit; primary?: b
         {...stylex.props(buttons.base, primary ? buttons.primary : buttons.secondary)}
         onClick={() => {
           setStatus("busy");
-          downloadGlb(kit).then(
+          import("../kit3d/exportGlb.ts")
+            .then(({ downloadGlb }) => downloadGlb(kit))
+            .then(
             () => setStatus("idle"),
             () => setStatus("failed"),
           );

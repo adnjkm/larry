@@ -13,7 +13,7 @@
 // (an upright lathe with a wide foot ring, or a box lying square) and at least half as wide as the
 // object. Its handle is a part named handle, or whose role says you lift or carry by it.
 import type { Kit, Part } from "../../../shared/kit.ts";
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import type { Slider } from "../primitives/library.ts";
 import { type Mark, type ModuleSpec, type PartMove, type Run, type TestCtx, type Values, type Vec, vec, type Window } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";

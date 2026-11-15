@@ -1,78 +1,55 @@
-// The logic of each problem type. A new type is one entry in each of the three maps below
-// (StateOf, ActionOf, PROBLEMS) and one entry in ProblemViews.tsx; the compiler flags any that is missing.
 import type { Problem, ProblemType } from "../../shared/lesson.ts";
 import type { Values } from "../../shared/primitives/types.ts";
 
-type Of<T extends ProblemType> = Extract<Problem, { type: T }>;
-
 type TuneVerdict = "below" | "inside" | "above";
 
-type StateOf = {
-  run: { ran: boolean };
-  pick: { tried: number[]; solved: boolean };
-  tune: { verdict: TuneVerdict | null; solved: boolean };
-};
+type AnyState =
+  | { type: "run"; ran: boolean }
+  | { type: "pick"; tried: number[]; solved: boolean }
+  | { type: "tune"; verdict: TuneVerdict | null; solved: boolean };
 
-type ActionOf = {
-  run: Record<never, never>;
-  pick: { option: number };
-  tune: Record<never, never>;
-};
+type AnyAction = { type: "run" } | { type: "pick"; option: number } | { type: "tune" };
 
-export type ProblemState<T extends ProblemType = ProblemType> = { [K in T]: { type: K } & StateOf[K] }[T];
-export type ProblemAction<T extends ProblemType = ProblemType> = { [K in T]: { type: K } & ActionOf[K] }[T];
-
-type Kind<T extends ProblemType> = {
-  init: (problem: Of<T>) => StateOf[T];
-  /** `values` are the step figure's current slider values. */
-  reduce: (state: StateOf[T], action: ActionOf[T], problem: Of<T>, values: Values) => StateOf[T];
-  solved: (state: StateOf[T]) => boolean;
-};
-
-const PROBLEMS: { [T in ProblemType]: Kind<T> } = {
-  run: {
-    init: () => ({ ran: false }),
-    reduce: () => ({ ran: true }),
-    solved: (s) => s.ran,
-  },
-
-  pick: {
-    init: () => ({ tried: [], solved: false }),
-    reduce: (s, { option }, problem) => {
-      const chosen = problem.options[option];
-      if (!chosen || s.solved || s.tried.includes(option)) return s;
-      return { tried: [...s.tried, option], solved: chosen.works };
-    },
-    solved: (s) => s.solved,
-  },
-
-  tune: {
-    init: () => ({ verdict: null, solved: false }),
-    reduce: (s, _action, problem, values) => {
-      if (s.solved) return s;
-      const value = values[problem.slider];
-      if (value === undefined) return s;
-      const verdict: TuneVerdict = value < problem.min ? "below" : value > problem.max ? "above" : "inside";
-      return { verdict, solved: verdict === "inside" };
-    },
-    solved: (s) => s.solved,
-  },
-};
+export type ProblemState<T extends ProblemType = ProblemType> = Extract<AnyState, { type: T }>;
+export type ProblemAction<T extends ProblemType = ProblemType> = Extract<AnyAction, { type: T }>;
 
 export function initProblem(problem: Problem): ProblemState {
-  return { type: problem.type, ...PROBLEMS[problem.type].init(problem as never) } as ProblemState;
+  switch (problem.type) {
+    case "run":
+      return { type: "run", ran: false };
+    case "pick":
+      return { type: "pick", tried: [], solved: false };
+    case "tune":
+      return { type: "tune", verdict: null, solved: false };
+  }
 }
 
+/** `values` are the step figure's current slider values. */
 export function reduceProblem(state: ProblemState, action: ProblemAction, problem: Problem, values: Values): ProblemState {
-  if (state.type !== action.type || problem.type !== action.type) return state;
-  const { type: _state, ...before } = state;
-  const { type, ...rest } = action;
-  const kind = PROBLEMS[type] as Kind<ProblemType>;
-  const after = kind.reduce(before as never, rest as never, problem as never, values);
-  return after === before ? state : ({ type, ...after } as ProblemState);
+  if (state.type === "run" && action.type === "run" && problem.type === "run") return { type: "run", ran: true };
+
+  if (state.type === "pick" && action.type === "pick" && problem.type === "pick") {
+    const chosen = problem.options[action.option];
+    if (!chosen || state.solved || state.tried.includes(action.option)) return state;
+    return { type: "pick", tried: [...state.tried, action.option], solved: chosen.works };
+  }
+
+  if (state.type === "tune" && action.type === "tune" && problem.type === "tune") {
+    const value = values[problem.slider];
+    if (state.solved || value === undefined) return state;
+    const verdict: TuneVerdict = value < problem.min ? "below" : value > problem.max ? "above" : "inside";
+    return { type: "tune", verdict, solved: verdict === "inside" };
+  }
+
+  return state;
 }
 
 export function problemSolved(state: ProblemState): boolean {
-  const { type, ...rest } = state;
-  return (PROBLEMS[type] as Kind<ProblemType>).solved(rest as never);
+  switch (state.type) {
+    case "run":
+      return state.ran;
+    case "pick":
+    case "tune":
+      return state.solved;
+  }
 }

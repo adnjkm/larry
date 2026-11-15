@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import { Assemble } from "./Assemble.tsx";
-import { Learn, objectFor } from "./Learn.tsx";
-import { bindStory, rigList, type Story, type Values } from "./model.ts";
+import { objectFor } from "./Learn.tsx";
+import { LearnRig } from "./LearnRig.tsx";
+import { bindStory, type Story, type Values } from "./model.ts";
 import { Play } from "./Play.tsx";
 import { Plain, Shell, type Step } from "./ui.tsx";
 
@@ -41,10 +42,9 @@ export function StoryFlow({ story: written, kit: scanned, photo, onHome, onResta
       body = <Play key={`${module.id}-problem`} story={story} kit={kit} mode={{ kind: "problem", index: route, seen: seen.has(module.id) }} values={values} onValues={setValues} onDone={() => setSeen((s) => new Set([...s, module.id]))} onNext={() => setStage(module.id, "learn")} onHome={onHome} />;
     else if (stage === "learn")
       body = (
-        <Learn
+        <LearnRig
           key={`${module.id}-learn`}
-          list={rigList(module)}
-          words={{ say: module.learn.say, why: (p) => module.learn.rigs[p.id]!.why }}
+          module={module}
           kicker={`${module.title} · Learn`}
           next="Next: build it"
           inObject={(p) => objectFor(story, kit, module, p)}

@@ -1,7 +1,7 @@
 // A part that turns on a hinge or a pin (templates/hinge.ts reads the lever off the kit). Without the
 // pin the part falls away when pressed. The player moves where the hand pushes along it: near the
 // pivot the push is too weak to close it, far out the same hand travel barely swings it.
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { type Control, type Ctx, type Mark, type StoryModuleSpec, type Test, type Values, vec, zoneAt } from "../model.ts";
 import { extents } from "../pose.ts";
 import { leverOf } from "../templates/hinge.ts";

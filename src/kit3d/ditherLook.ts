@@ -1,3 +1,5 @@
+import { colors } from "../tokens.stylex.ts";
+
 /** Every adjustable number behind the dithered render. Colours are #rrggbb. */
 export type DitherLook = {
   pixels: {
@@ -29,6 +31,11 @@ export type DitherLook = {
     brightness: number;
     /** How much darker a dark-coloured part is shaded, so black stays black. */
     darkColors: number;
+    /**
+     * What counts as dark. "luminance" (the default) pushes a saturated pink down like a dark grey, so its lit faces dither
+     * toward maroon; "value", the brightest channel, leaves saturated colours alone. For a grey they are the same number.
+     */
+    darkBy?: "luminance" | "value";
     specular: number;
   };
   shadow: {
@@ -45,5 +52,8 @@ export const DEFAULT_LOOK: DitherLook = {
   tones: { count: 5, dark: 0.85, light: 0.88, curve: 0.77 },
   light: { angle: -47, height: 41, ambient: 0.08, rim: 0.15, contrast: 1, brightness: -0.06, darkColors: 0.3, specular: 1 },
   shadow: { show: true, softness: 1.4, core: 0.62 },
-  colors: { ink: "#141414", paper: "#ffffff", accent: "#ff5a1f" },
+  colors: { ink: colors.ink, paper: colors.paper, accent: colors.accent },
 };
+
+/** The figure stage's look: the default, with dark parts judged by their brightest channel. */
+export const STAGE_LOOK: DitherLook = { ...DEFAULT_LOOK, light: { ...DEFAULT_LOOK.light, darkBy: "value" } };

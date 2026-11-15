@@ -2,6 +2,7 @@
 //   larry/grid: spacing and sizing sit on a 4px grid, with 2px half steps.
 //   larry/font-tokens: font families come from the tokens, never a string.
 //   larry/ui-sdk: interactive controls come from UI SDK (@ui-sdk/react), never raw HTML.
+//   larry/shared-pure: shared/ and server/ run in Node, so they never import the client (src/, React, StyleX, UI SDK).
 
 const GRID = 2;
 const SIZED = /^(margin|padding|gap|rowGap|columnGap|width|height|minWidth|minHeight|maxWidth|maxHeight|blockSize|inlineSize|top|right|bottom|left|inset|flexBasis|lineHeight)|Radius$/;
@@ -117,4 +118,25 @@ const uiSdk = {
   },
 };
 
-export default { meta: { name: "larry" }, rules: { grid, "font-tokens": fontTokens, "ui-sdk": uiSdk } };
+/** Imports that only work in the browser app. */
+const CLIENT_ONLY = /^(react|react-dom|@react-three\/|@stylexjs\/|@ui-sdk\/|dialkit)|\/src\/|^\.\.?\/(\.\.\/)*src\/|\.stylex(\.ts)?$/;
+
+const sharedPure = {
+  meta: { type: "problem", docs: { description: "shared/ and server/ are imported by the Node server, so they must not depend on client code." } },
+  create(context) {
+    const check = (node, source) => {
+      if (typeof source === "string" && CLIENT_ONLY.test(source))
+        context.report({ node, message: `"${source}" is client code. shared/ and server/ run in Node; move what you need into shared/.` });
+    };
+    return {
+      ImportDeclaration(node) {
+        check(node, node.source.value);
+      },
+      ImportExpression(node) {
+        check(node, node.source.value);
+      },
+    };
+  },
+};
+
+export default { meta: { name: "larry" }, rules: { grid, "font-tokens": fontTokens, "ui-sdk": uiSdk, "shared-pure": sharedPure } };

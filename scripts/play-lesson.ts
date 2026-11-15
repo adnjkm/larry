@@ -15,6 +15,7 @@ import { createServer } from "vite";
 import { type Kit, KitEvent, parseKit } from "../shared/kit.ts";
 import { type Chapter, type Lesson, LessonEvent, parseLesson } from "../shared/lesson.ts";
 import { CATALOG, PRIMITIVE_BY_ID } from "../shared/primitives/catalog.ts";
+import { READY_VIEWER_SELECTOR, VIEWER_SELECTOR } from "../src/viewport.ts";
 
 const root = resolve(import.meta.dirname, "..");
 const photo = process.argv.includes("--photo");
@@ -110,9 +111,10 @@ const apiIsUp = () =>
 
 const shot = (page: Page, file: string, fullPage = true) => page.screenshot({ path: join(outDir, file), fullPage });
 
+/** Every viewer has drawn a frame and every entrance animation has finished, so a screenshot shows the settled screen. */
 async function viewersReady(page: Page) {
-  await page.waitForFunction(() => [...document.querySelectorAll("[data-kit-viewer]")].every((v) => v.hasAttribute("data-ready")), undefined, { timeout: READY_TIMEOUT_MS });
-  await page.waitForTimeout(500);
+  await page.waitForFunction(({ viewer, ready }) => document.querySelectorAll(viewer).length === document.querySelectorAll(ready).length, { viewer: VIEWER_SELECTOR, ready: READY_VIEWER_SELECTOR }, { timeout: READY_TIMEOUT_MS });
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished)));
 }
 
 async function setSlider(input: Locator, value: number) {
@@ -224,7 +226,7 @@ try {
       await page.waitForTimeout(100);
     }
     console.log(`${since(kitArrival("part")[0]?.t)} kit first part (started ${since(kitArrival("started")[0]?.t)}, ${kitArrival("part").length} part(s) streamed by ${since()}), done: ${kitArrival("done").length > 0 ? "yes" : "no"}`);
-    await page.waitForTimeout(300);
+    await viewersReady(page);
     await shot(page, "k2-kit-streaming.png", false);
     console.log(`${since()} kit streaming screen: ${await page.locator("li").count()} part row(s) listed, ${kitArrival("part").length} part(s) streamed, done: ${kitArrival("done").length > 0 ? "yes" : "no"}`);
     await start.waitFor({ timeout: KIT_TIMEOUT_MS });
@@ -301,8 +303,11 @@ try {
           await shot(page, `run-figure-${step.id}.png`, false);
           firstRun = false;
         }
-        await page.locator("[data-action=run]").click({ delay: 900 });
+        // Held until the outcome appears, however slowly the software renderer gets frames out.
+        await page.locator("[data-action=run]").hover();
+        await page.mouse.down();
         await page.locator("[data-note]").waitFor();
+        await page.mouse.up();
       } else if (problem?.type === "pick") {
         const wrong = problem.options.findIndex((o) => !o.works);
         const right = problem.options.findIndex((o) => o.works);
@@ -328,20 +333,18 @@ try {
         assert.equal(await page.locator("[data-slider]").count(), 1, "a tune step shows only its own slider");
 
         await setSlider(input, slider.min);
-        await page.waitForTimeout(150);
         await page.locator('[data-note="fail"]').waitFor();
         assert.ok((await page.locator('[data-note="fail"]').innerText()).includes(problem.tooLow.slice(0, 20)), "too-low text shown below the window");
         assert.equal(await next.count(), 0, "a failed try does not complete the step");
 
         await input.focus();
         await page.keyboard.press("End");
-        await page.waitForTimeout(150);
         await page.waitForFunction((t) => document.querySelector('[data-note="fail"]')?.textContent?.includes(t), problem.tooHigh.slice(0, 20));
 
         const inside = snap(slider, (problem.min + problem.max) / 2);
         assert.ok(inside >= problem.min && inside <= problem.max, `${step.id}: slider step can land inside the window (got ${inside})`);
         await setSlider(input, slider.min);
-        await page.waitForTimeout(150);
+        await page.waitForFunction((t) => document.querySelector('[data-note="fail"]')?.textContent?.includes(t), problem.tooLow.slice(0, 20));
         if (firstTune) {
           await viewersReady(page);
           await shot(page, `tune-mid-attempt-${step.id}.png`);
@@ -354,7 +357,7 @@ try {
         await page.mouse.move(xAt(slider.min), box.y + box.height / 2);
         await page.mouse.down();
         await page.mouse.move(xAt(inside), box.y + box.height / 2, { steps: 8 });
-        await page.waitForTimeout(150);
+        await input.evaluate((el: HTMLInputElement, v) => new Promise<void>((done) => (function check() { Number(el.value) === v ? done() : requestAnimationFrame(check); })()), inside);
         assert.equal(await page.locator('[data-note="ok"]').count(), 0, "the verdict waits for the slider to be let go");
         await page.mouse.up();
         await page.locator('[data-note="ok"]').waitFor();
@@ -370,7 +373,7 @@ try {
       assert.notEqual(solved, null, `${step.id} can be completed`);
       const stage = await page.locator("[data-stage]").getAttribute("data-stage");
       assert.equal(stage, step.earns.length > 0 || step.primitive === null ? "build" : "figure", `${step.id}: once solved, the stage shows the build if the step earned parts, else its figure`);
-      assert.equal(await page.locator("[data-kit-viewer]").count(), 1, `${step.id}: one model per step, on its stage`);
+      assert.equal(await page.locator(VIEWER_SELECTOR).count(), 1, `${step.id}: one model per step, on its stage`);
       assert.equal(await next.count(), 1, `${step.id}: Next appears once the step is complete`);
       if (index === chapter.steps.length - 1 && chapterNumber <= 2) {
         await viewersReady(page);
@@ -384,7 +387,7 @@ try {
 
   await page.locator("[data-finish]").waitFor();
   await viewersReady(page);
-  assert.equal(await page.locator("[data-finish] [data-kit-viewer]").count(), 1, "the finish shows the built model");
+  assert.equal(await page.locator(`[data-finish] ${VIEWER_SELECTOR}`).count(), 1, "the finish shows the built model");
   await shot(page, "99-finish.png");
   const done = await page.locator("[data-roadmap] [data-status=done]").count();
   assert.equal(done, chapterNumber, "every roadmap chip is ticked at the finish");

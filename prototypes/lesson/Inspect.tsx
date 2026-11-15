@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { Joint, Kit, Part } from "../../shared/kit.ts";
 import { play, useAlive } from "./anim.ts";
-import { lerp, smooth } from "./ease.ts";
+import { lerp, smooth } from "../../shared/primitives/motion/ease.ts";
 import { Learn } from "./Learn.tsx";
 import { JOINT_PRIMITIVE } from "./lessons/inspect.ts";
 import { EMPTY_SCENE, type Inspect, listOf } from "./model.ts";

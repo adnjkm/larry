@@ -42,7 +42,7 @@ Where a part meets another (bolt on strike, pawl on tooth, follower on cam, wedg
 
 ## Props and the live caption
 - `frame.marks` carries props that exist only while they matter: the hand arrow while pressing, the puck in flight, drops of water. Build them with the same part helpers and colour roles (purple for arrows and drops, stone for loads).
-- `frame.live` is 2-6 words that count with the motion: "Pad down 13 of 24 mm", "Blow 3 of 5", "Click 4", "Holding", "Putting it back". Numbers in it come from the same expressions as the pose.
+- `frame.live` is 1-6 words, no digits, that name what the motion is doing: "Pad going down", "Pumping", "Click", "Holding", "Putting it back".
 - `cues` mark the instants worth a haptic tick: every click, the snap, the thud.
 
 ## Two-sided, and proven

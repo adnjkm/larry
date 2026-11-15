@@ -1,5 +1,12 @@
 import type { z } from "zod";
 
+/** The wire format shared by the server and the client: one JSON event per line, ending with a `done` or `failed` event. */
+const TERMINAL = new Set(["done", "failed"]);
+
+export const encodeEvent = (event: { type: string }): string => `${JSON.stringify(event)}\n`;
+
+export const failedEvent = (message: string) => ({ type: "failed" as const, message });
+
 function errorText(body: unknown, status: number): string {
   if (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string") return body.error;
   return `Larry's server had a problem (${status}). Try again in a moment.`;
@@ -23,12 +30,17 @@ export async function* readEvents<T extends { type: string }>(response: Response
     for (const line of lines) {
       if (!line.trim()) continue;
       const event = parseLine(line, schema);
-      ended ||= event.type === "done" || event.type === "failed";
+      ended ||= TERMINAL.has(event.type);
       yield event;
     }
     if (done) break;
   }
   if (!ended) throw new Error("Larry stopped before finishing");
+}
+
+/** POSTs to `url` and reads the NDJSON response. Throws the server's `{ error }` text when the request is rejected. */
+export async function* streamEvents<T extends { type: string }>(url: string, init: RequestInit, schema: z.ZodType<T>): AsyncGenerator<T> {
+  yield* readEvents(await fetch(url, { method: "POST", ...init }), schema);
 }
 
 function parseLine<T>(line: string, schema: z.ZodType<T>): T {

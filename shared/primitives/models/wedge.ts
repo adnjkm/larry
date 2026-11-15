@@ -17,7 +17,7 @@
 // and has still not opened the log far enough.
 import type { Part } from "../../kit.ts";
 import { clamp, easeOut } from "../motion/ease.ts";
-import { frame, handArrow, phases, say, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, handArrow, phases, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, arrowLength, box, fmt, look, on, part, PLATE_TOP, plate, post, pushDisc, RAD, tick, v3 } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -146,14 +146,13 @@ export function split(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = split(v);
-  const sideSum = `${BLOW} ÷ (2 × tan ${r.slope}°) = ${fmt(r.side)} N a side`;
   switch (r.kind) {
     case "fat":
-      return { pass: false, outcome: "too-fat", headline: "Wedge too fat", detail: `${sideSum}; opening ${OPEN} mm takes ${fmt(r.need)} N, so it stalls at ${fmt(r.open, 1)} mm.` };
+      return { pass: false, outcome: "too-fat", headline: "Wedge too fat", detail: "Too blunt: the wedge pushes the wood apart too weakly, so it stalls and springs back." };
     case "thin":
-      return { pass: false, outcome: "too-thin", headline: "Wedge too thin", detail: `All ${LENGTH} mm in opens each half only ${LENGTH} × tan ${r.slope}° = ${fmt(r.open, 1)} mm; the log needs ${OPEN}.` };
+      return { pass: false, outcome: "too-thin", headline: "Wedge too thin", detail: "Too sharp: even fully in, the wedge never opens the log wide enough. It needs a blunter angle." };
     case "pass":
-      return { pass: true, outcome: "log-split", headline: "Log split", detail: `${sideSum} beats the grip; ${fmt(r.depth)} mm in opens each half ${OPEN} mm.` };
+      return { pass: true, outcome: "log-split", headline: "Log split", detail: "The wedge turns each blow into a strong sideways push, and goes in far enough to split." };
   }
 }
 
@@ -161,7 +160,7 @@ function meters(v: Values): [Meter, Meter] {
   const r = split(v);
   return [
     { label: "Side push", value: r.side, target: r.need, max: 450, unit: "N", need: "atLeast" },
-    { label: "Opens", value: r.canOpen, target: OPEN, max: 16, unit: "mm", need: "atLeast", digits: 1 },
+    { label: "Gap opened", value: r.canOpen, target: OPEN, max: 16, unit: "mm", need: "atLeast", digits: 1 },
   ];
 }
 
@@ -216,12 +215,11 @@ function play(v: Values): Run {
         const a = before(k);
         const b = after(k);
         const push = a + (b - a) * easeOut(clamp((ms - blowStart(k)) / DRIVE_MS, 0, 1));
-        return frame(values(push), `Blow ${k}, open ${say(settle(values(push)).open)} mm`);
+        return frame(values(push), "Hammering");
       }
       if (phase === "pop") return frame(values(end + (rest - end) * easeOut(tl.t("pop", ms))), "Sprang back out");
       if (phase === "hold") {
-        const open = settle(values(rest)).open;
-        return frame(values(rest), r.kind === "pass" ? `Split: open ${say(open)} mm` : fat ? "Sprang back out" : `All in: open ${say(open)} mm`);
+        return frame(values(rest), r.kind === "pass" ? "Split!" : fat ? "Sprang back out" : "Stuck, not split");
       }
       return frame(values(rest + (home - rest) * easeOut(tl.t("reset", ms))), "Putting it back");
     },
@@ -272,7 +270,7 @@ export const wedge: Primitive = {
   game: {
     name: "Split the log",
     goal: "Split the log in five blows.",
-    rules: `Each blow pushes ${BLOW} N and drives the wedge ${fmt(STEP, 1)} mm. The log grips with ${GRIP} N plus ${STIFF} N per mm. Each half must open ${OPEN} mm.`,
+    rules: "A blunter wedge pushes the wood apart harder, but must go in deeper. A sharper one goes in easily, but pushes weakly.",
     number: "slope",
     action: "Hammer",
     meters,

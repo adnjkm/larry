@@ -8,3 +8,7 @@ so its Learn figures, sliders and fault values stay as they were made.
 (see `src/primitives/docs/`, and play them at `/?play`). Some slider ranges changed in that rewrite, so pointing
 this prototype at the new library is a deliberate step, not a rename: switch the imports back to
 `src/primitives/` and run `node prototypes/lesson/verify.ts` to see what needs adjusting.
+
+Story lessons (the water bottle, and the stories generated for any photo) no longer use this copy: their Learn step
+shows the library's own figures from `src/primitives` (`LearnRig.tsx`, and `libraryPrimitive` in `model.ts`). The
+Workshop lessons still read their fault values off the slider ranges here.
