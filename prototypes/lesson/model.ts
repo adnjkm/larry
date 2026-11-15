@@ -221,7 +221,7 @@ export type Place = {
 };
 
 export type StoryModule = Built & {
-  /** The requirement this module meets, as a plain rule shown under the header: "Water must not leak." */
+  /** The requirement this module meets, as a plain rule shown above the header: "Water must not leak." */
   need?: string;
   /** The "Find the spot" game after Learn. */
   place?: Place;

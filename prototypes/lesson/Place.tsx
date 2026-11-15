@@ -219,6 +219,7 @@ export function Place({ story, kit, index, next, onNext }: Props) {
 
   return (
     <main className="page" data-stage="place" ref={box}>
+      {module.need ? <Need text={module.need} met={found ? true : undefined} /> : null}
       <Say
         kicker={`${module.title} · Find the spot`}
         found={found}
@@ -236,7 +237,6 @@ export function Place({ story, kit, index, next, onNext }: Props) {
       >
         {say}
       </Say>
-      {module.need ? <Need text={module.need} met={found ? true : undefined} /> : null}
       <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live}>
         {found ? null : (
           <>

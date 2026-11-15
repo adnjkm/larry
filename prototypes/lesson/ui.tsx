@@ -219,7 +219,7 @@ export function Say({ kicker, children, why, note, found }: { kicker: string; ch
 }
 
 /**
- * The module's requirement, as a plain rule under the header: what the object must do. `met` adds whether it is met
+ * The module's requirement, as a plain rule above the header: what the object must do. `met` adds whether it is met
  * now, where the screen lets you tune something to meet it; left off, the rule is only stated.
  */
 export function Need({ text, met }: { text: string; met?: boolean }) {

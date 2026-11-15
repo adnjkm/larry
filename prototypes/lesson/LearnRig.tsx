@@ -204,6 +204,7 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
 
   return (
     <main className="page" data-stage="learn">
+      {module.need ? <Need text={module.need} met={rig.goal ? met : undefined} /> : null}
       <Say
         kicker={kicker}
         why={
@@ -218,7 +219,6 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
       >
         {module.learn.say}
       </Say>
-      {module.need ? <Need text={module.need} met={rig.goal ? met : undefined} /> : null}
       {taught.length > 1 ? (
         <div className="tabs" role="tablist">
           {taught.map((q, i) => (

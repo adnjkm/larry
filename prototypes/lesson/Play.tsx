@@ -196,10 +196,10 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
 
   return (
     <main className="page" data-stage={stage}>
+      {mode.kind === "problem" && module!.need ? <Need text={module!.need} /> : null}
       <Say kicker={kicker} why={sheet} found={done && mode.kind !== "problem"} note={mode.kind === "problem" && done}>
         {say}
       </Say>
-      {mode.kind === "problem" && module!.need ? <Need text={module!.need} /> : null}
       <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live || (arming ? "Closing up…" : undefined)} />
       <Cheer text={cheer} show={cheers} />
       <ExplodeSlider
