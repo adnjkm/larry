@@ -8,6 +8,8 @@ import { SAMPLES } from "../lesson/samples.ts";
 import { StoryFlow } from "../lesson/Story.tsx";
 import type { Course } from "../lesson/course.ts";
 import { CourseFlow } from "../lesson/Course.tsx";
+import flaskPhoto from "../../fixtures/photos/flask.jpg?url";
+import bottleCourse from "../lesson/lessons/bottle-course.ts";
 import penCourse from "../lesson/lessons/pen-course.ts";
 import { CoursePlusFlow } from "../combined/CoursePlus.tsx";
 import penPlus from "../combined/pen-plus.ts";
@@ -25,8 +27,10 @@ const LESSON = lessonFor(SAMPLE.kit, SAMPLE.id);
 if (LESSON.kind !== "story") throw new Error(`the ${__DEMO_OBJECT__} lesson should be a story`);
 const STORY = LESSON;
 /** An object with a mechanism lesson plays that; the others keep their story. */
-const COURSES: Readonly<Record<string, Course>> = { pen: penCourse };
+const COURSES: Readonly<Record<string, Course>> = { pen: penCourse, bottle: bottleCourse };
 const COURSE = PLUS ? penPlus : COURSES[__DEMO_OBJECT__];
+/** The photo the camera takes, for a hand-written lesson whose model follows another photo than the sample's: the bottle's is Aiden's own flask. */
+const PHOTOS: Readonly<Record<string, string>> = { bottle: flaskPhoto };
 
 /**
  * The lesson's stylesheets, scoped to the lesson so their element rules (box-sizing, button fonts) never reach the
@@ -123,6 +127,7 @@ export function Demo() {
         compare={TUNING}
         mechanisms={COURSE?.mechanisms.length}
         kit={COURSE?.reveal ?? COURSE?.story.kit}
+        photo={PHOTOS[__DEMO_OBJECT__]}
       />
     </>
   );

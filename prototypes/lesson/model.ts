@@ -207,6 +207,8 @@ export type Spot = {
   radius: number;
   /** The one spot where the piece belongs. */
   right?: true;
+  /** The part a piece put here rides when a test moves the object, when it is not the game's own `ride` (a spot on the cap, not the bottle). */
+  ride?: string;
   /** What happens there, in a few words: why it fails, or why it works. */
   line: string;
 };
@@ -230,6 +232,8 @@ export type Place = {
   hide?: readonly string[];
   /** The stretch of the object the spots are on, when it is too tall to show whole. The piece waits beside it. */
   frame?: Frame;
+  /** Where the piece waits, in the kit's own mm, when beside the object is not the place for it (it would widen a tight frame). */
+  tray?: Vec;
 };
 
 export type StoryModule = Built & {

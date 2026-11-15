@@ -137,11 +137,11 @@ export function Place({ story, kit, index, next, onNext, header, instruction, tr
     const box = extents(object);
     // On an object framed at one end, the piece waits beside that end, not beside the middle of the whole thing.
     const beside = place.frame ?? box;
-    const tray = vec(box.max.x + (box.max.x - box.min.x) * TRAY_OUT, (beside.min.y + beside.max.y) / 2, 0);
+    const tray = place.tray ?? vec(box.max.x + (box.max.x - box.min.x) * TRAY_OUT, (beside.min.y + beside.max.y) / 2, 0);
     const at = (spot: Spot) => posed(piece, home, spot.at, spot.radius / own);
     // The piece where a spot puts it, as marks riding the object, so a test that shakes the object shakes it too.
     const marksAt = (spot: Spot): Mark[] =>
-      at(spot).map((p) => ({ id: `place-${p.id}`, shape: p.shape, at: p.position, rotation: p.rotation, ride: place.ride }));
+      at(spot).map((p) => ({ id: `place-${p.id}`, shape: p.shape, at: p.position, rotation: p.rotation, ride: spot.ride ?? place.ride }));
     const inTray = posed(piece, home, tray, 1);
     const span = extents(posed(piece, home, home, 1)).max.y - extents(posed(piece, home, home, 1)).min.y;
     const spotsDrawn = place.spots.flatMap((s) => at(s));

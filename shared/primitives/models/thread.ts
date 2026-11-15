@@ -16,8 +16,21 @@
 import type { Part } from "../../kit.ts";
 import { clamp, fall, smooth } from "../motion/ease.ts";
 import { frame, HOLD, LEAD, phases, REWIND, SCENE } from "../motion/run.ts";
-import { coil, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, pivoted, plate, PLATE_TOP, polygon, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Plot, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { box, coil, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, pivoted, plate, PLATE_TOP, polygon, v3 } from "../parts.ts";
+import {
+  type Cue,
+  type Meter,
+  type Motion,
+  type Plot,
+  type Primitive,
+  type Run,
+  type Task,
+  type Values,
+  type Verdict,
+  VIEW,
+  type Slider,
+  valueOf,
+} from "../types.ts";
 import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres. The bolt stands on the middle of the plate, x = 0, z = 0.
@@ -317,6 +330,93 @@ function climb(v: Values): Plot {
   };
 }
 
+// ---- Free play's goals: a level to twist the nut up to ------------------------------------------------------------
+
+/** How far the nut has to come up: its top level with the green. */
+const GOAL_RISE = 24;
+/** Close enough to the green to count, in mm. */
+const NEAR = 0.6;
+/** The second goal's turns: fewer than a fine thread needs to get there. */
+const FEW_TURNS = 4;
+const GOAL_HALF = HAND_R + 6;
+const GOAL_BAR = 1.6;
+
+/**
+ * The goal as a thin green square in the figure itself, level with the nut's top once it has come up GOAL_RISE: a
+ * see-through sheet with a solid green edge, as on the spring, so the bolt passes through it and the nut comes up under it.
+ */
+function goalPlane(): Part[] {
+  const y = PLATE_TOP + NUT_H + GOAL_RISE + GOAL_BAR / 2;
+  const h = GOAL_HALF;
+  const bar = (id: string, w: number, d: number, x: number, z: number) =>
+    part(`goal-${id}`, "Goal edge", "The edge of the level the nut must reach.", box(w, GOAL_BAR, d), v3(x, y, z), look.goal, on("plate", "glue"));
+  return [
+    part("goal-sheet", "Goal", "The level the nut must reach.", box(2 * h, GOAL_BAR / 2, 2 * h), v3(0, y, 0), look.goalClear, on("plate", "glue")),
+    bar("back", 2 * h, GOAL_BAR, 0, -h),
+    bar("front", 2 * h, GOAL_BAR, 0, h),
+    bar("left", GOAL_BAR, 2 * h, -h, 0),
+    bar("right", GOAL_BAR, 2 * h, h, 0),
+  ];
+}
+
+const atGoal = (v: Values) => settle(v).rise >= GOAL_RISE - NEAR;
+/** At the green, on a thread gentle enough to stay there when the hand lets go. */
+const held = (v: Values) => atGoal(v) && settle(v).holds;
+
+/**
+ * Watches the hand: `reached` once the nut has come up to the green, `fell` once a nut that got there has spun back to
+ * the plate, and `spent` once the turns ran out short of it. It only records; the hand and the let-go move the machine.
+ */
+function watch(v: Values): Values {
+  const s = settle(v);
+  const reached = atGoal(v) ? 1 : (v.reached ?? 0);
+  const fell = reached === 1 && !s.holds && s.turns < 0.05 ? 1 : (v.fell ?? 0);
+  const spent = !atGoal(v) && s.turns >= FEW_TURNS - 0.02 ? 1 : (v.spent ?? 0);
+  if (reached === (v.reached ?? 0) && fell === (v.fell ?? 0) && spent === (v.spent ?? 0)) return v;
+  return { ...v, reached, fell, spent };
+}
+
+const WIND_DOWN_MS = 420;
+/** The nut run back down to the plate as a goal begins, from wherever it was left. */
+const windDown = (v: Values): Motion => {
+  const from = settle(v).turns;
+  return { durationMs: WIND_DOWN_MS, at: (t) => frame({ ...v, turns: from * (1 - smooth(clamp(t / WIND_DOWN_MS, 0, 1))) }, "") };
+};
+
+const TOO_STEEP = "Too steep, so it spins back down. Make it finer.";
+
+const TASKS: Task[] = [
+  {
+    goal: "Twist it up to the green. It has to stay there.",
+    hand: true,
+    // The steepest thread: up in two turns, and straight back down when let go.
+    start: { pitch: PITCH.max, reached: 0, fell: 0, spent: 0 },
+    // The nut stops at the green: twist it as far as it goes, and the thread decides the rest.
+    reach: (v) => [0, GOAL_RISE / pitchOf(v)],
+    scene: goalPlane,
+    met: held,
+    hint: (v) => ((v.fell ?? 0) > 0 && !settle(v).holds ? TOO_STEEP : undefined),
+    arrive: windDown,
+    drive: watch,
+  },
+  {
+    goal: "Now get it there in four turns.",
+    hand: true,
+    // The finest thread: it holds anywhere, but four turns leave it well short.
+    start: { pitch: PITCH.min, reached: 0, fell: 0, spent: 0 },
+    reach: (v) => [0, Math.min(FEW_TURNS, GOAL_RISE / pitchOf(v))],
+    scene: goalPlane,
+    met: held,
+    hint: (v) => {
+      const s = settle(v);
+      if ((v.fell ?? 0) > 0 && !s.holds) return TOO_STEEP;
+      return (v.spent ?? 0) > 0 && FEW_TURNS * s.pitch < GOAL_RISE - NEAR ? "Out of turns. Make it coarser." : undefined;
+    },
+    arrive: windDown,
+    drive: watch,
+  },
+];
+
 export const thread: Primitive = {
   id: "thread",
   name: "Thread",
@@ -360,6 +460,12 @@ export const thread: Primitive = {
     reach: (v) => [0, Math.min(MAX_TURNS, TARGET / pitchOf(v))],
   },
   play: {
+    facts: {
+      say: "/THred/",
+      is: "A ramp wound round a rod.",
+      note: "Pitch affects how far each turn lifts it.",
+    },
+    tasks: TASKS,
     // The nut run down onto the plate, nothing on it.
     rest: { turns: 0 },
     // By hand it goes from the plate to the top of the thread, however many turns that is.

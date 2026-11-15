@@ -125,6 +125,7 @@ export default function CameraMock({
   compare = true,
   mechanisms,
   kit,
+  photo,
 }: {
   object?: string;
   /** `shown` is false while the lesson waits, built but unseen, under the result, and true from the moment Build It hands over. */
@@ -136,6 +137,8 @@ export default function CameraMock({
   mechanisms?: number;
   /** The model the result shows, when the lesson after has its own. Defaults to the object's scanned kit. */
   kit?: Kit;
+  /** The photo the camera takes, when the lesson's model follows another one than the sample's. */
+  photo?: string;
 } = {}) {
   const [settings, setSettings] = useState<MockSettings>(() =>
     defaultSettings(initialObject ?? (OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? ""))),
@@ -184,7 +187,7 @@ export default function CameraMock({
   const scale = useFitScale(frame.height + 32);
   const scanned = OBJECTS.find((o) => o.name === settings.object) ?? OBJECTS[0];
   if (!scanned) return null;
-  const object = kit ? { ...scanned, kit } : scanned;
+  const object = kit || photo ? { ...scanned, ...(kit && { kit }), ...(photo && { photo }) } : scanned;
   // The phone on the left holds still on the screen before this one, to compare against: the camera beside the model,
   // the model beside the lesson. The camera has nothing before it, so the model stands beside it.
   const previous: Screen = current === "model" ? "camera" : "model";
