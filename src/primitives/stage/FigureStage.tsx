@@ -4,7 +4,7 @@
  *
  * mode     "still" (default): drag sideways to turn the model, a flick keeps it turning. No handle.
  *          "game": fixed camera fitted to the rig, game.scene drawn at rest and during runs, and the drag handle (a ring
- *          over primitive.handle.at(values)).
+ *          over primitive.handle.at(values)) unless handle is false.
  * palette  "library" (default): part colours as built, Synthwave shadow, pink ring. "lesson": the app palette (pink
  *          parts orange, purple annotations blue), plain shadow, orange ring.
  * values   Merged over the start values on mount and passed to controller.set whenever its identity changes. Leave it
@@ -22,13 +22,15 @@ import type { StageController } from "./controller.ts";
 import { type Palette, RING_COLOR } from "./looks.ts";
 import { StageView } from "./view.ts";
 import type { FigureMode } from "../../../shared/primitives/framing.ts";
-import { viewerProps } from "../../viewport.ts";
+import { VIEWPORT_HEIGHT, viewerProps } from "../../viewport.ts";
 
 export type { StageController } from "./controller.ts";
 
 type FigureStageProps = {
   primitive: Primitive;
   mode?: FigureMode;
+  /** Game mode only: false leaves the drag handle off, so the figure moves only through the controller. */
+  handle?: boolean;
   palette?: Palette;
   values?: Values;
   height?: number;
@@ -94,7 +96,7 @@ function hand<T>(ref: Ref<T | null> | undefined, value: T | null) {
   else if (ref) ref.current = value;
 }
 
-export function FigureStage({ primitive, mode = "still", palette = "library", values, height = 270, controllerRef, onLive, onCue }: FigureStageProps) {
+export function FigureStage({ primitive, mode = "still", handle = true, palette = "library", values, height = VIEWPORT_HEIGHT, controllerRef, onLive, onCue }: FigureStageProps) {
   const root = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const ring = useRef<HTMLDivElement>(null);
@@ -131,27 +133,27 @@ export function FigureStage({ primitive, mode = "still", palette = "library", va
     if (values) view.current?.controller.set(values);
   }, [values]);
 
-  const handle = primitive.handle;
+  const grip = primitive.handle;
   const slider = motionSlider(primitive);
   const color = RING_COLOR[palette];
 
   return (
     <div ref={root} {...viewerProps} {...stylex.props(styles.box(height))}>
       <canvas ref={canvas} {...stylex.props(styles.canvas, mode === "still" && styles.spin)} />
-      {mode === "game" && (
+      {mode === "game" && handle && (
         <div
           ref={ring}
           data-handle
           role="slider"
           tabIndex={0}
-          aria-label={`${handle.label}: ${slider.label}`}
+          aria-label={`${grip.label}: ${slider.label}`}
           aria-valuemin={slider.min}
           aria-valuemax={slider.max}
           aria-orientation="horizontal"
           {...stylex.props(styles.ring(color))}
         >
           <span aria-hidden data-handle-label {...stylex.props(styles.pill(color))}>
-            {handle.label}
+            {grip.label}
           </span>
         </div>
       )}

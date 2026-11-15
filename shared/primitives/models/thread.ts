@@ -76,16 +76,24 @@ function build(v: Values): Part[] {
   const mid = nutMid(s.rise);
   const wire = ridgeWire(s.pitch);
   const length = RIDGE_TO - RIDGE_FROM;
-  const load = loadBlock("load", v3(0, LOAD_BOTTOM_0 + s.rise, 0), LOAD_N, MM_PER_N, { name: "Weight", role: "The load: it has a hole for the bolt and rests on the nut.", on: on("nut", "glue"), arrowSide: "left" });
-  const bar = knob("handle", handlePoint(s.turns, s.rise), "x", { name: "Handle", role: "A bar on the nut: your hand takes it once round the bolt for each pitch the weight rises.", on: on("nut", "press-fit") });
+  const bar = knob("handle", handlePoint(s.turns, s.rise), "x", { name: "Handle", role: "A bar on the nut: your hand takes it once round the bolt for each pitch the nut rises.", on: on("nut", "press-fit") });
   return [
     plate(61, 49),
     part("rod", "Bolt", "The rod the ridge is wound on.", cylinder(ROD_R, ROD_TOP - PLATE_TOP).shape, v3(0, (PLATE_TOP + ROD_TOP) / 2, 0), look.steel, on("plate", "weld")),
     part("ridge", "Thread ridge", "A wedge wound round the rod, climbing one pitch per turn.", coil(MEAN_R, wire, length, (length - 2 * wire) / s.pitch), v3(0, (RIDGE_FROM + RIDGE_TO) / 2, 0), look.focusMetal, on("rod", "weld")),
     part("nut", "Nut", "Its matching thread rides the wedge, so it climbs one pitch for every turn.", hexShape(NUT_R, NUT_H), v3(0, mid, 0), look.focus, on("rod", "thread"), v3(-90, 0, a)),
     { ...bar, rotation: v3(0, a, 90) },
-    ...load.parts,
   ];
+}
+
+/**
+ * The game's load: a weight with a hole for the bolt, resting on the nut. It belongs to the Jack game only, so the
+ * library stills and the lessons show just the screw and the nut (the project owner's call, 2026-11-14). Its arrow is
+ * left off: the scene may add two kinds of part, and the weight and the mark are those two.
+ */
+function weight(v: Values): Part[] {
+  const s = settle(v);
+  return loadBlock(`${SCENE}load`, v3(0, LOAD_BOTTOM_0 + s.rise, 0), LOAD_N, MM_PER_N, { name: "Weight", role: "The load: it has a hole for the bolt and rests on the nut.", on: on("nut", "glue") }).parts.filter((q) => !q.id.endsWith("-arrow"));
 }
 
 function readouts(v: Values) {
@@ -187,8 +195,8 @@ const MARK_Y = LOAD_BOTTOM_0 + EDGE + TARGET;
 const POST_W = 6;
 const POST_X = HAND_R + 10 + 2 + POST_W / 2;
 
-/** The game's standing prop: one slim post with a tick on it, level with the weight's top once it has come up TARGET mm. The post holds it, so it floats in nothing. */
-function scene(): Part[] {
+/** The game's props: the weight on the nut, and one slim post with a tick on it, level with the weight's top once it has come up TARGET mm. The post holds the tick, so it floats in nothing. */
+function scene(v: Values): Part[] {
   const y = MARK_Y - 1.5;
   const x0 = POST_X - POST_W / 2;
   const x1 = EDGE / 2 + 2;
@@ -197,7 +205,7 @@ function scene(): Part[] {
   const cy = (PLATE_TOP + top) / 2;
   const pts: [number, number][] = [[x0, PLATE_TOP], [x0 + POST_W, PLATE_TOP], [x0 + POST_W, top], [x1, top], [x1, y - 1.5], [x0, y - 1.5]];
   const outline = pts.map(([px, py]) => ({ x: px - cx, y: py - cy }));
-  return [part(`${SCENE}mark`, "Mark", "The weight's top has to come up to this level: a tick on a slim post.", { kind: "extrusion", outline, depth: POST_W }, v3(cx, cy, 0), look.structure, on("plate", "weld"))];
+  return [...weight(v), part(`${SCENE}mark`, "Mark", "The weight's top has to come up to this level: a tick on a slim post.", { kind: "extrusion", outline, depth: POST_W }, v3(cx, cy, 0), look.structure, on("plate", "weld"))];
 }
 
 const PITCH: Slider = { id: "pitch", label: "Pitch", min: 2, max: 6, step: 0.5, initial: 4, unit: " mm", displayScale: PITCH_UNIT };

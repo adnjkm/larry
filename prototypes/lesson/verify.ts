@@ -806,20 +806,17 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
 
     await r.stage("learn");
     await r.noDigits(`${tag} learn`);
-    // A library figure moves by its handle, and the slider row follows it; a first-pass figure (the seal) by its slider.
+    // The figure moves only by the control under it (no drag handle on the figure): a wheel by its keys, a bar by its range.
     const row = '[data-stage="learn"] [data-rig] .grip';
-    const handle = '[data-stage="learn"] [data-handle]';
+    r.check(`${tag} learn: no drag handle on the figure`, (await r.page.locator('[data-stage="learn"] [data-handle]').count()) === 0);
     const before = await r.gripAt(row);
-    if (await r.page.locator(handle).count()) {
-      const ring = await r.centreOf(handle);
-      await r.page.mouse.move(ring.x, ring.y);
-      await r.page.mouse.down();
-      await r.page.mouse.move(ring.x - 40, ring.y + 10, { steps: 6 });
-      await r.page.mouse.up();
+    if ((await r.page.locator(`${row}[role="slider"]`).count()) > 0) {
+      await r.page.focus(row);
+      for (let i = 0; i < 8; i++) await r.page.keyboard.press(Number(before) > 500 ? "ArrowLeft" : "ArrowRight");
     } else await r.setRange(row, Number(before) > 500 ? 100 : 900);
     await r.page.waitForTimeout(200);
     const after = await r.gripAt(row);
-    r.check(`${tag} learn: "${(await r.page.textContent(`${handle}, [data-stage="learn"] [data-rig] .mono`)) ?? ""}" moves the figure`, before !== after, `${before} → ${after}`);
+    r.check(`${tag} learn: "${(await r.page.textContent('[data-stage="learn"] [data-rig] .mono')) ?? ""}" moves the figure`, before !== after, `${before} → ${after}`);
     await r.noDigits(`${tag} learn after a drag`);
     await r.shot(`${tag}-learn`);
     await r.inSheet(async () => {
