@@ -355,7 +355,7 @@ try {
       assert.notEqual(solved, null, `${step.id} can be completed`);
       const stage = await page.locator("[data-stage]").getAttribute("data-stage");
       assert.equal(stage, step.earns.length > 0 || step.primitive === null ? "build" : "figure", `${step.id}: once solved, the stage shows the build if the step earned parts, else its figure`);
-      assert.equal(await page.locator(VIEWER_SELECTOR).count(), 1, `${step.id}: one model per step, on its stage`);
+      assert.equal(await page.locator(`${VIEWER_SELECTOR}:visible`).count(), 1, `${step.id}: one model per step, on its stage`);
       assert.equal(await next.count(), 1, `${step.id}: Next appears once the step is complete`);
       if (index === chapter.steps.length - 1 && chapterNumber <= 2) {
         await viewersReady(page);

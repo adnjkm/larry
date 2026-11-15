@@ -191,7 +191,7 @@ function Stage({ kit, earned, showBuild, children }: { kit: Kit; earned: Readonl
   return (
     <>
       {built && (
-        <div hidden={!showBuild} data-stage="build" {...stylex.props(styles.stage)}>
+        <div hidden={!showBuild} data-stage={showBuild ? "build" : undefined} {...stylex.props(styles.stage)}>
           <BuildViewer kit={kit} earned={earned} />
         </div>
       )}
