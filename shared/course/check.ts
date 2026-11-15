@@ -3,6 +3,7 @@
 import { type Part, type Shape, kitProblems } from "../kit.ts";
 import { KNOWN } from "../mechanisms/library.ts";
 import { GenCourse, type GenMechanism, RIG_ROLES, type Role } from "./gen.ts";
+import { stepProblems } from "./templates.ts";
 
 /** The pieces a learner assembles for each entry: every one needs a Tip card. */
 export const TIP_PIECES: Record<string, readonly string[]> = {
@@ -206,6 +207,11 @@ export function courseProblems(raw: unknown): string[] {
   }
 
   if (gen.object.trim().length === 0 || gen.object.length > LIMITS.nameChars) problems.push(`object name must be 1 to ${LIMITS.nameChars} characters`);
+  // The assemble steps, when the scan picked them; left out, the rig plays the worked example's.
+  for (const m of gen.mechanisms) {
+    const entry = KNOWN.get(m.entry);
+    if (m.steps && entry) problems.push(...stepProblems(m.entry, m.steps, entry.subfunctions.map((s) => s.id)));
+  }
   return [...problems, ...textProblems(gen.mechanisms)];
 }
 

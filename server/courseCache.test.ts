@@ -23,7 +23,12 @@ function fake() {
       signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
     });
   };
-  return { generate, calls, finish: () => waiting.splice(0).forEach((f) => f()) };
+  // Finishing waits for a generation to be waiting: on a busy machine the cache's disk read can outlast a tick.
+  const finish = (tries = 400): void => {
+    if (waiting.length > 0) waiting.splice(0).forEach((f) => f());
+    else if (tries > 0) setTimeout(() => finish(tries - 1), 5);
+  };
+  return { generate, calls, finish: () => finish() };
 }
 
 async function withCache(run: (cache: ReturnType<typeof createCourseCache>, f: ReturnType<typeof fake>, dir: string) => Promise<void>) {

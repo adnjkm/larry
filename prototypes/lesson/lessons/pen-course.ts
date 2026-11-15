@@ -8,9 +8,12 @@ import { ballTip } from "../../../shared/mechanisms/entries/ball-tip.ts";
 import { clickLatch } from "../../../shared/mechanisms/entries/click-latch.ts";
 import { lessonOf, subfunctionsOf, wordsFor } from "../../../shared/mechanisms/instantiate.ts";
 import type { KnownMechanism } from "../../../shared/mechanisms/types.ts";
+import type { GenStep } from "../../../shared/course/gen.ts";
+import { EXAMPLE_STEPS } from "../../../shared/course/templates.ts";
 import type { Kit } from "../../../shared/kit.ts";
 import type { Course, Mechanism, Screen } from "../course.ts";
 import type { Story } from "../model.ts";
+import type { Trial } from "../Place.tsx";
 import pen, { PEN_RIG } from "./pen.ts";
 import { PEN_SHELL } from "./pen-kit.ts";
 
@@ -66,60 +69,64 @@ const WORDS: PenWords = {
 };
 
 export type PenMechanismId = "click-latch" | "ball-tip";
+/** Each mechanism's assemble steps, as filled-in templates (shared/course/templates.ts). */
+export type PenSteps = Readonly<Partial<Record<PenMechanismId, readonly GenStep[]>>>;
+
+/** The cam's turn choices by how far they turn, under the ids the hand-made lesson gave them. */
+const TURN_ID: Readonly<Record<number, string>> = { 0.25: "quarter", 0.5: "half", 1: "whole" };
 
 /**
- * The pen course on any pen: `story` and `rig` from penStory, `reveal` its outside, and `order` the mechanisms as they
- * are built. The retraction demo hides the ball only while the ball tip comes after it.
+ * The pen course on any pen: `story` and `rig` from penStory, `reveal` its outside, `order` the mechanisms as they
+ * are built, and `steps` each one's assemble steps (the hand-made pen's when left out). The retraction demo hides the
+ * ball only while the ball tip comes after it.
  */
-export function penCourseOf(story: Story, rig: typeof PEN_RIG, reveal: Kit, words: PenWords = WORDS, order: readonly PenMechanismId[] = ["click-latch", "ball-tip"]): Course {
+export function penCourseOf(story: Story, rig: typeof PEN_RIG, reveal: Kit, words: PenWords = WORDS, order: readonly PenMechanismId[] = ["click-latch", "ball-tip"], steps: PenSteps = EXAMPLE_STEPS): Course {
 const { tests, keys, frames, demos } = rig;
 const ballLater = order.indexOf("ball-tip") > order.indexOf("click-latch") || !order.includes("ball-tip");
 const noBall = ballLater ? NO_BALL : undefined;
+
+/** Each piece's story module and Tip card. Retraction's pieces go on before the ball does. */
+const pieces: Readonly<Record<string, { module: number; tip: readonly string[]; absent?: readonly string[] }>> = {
+  ball: { module: BALL, tip: words.tip.ball },
+  spring: { module: SPRING, tip: words.click.spring, absent: noBall },
+  cam: { module: LATCH, tip: words.click.cam },
+};
+/** Each place test by template id: it fails with the piece missing and passes with it home. */
+const trials: Readonly<Record<string, Trial>> = {
+  push: { test: tests.push, fail: {}, pass: { [keys.stiffness]: SNUG } },
+  lift: { test: tests.lift, fail: {}, pass: { [keys.stiffness]: SNUG } },
+  write: { test: tests.write, fail: { [keys.squeeze]: 0 }, pass: { [keys.squeeze]: SNUG } },
+};
+
+/** A mechanism's assemble screens, one per step. Only the course's very last step is marked `last`. */
+const assemble = (id: PenMechanismId, facts: (sub: string) => Facts): Screen[] => {
+  const picked = steps[id] ?? EXAMPLE_STEPS[id]!;
+  return picked.map((step, i): Screen => {
+    const piece = pieces[step.piece];
+    if (!piece) throw new Error(`${id} has no piece "${step.piece}"`);
+    const [does, ...also] = step.covers.map((sub) => facts(sub).does);
+    const card = { kind: "place" as const, module: piece.module, does, ...(also.length > 0 && { also }), say: step.say, tip: piece.tip };
+    const last = order[order.length - 1] === id && i === picked.length - 1 && { last: true };
+    // A part whose job is in how it turns is played on its own primitive figure, which has no pen to leave parts off.
+    if (step.template === "choice") return { ...card, turn: step.options.map((o) => ({ id: TURN_ID[o.turns] ?? `turn-${o.turns}`, label: o.label, turns: o.turns })), ...last };
+    const trial = trials[step.test];
+    if (!trial) throw new Error(`${id} has no test "${step.test}" for the ${step.piece}`);
+    return { ...card, trial, ...(piece.absent && { absent: piece.absent }), ...last };
+  });
+};
 
 const tip = mechanismOf(ballTip, words.tip.name, ({ facts, needs, match, primitives }): Screen[] => [
   { kind: "demo", after: LATCH, frame: frames.ball, does: words.tip.does, needs, run: demos.writing, values: { [keys.squeeze]: SNUG, [keys.press]: 1 }, pink: ["ball"] },
   ...primitives,
   match,
-  {
-    kind: "place",
-    module: BALL,
-    does: facts("close").does,
-    also: [facts("roll").does],
-    say: "Drag the ball where it belongs.",
-    trial: { test: tests.write, fail: { [keys.squeeze]: 0 }, pass: { [keys.squeeze]: SNUG } },
-    tip: words.tip.ball,
-    last: order[order.length - 1] === "ball-tip",
-  },
+  ...assemble("ball-tip", facts),
 ]);
 
 const click = mechanismOf(clickLatch, words.click.name, ({ facts, needs, match, primitives }): Screen[] => [
   { kind: "demo", after: LATCH, frame: frames.click, ...(noBall && { hide: noBall }), does: words.click.does, needs, run: demos.clicking, values: {} },
   ...primitives,
   match,
-  {
-    kind: "place",
-    module: SPRING,
-    does: facts("bring-back").does,
-    say: "Drag the spring where it belongs.",
-    trial: { test: tests.push, fail: {}, pass: { [keys.stiffness]: SNUG } },
-    tip: words.click.spring,
-    ...(noBall && { absent: noBall }),
-  },
-  // The cam's job is in how it turns, so its assemble step is the cam itself: the rod on its rim is the pen's tip.
-  {
-    kind: "place",
-    module: LATCH,
-    does: facts("hold").does,
-    also: [facts("take-turns").does],
-    say: "The rod is the pen's tip. Drag on how far each click turns the cam.",
-    turn: [
-      { id: "half", label: "½ Turn", turns: 0.5 },
-      { id: "quarter", label: "¼ Turn", turns: 0.25 },
-      { id: "whole", label: "Full Turn", turns: 1 },
-    ],
-    tip: words.click.cam,
-    ...(order[order.length - 1] === "click-latch" && { last: true }),
-  },
+  ...assemble("click-latch", facts),
 ]);
 
 const made = { "click-latch": click, "ball-tip": tip };

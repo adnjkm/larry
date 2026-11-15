@@ -2,7 +2,7 @@
   "object": "Click Pen",
   "kit": {
     "name": "Click Pen",
-    "summary": "Pressing the top button pushes a spring-loaded cam that moves the refill tip out through the nose hole, and pressing again pulls it back in.",
+    "summary": "Pressing the top button pushes the refill tip out through the cone nose, where a click latch holds it until the next press.",
     "parts": [
       {
         "id": "barrel",
@@ -15,25 +15,25 @@
           "profile": [
             {
               "r": 5.32,
-              "y": 15
+              "y": 25
             },
             {
               "r": 5.32,
-              "y": 129
+              "y": 128
             },
             {
-              "r": 4.742,
-              "y": 129
+              "r": 4.766,
+              "y": 128
             },
             {
-              "r": 4.742,
-              "y": 15
+              "r": 4.766,
+              "y": 25
             }
           ]
         },
         "position": {
           "x": 0,
-          "y": 72,
+          "y": 76.5,
           "z": 0
         },
         "rotation": {
@@ -41,12 +41,12 @@
           "y": 0,
           "z": 0
         },
-        "color": "#dbdde0",
+        "color": "#dddddf",
         "finish": "glossy"
       },
       {
         "id": "nose",
-        "name": "Cone tip",
+        "name": "Cone nose",
         "role": "Guides the tip out of the pen.",
         "parentId": "barrel",
         "joint": "thread",
@@ -58,28 +58,20 @@
               "y": 0
             },
             {
-              "r": 3.47,
-              "y": 6
-            },
-            {
-              "r": 5.089,
-              "y": 14
-            },
-            {
               "r": 5.32,
-              "y": 15
+              "y": 25
             },
             {
-              "r": 4.51,
-              "y": 15
+              "r": 4.655,
+              "y": 25
             },
             {
-              "r": 4.51,
-              "y": 17.5
+              "r": 4.655,
+              "y": 27.5
             },
             {
-              "r": 4.01,
-              "y": 17.5
+              "r": 4.155,
+              "y": 27.5
             },
             {
               "r": 1.436,
@@ -89,7 +81,7 @@
         },
         "position": {
           "x": 0,
-          "y": 8.75,
+          "y": 13.75,
           "z": 0
         },
         "rotation": {
@@ -97,12 +89,12 @@
           "y": 0,
           "z": 0
         },
-        "color": "#d4d6d9",
+        "color": "#d6d6d8",
         "finish": "glossy"
       },
       {
         "id": "button",
-        "name": "Push button",
+        "name": "Plunger",
         "role": "Pressed to click the tip out or back.",
         "parentId": "barrel",
         "joint": "slide",
@@ -111,26 +103,26 @@
           "profile": [
             {
               "r": 0,
-              "y": 125
+              "y": 124
             },
             {
-              "r": 2.776,
-              "y": 125
+              "r": 2.882,
+              "y": 124
             },
             {
-              "r": 2.776,
-              "y": 129
+              "r": 2.882,
+              "y": 128
             },
             {
-              "r": 3.47,
-              "y": 129
+              "r": 3.103,
+              "y": 128
             },
             {
-              "r": 3.47,
+              "r": 3.103,
               "y": 139.4
             },
             {
-              "r": 3.007,
+              "r": 2.66,
               "y": 140
             },
             {
@@ -141,7 +133,7 @@
         },
         "position": {
           "x": 0,
-          "y": 132.5,
+          "y": 132,
           "z": 0
         },
         "rotation": {
@@ -149,7 +141,7 @@
           "y": 0,
           "z": 0
         },
-        "color": "#dbdde0",
+        "color": "#dddddf",
         "finish": "glossy"
       },
       {
@@ -157,7 +149,7 @@
         "name": "Pocket clip",
         "parentId": "barrel",
         "joint": "weld",
-        "color": "#e6e7e9",
+        "color": "#e7e7e9",
         "finish": "metal",
         "role": "Holds the pen to a pocket.",
         "shape": {
@@ -165,66 +157,66 @@
           "outline": [
             {
               "x": 5.054,
-              "y": 128
+              "y": 126
             },
             {
               "x": 6.65,
-              "y": 128
+              "y": 126
             },
             {
               "x": 7.022,
-              "y": 111.9
+              "y": 111.65
             },
             {
               "x": 6.81,
-              "y": 95.8
+              "y": 97.3
             },
             {
               "x": 6.384,
-              "y": 86.6
+              "y": 89.1
             },
             {
               "x": 5.776,
-              "y": 83.38
+              "y": 86.23
             },
             {
               "x": 6.118,
-              "y": 82
+              "y": 85
             },
             {
               "x": 5.692,
-              "y": 82
+              "y": 85
             },
             {
               "x": 5.35,
-              "y": 83.38
+              "y": 86.23
             },
             {
               "x": 5.958,
-              "y": 86.6
+              "y": 89.1
             },
             {
               "x": 6.384,
-              "y": 95.8
+              "y": 97.3
             },
             {
               "x": 6.597,
-              "y": 111.9
+              "y": 111.65
             },
             {
               "x": 6.224,
-              "y": 126.3
+              "y": 124.3
             },
             {
               "x": 5.054,
-              "y": 126.3
+              "y": 124.3
             }
           ],
-          "depth": 4.62608695652174
+          "depth": 3.879166666666667
         },
         "position": {
           "x": 3.881,
-          "y": 105,
+          "y": 105.5,
           "z": 4.625
         },
         "rotation": {
@@ -235,22 +227,22 @@
       },
       {
         "id": "panel-2",
-        "name": "Red strip",
+        "name": "Red stripe",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#b0141c",
+        "color": "#b01818",
         "finish": "glossy",
         "role": "A coloured strip set into the barrel.",
         "shape": {
           "kind": "box",
           "width": 0.4,
-          "height": 42,
-          "depth": 4.047826086956523,
+          "height": 38,
+          "depth": 4.433333333333334,
           "cornerRadius": 0.15
         },
         "position": {
           "x": -3.232,
-          "y": 97,
+          "y": 99,
           "z": 4.137
         },
         "rotation": {
@@ -264,7 +256,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -275,22 +267,22 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 5.394,
-          "y": 19,
+          "x": 5.401,
+          "y": 30,
           "z": 0
         },
         "rotation": {
@@ -304,7 +296,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -315,27 +307,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 3.814,
-          "y": 19,
-          "z": 3.814
+          "x": 2.7,
+          "y": 30,
+          "z": 4.677
         },
         "rotation": {
           "x": 0,
-          "y": -45,
+          "y": -60,
           "z": -90
         }
       },
@@ -344,7 +336,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -355,27 +347,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 0,
-          "y": 19,
-          "z": 5.394
+          "x": -2.7,
+          "y": 30,
+          "z": 4.677
         },
         "rotation": {
           "x": 0,
-          "y": -90,
+          "y": -120,
           "z": -90
         }
       },
@@ -384,7 +376,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -395,62 +387,22 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -3.814,
-          "y": 19,
-          "z": 3.814
-        },
-        "rotation": {
-          "x": 0,
-          "y": -135,
-          "z": -90
-        }
-      },
-      {
-        "id": "dimples-3-1-5",
-        "name": "Grip dimples",
-        "parentId": "barrel",
-        "joint": "molded",
-        "color": "#d4d6da",
-        "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 0,
-              "y": 0
-            },
-            {
-              "r": 1.041,
-              "y": 0
-            },
-            {
-              "r": 0.812,
-              "y": 0.167
-            },
-            {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": -5.394,
-          "y": 19,
+          "x": -5.401,
+          "y": 30,
           "z": 0
         },
         "rotation": {
@@ -460,11 +412,51 @@
         }
       },
       {
+        "id": "dimples-3-1-5",
+        "name": "Grip dimples",
+        "parentId": "barrel",
+        "joint": "molded",
+        "color": "#c8c9cb",
+        "finish": "metal",
+        "role": "A shallow dimple that gives the fingers something to hold.",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 1.108,
+              "y": 0
+            },
+            {
+              "r": 0.865,
+              "y": 0.177
+            },
+            {
+              "r": 0,
+              "y": 0.222
+            }
+          ]
+        },
+        "position": {
+          "x": -2.7,
+          "y": 30,
+          "z": -4.677
+        },
+        "rotation": {
+          "x": 0,
+          "y": -240,
+          "z": -90
+        }
+      },
+      {
         "id": "dimples-3-1-6",
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -475,107 +467,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -3.814,
-          "y": 19,
-          "z": -3.814
+          "x": 2.7,
+          "y": 30,
+          "z": -4.677
         },
         "rotation": {
           "x": 0,
-          "y": -225,
-          "z": -90
-        }
-      },
-      {
-        "id": "dimples-3-1-7",
-        "name": "Grip dimples",
-        "parentId": "barrel",
-        "joint": "molded",
-        "color": "#d4d6da",
-        "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 0,
-              "y": 0
-            },
-            {
-              "r": 1.041,
-              "y": 0
-            },
-            {
-              "r": 0.812,
-              "y": 0.167
-            },
-            {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": 0,
-          "y": 19,
-          "z": -5.394
-        },
-        "rotation": {
-          "x": 0,
-          "y": -270,
-          "z": -90
-        }
-      },
-      {
-        "id": "dimples-3-1-8",
-        "name": "Grip dimples",
-        "parentId": "barrel",
-        "joint": "molded",
-        "color": "#d4d6da",
-        "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 0,
-              "y": 0
-            },
-            {
-              "r": 1.041,
-              "y": 0
-            },
-            {
-              "r": 0.812,
-              "y": 0.167
-            },
-            {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": 3.814,
-          "y": 19,
-          "z": -3.814
-        },
-        "rotation": {
-          "x": 0,
-          "y": -315,
+          "y": -300,
           "z": -90
         }
       },
@@ -584,7 +496,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -595,27 +507,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 4.983,
-          "y": 25.333,
-          "z": 2.064
+          "x": 4.677,
+          "y": 35.333,
+          "z": 2.7
         },
         "rotation": {
           "x": 0,
-          "y": -22.5,
+          "y": -30,
           "z": -90
         }
       },
@@ -624,7 +536,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -635,27 +547,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 2.064,
-          "y": 25.333,
-          "z": 4.983
+          "x": 0,
+          "y": 35.333,
+          "z": 5.401
         },
         "rotation": {
           "x": 0,
-          "y": -67.5,
+          "y": -90,
           "z": -90
         }
       },
@@ -664,7 +576,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -675,27 +587,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -2.064,
-          "y": 25.333,
-          "z": 4.983
+          "x": -4.677,
+          "y": 35.333,
+          "z": 2.7
         },
         "rotation": {
           "x": 0,
-          "y": -112.5,
+          "y": -150,
           "z": -90
         }
       },
@@ -704,7 +616,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -715,27 +627,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -4.983,
-          "y": 25.333,
-          "z": 2.064
+          "x": -4.677,
+          "y": 35.333,
+          "z": -2.7
         },
         "rotation": {
           "x": 0,
-          "y": -157.5,
+          "y": -210,
           "z": -90
         }
       },
@@ -744,7 +656,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -755,27 +667,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -4.983,
-          "y": 25.333,
-          "z": -2.064
+          "x": 0,
+          "y": 35.333,
+          "z": -5.401
         },
         "rotation": {
           "x": 0,
-          "y": -202.5,
+          "y": -270,
           "z": -90
         }
       },
@@ -784,7 +696,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -795,107 +707,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -2.064,
-          "y": 25.333,
-          "z": -4.983
+          "x": 4.677,
+          "y": 35.333,
+          "z": -2.7
         },
         "rotation": {
           "x": 0,
-          "y": -247.5,
-          "z": -90
-        }
-      },
-      {
-        "id": "dimples-3-2-7",
-        "name": "Grip dimples",
-        "parentId": "barrel",
-        "joint": "molded",
-        "color": "#d4d6da",
-        "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 0,
-              "y": 0
-            },
-            {
-              "r": 1.041,
-              "y": 0
-            },
-            {
-              "r": 0.812,
-              "y": 0.167
-            },
-            {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": 2.064,
-          "y": 25.333,
-          "z": -4.983
-        },
-        "rotation": {
-          "x": 0,
-          "y": -292.5,
-          "z": -90
-        }
-      },
-      {
-        "id": "dimples-3-2-8",
-        "name": "Grip dimples",
-        "parentId": "barrel",
-        "joint": "molded",
-        "color": "#d4d6da",
-        "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 0,
-              "y": 0
-            },
-            {
-              "r": 1.041,
-              "y": 0
-            },
-            {
-              "r": 0.812,
-              "y": 0.167
-            },
-            {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": 4.983,
-          "y": 25.333,
-          "z": -2.064
-        },
-        "rotation": {
-          "x": 0,
-          "y": -337.5,
+          "y": -330,
           "z": -90
         }
       },
@@ -904,7 +736,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -915,22 +747,22 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 5.394,
-          "y": 31.667,
+          "x": 5.401,
+          "y": 40.667,
           "z": 0
         },
         "rotation": {
@@ -944,7 +776,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -955,27 +787,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 3.814,
-          "y": 31.667,
-          "z": 3.814
+          "x": 2.7,
+          "y": 40.667,
+          "z": 4.677
         },
         "rotation": {
           "x": 0,
-          "y": -45,
+          "y": -60,
           "z": -90
         }
       },
@@ -984,7 +816,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -995,27 +827,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 0,
-          "y": 31.667,
-          "z": 5.394
+          "x": -2.7,
+          "y": 40.667,
+          "z": 4.677
         },
         "rotation": {
           "x": 0,
-          "y": -90,
+          "y": -120,
           "z": -90
         }
       },
@@ -1024,7 +856,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -1035,62 +867,22 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -3.814,
-          "y": 31.667,
-          "z": 3.814
-        },
-        "rotation": {
-          "x": 0,
-          "y": -135,
-          "z": -90
-        }
-      },
-      {
-        "id": "dimples-3-3-5",
-        "name": "Grip dimples",
-        "parentId": "barrel",
-        "joint": "molded",
-        "color": "#d4d6da",
-        "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 0,
-              "y": 0
-            },
-            {
-              "r": 1.041,
-              "y": 0
-            },
-            {
-              "r": 0.812,
-              "y": 0.167
-            },
-            {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": -5.394,
-          "y": 31.667,
+          "x": -5.401,
+          "y": 40.667,
           "z": 0
         },
         "rotation": {
@@ -1100,11 +892,51 @@
         }
       },
       {
+        "id": "dimples-3-3-5",
+        "name": "Grip dimples",
+        "parentId": "barrel",
+        "joint": "molded",
+        "color": "#c8c9cb",
+        "finish": "metal",
+        "role": "A shallow dimple that gives the fingers something to hold.",
+        "shape": {
+          "kind": "lathe",
+          "profile": [
+            {
+              "r": 0,
+              "y": 0
+            },
+            {
+              "r": 1.108,
+              "y": 0
+            },
+            {
+              "r": 0.865,
+              "y": 0.177
+            },
+            {
+              "r": 0,
+              "y": 0.222
+            }
+          ]
+        },
+        "position": {
+          "x": -2.7,
+          "y": 40.667,
+          "z": -4.677
+        },
+        "rotation": {
+          "x": 0,
+          "y": -240,
+          "z": -90
+        }
+      },
+      {
         "id": "dimples-3-3-6",
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -1115,107 +947,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -3.814,
-          "y": 31.667,
-          "z": -3.814
+          "x": 2.7,
+          "y": 40.667,
+          "z": -4.677
         },
         "rotation": {
           "x": 0,
-          "y": -225,
-          "z": -90
-        }
-      },
-      {
-        "id": "dimples-3-3-7",
-        "name": "Grip dimples",
-        "parentId": "barrel",
-        "joint": "molded",
-        "color": "#d4d6da",
-        "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 0,
-              "y": 0
-            },
-            {
-              "r": 1.041,
-              "y": 0
-            },
-            {
-              "r": 0.812,
-              "y": 0.167
-            },
-            {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": 0,
-          "y": 31.667,
-          "z": -5.394
-        },
-        "rotation": {
-          "x": 0,
-          "y": -270,
-          "z": -90
-        }
-      },
-      {
-        "id": "dimples-3-3-8",
-        "name": "Grip dimples",
-        "parentId": "barrel",
-        "joint": "molded",
-        "color": "#d4d6da",
-        "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 0,
-              "y": 0
-            },
-            {
-              "r": 1.041,
-              "y": 0
-            },
-            {
-              "r": 0.812,
-              "y": 0.167
-            },
-            {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": 3.814,
-          "y": 31.667,
-          "z": -3.814
-        },
-        "rotation": {
-          "x": 0,
-          "y": -315,
+          "y": -300,
           "z": -90
         }
       },
@@ -1224,7 +976,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -1235,27 +987,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 4.983,
-          "y": 38,
-          "z": 2.064
+          "x": 4.677,
+          "y": 46,
+          "z": 2.7
         },
         "rotation": {
           "x": 0,
-          "y": -22.5,
+          "y": -30,
           "z": -90
         }
       },
@@ -1264,7 +1016,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -1275,27 +1027,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": 2.064,
-          "y": 38,
-          "z": 4.983
+          "x": 0,
+          "y": 46,
+          "z": 5.401
         },
         "rotation": {
           "x": 0,
-          "y": -67.5,
+          "y": -90,
           "z": -90
         }
       },
@@ -1304,7 +1056,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -1315,27 +1067,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -2.064,
-          "y": 38,
-          "z": 4.983
+          "x": -4.677,
+          "y": 46,
+          "z": 2.7
         },
         "rotation": {
           "x": 0,
-          "y": -112.5,
+          "y": -150,
           "z": -90
         }
       },
@@ -1344,7 +1096,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -1355,27 +1107,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -4.983,
-          "y": 38,
-          "z": 2.064
+          "x": -4.677,
+          "y": 46,
+          "z": -2.7
         },
         "rotation": {
           "x": 0,
-          "y": -157.5,
+          "y": -210,
           "z": -90
         }
       },
@@ -1384,7 +1136,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -1395,27 +1147,27 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -4.983,
-          "y": 38,
-          "z": -2.064
+          "x": 0,
+          "y": 46,
+          "z": -5.401
         },
         "rotation": {
           "x": 0,
-          "y": -202.5,
+          "y": -270,
           "z": -90
         }
       },
@@ -1424,7 +1176,7 @@
         "name": "Grip dimples",
         "parentId": "barrel",
         "joint": "molded",
-        "color": "#d4d6da",
+        "color": "#c8c9cb",
         "finish": "metal",
         "role": "A shallow dimple that gives the fingers something to hold.",
         "shape": {
@@ -1435,146 +1187,70 @@
               "y": 0
             },
             {
-              "r": 1.041,
+              "r": 1.108,
               "y": 0
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 0.865,
+              "y": 0.177
             },
             {
               "r": 0,
-              "y": 0.208
+              "y": 0.222
             }
           ]
         },
         "position": {
-          "x": -2.064,
-          "y": 38,
-          "z": -4.983
+          "x": 4.677,
+          "y": 46,
+          "z": -2.7
         },
         "rotation": {
           "x": 0,
-          "y": -247.5,
+          "y": -330,
           "z": -90
         }
       },
       {
-        "id": "dimples-3-4-7",
-        "name": "Grip dimples",
+        "id": "cap-4",
+        "name": "Top band",
         "parentId": "barrel",
         "joint": "molded",
         "color": "#d4d6da",
         "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
+        "role": "Finishes the barrel's top.",
         "shape": {
           "kind": "lathe",
           "profile": [
             {
-              "r": 0,
-              "y": 0
+              "r": 4.766,
+              "y": 125
             },
             {
-              "r": 1.041,
-              "y": 0
+              "r": 5.38,
+              "y": 125
             },
             {
-              "r": 0.812,
-              "y": 0.167
+              "r": 5.38,
+              "y": 127.4
             },
             {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": 2.064,
-          "y": 38,
-          "z": -4.983
-        },
-        "rotation": {
-          "x": 0,
-          "y": -292.5,
-          "z": -90
-        }
-      },
-      {
-        "id": "dimples-3-4-8",
-        "name": "Grip dimples",
-        "parentId": "barrel",
-        "joint": "molded",
-        "color": "#d4d6da",
-        "finish": "metal",
-        "role": "A shallow dimple that gives the fingers something to hold.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 0,
-              "y": 0
+              "r": 4.78,
+              "y": 128
             },
             {
-              "r": 1.041,
-              "y": 0
+              "r": 4.766,
+              "y": 128
             },
             {
-              "r": 0.812,
-              "y": 0.167
-            },
-            {
-              "r": 0,
-              "y": 0.208
-            }
-          ]
-        },
-        "position": {
-          "x": 4.983,
-          "y": 38,
-          "z": -2.064
-        },
-        "rotation": {
-          "x": 0,
-          "y": -337.5,
-          "z": -90
-        }
-      },
-      {
-        "id": "rings-4-1",
-        "name": "Nose seam",
-        "parentId": "nose",
-        "joint": "glue",
-        "color": "#b8bbc0",
-        "finish": "metal",
-        "role": "A fine trim ring.",
-        "shape": {
-          "kind": "lathe",
-          "profile": [
-            {
-              "r": 4.958,
-              "y": 13.5
-            },
-            {
-              "r": 5.148,
-              "y": 13.5
-            },
-            {
-              "r": 5.148,
-              "y": 13.9
-            },
-            {
-              "r": 4.958,
-              "y": 13.9
-            },
-            {
-              "r": 4.958,
-              "y": 13.5
+              "r": 4.766,
+              "y": 125
             }
           ]
         },
         "position": {
           "x": 0,
-          "y": 13.7,
+          "y": 126.5,
           "z": 0
         },
         "rotation": {
@@ -1584,41 +1260,41 @@
         }
       },
       {
-        "id": "rings-4-2",
+        "id": "rings-5-1",
         "name": "Nose seam",
-        "parentId": "nose",
-        "joint": "glue",
-        "color": "#b8bbc0",
+        "parentId": "barrel",
+        "joint": "molded",
+        "color": "#a9adb3",
         "finish": "metal",
         "role": "A fine trim ring.",
         "shape": {
           "kind": "lathe",
           "profile": [
             {
-              "r": 5.042,
-              "y": 13.9
+              "r": 5.25,
+              "y": 25
             },
             {
-              "r": 5.232,
-              "y": 13.9
+              "r": 5.44,
+              "y": 25
             },
             {
-              "r": 5.232,
-              "y": 14.3
+              "r": 5.44,
+              "y": 25.6
             },
             {
-              "r": 5.042,
-              "y": 14.3
+              "r": 5.25,
+              "y": 25.6
             },
             {
-              "r": 5.042,
-              "y": 13.9
+              "r": 5.25,
+              "y": 25
             }
           ]
         },
         "position": {
           "x": 0,
-          "y": 14.100000000000001,
+          "y": 25.3,
           "z": 0
         },
         "rotation": {
@@ -1645,31 +1321,78 @@
       },
       "tips": {
         "spring": [
-          "A spring only pushes back while something squeezes it.",
-          "Look for a ledge it sits on, and a collar that comes down on it.",
-          "The collar only squeezes the spring when the tip goes out."
+          "The spring only pushes back while it is squeezed between two parts.",
+          "Look for a ledge it can sit on inside the nose.",
+          "Then look for a collar that comes down on it when the tip goes out."
         ],
         "cam": [
-          "The rod rises only when a bump on the cam is under it.",
-          "This cam has two bumps, opposite each other.",
-          "A click that lands on a bump leaves the tip out. The next click has to land between bumps."
+          "Trace what the top of the refill rests on when you press the button.",
+          "Look at the ring under the button and count its bumps.",
+          "Ask what a click does when it lands on a bump, and what the next click needs to land on."
         ]
-      }
+      },
+      "steps": [
+        {
+          "template": "place",
+          "piece": "spring",
+          "test": "push",
+          "covers": [
+            "bring-back"
+          ],
+          "say": "Drag the spring to where it pushes the tip back up."
+        },
+        {
+          "template": "choice",
+          "piece": "cam",
+          "covers": [
+            "hold",
+            "take-turns"
+          ],
+          "say": "The rod stands for the tip. Pick how far each click turns the cam.",
+          "options": [
+            {
+              "label": "Full Turn",
+              "turns": 1
+            },
+            {
+              "label": "¼ Turn",
+              "turns": 0.25
+            },
+            {
+              "label": "½ Turn",
+              "turns": 0.5
+            }
+          ]
+        }
+      ]
     },
     {
       "entry": "ball-tip",
       "name": "Ball tip",
-      "does": "The ball rolls and lays ink onto the paper.",
+      "does": "The ball rolls to lay ink onto the paper.",
       "words": {
         "fluid": "the ink",
         "surface": "the paper"
       },
       "tips": {
         "ball": [
-          "The ball can only roll if it touches the paper.",
-          "It also has to sit where the ink reaches it from behind."
+          "The ball can only roll while it touches the paper.",
+          "Look for where the ink reaches it from behind, inside a brass socket.",
+          "Check what the ball sits in at the bottom of the refill."
         ]
-      }
+      },
+      "steps": [
+        {
+          "template": "place",
+          "piece": "ball",
+          "test": "write",
+          "covers": [
+            "close",
+            "roll"
+          ],
+          "say": "Drag the ball into the socket at the tip."
+        }
+      ]
     }
   ]
 }

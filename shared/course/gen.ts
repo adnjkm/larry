@@ -25,6 +25,33 @@ export const RIG_ROLES: Record<string, readonly Role[]> = {
   "ball-tip": ["case", "nose"],
 };
 
+/**
+ * One assemble step, as a filled-in template. The templates a rig can play, and what each may be filled with, are in
+ * shared/course/templates.ts; the scan picks among them and the hand-made pen is the worked example.
+ */
+export const GenStep = z.discriminatedUnion("template", [
+  z.object({
+    /** Something is missing: the piece is dragged to where it belongs, and the test answers each drop. */
+    template: z.literal("place"),
+    piece: z.string(),
+    /** Which of the piece's tests plays: failing while the piece is missing or misplaced, passing once it is home. */
+    test: z.string(),
+    /** The sub-functions (ids as in the library entry) this step is about, shown in the pink card, first one on top. */
+    covers: z.array(z.string()).min(1).max(3),
+    say: z.string().describe('The instruction, one line: "Drag the spring where it belongs."'),
+  }),
+  z.object({
+    /** A multiple choice played on the piece's own primitive figure, for a part whose job is in how it moves. */
+    template: z.literal("choice"),
+    piece: z.string(),
+    covers: z.array(z.string()).min(1).max(3),
+    say: z.string(),
+    /** Two or three answers from the template's list, in the order shown. Exactly one works. */
+    options: z.array(z.object({ label: z.string(), turns: z.number() })).min(2).max(3),
+  }),
+]);
+export type GenStep = z.infer<typeof GenStep>;
+
 export const GenMechanism = z.object({
   /** The mechanism library entry (shared/mechanisms/entries): sub-functions, primitives and sentences come from it. */
   entry: z.string(),
@@ -34,6 +61,8 @@ export const GenMechanism = z.object({
   words: z.record(z.string(), z.string()),
   /** The Tip card for each assemble step, keyed by the piece it is about ("spring", "cam", "ball"): two to four short hint lines, never the answer outright. */
   tips: z.record(z.string(), z.array(z.string()).min(1).max(4)),
+  /** After Connect: one to three assemble steps, fewer when in doubt. Left out, the rig plays the worked example's. */
+  steps: z.array(GenStep).min(1).max(3).optional(),
 });
 export type GenMechanism = z.infer<typeof GenMechanism>;
 

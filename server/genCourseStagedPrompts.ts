@@ -2,6 +2,11 @@
 // pass start together, then each detail the shell lists is drawn by code or by its own Sonnet call.
 import { z } from "zod";
 import { Part } from "../shared/kit.ts";
+import type { GenStep } from "../shared/course/gen.ts";
+import { EXAMPLE_STEPS, STEP_TEMPLATES } from "../shared/course/templates.ts";
+import { fill } from "../shared/mechanisms/instantiate.ts";
+import { MECHANISMS } from "../shared/mechanisms/library.ts";
+import type { KnownMechanism } from "../shared/mechanisms/types.ts";
 
 const Pt = z.object({ r: z.number(), y: z.number() });
 const SolidFinish = z.enum(["matte", "glossy", "metal", "rubber"]);
@@ -73,7 +78,7 @@ ${RIG_FACTS}
 Rules:
 - Plain adult English. No flavour, no jokes, no exclamation marks, no numbers you were not given.
 - name: one or two words, the mechanism as this object has it ("Retraction", "Ball tip").
-- does: one line, 12 to 56 characters, ending in a full stop ("Each click sends the tip out or tucks it away.").
+- does: one line, 12 to 48 characters, ending in a full stop ("Each click sends the tip out or tucks it away.").
 - slot words: "the" and one or two lowercase words, naming the thing in this object ("the tip", "the button", "the ink", "the paper").
 - tips: two to four lines per piece, each 12 to 110 characters. A tip points at what to look for, never gives the answer outright.
 
@@ -115,3 +120,83 @@ Shapes:
 For patterns, draw one copy and set repeat: { around, rows, stagger }. Otherwise repeat is null.
 
 Ids short and kebab-case. Colour and finish from the brief. Every part sits on or within 0.3 mm of the surface: nothing floats.`;
+
+// The plan: which library mechanisms the object has, in build order, and each one's assemble steps picked from its
+// templates. The menu and the worked example are written out of shared/course/templates.ts, so they never drift.
+
+const PlanStep = z.object({
+  template: z.enum(["place", "choice"]),
+  piece: z.string().describe("A piece listed under the mechanism."),
+  test: z.string().describe('For place: one of the piece\'s test ids. For choice: "".'),
+  covers: z.array(z.string()).min(1).max(3).describe("Sub-function ids this step tests, first one on top."),
+  say: z.string().describe("The instruction on screen, one plain line under 80 characters."),
+  options: z.array(z.string()).max(3).describe("For choice: two or three option labels exactly as listed, in the order shown. For place: []."),
+});
+export type PlanStep = z.infer<typeof PlanStep>;
+export const Plan = z.object({
+  mechanisms: z
+    .array(
+      z.object({
+        entry: z.enum(MECHANISMS.map((m) => m.id) as [string, ...string[]]).describe("A library entry the object really has."),
+        reason: z.string().describe("One short line: what in the photo shows this mechanism, and why it sits here in the order."),
+        steps: z.array(PlanStep).min(1).max(3),
+      }),
+    )
+    .min(1)
+    .max(3)
+    .describe("In build order."),
+});
+export type Plan = z.infer<typeof Plan>;
+
+export const playable = (entry: string) => entry in STEP_TEMPLATES;
+
+const defaults = (m: KnownMechanism) => Object.fromEntries(m.slots.map((s) => [s.id, s.default]));
+
+function menuOf(m: KnownMechanism): string {
+  if (!playable(m.id)) return `- ${m.id}: ${m.does}.`;
+  const words = defaults(m);
+  const subs = m.subfunctions.map((s) => `    ${s.id}: ${fill(s.does, words)} (its primitive: ${s.primitive})`).join("\n");
+  const pieces = STEP_TEMPLATES[m.id]!.map((p) => {
+    const lines = [`    ${p.piece}: ${p.what}`];
+    for (const t of p.place?.tests ?? []) lines.push(`      place, test "${t.id}": ${t.shows} Can cover: ${t.covers.join(", ")}.`);
+    if (p.choice) {
+      const options = p.choice.options.map((o) => `"${o.label}"${o.works ? " (the one that works)" : ""}`).join(", ");
+      lines.push(`      choice: ${p.choice.shows} Can cover: ${p.choice.covers.join(", ")}. Options: ${options}.`);
+    }
+    return lines.join("\n");
+  });
+  return `- ${m.id} [PLAYABLE]: ${m.does}.\n  Sub-functions (each tested exactly once):\n${subs}\n  Pieces and their templates:\n${pieces.join("\n")}`;
+}
+
+function stepLine(s: GenStep, i: number): string {
+  const what = s.template === "place" ? `place the ${s.piece}, test "${s.test}"` : `choice on the ${s.piece}, options ${s.options.map((o) => `"${o.label}"`).join(", ")}`;
+  return `    ${i + 1}. ${what}; covers ${s.covers.join(", ")}; say "${s.say}"`;
+}
+
+const EXAMPLE = `ONLY AN EXAMPLE. How the hand-made click pen used these templates, to show the form of an answer. It is not the answer for your photo and not a default: do not start from it. Decide each mechanism, the order, each piece's template, each test and the options and their order from what this object and this photo show, by the rules above; where you end up agreeing with the example, that should be because this object calls for it.
+  Order: click-latch, then ball-tip. Built first, the pen clicks in and out, then turns out not to write, which is why the ball tip comes next.
+${Object.entries(EXAMPLE_STEPS)
+  .map(([entry, steps]) => `  ${entry}:\n${steps.map(stepLine).join("\n")}`)
+  .join("\n")}`;
+
+export const PLAN_SYSTEM = `You plan a short hands-on lesson about the object in the photo, for curious adults. The lesson teaches the object's mechanisms one at a time. For each mechanism the learner first meets its primitives and matches them to its sub-functions; then come one to three assemble steps, each a template filled in from the menu below. You choose which mechanisms, their order, and the assemble steps. Code builds everything else.
+
+Choosing mechanisms:
+- Only entries marked PLAYABLE can be taught today. Pick the one to three playable entries this object really has, as the photo shows it.
+- Never pick a mechanism the object does not have, even as a placeholder. If no playable entry fits, list the one to three entries it does have, playable or not, and give each one step copied from the example; code sees that nothing is playable and handles it.
+- Order them so each makes sense when only the earlier ones are built: the learner builds the first, sees what it still cannot do, and the next one answers that.
+- Give each pick one short reason.
+
+Choosing assemble steps, per mechanism:
+- One to three steps. Fewer when in doubt.
+- Every sub-function of the mechanism is tested by exactly one step. A step covers only what its template says it can cover.
+- A piece is placed at most once and has at most one choice step; if it has both, the place comes first.
+- place: the piece is missing and the learner drags it where it belongs; the test then plays. Give the test id. Pick the test whose failure shows most clearly what the piece is for.
+- choice: a multiple choice on the piece's primitive figure. Give two or three option labels exactly as listed, exactly one of them the one that works, in the order to show them (the working one need not be first).
+- A part whose job is in how it moves suits the choice template; a part whose job is in where it sits suits place.
+- say: the one-line instruction on screen, plain, under 80 characters, no exclamation marks, no numbers that are not in an option label.
+
+The menu: every library entry, with its one-line description.
+${MECHANISMS.map(menuOf).join("\n")}
+
+${EXAMPLE}`;

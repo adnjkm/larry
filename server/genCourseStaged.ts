@@ -1,10 +1,12 @@
 // The fast course generation: several models at once instead of one big call.
-//   t = 0: Opus draws the shell (case, nose, button, detail briefs) from the photo; Haiku writes the lesson text.
+//   t = 0: Opus draws the shell (case, nose, button, detail briefs) from the photo; a second Opus call plans the
+//   mechanisms and their assemble steps from the templates; Haiku writes the lesson text.
 //   then: each detail brief becomes parts, built by code or by one Sonnet call per brief, in parallel.
 // The result is checked, and only the stage that failed is asked again, once.
 import { z } from "zod";
 import { type Part, type Shape, kitProblems } from "../shared/kit.ts";
-import { type GenCourse, GenMechanism, type Role } from "../shared/course/gen.ts";
+import { type GenCourse, GenMechanism, GenStep, type Role } from "../shared/course/gen.ts";
+import { EXAMPLE_STEPS, STEP_TEMPLATES, stepProblems } from "../shared/course/templates.ts";
 import { KNOWN } from "../shared/mechanisms/library.ts";
 import { wordsFor } from "../shared/mechanisms/instantiate.ts";
 import { installPen, RigError } from "../prototypes/lesson/gen/rig.ts";
@@ -15,6 +17,10 @@ import {
   DETAIL_SYSTEM,
   Detail,
   type DetailPart,
+  PLAN_SYSTEM,
+  Plan,
+  type PlanStep,
+  playable,
   SHELL_SYSTEM,
   Shell,
   TEXT_SYSTEM,
@@ -23,13 +29,30 @@ import {
 
 export type DetailMode = "code" | "sonnet";
 export type StageStat = { stage: string; model: string; startMs: number; ms: number; costUsd: number };
-export type StagedStats = { totalMs: number; costUsd: number; stages: StageStat[]; problems: string[]; firstProblems: string[]; repaired: string[]; textFallbacks: string[] };
+/** What the plan picked, and where code had to step in. */
+export type PlanStats = {
+  picks: { entry: string; reason: string; steps: GenStep[] }[];
+  /** "all: <why>" when the whole example plan was used; otherwise one line per mechanism that fell back. */
+  fallbacks: string[];
+};
+export type TextStats = { fromModel: number; fromFallback: number; fallbacks: string[] };
+export type StagedStats = {
+  totalMs: number;
+  costUsd: number;
+  stages: StageStat[];
+  problems: string[];
+  firstProblems: string[];
+  repaired: string[];
+  text: TextStats;
+  plan: PlanStats;
+};
 export type StagedOptions = { details?: DetailMode; shellModel?: Model; textModel?: Model; race?: number; signal?: AbortSignal; onStats?: (stats: StagedStats) => void };
 
 export const SHELL_BRAIN: Brain = { model: "claude-opus-5-5", effort: "low" };
 // The wrapper's Model type predates Haiku 5.5; the SDK takes any model id.
 export const TEXT_BRAIN: Brain = { model: "claude-haiku-5-5" as Model, effort: "low" };
 export const DETAIL_BRAIN: Brain = { model: "claude-sonnet-5-5", effort: "low" };
+export const PLAN_BRAIN: Brain = { model: "claude-opus-5-5", effort: "low" };
 
 const ROLE_IDS: Record<Role, string> = { case: "barrel", nose: "nose", button: "button" };
 
@@ -40,6 +63,7 @@ const schemaOf = (schema: z.ZodType): Record<string, unknown> => {
 const SHELL_SCHEMA = schemaOf(Shell);
 const TEXT_SCHEMA = schemaOf(Text);
 const DETAIL_SCHEMA = schemaOf(Detail);
+const PLAN_SCHEMA = schemaOf(Plan);
 
 type Content = Parameters<typeof streamStructured>[0]["content"];
 const imageOf = (photo: Photo) => ({ type: "image" as const, source: { type: "base64" as const, media_type: photo.mediaType, data: photo.base64 } });
@@ -360,7 +384,7 @@ async function sonnetDetail(brief: Brief, hosts: Hosts, index: number, run: Run)
   return expandDetail(out.parts, brief, index);
 }
 
-type Run = { t0: number; stats: StageStat[]; signal?: AbortSignal; shellBrain: Brain; textBrain: Brain };
+type Run = { t0: number; stats: StageStat[]; signal?: AbortSignal; shellBrain: Brain; textBrain: Brain; planBrain: Brain };
 
 function shellContent(photos: Photo[], fix: string[]): Content {
   const ask = fix.length === 0 ? "Measure this pen." : `Measure this pen. Your last answer had these problems; fix them:\n- ${fix.join("\n- ")}`;
@@ -369,6 +393,11 @@ function shellContent(photos: Photo[], fix: string[]): Content {
 
 async function shellStage(photos: Photo[], run: Run, fix: string[] = [], tag = "shell"): Promise<Shell> {
   return ask(tag, run.shellBrain, SHELL_SYSTEM, SHELL_SCHEMA, Shell, shellContent(photos, fix), run);
+}
+
+async function planStage(photos: Photo[], run: Run): Promise<Plan> {
+  const content: Content = [...photos.map(imageOf), { type: "text", text: "Plan the lesson for the object in this photo." }];
+  return ask("plan", run.planBrain, PLAN_SYSTEM, PLAN_SCHEMA, Plan, content, run);
 }
 
 async function textStage(photos: Photo[], run: Run, fix: string[] = []): Promise<Text> {
@@ -398,84 +427,146 @@ const GOLD_TEXT: Text = {
   },
 };
 
-/** A name of one or two words for the whole mechanism, not one of its sub-functions ("Ink Seal"). */
-function goodName(name: string, entry: string): boolean {
+// The checks a model's line has to fail before the gold's replaces it: the course check's limits, plus no digits or
+// exclamation marks (an invented number, or flavour).
+const plain = (line: string) => !/[!\d]/.test(line);
+const goodName = (name: string) => {
   const words = name.trim().split(/\s+/);
-  if (words.length < 1 || words.length > 2 || name.length > 24) return false;
-  const parts = KNOWN.get(entry)?.subfunctions.flatMap((s) => [s.primitive, ...s.id.split("-")]) ?? [];
-  return !words.some((w) => parts.includes(w.toLowerCase()));
-}
-const goodDoes = (does: string) => does.length >= 12 && does.length <= 46 && /^[A-Z][^.!?]*[.]$/.test(does.trim()) && !/\d/.test(does);
-const goodLine = (line: string) => line.trim().split(/\s+/).length >= 4 && line.length <= 110 && /^[A-Z].*[.?]$/.test(line.trim()) && !/[!\d]/.test(line);
-/** Haiku's tips for a piece when at least two lines pass, otherwise the gold's. */
-const tipsOr = (given: string[] | undefined, gold: string[]) => {
-  const kept = (given ?? []).filter(goodLine).slice(0, 4);
-  return kept.length >= 2 ? kept : gold;
+  return name.trim().length > 0 && name.length <= 24 && words.length <= 3 && plain(name);
 };
+const goodDoes = (does: string) => does.trim().length >= 12 && does.length <= 48 && plain(does);
+const goodLine = (line: string) => line.trim().length >= 12 && line.length <= 110 && plain(line);
+const goodPhrase = (phrase: string) => /^the [a-z][a-z'-]*( [a-z][a-z'-]*)?$/.test(phrase.trim()) && phrase.length <= 28;
 
 /** Haiku's text checked field by field; each field that fails, or all of it when Haiku is late, comes from the gold. */
-function checkedText(text: Text | undefined): { text: Text; fallbacks: string[] } {
+function checkedText(text: Text | undefined): { text: Text; stats: TextStats } {
   const g = GOLD_TEXT;
   const t = text ?? g;
-  const fallbacks: string[] = text ? [] : ["all"];
+  const stats: TextStats = { fromModel: 0, fromFallback: 0, fallbacks: text ? [] : ["all"] };
   const pick = <T>(field: string, ok: boolean, given: T, gold: T): T => {
-    if (!ok) fallbacks.push(field);
+    if (ok && text) stats.fromModel++;
+    else {
+      stats.fromFallback++;
+      if (text) stats.fallbacks.push(field);
+    }
     return ok ? given : gold;
   };
-  const tip = (field: string, given: string[], gold: string[]) => {
-    const out = tipsOr(given, gold);
-    if (out === gold && text) fallbacks.push(field);
+  // A piece's tips keep each line that passes; the gold's only when fewer than two do.
+  const tips = (field: string, given: string[], gold: string[]) => {
+    const kept = given.filter(goodLine).slice(0, 4);
+    const out = pick(field, kept.length >= 2, kept, gold);
+    if (out === gold && text) stats.fallbacks[stats.fallbacks.length - 1] += ` (${JSON.stringify(given)})`;
     return out;
   };
   return {
     text: {
-      object: t.object,
+      object: pick("object", goodName(t.object), t.object, g.object),
       click: {
-        ...t.click,
-        name: pick("click.name", goodName(t.click.name, "click-latch"), t.click.name, g.click.name),
+        name: pick("click.name", goodName(t.click.name), t.click.name, g.click.name),
         does: pick("click.does", goodDoes(t.click.does), t.click.does, g.click.does),
-        spring: tip("click.spring", t.click.spring, g.click.spring),
-        cam: tip("click.cam", t.click.cam, g.click.cam),
+        part: pick("click.part", goodPhrase(t.click.part), t.click.part, g.click.part),
+        button: pick("click.button", goodPhrase(t.click.button), t.click.button, g.click.button),
+        spring: tips("click.spring", t.click.spring, g.click.spring),
+        cam: tips("click.cam", t.click.cam, g.click.cam),
       },
       tip: {
-        ...t.tip,
-        name: pick("tip.name", goodName(t.tip.name, "ball-tip"), t.tip.name, g.tip.name),
+        name: pick("tip.name", goodName(t.tip.name), t.tip.name, g.tip.name),
         does: pick("tip.does", goodDoes(t.tip.does), t.tip.does, g.tip.does),
-        ball: tip("tip.ball", t.tip.ball, g.tip.ball),
+        fluid: pick("tip.fluid", goodPhrase(t.tip.fluid), t.tip.fluid, g.tip.fluid),
+        surface: pick("tip.surface", goodPhrase(t.tip.surface), t.tip.surface, g.tip.surface),
+        ball: tips("tip.ball", t.tip.ball, g.tip.ball),
       },
     },
-    fallbacks,
+    stats,
   };
 }
 
-/** How long the text may still take once the shell is ready. */
+/** How long the text and the plan may still take once the shell is ready. */
 const TEXT_GRACE_MS = 2000;
 
-function mechanismsOf(text: Text): GenMechanism[] {
-  const click = KNOWN.get("click-latch")!;
-  const tip = KNOWN.get("ball-tip")!;
-  return [
-    GenMechanism.parse({
-      entry: "click-latch",
-      name: text.click.name,
-      does: text.click.does,
-      words: wordsFor(click, [
+/** A mechanism the course builds, and the steps it plays. */
+type Picked = { entry: string; steps: GenStep[] };
+const EXAMPLE_PLAN: Picked[] = ["click-latch", "ball-tip"].map((entry) => ({ entry, steps: [...EXAMPLE_STEPS[entry]!] }));
+/** The rig installs the click works on every pen, so a plan without them gets them, first. */
+const REQUIRED = "click-latch";
+
+/** A planned step as the course's step: option labels become the template's turns (an unknown label stays NaN, which the check refuses). */
+function stepOf(entry: string, step: PlanStep): GenStep | undefined {
+  const { template, piece, covers, say } = step;
+  const known = STEP_TEMPLATES[entry]?.find((p) => p.piece === piece)?.choice?.options ?? [];
+  const raw =
+    template === "place"
+      ? { template, piece, test: step.test, covers, say }
+      : { template, piece, covers, say, options: step.options.map((label) => ({ label, turns: known.find((k) => k.label === label)?.turns ?? Number.NaN })) };
+  const parsed = GenStep.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
+ * The plan, kept where it is valid: unplayable or repeated entries are dropped, the click works are added when left
+ * out, and a mechanism whose steps break the rules plays the worked example's steps instead. No repair call.
+ */
+export function plannedOf(plan: Plan | undefined, why = "the plan call failed or came late"): { picked: Picked[]; stats: PlanStats } {
+  if (!plan) return { picked: EXAMPLE_PLAN, stats: { picks: [], fallbacks: [`all: ${why}`] } };
+  const fallbacks: string[] = [];
+  const picks: PlanStats["picks"] = [];
+  const picked: Picked[] = [];
+  for (const m of plan.mechanisms) {
+    const steps = m.steps.map((s) => stepOf(m.entry, s));
+    picks.push({ entry: m.entry, reason: m.reason, steps: steps.filter((s) => s !== undefined) });
+    if (!playable(m.entry)) {
+      fallbacks.push(`${m.entry}: dropped, not playable`);
+      continue;
+    }
+    if (picked.some((p) => p.entry === m.entry)) {
+      fallbacks.push(`${m.entry}: dropped, picked twice`);
+      continue;
+    }
+    const subs = KNOWN.get(m.entry)!.subfunctions.map((s) => s.id);
+    const problems = steps.some((s) => s === undefined) ? ["a step does not fit the step schema"] : stepProblems(m.entry, steps as GenStep[], subs);
+    if (problems.length > 0) fallbacks.push(`${m.entry}: example steps (${problems.join("; ")})`);
+    picked.push({ entry: m.entry, steps: problems.length > 0 ? [...EXAMPLE_STEPS[m.entry]!] : (steps as GenStep[]) });
+  }
+  if (picked.length === 0) return { picked: EXAMPLE_PLAN, stats: { picks, fallbacks: [...fallbacks, "all: the plan picked no playable mechanism"] } };
+  if (!picked.some((p) => p.entry === REQUIRED)) {
+    fallbacks.push(`${REQUIRED}: added, the rig needs it`);
+    picked.unshift({ entry: REQUIRED, steps: [...EXAMPLE_STEPS[REQUIRED]!] });
+  }
+  return { picked: picked.slice(0, 3), stats: { picks, fallbacks } };
+}
+
+/** Each picked mechanism with its words, its steps, and tips for the pieces those steps use. */
+function mechanismsOf(text: Text, picked: Picked[]): GenMechanism[] {
+  const lines: Record<string, { name: string; does: string; words: { slot: string; phrase: string }[]; tips: Record<string, string[]> }> = {
+    "click-latch": {
+      ...text.click,
+      words: [
         { slot: "part", phrase: text.click.part },
         { slot: "button", phrase: text.click.button },
-      ]),
+      ],
       tips: { spring: text.click.spring, cam: text.click.cam },
-    }),
-    GenMechanism.parse({
-      entry: "ball-tip",
-      name: text.tip.name,
-      does: text.tip.does,
-      words: wordsFor(tip, [
+    },
+    "ball-tip": {
+      ...text.tip,
+      words: [
         { slot: "fluid", phrase: text.tip.fluid },
         { slot: "surface", phrase: text.tip.surface },
-      ]),
+      ],
       tips: { ball: text.tip.ball },
-    }),
-  ];
+    },
+  };
+  return picked.map(({ entry, steps }) => {
+    const l = lines[entry]!;
+    const pieces = [...new Set(steps.map((s) => s.piece))];
+    return GenMechanism.parse({
+      entry,
+      name: l.name,
+      does: l.does,
+      words: wordsFor(KNOWN.get(entry)!, l.words),
+      tips: Object.fromEntries(pieces.map((p) => [p, l.tips[p]!])),
+      steps,
+    });
+  });
 }
 
 async function detailsOf(shell: Shell, mode: DetailMode, run: Run): Promise<Part[]> {
@@ -497,13 +588,13 @@ async function detailsOf(shell: Shell, mode: DetailMode, run: Run): Promise<Part
   return lists.flat();
 }
 
-function assemble(shell: Shell, details: Part[], text: Text): GenCourse {
+function assemble(shell: Shell, details: Part[], text: Text, picked: Picked[] = EXAMPLE_PLAN): GenCourse {
   const parts = [rolePart("case", shell), rolePart("nose", shell), rolePart("button", shell), ...details];
   return {
     object: (shell.object || text.object).slice(0, 24),
     kit: { name: shell.object, summary: shell.summary, parts },
     roles: { case: ROLE_IDS.case, nose: ROLE_IDS.nose, button: ROLE_IDS.button },
-    mechanisms: mechanismsOf(text),
+    mechanisms: mechanismsOf(text, picked),
   };
 }
 
@@ -569,17 +660,25 @@ export async function generateCourseStaged(photos: Photo[], opts: StagedOptions 
     signal: opts.signal,
     shellBrain: { ...SHELL_BRAIN, model: opts.shellModel ?? SHELL_BRAIN.model },
     textBrain: { ...TEXT_BRAIN, model: opts.textModel ?? TEXT_BRAIN.model },
+    planBrain: PLAN_BRAIN,
   };
   const repaired: string[] = [];
 
   // Text that fails or never comes falls back to the gold's lines, so it never holds the course up.
+  // So does a plan that fails or is late: the worked example's.
   const textP = textStage(photos, run).catch(() => undefined);
+  let planError = "the plan call came late";
+  const planP = planStage(photos, run).catch((error: Error) => {
+    planError = `the plan call failed: ${error.message.slice(0, 200)}`;
+    return undefined;
+  });
   let shell = settle(await racedShell(photos, opts.race ?? 1, run));
   const late = new Promise<undefined>((resolve) => setTimeout(resolve, TEXT_GRACE_MS, undefined));
-  const [given, details0] = await Promise.all([Promise.race([textP, late]), detailsOf(shell, mode, run)]);
+  const [given, plan, details0] = await Promise.all([Promise.race([textP, late]), Promise.race([planP, late]), detailsOf(shell, mode, run)]);
   let details = details0;
-  const { text, fallbacks: textFallbacks } = checkedText(given);
-  let course = assemble(shell, details, text);
+  const { text, stats: textStats } = checkedText(given);
+  const { picked, stats: planStats } = plannedOf(plan, planError);
+  let course = assemble(shell, details, text, picked);
   let problems = await problemsOf(course);
   const firstProblems = problems;
 
@@ -601,7 +700,7 @@ export async function generateCourseStaged(photos: Photo[], opts: StagedOptions 
       details = details.filter((d) => !detailFix.some((p) => p.startsWith(`${d.id} `)));
     }
     await Promise.all(jobs);
-    course = assemble(shell, details, text);
+    course = assemble(shell, details, text, picked);
     problems = await problemsOf(course);
   }
 
@@ -612,7 +711,8 @@ export async function generateCourseStaged(photos: Photo[], opts: StagedOptions 
     problems,
     firstProblems,
     repaired,
-    textFallbacks,
+    text: textStats,
+    plan: planStats,
   });
   return course;
 }

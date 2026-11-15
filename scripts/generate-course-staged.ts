@@ -44,7 +44,13 @@ if (stats) {
   for (const s of stats.stages)
     console.log(`${s.stage.padEnd(18)} ${s.model.padEnd(18)} start ${(s.startMs / 1000).toFixed(1)}s  took ${(s.ms / 1000).toFixed(1)}s  $${s.costUsd.toFixed(4)}`);
   console.log(`total ${(stats.totalMs / 1000).toFixed(1)}s  $${stats.costUsd.toFixed(4)}  parts ${course.kit.parts.length}  repaired [${stats.repaired.join(", ")}]`);
-  if (stats.textFallbacks.length > 0) console.log(`text from gold: ${stats.textFallbacks.join(", ")}`);
+  console.log(`text: ${stats.text.fromModel} fields from the model, ${stats.text.fromFallback} from the gold${stats.text.fallbacks.length > 0 ? ` (${stats.text.fallbacks.join(", ")})` : ""}`);
+  for (const m of course.mechanisms) {
+    const steps = (m.steps ?? []).map((s) => (s.template === "place" ? `place ${s.piece}/${s.test}` : `choice ${s.piece} [${s.options.map((o) => o.label).join(", ")}]`) + ` {${s.covers.join(", ")}}`);
+    console.log(`plan ${m.entry}: ${steps.join(" -> ")}`);
+  }
+  for (const p of stats.plan.picks) console.log(`  why ${p.entry}: ${p.reason}`);
+  if (stats.plan.fallbacks.length > 0) console.log(`plan fallbacks:\n- ${stats.plan.fallbacks.join("\n- ")}`);
   if (stats.firstProblems.length > 0) console.log(`first pass:\n- ${stats.firstProblems.join("\n- ")}`);
   console.log(stats.problems.length === 0 ? "no problems" : `problems:\n- ${stats.problems.join("\n- ")}`);
 }
