@@ -27,13 +27,16 @@ export const TEMPLATE_CSS = `
 .fill-pill[data-full] { box-shadow: none; }
 
 /* Each step fades in as it takes the screen, a row at a time, 40 ms apart. The mechanism's bubble doesn't: it is on
-   every screen of its mechanism, in the same place, so it stays put while the rows under it change. */
-.step-in > :not([data-mechanism]) { animation: step-in 320ms var(--ease-out) both; }
-.step-in > :nth-child(3) { animation-delay: 40ms; }
-.step-in > :nth-child(4) { animation-delay: 80ms; }
-.step-in > :nth-child(5) { animation-delay: 120ms; }
-.step-in > :nth-child(n + 6) { animation-delay: 160ms; }
-@keyframes step-in { from { opacity: 0; } }
+   every screen of its mechanism, in the same place, so it stays put while the rows under it change.
+   A transition from the row's first style, not a named animation: it plays once, when the row is first drawn, and
+   nothing that changes round it later (the demo's arrival ending, Demo.tsx) can play it again. The transition carries
+   no weight (:where), so a row with one of its own keeps it. */
+:where(.step-in) > :where(:not([data-mechanism])) { transition: opacity 320ms var(--ease-out); }
+:where(.step-in) > :where(:nth-child(3)) { transition-delay: 40ms; }
+:where(.step-in) > :where(:nth-child(4)) { transition-delay: 80ms; }
+:where(.step-in) > :where(:nth-child(5)) { transition-delay: 120ms; }
+:where(.step-in) > :where(:nth-child(n + 6)) { transition-delay: 160ms; }
+@starting-style { .step-in > :not([data-mechanism]) { opacity: 0; } }
 .result:empty { display: none; }
 .result { min-height: 0; }
 .hold-fill { position: absolute; inset: 0; border-radius: 999px; background: var(--pink); opacity: 0.85; transform-origin: left; pointer-events: none; }
