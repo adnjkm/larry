@@ -1,120 +1,113 @@
-import { useEffect, useRef } from "react";
-import { type DitherMethod, ditherPhoto, drawDevelopLight, type Ring } from "./dither.ts";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { type AmbientLook, drawAmbient, type GreyField, greyField } from "./dither.ts";
 
-/** How the develop wave looks. Times in ms, sizes in CSS px. */
-export type DevelopLook = {
-  /** The first ring's run out to the frame's far corner. */
-  waveMs: number;
-  /** Time between the faint rings that follow while Larry works. */
-  pulseMs: number;
+/** How the grey photo moves while Larry works. */
+export type DevelopLook = AmbientLook & {
+  /** How long after the last shot the ambient starts easing in, in ms. It eases in while the band is still climbing, so the photo is already moving behind it. */
+  settleMs: number;
 };
 
+/**
+ * The capture sweep as it stands this frame: whether it's running, its dithered band, and how far down the frame the
+ * band's top edge is (0 to 1), or null while none of it shows.
+ */
+export type SweepNow = { running: boolean; canvas: HTMLCanvasElement | null; front: number | null };
+
 type DevelopOptions = {
-  /** Starts the wave when it turns true; everything clears when it turns false. */
+  /** Draws while true; everything clears when it turns false. */
   active: boolean;
   photo: string;
   box: { width: number; height: number };
-  /** The frame's corner radius, so the light stays inside it. */
-  radius: number;
-  /** The viewfinder's zoom when the wave started, so the grey photo lines up with the colour one. */
+  /** The viewfinder's zoom when the last shot was taken, so the grey photo is framed the same. */
   zoom: number;
-  /** Dither cell size in CSS px for the photo and for the light. */
+  /** Dither cell size in CSS px. */
   grain: number;
-  lightGrain: number;
-  method: DitherMethod;
-  /** Where the rings start, in CSS px from the frame's top left. Below the frame is the shutter. */
-  origin: [number, number];
   look: DevelopLook;
-  /** Runs once, when the first ring has reached the top of the frame. */
-  onTop?: () => void;
+  /** What the capture sweep is showing, for the glow while it runs. */
+  sweep: () => SweepNow;
 };
 
-/** One wave runs out from the shutter, then fainter rings follow it every `pulseMs`, each this much longer than the gap, so two overlap. */
-const PULSE_LIFE = 1.8;
-const PULSE_STRENGTH = 0.4;
-/** The light redraws at this rate: it's dither, and the cells read as steady at 30. */
+/** The ambient redraws at this rate: it's dither, and the cells read as steady at 30. */
 const FRAME_MS = 1000 / 30;
+/** How long the ambient takes to ease in. */
+const EASE_IN_MS = 1400;
 /** The glow copies the frame at this fraction of its size; it is blurred anyway, so more would only cost. */
 const GLOW_SCALE = 1 / 8;
 
 /**
- * The move from photo to model, on the camera screen. A ring of synthwave dither runs out from the shutter across
- * the frame, and behind it the photo turns into grey dither; then fainter rings keep coming while Larry works.
+ * The photo after the last shot. The capture sweep unveils it in grey dither, and then it stays alive while Larry
+ * works: the sweep's synthwave light on a rocking liquid surface over it, the photo bending under it (see drawAmbient).
  *
- * The frame also glows like a lit screen: `glow` is a tiny copy of whatever the frame shows (the photo, the grey
- * photo inside the ring, the ring's light), redrawn each frame. Put it behind the frame at the frame's size and blur
- * it, and the colours at each part of the frame spill past its edge there.
+ * Two canvases. `still` goes inside the sweep's scope (shown once the shot's change runs) and is drawn once: a canvas
+ * that changes every frame inside glimm's scope costs glimm a redraw of the page each time. `grey` is the live one: it
+ * goes over the scope but under the band, and shows wherever the band has passed.
  *
- * Returns refs for three canvases: `photo` then `light` over the photo, inside the frame; `glow` behind the frame.
+ * The frame also glows like a lit screen: `glow` is a tiny copy of whatever the frame shows, redrawn each frame. Put
+ * it behind the frame at the frame's size and blur it, and the colours at each part of the frame spill past its edge.
  */
 export function useDevelop(options: DevelopOptions) {
-  const photo = useRef<HTMLCanvasElement>(null);
-  const light = useRef<HTMLCanvasElement>(null);
+  const still = useRef<HTMLCanvasElement>(null);
+  const grey = useRef<HTMLCanvasElement>(null);
   const glow = useRef<HTMLCanvasElement>(null);
   const latest = useRef(options);
   latest.current = options;
 
+  // Decoded ahead, so the grey photo can be drawn the moment the last shot is taken.
+  const image = useRef<HTMLImageElement | null>(null);
   useEffect(() => {
+    const img = new Image();
+    img.src = options.photo;
+    let live = true;
+    void img.decode().then(() => live && (image.current = img), () => {});
+    return () => {
+      live = false;
+      image.current = null;
+    };
+  }, [options.photo]);
+
+  useLayoutEffect(() => {
     if (!options.active) return;
-    const photoEl = photo.current;
-    const lightEl = light.current;
+    const stillEl = still.current;
+    const greyEl = grey.current;
     const glowEl = glow.current;
-    if (!photoEl || !lightEl || !glowEl) return;
+    if (!stillEl || !greyEl || !glowEl) return;
+    greyEl.style.clipPath = "inset(100% 0 0 0)";
+    // Whether the band has shown yet: once it has, its going means it has left the top, not that it hasn't started.
+    let passed = false;
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const scratch = document.createElement("canvas");
     const start = performance.now();
+    let field: GreyField | null = null;
     let raf = 0;
     let last = -Infinity;
-    let cancelled = false;
-    let decoded = false;
-    let topped = false;
 
-    const { box, grain, method, zoom } = latest.current;
-    const image = new Image();
-    image.src = latest.current.photo;
-    void image.decode().then(() => {
-      if (cancelled) return;
-      ditherPhoto(photoEl, image, box, grain, { method, zoom });
-      decoded = true;
-    });
-
-    const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
-      if (now - last < FRAME_MS) return;
-      last = now;
+    const draw = (now: number) => {
       const o = latest.current;
+      const img = image.current;
+      if (!field && img) {
+        field = greyField(img, o.box, o.grain, { zoom: o.zoom });
+        if (field) {
+          const size = field.cell / field.dpr;
+          for (const el of [stillEl, greyEl]) {
+            el.style.width = `${field.cols * size}px`;
+            el.style.height = `${field.rows * size}px`;
+          }
+          // The sweep unveils this one; it never changes, so glimm, which watches what it covers, has nothing to redo.
+          drawAmbient(stillEl, field, o.look, 0, 0);
+        }
+      }
+      if (!field) return;
+      const k = reduced ? 0 : Math.min(1, Math.max(0, (now - start - o.look.settleMs) / EASE_IN_MS));
+      const sweep = o.sweep();
+      // The live canvas shows only where the band has passed: below its top edge while it climbs (the band itself is
+      // drawn over that edge), and everywhere once it has gone.
+      if (sweep.front !== null) passed = true;
+      greyEl.style.clipPath =
+        !sweep.running || (passed && sweep.front === null) ? "none" : sweep.front === null ? "inset(100% 0 0 0)" : `inset(${(Math.max(0, sweep.front) * 100).toFixed(2)}% 0 0 0)`;
+      const shown = greyEl;
+      if (!reduced || k === 0) drawAmbient(greyEl, field, o.look, (now - start) / 1000, k * k * (3 - 2 * k));
+
+      // The glow: the frame as it looks now, in miniature. While the sweep runs, the colour photo still shows above it.
       const { width, height } = o.box;
-      const [ox, oy] = o.origin;
-      // Far enough that a ring's tail has cleared the farthest corner.
-      const corner = Math.max(...[[0, 0], [width, 0], [0, height], [width, height]].map(([x = 0, y = 0]) => Math.hypot(x - ox, y - oy)));
-      const band = corner * 0.3;
-      const reach = corner + band;
-      const t = reduced ? o.look.waveMs : now - start;
-      const rings: Ring[] = [];
-
-      const k = Math.min(1, t / o.look.waveMs);
-      // Fast off the shutter and easing out, as glimm's band does.
-      const wave = 1 - (1 - k) ** 3;
-      if (k < 1) rings.push({ radius: wave * reach, band, strength: 1 - k ** 4 });
-      // The top edge is nearest the origin straight above it, so that's where the ring first reaches it.
-      if (!topped && (wave * reach >= oy || k >= 1)) {
-        topped = true;
-        o.onTop?.();
-      }
-      // The grey photo is revealed a little behind the ring's leading edge, under its brightest part.
-      photoEl.style.clipPath = k < 1 ? `circle(${Math.max(0, wave * reach - band * 0.25)}px at ${ox}px ${oy}px)` : "none";
-
-      const pulseLife = o.look.pulseMs * PULSE_LIFE;
-      for (let n = 0; ; n++) {
-        const age = t - (o.look.waveMs * 0.75 + n * o.look.pulseMs);
-        if (age < 0) break;
-        if (age > pulseLife) continue;
-        const p = age / pulseLife;
-        rings.push({ radius: Math.sqrt(p) * reach, band: band * 0.7, strength: PULSE_STRENGTH * (1 - p) ** 1.2 });
-      }
-      drawDevelopLight(lightEl, width, height, o.radius, o.origin, rings, o.lightGrain, reduced ? 0 : t / 1000, scratch);
-
-      // The glow: the frame as it looks now, in miniature.
       const gw = Math.max(1, Math.round(width * GLOW_SCALE));
       const gh = Math.max(1, Math.round(height * GLOW_SCALE));
       if (glowEl.width !== gw || glowEl.height !== gh) {
@@ -122,37 +115,38 @@ export function useDevelop(options: DevelopOptions) {
         glowEl.height = gh;
       }
       const g = glowEl.getContext("2d");
-      if (g) {
-        g.clearRect(0, 0, gw, gh);
-        if (decoded) {
-          // The colour photo as the viewfinder shows it, filling the frame at its zoom.
-          const fill = Math.max(gw / image.naturalWidth, gh / image.naturalHeight) * o.zoom;
-          const iw = image.naturalWidth * fill;
-          const ih = image.naturalHeight * fill;
-          g.drawImage(image, (gw - iw) / 2, (gh - ih) / 2, iw, ih);
-          // The grey photo over it, inside the ring while the wave runs and everywhere once it has passed.
-          g.save();
-          if (k < 1) {
-            g.beginPath();
-            g.arc(ox * GLOW_SCALE, oy * GLOW_SCALE, Math.max(0, wave * reach - band * 0.25) * GLOW_SCALE, 0, 2 * Math.PI);
-            g.clip();
-          }
-          g.drawImage(photoEl, 0, 0, gw, gh);
-          g.restore();
-        }
-        g.drawImage(lightEl, 0, 0, gw, gh);
+      if (!g || !img) return;
+      g.clearRect(0, 0, gw, gh);
+      const size = field.cell / field.dpr;
+      const fw = field.cols * size * GLOW_SCALE;
+      const fh = field.rows * size * GLOW_SCALE;
+      if (sweep.front !== null) {
+        const fill = Math.max(gw / img.naturalWidth, gh / img.naturalHeight) * o.zoom;
+        g.drawImage(img, (gw - img.naturalWidth * fill) / 2, (gh - img.naturalHeight * fill) / 2, img.naturalWidth * fill, img.naturalHeight * fill);
+        const top = Math.max(0, sweep.front) * gh;
+        g.drawImage(shown, 0, (top / fh) * shown.height, shown.width, shown.height - (top / fh) * shown.height, 0, top, fw, fh - top);
+        if (sweep.canvas) g.drawImage(sweep.canvas, 0, 0, gw, gh);
+      } else {
+        g.drawImage(shown, 0, 0, fw, fh);
       }
-      if (reduced) cancelAnimationFrame(raf);
     };
+
+    const frame = (now: number) => {
+      raf = requestAnimationFrame(frame);
+      if (now - last < FRAME_MS) return;
+      last = now;
+      draw(now);
+    };
+    // The first frame now, before paint, so the grey photo is there when the sweep's change shows it.
+    draw(start);
     raf = requestAnimationFrame(frame);
 
     return () => {
-      cancelled = true;
       cancelAnimationFrame(raf);
-      photoEl.style.clipPath = "circle(0px at 0px 0px)";
-      for (const el of [photoEl, lightEl, glowEl]) el.getContext("2d")?.clearRect(0, 0, el.width, el.height);
+      greyEl.style.clipPath = "inset(100% 0 0 0)";
+      for (const el of [stillEl, greyEl, glowEl]) el.getContext("2d")?.clearRect(0, 0, el.width, el.height);
     };
   }, [options.active]);
 
-  return { photo, light, glow };
+  return { still, grey, glow };
 }
