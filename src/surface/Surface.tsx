@@ -36,6 +36,8 @@ export type SurfaceProps = {
   drift?: number;
   /** CSS px of room round the part for its cast shadow. */
   pad?: number;
+  /** Scales how tall the relief stands, so one dial can soften or deepen every part. 1 keeps it as made. */
+  depth?: number;
   /** What identifies a function or array relief in the cache. Required for those, since a function has no name. */
   bakeKey?: string;
 };
@@ -49,18 +51,19 @@ type Strip = { count: number; frame: (i: number) => Field };
 /** Strips by part: the same key, shape and size bake once however many Surfaces ask. */
 const strips = new Map<string, Strip>();
 
-function stripFor({ shape, relief, frames = 1, material = "bone", pad = 6, bakeKey }: SurfaceProps, cellCss: number): Strip {
+function stripFor({ shape, relief, frames = 1, material = "bone", pad = 6, depth = 1, bakeKey }: SurfaceProps, cellCss: number): Strip {
   const named = typeof relief === "string";
   if (!named && !bakeKey) throw new Error("Surface: bakeKey is required when relief is an array or a function");
   const count = typeof relief === "function" ? Math.max(1, Math.round(frames)) : 1;
-  const key = [named ? relief : bakeKey, shape.w, shape.h, shape.r, material, cellCss, count, pad].join("|");
+  const key = [named ? relief : bakeKey, shape.w, shape.h, shape.r, material, cellCss, count, pad, depth].join("|");
   let strip = strips.get(key);
   if (!strip) {
     const fields: (Field | undefined)[] = Array.from({ length: count });
+    const scaled = (part: Relief): Relief => (depth === 1 ? part : part.map((f) => (at) => f(at) * depth));
     const scene = (part: Relief): Scene => ({
       width: shape.w + 2 * pad,
       height: shape.h + 2 * pad,
-      parts: [{ x: pad, y: pad, w: shape.w, h: shape.h, r: shape.r, relief: part, material }],
+      parts: [{ x: pad, y: pad, w: shape.w, h: shape.h, r: shape.r, relief: scaled(part), material }],
     });
     strip = {
       count,
@@ -123,6 +126,22 @@ export function Surface(props: SurfaceProps) {
     const rect = canvas.current?.getBoundingClientRect();
     if (rect) origin.current = [Math.round((rect.left + scrollX) / cellCss), Math.round((rect.top + scrollY) / cellCss)];
   }, [cellCss]);
+
+  // A part that turns bakes its other frames while the page is idle, one per callback, so its first spin doesn't stall.
+  useEffect(() => {
+    if (strip.count === 1) return;
+    const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 50));
+    const cancel = window.cancelIdleCallback ?? clearTimeout;
+    let next = 0;
+    let handle = 0;
+    const bakeOne = () => {
+      if (next >= strip.count) return;
+      strip.frame(next++);
+      handle = idle(bakeOne);
+    };
+    handle = idle(bakeOne);
+    return () => cancel(handle);
+  }, [strip]);
 
   // Repaint when what is shown changes. Resizing the canvas clears it, so its pixel size is a dependency too.
   useEffect(() => paint.current(), [shown, drift, deviceCell, cols, rows]);

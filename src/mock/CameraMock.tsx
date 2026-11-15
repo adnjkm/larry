@@ -7,14 +7,15 @@ import { DialRoot, useDialKitController } from "dialkit";
 import "dialkit/styles.css";
 import { accentChain } from "glimm";
 import { GlimmScope, type GlimmScopeHandle } from "glimm/react";
-import { type CSSProperties, type ReactNode, type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, type Ref, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
 import { DEFAULT_LOOK, type DitherLook } from "../kit3d/ditherLook.ts";
-import { type DitherMethod, ditherBand, drawDitherBar, drawThumbwheel, fitFor } from "./dither.ts";
+import { type DitherMethod, ditherBand, drawDitherBar, fitFor } from "./dither.ts";
 import { type DevelopLook, useDevelop } from "./Develop.tsx";
-import { DitherSurface } from "./DitherSurface.tsx";
+import { Surface } from "../surface/Surface.tsx";
+import { circle, drum, type Relief, rrect } from "../surface/relief.ts";
 import { thumbwheel } from "./thumbwheel.ts";
 import { screen } from "./screen.stylex.ts";
 
@@ -414,7 +415,7 @@ const s = stylex.create({
   }),
   // The face's shape is drawn by its dithered disc, so the element itself has no background or rounding.
   shutterFace: (size: number) => ({ position: "relative", width: size, height: size, transition: `transform 160ms ${EASE_OUT}` }),
-  // Above a DitherSurface's canvas, which is positioned.
+  // Above a Surface's canvas, which is positioned.
   overSurface: { position: "relative", display: "flex" },
   shutterPressed: { transform: "scale(0.94)" },
   // Equal side slots keep the shutter in the middle.
@@ -449,7 +450,6 @@ const s = stylex.create({
     outline: { default: "none", ":focus-visible": "2px solid #FFFFFF" },
     outlineOffset: 2,
   }),
-  wheelCanvas: (width: number, height: number) => ({ display: "block", width, height, pointerEvents: "none" }),
   use: { padding: 0, borderWidth: 0, backgroundColor: "transparent", color: "#FFFFFF", fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
 
   result: { paddingTop: 18, paddingInline: 24, gap: 2 },
@@ -887,7 +887,7 @@ function Flow({
               <div {...stylex.props(s.layer)}>
                 <div {...stylex.props(s.controls((DEVICE.width - layout.cardWidth) / 2))}>
                   <div {...stylex.props(s.slot, s.slotStart)}>
-                    <ZoomWheel zoom={zoom} onZoom={setZoom} size={layout.wheel} cell={layout.top.ditherGrain} />
+                    <ZoomWheel zoom={zoom} onZoom={setZoom} size={layout.wheel} cell={layout.top.ditherGrain} depth={layout.top.relief} drift={layout.top.idleDither} />
                   </div>
                   <Button
                     aria-label="Take photo"
@@ -899,14 +899,12 @@ function Flow({
                     onClick={shoot}
                   >
                     <span {...stylex.props(s.shutterFace(layout.shutter), pressed && s.shutterPressed)}>
-                      <DitherSurface
-                        width={layout.shutter}
-                        height={layout.shutter}
-                        radius={layout.shutter / 2}
+                      <Surface
+                        shape={circle(layout.shutter)}
                         relief={pressed ? "dishPressed" : "dish"}
                         grain={layout.top.ditherGrain}
                         depth={layout.top.relief}
-                        strength={layout.top.idleDither}
+                        drift={layout.top.idleDither}
                       />
                     </span>
                   </Button>
@@ -1127,7 +1125,7 @@ function FlashToggle({
     <Switch checked={on} onCheckedChange={onChange} aria-label="Flash" {...stylex.props(s.flashToggle(width, height))}>
       <DitherBar fill={on ? 1 : 0} reveal="fade" glow={0} width={width} height={height} radius={height / 2} cell={cell} dividers={NO_DIVIDERS} idle={idle} />
       <SwitchThumb {...stylex.props(s.knob(knob, 3), on && s.knobOn(width - height))}>
-        <DitherSurface width={knob} height={knob} radius={knob / 2} relief="cap" grain={cell} depth={relief} strength={idle} />
+        <Surface shape={circle(knob)} relief="cap" grain={cell} depth={relief} drift={idle} />
         <span {...stylex.props(s.overSurface)}>
           <FlashIcon size={even(knob * 0.54)} filled={on} color={on ? ACCENT : "#6B6B6B"} />
         </span>
@@ -1262,12 +1260,20 @@ function ZoomWheel({
   onZoom,
   size,
   cell,
+  depth,
+  drift,
 }: {
   zoom: number;
   onZoom: (zoom: number) => void;
   size: { width: number; height: number; ridges: number; rim: number };
   cell: number;
+  depth: number;
+  drift: number;
 }) {
+  const { width, height, ridges, rim } = size;
+  // One groove's turn, baked in WHEEL_FRAMES frames; the drum looks the same every groove, so that is every angle.
+  const pitch = (2 * Math.PI) / ridges;
+  const relief = useMemo(() => (t: number): Relief => [drum({ ridges, rim, turn: t * pitch })], [ridges, rim, pitch]);
   return (
     <Thumbwheel
       aria-label="Zoom"
@@ -1278,42 +1284,34 @@ function ZoomWheel({
       step={0.1}
       valueText={`${zoom.toFixed(1)}× zoom`}
       onValueChange={onZoom}
-      {...stylex.props(s.wheel(size.width, size.height))}
+      {...stylex.props(s.wheel(width, height))}
     >
       {(state) => {
         const pixels = (state.value - ZOOM.min) / ZOOM.perPixel;
-        const radians = pixels / (size.width / 2);
-        // Velocity is value per ms; a frame is about 16 ms.
-        const blur = Math.min(1.4, (Math.abs(state.velocity) / ZOOM.perPixel / (size.width / 2)) * 16);
-        return <WheelCanvas width={size.width} height={size.height} ridges={size.ridges} rim={size.rim} angle={radians} blur={blur} cell={cell} />;
+        const radians = pixels / (width / 2);
+        // Velocity is value per ms; a frame is about 16 ms. A fast spin smears over the frames it turned through.
+        const turned = (Math.abs(state.velocity) / ZOOM.perPixel / (width / 2)) * 16;
+        const smear = Math.min(WHEEL_FRAMES * 0.6, turned / (pitch / WHEEL_FRAMES));
+        return (
+          <Surface
+            shape={rrect(width, height, 10)}
+            relief={relief}
+            bakeKey={`wheel-${ridges}-${rim}`}
+            frames={WHEEL_FRAMES}
+            at={radians / pitch}
+            smear={smear}
+            grain={cell}
+            depth={depth}
+            drift={drift}
+          />
+        );
       }}
     </Thumbwheel>
   );
 }
 
-function WheelCanvas({
-  width,
-  height,
-  ridges,
-  rim,
-  angle,
-  blur,
-  cell,
-}: {
-  width: number;
-  height: number;
-  ridges: number;
-  rim: number;
-  angle: number;
-  blur: number;
-  cell: number;
-}) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (canvas.current) drawThumbwheel(canvas.current, width, height, 10, angle, blur, ridges, rim, cell, 0);
-  }, [width, height, ridges, rim, angle, blur, cell]);
-  return <canvas ref={canvas} aria-hidden {...stylex.props(s.wheelCanvas(width, height))} />;
-}
+/** Frames baked per groove of the zoom wheel. More turns more smoothly, at a bake each. */
+const WHEEL_FRAMES = 18;
 
 /**
  * A dithered bar (see drawDitherBar). With `reveal="sweep"` the fill eases toward `fill`, so each new third sweeps in
