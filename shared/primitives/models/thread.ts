@@ -17,14 +17,14 @@ import type { Part } from "../../kit.ts";
 import { clamp, fall, smooth } from "../motion/ease.ts";
 import { frame, HOLD, LEAD, phases, REWIND, SCENE } from "../motion/run.ts";
 import { coil, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, pivoted, plate, PLATE_TOP, polygon, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Plot, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres. The bolt stands on the middle of the plate, x = 0, z = 0.
 const ROD_R = 6;
 /** Drawn mm of ridge spacing for one step of the pitch slider: the screw is drawn big enough for a 2.4 mm wire at the finest pitch. */
 export const PITCH_UNIT = 2;
-/** The nut at its highest (6 turns of the coarsest pitch) is still on the bolt. */
+/** The nut at its highest, its top level with the ridge's end, is still on the bolt. */
 const ROD_TOP = 96;
 const RIDGE_FROM = 8;
 const RIDGE_TO = 94;
@@ -38,7 +38,12 @@ const HANDLE_AT_0 = 215;
 const LOAD_N = 100;
 const MM_PER_N = 0.25;
 const EDGE = loadEdge(LOAD_N);
+/** The game's turns: the Jack gives the hand six. */
 const MAX_TURNS = 6;
+/** The nut's highest rise: its top level with the ridge's end, the last pose with the whole nut on the thread. */
+const TOP_RISE = RIDGE_TO - PLATE_TOP - NUT_H;
+/** The turns that run the nut from the plate up to the ridge's end: the thread's real stop, 19 at the finest pitch. */
+const topTurns = (pitch: number) => TOP_RISE / pitch;
 /** The weight's underside at turn 0: on the nut, which is on the plate. */
 const LOAD_BOTTOM_0 = PLATE_TOP + NUT_H;
 
@@ -57,7 +62,7 @@ const leadOf = (pitch: number) => Math.atan(pitch / (2 * Math.PI * MEAN_R)) * RA
 /** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
   const pitch = pitchOf(v);
-  const turns = clamp(v.turns ?? 2.5, 0, MAX_TURNS);
+  const turns = clamp(v.turns ?? 2.5, 0, topTurns(pitch));
   const lead = leadOf(pitch);
   return { pitch, turns, rise: turns * pitch, lead, holds: lead <= FRICTION_DEG + 1e-9, handPath: 2 * Math.PI * HAND_R * turns };
 }
@@ -69,6 +74,13 @@ const handlePoint = (turns: number, rise: number) =>
 
 /** The ridge wire's radius for a drawn pitch: thicker as the pitch grows, never under 1.2 (a 2.4 wire) and always clear of the next turn. */
 export const ridgeWire = (pitch: number) => clamp(0.12 * pitch + 0.72, 1.2, 2);
+
+/** The camera's line of sight in the figure's own space, from the eye toward the figure (the coaxial view, never turned). */
+const SIGHT = (() => {
+  const el = VIEW.coaxial.elevation * DEG_TO_RAD;
+  const az = VIEW.coaxial.azimuth * DEG_TO_RAD;
+  return { x: -Math.sin(az) * Math.cos(el), y: -Math.sin(el), z: -Math.cos(az) * Math.cos(el) };
+})();
 
 const hexShape = (r: number, h: number) => pivoted(polygon(6, r), h, [0, 0], v3(0, 0, 0), 0).shape;
 
@@ -84,7 +96,8 @@ function build(v: Values): Part[] {
     on: on("nut", "press-fit"),
   });
   return [
-    plate(61, 49),
+    // Deep enough for the handle bar's whole circle round the bolt, not just the turns the game uses.
+    plate(67, 65),
     part(
       "rod",
       "Bolt",
@@ -281,7 +294,28 @@ function scene(v: Values): Part[] {
   ];
 }
 
-const PITCH: Slider = { id: "pitch", label: "Pitch", min: 2, max: 6, step: 0.5, initial: 4, unit: " mm", displayScale: PITCH_UNIT };
+const PITCH: Slider = { id: "pitch", label: "Pitch", min: 2, max: 6, step: 0.5, initial: 4, unit: " mm", displayScale: PITCH_UNIT, ends: ["Fine", "Coarse"] };
+
+/** The most turns any thread here takes from the plate to the ridge's end: the finest, 19. The plot's whole width. */
+const MOST_TURNS = topTurns(PITCH.min * PITCH_UNIT);
+
+/**
+ * The nut's rise (up, to the ridge's end) for the turns of the handle (across, to the finest thread's 19). One straight
+ * line from the plate to the thread's end, climbing one pitch a turn: a fine thread takes the whole width to get there, a
+ * coarse one a third of it. The axes are fixed, so the slope is the pitch. The dot is the nut now, and slides back down
+ * the line when a steep thread spins back.
+ */
+function climb(v: Values): Plot {
+  const s = settle(v);
+  return {
+    line: [
+      [0, 0],
+      [topTurns(s.pitch) / MOST_TURNS, 1],
+    ],
+    dot: [s.turns / MOST_TURNS, s.rise / TOP_RISE],
+    caption: "nut rise for turns",
+  };
+}
 
 export const thread: Primitive = {
   id: "thread",
@@ -295,7 +329,9 @@ export const thread: Primitive = {
   sliders: [
     // The slider's value is a step of PITCH_UNIT drawn mm each, and it shows the drawn pitch (4 to 12 mm).
     PITCH,
-    { id: "turns", label: "Turns", min: 0, max: 6, step: 0.05, initial: 2.5, unit: " turns" },
+    // Up to the top of the thread at the finest pitch, (94 - 6 - 12) / 4: free play runs the nut the whole bolt. It was 6,
+    // the game's turns, which stopped a fine thread a third of the way up for no reason the figure shows.
+    { id: "turns", label: "Turns", min: 0, max: 19, step: 0.05, initial: 2.5, unit: " turns" },
   ],
   view: VIEW.coaxial,
   build,
@@ -307,18 +343,46 @@ export const thread: Primitive = {
       const s = settle(v);
       return handlePoint(s.turns, s.rise);
     },
-    // The handle goes round the bolt: its x gives the angle, and of the two turns that give that x, take the one nearest the current turn.
+    // The handle goes round the bolt in a level circle, which the camera sees from above as an ellipse. The finger's point
+    // lies in the upright plane through the handle; follow the camera's line of sight from it down to the handle's level,
+    // and the angle round the bolt there is the handle's. Its x alone cannot tell the near half of the circle from the
+    // far one, so it could not take the bar all the way round. Of the turns at that angle, take the one nearest now.
     solve: (point, v) => {
-      const theta = Math.acos(clamp(point.x / HAND_R, -1, 1)) * RAD_TO_DEG;
-      const now = v.turns ?? 0;
-      const options = [theta, -theta].map((q) => {
-        const base = (q - HANDLE_AT_0) / 360;
-        return base + Math.round(now - base);
-      });
-      return options.reduce((best, o) => (Math.abs(o - now) < Math.abs(best - now) ? o : best));
+      const s = settle(v);
+      const z0 = handlePoint(s.turns, s.rise).z;
+      const t = (nutMid(s.rise) - point.y) / SIGHT.y;
+      const x = point.x + t * SIGHT.x;
+      const z = z0 + t * SIGHT.z;
+      const base = (Math.atan2(-z, x) * RAD_TO_DEG - HANDLE_AT_0) / 360;
+      return base + Math.round(s.turns - base);
     },
     // The weight cannot be turned up past the mark: nothing in the game goes beyond it.
     reach: (v) => [0, Math.min(MAX_TURNS, TARGET / pitchOf(v))],
+  },
+  play: {
+    // The nut run down onto the plate, nothing on it.
+    rest: { turns: 0 },
+    // By hand it goes from the plate to the top of the thread, however many turns that is.
+    reach: (v) => [0, topTurns(pitchOf(v))],
+    plot: climb,
+    // No hand arrows: free play's nut carries no load (the weight is the game's), so there is no lift to draw against the
+    // turning effort, and the gain, 13 to 37 times, could not be drawn to one scale anyway.
+    // Let go, a gentle thread holds the nut where it is: friction beats the slope. A steep one does not, and the nut's
+    // own weight spins it back down to the plate, faster as it goes. The lead angle against friction does not depend on
+    // the load, so a bare nut slips exactly when the loaded one in the game does.
+    release: (v) => {
+      const s = settle(v);
+      if (s.holds || s.turns < 1e-9) return { durationMs: 1, at: () => frame({ ...v, turns: s.turns }, "") };
+      const ms = Math.round(clamp(SPIN_MS * Math.sqrt(s.turns), 450, 2200));
+      return {
+        durationMs: ms,
+        cues: [
+          { ms: 0, kind: "slip" },
+          { ms, kind: "thud" },
+        ],
+        at: (t) => frame({ ...v, turns: s.turns * (1 - fall(clamp(t / ms, 0, 1))) }, "Spinning back"),
+      };
+    },
   },
   game: {
     name: "Jack",

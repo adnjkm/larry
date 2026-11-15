@@ -4,7 +4,16 @@
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
-      "maxY": 87.81176179958132,
+      "maxY": 92.87466142763529,
+      "radius": 63.96800841843715,
+      "halfX": 58.3,
+      "halfZ": 31
+    },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 104.87466142763529,
       "radius": 63.96800841843715,
       "halfX": 58.3,
       "halfZ": 31
@@ -13,7 +22,7 @@
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
-      "maxY": 87.81176179958132,
+      "maxY": 92.87466142763529,
       "radius": 63.96800841843715,
       "halfX": 58.3,
       "halfZ": 31
@@ -25,8 +34,17 @@
       "centerZ": 0,
       "minY": -4,
       "maxY": 141.8344595047431,
-      "radius": 74.64765108872992,
-      "halfX": 63.5,
+      "radius": 77.17935093831638,
+      "halfX": 66.5,
+      "halfZ": 43.5
+    },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 141.8344595047431,
+      "radius": 77.17935093831638,
+      "halfX": 66.5,
       "halfZ": 43.5
     },
     "game": {
@@ -34,8 +52,8 @@
       "centerZ": 0,
       "minY": -4,
       "maxY": 144.63898565295062,
-      "radius": 74.64765108872992,
-      "halfX": 63.5,
+      "radius": 77.17935093831638,
+      "halfX": 66.5,
       "halfZ": 43.5
     }
   },
@@ -44,7 +62,16 @@
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
-      "maxY": 100.5,
+      "maxY": 103,
+      "radius": 73.23094525588645,
+      "halfX": 68,
+      "halfZ": 32
+    },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 120.2238224068843,
       "radius": 73.23094525588645,
       "halfX": 68,
       "halfZ": 32
@@ -53,7 +80,7 @@
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
-      "maxY": 102,
+      "maxY": 104,
       "radius": 73.23094525588645,
       "halfX": 68,
       "halfZ": 32
@@ -61,6 +88,15 @@
   },
   "cord": {
     "still": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 114,
+      "radius": 74.5006569311565,
+      "halfX": 66.3,
+      "halfZ": 38.5
+    },
+    "play": {
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
@@ -89,6 +125,15 @@
       "halfX": 40,
       "halfZ": 31
     },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 94.5,
+      "radius": 38.526911934581186,
+      "halfX": 29,
+      "halfZ": 29
+    },
     "game": {
       "centerX": 0,
       "centerZ": 0,
@@ -101,6 +146,15 @@
   },
   "weight": {
     "still": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 192,
+      "radius": 128.61897854142987,
+      "halfX": 124.76009901073077,
+      "halfZ": 36.51971136012037
+    },
+    "play": {
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
@@ -129,6 +183,15 @@
       "halfX": 57.266666666666666,
       "halfZ": 31
     },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 109.86568009925827,
+      "radius": 88.74811176093387,
+      "halfX": 83.5,
+      "halfZ": 35
+    },
     "game": {
       "centerX": 0,
       "centerZ": 0,
@@ -141,6 +204,15 @@
   },
   "seal": {
     "still": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 100,
+      "radius": 85.41803272010476,
+      "halfX": 63.24445946508914,
+      "halfZ": 61.04812241740308
+    },
+    "play": {
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
@@ -169,6 +241,15 @@
       "halfX": 74.5,
       "halfZ": 35
     },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 94.86322151073068,
+      "radius": 80.38581854090201,
+      "halfX": 74.5,
+      "halfZ": 35
+    },
     "game": {
       "centerX": 0,
       "centerZ": 0,
@@ -181,6 +262,15 @@
   },
   "pulley": {
     "still": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 156,
+      "radius": 96.34655499796325,
+      "halfX": 93.5,
+      "halfZ": 28.5
+    },
+    "play": {
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
@@ -205,22 +295,40 @@
       "centerZ": 0,
       "minY": -4,
       "maxY": 100,
-      "radius": 59.2024435529046,
-      "halfX": 46.5,
-      "halfZ": 40.5
+      "radius": 66.81529412902646,
+      "halfX": 49.5,
+      "halfZ": 48.5
+    },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 100,
+      "radius": 66.81529412902646,
+      "halfX": 49.5,
+      "halfZ": 48.5
     },
     "game": {
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
-      "maxY": 117.2079441680639,
-      "radius": 59.2024435529046,
-      "halfX": 46.5,
-      "halfZ": 40.5
+      "maxY": 121.2079441680639,
+      "radius": 66.81529412902646,
+      "halfX": 49.5,
+      "halfZ": 48.5
     }
   },
   "cam": {
     "still": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 96,
+      "radius": 58.15361924162119,
+      "halfX": 50,
+      "halfZ": 34
+    },
+    "play": {
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
@@ -249,6 +357,15 @@
       "halfX": 73.25,
       "halfZ": 42
     },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 135.86324846184826,
+      "radius": 82.27950248920085,
+      "halfX": 73.25,
+      "halfZ": 42
+    },
     "game": {
       "centerX": 0,
       "centerZ": 0,
@@ -261,6 +378,15 @@
   },
   "ratchet": {
     "still": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 137.9,
+      "radius": 63.0087712549569,
+      "halfX": 51,
+      "halfZ": 41
+    },
+    "play": {
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,
@@ -289,6 +415,15 @@
       "halfX": 61.4900526045877,
       "halfZ": 28
     },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 91.5,
+      "radius": 65.69209275992851,
+      "halfX": 61.4900526045877,
+      "halfZ": 28
+    },
     "game": {
       "centerX": 0,
       "centerZ": 0,
@@ -309,6 +444,15 @@
       "halfX": 46,
       "halfZ": 31
     },
+    "play": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 112.28909591424781,
+      "radius": 53.169905660283014,
+      "halfX": 46,
+      "halfZ": 31
+    },
     "game": {
       "centerX": 0,
       "centerZ": 0,
@@ -321,6 +465,15 @@
   },
   "piston": {
     "still": {
+      "centerX": 0,
+      "centerZ": 0,
+      "minY": -4,
+      "maxY": 118.14081964253475,
+      "radius": 56.60632371551998,
+      "halfX": 50,
+      "halfZ": 31
+    },
+    "play": {
       "centerX": 0,
       "centerZ": 0,
       "minY": -4,

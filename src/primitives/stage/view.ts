@@ -4,7 +4,7 @@ import type { Part } from "../../../shared/kit.ts";
 import { reducedMotion, rubberBand, spring, velocityTracker } from "../../motion.ts";
 import { type FigureMode, framePrimitive } from "../../../shared/primitives/framing.ts";
 import { clamp } from "../../../shared/primitives/motion/ease.ts";
-import { type Cue, type Primitive, type Values, allSliders, motionSlider, snap, startValues } from "../../../shared/primitives/types.ts";
+import { type Cue, type Handle, type Primitive, type Values, allSliders, motionSlider, playBuild, playHandle, playValues, snap, startValues } from "../../../shared/primitives/types.ts";
 import { Motion } from "./controller.ts";
 import { LESSON_COLOR, type Palette, looksFor } from "./looks.ts";
 import { type Drawable, hasWebGL, register, renderTo, schedule, stageStats } from "./renderer.ts";
@@ -61,6 +61,18 @@ export class StageView implements Drawable {
   private band = { x: 0, y: 0 };
   private stopBand: (() => void) | undefined;
   private ariaValue: string | undefined;
+  /** Free play: the hand has worked the machine and let go, so the ring no longer needs showing. */
+  private used = false;
+  /** A finger is on the handle now: free play draws the hand's arrow. */
+  private holding = false;
+  /** Free play's ambient loop: when it started, and whether it runs. */
+  private ambientStart: number | undefined;
+  /** The handle the finger works: free play's own when it has one. */
+  private get handle(): Handle {
+    return this.mode === "play" ? playHandle(this.primitive) : this.primitive.handle;
+  }
+  /** Free play: where the handle's slider starts, so a tap that moves nothing doesn't count as using it. */
+  private restAt: number | undefined;
 
   readonly primitive: Primitive;
   readonly mode: FigureMode;
@@ -72,7 +84,7 @@ export class StageView implements Drawable {
     this.callbacks = callbacks;
     this.element = els.root;
     this.canvas = els.canvas;
-    this.ring = mode === "game" ? els.ring : null;
+    this.ring = mode === "still" ? null : els.ring;
     this.pill = this.ring?.querySelector<HTMLElement>("[data-handle-label]") ?? null;
     const ctx = els.canvas.getContext("2d", { alpha: false });
     if (!ctx) throw new Error("No 2D canvas");
@@ -83,7 +95,7 @@ export class StageView implements Drawable {
       primitive.view,
       looksFor(palette),
       palette === "lesson" ? LESSON_COLOR : undefined,
-      mode === "game" ? "fixed" : "spin",
+      mode === "still" ? "spin" : "fixed",
     );
     this.controller = new Motion(
       {
@@ -100,7 +112,7 @@ export class StageView implements Drawable {
         onCue: (cue) => this.callbacks.onCue?.(cue),
       },
       primitive,
-      { ...startValues(primitive, mode === "game"), ...values },
+      { ...(mode === "play" ? playValues(primitive) : startValues(primitive, mode === "game")), ...values },
     );
 
     this.ro = new ResizeObserver((entries) => {
@@ -114,6 +126,9 @@ export class StageView implements Drawable {
     } catch {
       this.ro.observe(els.root);
     }
+    this.restAt = this.controller.get()[this.handle.slider];
+    // The ambient loop keeps the frame loop running from the start.
+    if (mode === "play" && primitive.play?.ambient) schedule();
     if (mode === "still") this.listenSpin();
     if (this.ring) this.listenHandle(this.ring);
     this.unregister = register(this);
@@ -162,7 +177,13 @@ export class StageView implements Drawable {
       this.scene.setYaw(this.yaw);
       this.needsDraw = true;
     }
-    const again = moving || this.fling !== 0;
+    const ambient = this.mode === "play" ? this.primitive.play?.ambient : undefined;
+    if (ambient && !reducedMotion.matches) {
+      this.ambientStart ??= now;
+      this.posed = false;
+      this.needsDraw = true;
+    }
+    const again = moving || this.fling !== 0 || (ambient !== undefined && !reducedMotion.matches);
     if (!again) this.lastNow = undefined;
     return again;
   }
@@ -175,7 +196,8 @@ export class StageView implements Drawable {
       const t0 = performance.now();
       // Game mode also draws the game's standing props (its target); still figures and lessons never do.
       const scene = this.mode === "game" ? this.primitive.game.scene?.(values) : undefined;
-      this.scene.setFrame(this.primitive.build(values), scene, this.marks);
+      const build = this.mode === "play" ? playBuild(this.primitive) : this.primitive.build;
+      this.scene.setFrame(build(values), scene, this.playMarks(values));
       stageStats.poseMs += performance.now() - t0;
       stageStats.poses++;
       this.posed = true;
@@ -198,16 +220,32 @@ export class StageView implements Drawable {
     }
   }
 
+  /** The run's props, with free play's hand arrow while held and its ambient loop's parts. */
+  private playMarks(values: Values): readonly Part[] | undefined {
+    const play = this.mode === "play" ? this.primitive.play : undefined;
+    if (!play) return this.marks;
+    const extra: Part[] = [];
+    if (this.holding && play.hand) extra.push(...play.hand(values));
+    if (play.ambient) extra.push(...play.ambient(values, reducedMotion.matches ? 0 : performance.now() - (this.ambientStart ?? performance.now())));
+    return extra.length > 0 ? [...(this.marks ?? []), ...extra] : this.marks;
+  }
+
   private placeRing(values: Values): void {
     const ring = this.ring;
     if (!ring) return;
-    const handle = this.primitive.handle;
-    // A run is the game's own motion: the ring steps aside until it ends (a touch would only interrupt it).
-    const hidden = this.controller.state() === "playing";
-    if (hidden !== (ring.dataset.hidden === "")) {
+    const handle = this.handle;
+    // A game's run is the game's own motion: the ring steps aside until it ends (a touch would only interrupt it). In free
+    // play the motion is the machine settling after a let-go, and the hand may catch it, so the ring stays to be grabbed.
+    const hidden = this.mode !== "play" && this.controller.state() === "playing";
+    // Once the hand has worked the machine in free play, the ring has done its job of pointing: it fades out but the
+    // spot still takes the finger.
+    const faded = hidden || this.used;
+    const state = hidden ? "hidden" : faded ? "faded" : "shown";
+    if (ring.dataset.state !== state) {
+      ring.dataset.state = state;
       if (hidden) ring.dataset.hidden = "";
       else delete ring.dataset.hidden;
-      ring.style.opacity = hidden ? "0" : "";
+      ring.style.opacity = faded ? "0" : "";
       ring.style.pointerEvents = hidden ? "none" : "";
     }
     this.scene.project(handle.at(values), this.ringAt);
@@ -225,8 +263,8 @@ export class StageView implements Drawable {
   private updateAria(values: Values): void {
     const ring = this.ring;
     if (!ring) return;
-    const handle = this.primitive.handle;
-    const s = motionSlider(this.primitive);
+    const handle = this.handle;
+    const s = allSliders(this.primitive).find((q) => q.id === handle.slider) ?? motionSlider(this.primitive);
     const now = values[handle.slider];
     const text = now === undefined ? "" : String(Number(now.toFixed(3)));
     if (text === this.ariaValue) return;
@@ -278,15 +316,29 @@ export class StageView implements Drawable {
     });
   }
 
-  // Game mode: the ring follows the handle; dragging it solves the slider value under the finger, clamped to the range,
-  // the step and the reach. Past the reach the model stops and only the ring follows, on a rubber band.
+  // Game and play modes: the ring follows the handle; dragging it solves the slider value under the finger, clamped to
+  // the range, the step and the reach. Past the reach the model stops and only the ring follows, on a rubber band. In
+  // play mode the reach is the play's, and letting go plays the play's release: the machine does what it does alone.
   private listenHandle(ring: HTMLElement): void {
-    const handle = this.primitive.handle;
+    const handle = this.handle;
     const slider = allSliders(this.primitive).find((s) => s.id === handle.slider)!;
-    let drag: { id: number; left: number; top: number; dx: number; dy: number; limited: boolean } | undefined;
+    const play = this.mode === "play" ? this.primitive.play : undefined;
+    const handReach = play?.reach ?? handle.reach;
+    // `raw` is where the finger asks the slider to be, before the reach clamps it. Turning handles choose the turn nearest
+    // the value they are given, so they are given this one: past a stop the finger keeps winding round, and the turn it
+    // picks follows the finger instead of flipping once the finger is half a turn past the stop.
+    let drag: { id: number; left: number; top: number; dx: number; dy: number; limited: boolean; raw: number } | undefined;
     const reach = (v: Values): [number, number] => {
-      const [lo, hi] = handle.reach?.(v) ?? [slider.min, slider.max];
+      const [lo, hi] = handReach?.(v) ?? [slider.min, slider.max];
       return [Math.max(slider.min, lo), Math.min(slider.max, hi)];
+    };
+    const letGo = () => {
+      if (this.mode === "play" && !this.used && this.controller.get()[slider.id] !== this.restAt) {
+        this.used = true;
+        this.needsDraw = true;
+        schedule();
+      }
+      if (play?.release) void this.controller.play(play.release(this.controller.get()));
     };
 
     const down = (e: PointerEvent) => {
@@ -300,8 +352,18 @@ export class StageView implements Drawable {
       // Keep the grab point under the finger: the ring does not jump to centre itself on it.
       const ringX = this.ringAt.x + this.band.x;
       const ringY = this.ringAt.y + this.band.y;
-      drag = { id: e.pointerId, left: rect.left, top: rect.top, dx: ringX - (e.clientX - rect.left), dy: ringY - (e.clientY - rect.top), limited: false };
+      drag = {
+        id: e.pointerId,
+        left: rect.left,
+        top: rect.top,
+        dx: ringX - (e.clientX - rect.left),
+        dy: ringY - (e.clientY - rect.top),
+        limited: false,
+        raw: this.controller.get()[slider.id] ?? slider.initial,
+      };
       ring.dataset.dragging = "";
+      this.holding = true;
+      this.posed = false;
     };
     const move = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return;
@@ -309,7 +371,8 @@ export class StageView implements Drawable {
       const y = e.clientY - drag.top + drag.dy;
       const values = this.controller.get();
       const z = handle.at(values).z;
-      const raw = handle.solve(this.scene.unproject(x, y, z), values);
+      const raw = handle.solve(this.scene.unproject(x, y, z), { ...values, [slider.id]: drag.raw });
+      drag.raw = raw;
       const [lo, hi] = reach(values);
       const value = clamp(snap(slider, raw), lo, hi);
       this.controller.set({ [slider.id]: value });
@@ -332,6 +395,11 @@ export class StageView implements Drawable {
       if (!drag || e.pointerId !== drag.id) return;
       drag = undefined;
       delete ring.dataset.dragging;
+      this.holding = false;
+      this.posed = false;
+      this.needsDraw = true;
+      schedule();
+      letGo();
       const from = this.band;
       if (from.x === 0 && from.y === 0) return;
       const settle = (k: number) => {
@@ -360,8 +428,14 @@ export class StageView implements Drawable {
     ring.addEventListener("pointerup", up);
     ring.addEventListener("pointercancel", up);
     ring.addEventListener("lostpointercapture", up);
+    // A held arrow key is a held hand: letting go of the key lets go of the machine.
+    const keyUp = (e: KeyboardEvent) => {
+      if (["ArrowRight", "ArrowUp", "ArrowLeft", "ArrowDown", "PageUp", "PageDown", "Home", "End"].includes(e.key)) letGo();
+    };
     ring.addEventListener("keydown", key);
+    ring.addEventListener("keyup", keyUp);
     this.cleanups.push(() => {
+      ring.removeEventListener("keyup", keyUp);
       ring.removeEventListener("pointerdown", down);
       ring.removeEventListener("pointermove", move);
       ring.removeEventListener("pointerup", up);

@@ -40,7 +40,7 @@ import {
   v3,
   type Pt,
 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres. The wheel's face is at z = 0 before the shift that centres the rig.
 const AXLE_R = 8;
@@ -84,7 +84,12 @@ const knobPoint = (radius: number, turn: number): Pt => {
   return [knobR(radius) * Math.cos(a), knobR(radius) * Math.sin(a)];
 };
 
-/** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
+/**
+ * Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. The pose is
+ * the turn as given: the game's arm, which strains a too-small wheel only a millimetre or two, is held to `limit` by the
+ * handle's reach and the game's own script, while free play's hand is a person's, which turns any wheel here the whole
+ * way (a 20 mm wheel needs 24 N).
+ */
 export function settle(v: Values) {
   const radius = valueOf(RADIUS, v);
   /** The hand's radius: where the knob is, the one radius every force and travel below uses. */
@@ -96,13 +101,19 @@ export function settle(v: Values) {
   /** A hand that cannot pull this much gets a millimetre or two of travel at the knob. */
   const strain = STRAIN_MM / (TAU * hand);
   const limit = weak ? strain : TURN_MAX;
-  const turn = clamp(v.turn ?? 0.3, 0, limit);
-  return { radius, hand, ratio, hold, weak, limit, turn, rim: TAU * hand * turn, rise: TAU * R_EFF * turn, effort: weak ? ARM : hold };
+  const turn = clamp(v.turn ?? 0.3, 0, TURN_MAX);
+  /** The arm is at its limit and straining: past it, a stronger hand is holding the bucket. */
+  const straining = weak && turn <= limit + 1e-12;
+  const effort = straining ? ARM : hold;
+  return { radius, hand, ratio, hold, weak, straining, limit, turn, rim: TAU * hand * turn, rise: TAU * R_EFF * turn, effort };
 }
 
 const wheelAt = (z: number) => z + ZS;
 
-function build(v: Values): Part[] {
+const build = (v: Values) => draw(v, false);
+
+/** The pose: the wheel and its bucket, and the two arrows unless `bare` (free play's figure). */
+function draw(v: Values, bare: boolean): Part[] {
   const s = settle(v);
   const k = knobPoint(s.radius, s.turn);
   const kDeg = knobAngle(s.turn);
@@ -115,7 +126,7 @@ function build(v: Values): Part[] {
   });
   const cord = strand(v3(-R_EFF, AXLE_Y, wheelAt(Z_CORD)), v3(-R_EFF, bucket.top, wheelAt(Z_CORD)), CORD);
   const parts: Part[] = [
-    plate(95, 55),
+    plate(101, 55),
     post("post", 0, wheelAt(POST_Z), AXLE_Y + 5, { name: "Post", role: "Holds the wheel and axle." }),
     part(
       "axle",
@@ -148,17 +159,17 @@ function build(v: Values): Part[] {
       v3(90, 180 - wound / 2, 0),
     ),
     shaped("cord", "Cord", "Hangs the bucket from the axle.", cord, look.slate, on("axle", "glue")),
-    ...bucket.parts.map((p) => (/arrow/.test(p.id) ? { ...p, name: "Arrow" } : p)),
+    ...bucket.parts.filter((p) => !bare || !/arrow/.test(p.id)).map((p) => (/arrow/.test(p.id) ? { ...p, name: "Arrow" } : p)),
     knob("knob", v3(k[0], AXLE_Y + k[1], wheelAt(Z_KNOB)), "z", { name: "Knob", role: "Where a hand turns the wheel.", on: on("wheel", "weld") }),
   ];
   // The hand holds the bucket against the wheel's pull once it is turning: at rest the bucket stands on the plate.
-  if (s.turn > 1e-9) {
+  if (s.turn > 1e-9 && !bare) {
     const tangent = kDeg - 90;
     const u: Pt = [Math.cos((tangent * Math.PI) / 180), Math.sin((tangent * Math.PI) / 180)];
     parts.push(
       ...arrow("pull-arrow", v3(k[0] - 5.5 * u[0], AXLE_Y + k[1] - 5.5 * u[1], wheelAt(Z_KNOB)), tangent, arrowLength(s.effort, LOAD, 40), "push", {
         name: "Arrow",
-        role: s.weak ? "An arm's whole pull at the rim: 15 N, not enough." : "The pull at the rim that holds the bucket, to the same scale.",
+        role: s.straining ? "An arm's whole pull at the rim: 15 N, not enough." : "The pull at the rim that holds the bucket, to the same scale.",
         on: on("knob", "glue"),
       }),
     );
@@ -168,11 +179,13 @@ function build(v: Values): Part[] {
 
 function readouts(v: Values) {
   const s = settle(v);
-  const state = s.weak
+  const state = s.straining
     ? `needs ${fmt(s.hold, 1)} N, arm gives ${ARM}: it strains ${fmt(STRAIN_MM, 1)} mm`
-    : s.turn < 1e-9
-      ? "bucket stands on the plate"
-      : `holding the bucket takes ${fmt(s.hold, 1)} N of the arm's ${ARM}`;
+    : s.weak
+      ? `holding the bucket takes ${fmt(s.hold, 1)} N, more than an arm's ${ARM}`
+      : s.turn < 1e-9
+        ? "bucket stands on the plate"
+        : `holding the bucket takes ${fmt(s.hold, 1)} N of the arm's ${ARM}`;
   return [
     { label: "Pull at rim", value: `F = ${LOAD} N × ${fmt(R_EFF, 1)} ÷ ${fmt(s.hand)} = ${fmt(s.hold, 1)} N` },
     { label: "Travel", value: `rim ${fmt(s.rim)} mm, bucket up ${fmt(s.rise)} mm: ${fmt(s.rim)} ÷ ${fmt(s.rise)} = ${fmt(s.ratio, 1)}×` },
@@ -324,7 +337,30 @@ function scene(): Part[] {
   ];
 }
 
-const RADIUS: Slider = { id: "radius", label: "Wheel radius", min: 20, max: 44, step: 1, initial: 36, unit: " mm" };
+// Free play, ms. Let go, the bucket's weight unwinds the cord and it falls back to the plate, gathering speed as a
+// dropped thing does (the wheel's own heft slows it, so it takes longer than a free fall), then bumps once on the plate.
+/** The fall from the top of the turn slider, 0.55 of a turn: 33 mm. A shorter fall takes less, by the square root. */
+const DROP_FULL_MS = 800;
+const BUMP_MS = 220;
+/** How far the bucket bounces back up off the plate, mm. */
+const BUMP_MM = 1.5;
+
+function release(v: Values): Motion {
+  const from = settle(v).turn;
+  if (from < 1e-9) return { durationMs: 1, at: () => frame({ ...v, turn: 0 }, "") };
+  const dropMs = Math.max(120, Math.round(DROP_FULL_MS * Math.sqrt(from / TURN_MAX)));
+  const bump = Math.min(BUMP_MM, (TAU * R_EFF * from) / 4) / (TAU * R_EFF);
+  return {
+    durationMs: dropMs + BUMP_MS,
+    cues: [{ ms: dropMs, kind: "thud" }],
+    at: (ms) => {
+      const turn = ms < dropMs ? from * (1 - fall(ms / dropMs)) : bump * rockBack(clamp((ms - dropMs) / BUMP_MS, 0, 1), 1);
+      return frame({ ...v, turn }, "");
+    },
+  };
+}
+
+const RADIUS: Slider = { id: "radius", label: "Wheel radius", min: 20, max: 44, step: 1, initial: 36, unit: " mm", ends: ["Small", "Big"] };
 
 export const wheel: Primitive = {
   id: "wheel",
@@ -357,6 +393,23 @@ export const wheel: Primitive = {
     // A hand that cannot pull what the bucket needs gets a millimetre or two of rim travel; otherwise the whole range.
     reach: (v) => [0, settle(v).limit],
   },
+  play: {
+    // While a hand is on the knob, the two arrows the game always shows: the pull at the rim against the bucket's weight.
+    // A bigger wheel shrinks the pull, which the bare figure alone cannot show.
+    hand: (v) => {
+      const bare = new Set(draw(v, true).map((q) => q.id));
+      return draw(v, false).filter((q) => !bare.has(q.id));
+    },
+    plot: travel,
+    // The wheel and the bucket on its cord, without the arrows: a wheel and axle with nothing on the cord has nothing to
+    // lift, and nothing to fall back when the hand lets go.
+    build: (v) => draw(v, true),
+    // The bucket standing on the plate, nothing wound on.
+    rest: { turn: 0 },
+    // A person's hand turns any wheel here the whole half turn: the arm's limit is the game's.
+    reach: () => [0, TURN_MAX],
+    release,
+  },
   game: {
     name: "Winch",
     goal: "Lift the bucket to the line with one arm.",
@@ -370,6 +423,18 @@ export const wheel: Primitive = {
     scene,
   },
 };
+
+/**
+ * The other half of the trade: how far the hand travels round the rim (across) for how far the bucket rises (up). One
+ * straight line from the start of a wind to its end; a bigger wheel lays it flatter and longer, since the hand goes
+ * further for the same lift. The dot is where the wind is now.
+ */
+function travel(v: Values) {
+  const s = settle(v);
+  const most = TAU * knobR(RADIUS.max) * TURN_MAX;
+  const end = (TAU * s.hand * TURN_MAX) / most;
+  return { line: [[0, 0], [end, 1]] as [number, number][], dot: [(s.rim / most), s.turn / TURN_MAX] as [number, number], caption: "bucket rise for hand travel" };
+}
 
 /** Exposed for tests: the layout. */
 export const rig = { AXLE_Y, ZS, Z_CORD, Z_KNOB, DISC_T, wheelAt, MARK_LEN, MARK_CLEAR, BUCKET: loadEdge(LOAD) };

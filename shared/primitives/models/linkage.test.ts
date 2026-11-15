@@ -236,3 +236,44 @@ describe("linkage", () => {
     assert.ok(TOLERANCE > 0);
   });
 });
+
+/** How far a point lies from a polyline, in the plot's own 0 to 1 units. */
+function offLine(line: readonly (readonly [number, number])[], p: readonly [number, number]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1]!;
+    const [bx, by] = line[i]!;
+    const t = Math.max(0, Math.min(1, ((p[0] - ax) * (bx - ax) + (p[1] - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2 || 1)));
+    best = Math.min(best, Math.hypot(p[0] - ax - t * (bx - ax), p[1] - ay - t * (by - ay)));
+  }
+  return best;
+}
+
+describe("linkage free play", () => {
+  const play = linkage.play!;
+  const length = play.sliders![0]!;
+  it("has its own rocker slider, reaching shorter than the game's, with named ends", () => {
+    assert.equal(length.id, "length");
+    assert.ok(length.min < rockerSlider.min);
+    assert.deepEqual(length.ends, ["Short", "Long"]);
+  });
+  it("draws the rocker at free play's length", () => {
+    const r = find(play.build!({ length: 40, crank: 50 }), "rocker");
+    const g = find(play.build!({ length: 90, crank: 50 }), "rocker");
+    assert.ok(r.shape.kind === "box" && g.shape.kind === "box" && Math.abs(g.shape.width - r.shape.width - 50) < 1e-6);
+  });
+  it("puts the plot's dot on its line at every crank angle, and the wave shrinks as the rocker grows", () => {
+    for (const L of [40, 55, 66, 90]) {
+      for (const crank of [0, 37, 50, 181, 299, 360]) {
+        const p = play.plot!({ length: L, crank });
+        assert.ok(offLine(p.line, p.dot!) < 0.01, `rocker ${L}, crank ${crank}: dot off the line`);
+      }
+    }
+    const height = (L: number) => {
+      const ys = play.plot!({ length: L, crank: 0 }).line.map((q) => q[1]);
+      return Math.max(...ys) - Math.min(...ys);
+    };
+    assert.ok(height(40) > 1.8 * height(90), `wave ${height(40)} vs ${height(90)}`);
+    for (const [, y] of play.plot!({ length: 40, crank: 0 }).line) assert.ok(y >= 0 && y <= 1);
+  });
+});

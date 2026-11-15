@@ -13,10 +13,10 @@
 // The game, "Hoist": raise the crate 10 mm with a 25 N pull and 35 mm of cord to spend. Too few strands and the crate is
 // too heavy to move; too many and the cord runs out before the crate has risen.
 import type { Part } from "../../kit.ts";
-import { clamp, easeOut, shudder, smooth } from "../motion/ease.ts";
+import { clamp, easeOut, fall, rockBack, shudder, smooth } from "../motion/ease.ts";
 import { frame, HOLD, LEAD, phases, REWIND, SCENE } from "../motion/run.ts";
 import { ARROW_MIN, arrow, bar, box, fmt, lathe, loadEdge, look, on, part, plate, PLATE_TOP, pullRing, ring, shaped, tick, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Plot, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres. A wheel is a plain disc with the cord resting on its rim, so every turn of cord round it shows.
 const WHEEL_R = 9;
@@ -128,7 +128,10 @@ function stand(beamEnd: number): Part {
   );
 }
 
-function build(v: Values): Part[] {
+const build = (v: Values) => draw(v, false);
+
+/** The pose: the rig and its load, and the weight and pull arrows unless `bare` (free play's figure). */
+function draw(v: Values, bare: boolean): Part[] {
   const s = settle(v);
   const yOf = (i: number) => (s.fixed(i) ? Y_FIXED : s.yM);
   const lastX = s.xs[s.n - 1]!;
@@ -156,16 +159,20 @@ function build(v: Values): Part[] {
       on("block", "glue"),
     ),
     // The same scale for both: the pull is the weight over the strands, so its arrow is that fraction of the weight's.
-    ...arrow("weight-arrow", v3(s.cx, loadTop, ARROW_Z), -90, LOAD * ARROW_PER_N, "push", {
-      name: "Weight arrow",
-      role: "The load's weight, pulling down.",
-      on: on("load", "glue"),
-    }),
-    ...arrow("pull-arrow", v3(s.handX + PULL_ARROW_DX, s.handY + 6, 0), -90, s.need * ARROW_PER_N, "push", {
-      name: "Pull arrow",
-      role: "The pull on the hauling end: the weight divided by the strands.",
-      on: on("handle", "glue"),
-    }),
+    ...(bare
+      ? []
+      : arrow("weight-arrow", v3(s.cx, loadTop, ARROW_Z), -90, LOAD * ARROW_PER_N, "push", {
+          name: "Weight arrow",
+          role: "The load's weight, pulling down.",
+          on: on("load", "glue"),
+        })),
+    ...(bare
+      ? []
+      : arrow("pull-arrow", v3(s.handX + PULL_ARROW_DX, s.handY + 6, 0), -90, s.need * ARROW_PER_N, "push", {
+          name: "Pull arrow",
+          role: "The pull on the hauling end: the weight divided by the strands.",
+          on: on("handle", "glue"),
+        })),
   ];
   s.xs.forEach((x, i) => {
     parts.push(
@@ -322,7 +329,53 @@ function scene(): Part[] {
   ];
 }
 
-const STRANDS: Slider = { id: "strands", label: "Strands", min: 1, max: MAX_STRANDS, step: 1, initial: 2 };
+// Free play, ms. Let go of the ring and nothing holds the load: it falls back to the plate, gathering speed, and drags
+// the cord back up through the wheels, the hauling end running n times as fast as the load falls. It bumps once on landing.
+/** The fall from the highest the load goes, 50 mm on one strand. A shorter fall takes less, by the square root. */
+const DROP_FULL_MS = 900;
+const BUMP_MS = 220;
+/** How far the load bounces back up off the plate, mm. */
+const BUMP_MM = 1.5;
+
+function release(v: Values): Motion {
+  const s = settle(v);
+  if (s.pull < 1e-9) return { durationMs: 1, at: () => frame({ ...v, pull: 0 }, "") };
+  const dropMs = Math.max(120, Math.round(DROP_FULL_MS * Math.sqrt(s.rise / PULL_MAX)));
+  const bump = Math.min(BUMP_MM, s.rise / 4) * s.n;
+  return {
+    durationMs: dropMs + BUMP_MS,
+    cues: [{ ms: dropMs, kind: "thud" }],
+    at: (ms) => {
+      const pull = ms < dropMs ? s.pull * (1 - fall(ms / dropMs)) : bump * rockBack(clamp((ms - dropMs) / BUMP_MS, 0, 1), 1);
+      return frame({ ...v, pull }, "");
+    },
+  };
+}
+
+const STRANDS: Slider = { id: "strands", label: "Strands", min: 1, max: MAX_STRANDS, step: 1, initial: 2, ends: ["Few", "Many"] };
+
+/**
+ * The price of the strands: how far the load rises (up) for the cord the hand pulls (across), over free play's whole
+ * 50 mm of pull. Every strand has to shorten by the rise, so the line climbs one over the strands: one strand runs it
+ * corner to corner, five lay it down to a fifth. The axes are fixed, so the slope is the strands. The dot is the pull now.
+ */
+function lift(v: Values): Plot {
+  const s = settle(v);
+  return {
+    line: [
+      [0, 0],
+      [1, 1 / s.n],
+    ],
+    dot: [s.pull / PULL_MAX, s.rise / PULL_MAX],
+    caption: "load rise for cord pulled",
+  };
+}
+
+/** While a hand is on the ring: the two arrows the game always shows, the pull against the load's weight, to one scale. */
+function hand(v: Values): Part[] {
+  const bare = new Set(draw(v, true).map((q) => q.id));
+  return draw(v, false).filter((q) => !bare.has(q.id));
+}
 
 export const pulley: Primitive = {
   id: "pulley",
@@ -351,6 +404,19 @@ export const pulley: Primitive = {
     solve: (point) => Y_HAND - point.y,
     // A cord cannot be pushed, and a load the hand cannot lift gives only a little.
     reach: (v) => [0, LOAD / valueOf(STRANDS, v) > HAND ? GIVE : Math.min(PULL_MAX, ROPE)],
+  },
+  play: {
+    // The rig and its load without the arrows: the strands share a load, so with none there is nothing to see.
+    build: (v) => draw(v, true),
+    // The load sitting on the plate, the cord just taut.
+    rest: { pull: 0 },
+    // The handle's reach is the game's: a 25 N hand and 35 mm of cord. A real hand pulls the load up until the slider's
+    // end, where the moving block (on one strand) comes nearly up to the fixed wheel.
+    reach: () => [0, PULL_MAX],
+    // More strands shrink the pull against the same weight, which the bare figure cannot show.
+    hand,
+    plot: lift,
+    release,
   },
   game: {
     name: "Hoist",

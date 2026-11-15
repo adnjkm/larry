@@ -3,7 +3,7 @@
 import type { Part } from "../../../shared/kit.ts";
 import { clamp } from "../../../shared/primitives/motion/ease.ts";
 import { sweepRun } from "../../../shared/primitives/motion/run.ts";
-import { type Cue, type Primitive, type Run, type Slider, type Values, allSliders } from "../../../shared/primitives/types.ts";
+import { type Cue, type Motion as Scripted, type Primitive, type Run, type Slider, type Values, allSliders } from "../../../shared/primitives/types.ts";
 
 /**
  * What a page drives a figure with: FigureStage's `controllerRef`, a new one whenever the primitive, mode or palette
@@ -24,7 +24,7 @@ export type StageController = {
    * interrupts it. The figure stays on the run's last frame (props included) until the next set or play. Under reduced
    * motion it jumps to at(durationMs), reports that frame's live text and the last cue, and resolves true.
    */
-  play(run: Run): Promise<boolean>;
+  play(run: Run | Scripted): Promise<boolean>;
   /** The play sweep (sweepRun): the handle's slider across its reach and back, starting from where it is, until stopped. Does nothing under reduced motion. */
   sweep(): void;
   /** Stops a run or sweep, leaving the figure where it is. */
@@ -45,7 +45,7 @@ export type MotionHost = {
   onCue?(cue: Cue): void;
 };
 
-type Playing = { run: Run; cues: Cue[]; next: number; start: number | undefined; done: (finished: boolean) => void };
+type Playing = { run: Run | Scripted; cues: Cue[]; next: number; start: number | undefined; done: (finished: boolean) => void };
 type Sweeping = { at: (ms: number) => Values; start: number | undefined };
 
 export class Motion implements StageController {
@@ -87,7 +87,7 @@ export class Motion implements StageController {
     this.show(next, undefined);
   };
 
-  play = (run: Run): Promise<boolean> => {
+  play = (run: Run | Scripted): Promise<boolean> => {
     this.interrupt();
     this.lastLive = undefined;
     const cues = [...(run.cues ?? [])].sort((a, b) => a.ms - b.ms);

@@ -16,10 +16,10 @@
 // from every stroke, so the bag stalls where the thumb's 250 kPa minus it runs out: the ball stops lifting. A soft spring
 // is slow to push the ball back down after each stroke, and until it is down air runs back out of the bag.
 import type { Part } from "../../kit.ts";
-import { clamp, clamp01, smooth } from "../motion/ease.ts";
-import { frame, MARK, phases, SCENE } from "../motion/run.ts";
+import { clamp, clamp01, easeOut, smooth } from "../motion/ease.ts";
+import { frame, MARK, phases, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, box, coilSpring, fmt, lathe, look, on, part, pivoted, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
 
 // Geometry, mm. x = 0 is the valve's axis before VX shifts the rig to centre it on the plate.
@@ -495,7 +495,63 @@ function scene(): Part[] {
   ];
 }
 
-const OPEN: Slider = { id: "open", label: "Opening pressure", min: 20, max: 160, step: 5, initial: 80, unit: " kPa" };
+// ---- Free play ---------------------------------------------------------------------------------------------------
+
+/** The plunger pushed back out from all the way in, ms. */
+const RELEASE_MS = 450;
+
+/**
+ * Let go of the plunger: the air squeezed in the barrel pushes it back out to the mouth, fast at first, and the pressure
+ * under the ball falls with it. The ball answers `reseat` ms late, as in the game (a softer spring is slower), so it
+ * clicks down onto its seat just after the pressure has dropped under the opening pressure.
+ */
+function release(v: Values): Motion {
+  const { open, reseat } = settle(v);
+  const p0 = clamp(v.pressure ?? 0, 0, THUMB);
+  const out = Math.max(1, Math.round(RELEASE_MS * Math.sqrt(p0 / THUMB)));
+  const pressureAt = (t: number) => p0 * (1 - easeOut(clamp01(t / out)));
+  const lifted = p0 > open + 1e-9;
+  const lag = lifted ? reseat : 0;
+  const cues: Cue[] = lifted ? [{ ms: whenReaches((t) => -pressureAt(t), -open, 0, out) + lag, kind: "click" }] : [];
+  return {
+    durationMs: out + lag,
+    cues,
+    at: (t) => frame({ ...v, pressure: pressureAt(t), held: lifted ? pressureAt(t - lag) : 0 }, ""),
+  };
+}
+
+const OPEN: Slider = { id: "open", label: "Opening pressure", min: 20, max: 160, step: 5, initial: 80, unit: " kPa", ends: ["Soft", "Stiff"] };
+
+/**
+ * The spring's push down on the ball, to the pump arrow's scale: its preload, plus its rate times the lift. While the
+ * ball is shut it is more than the pump's push and the seat takes the difference; once the ball is up the two are equal,
+ * which is where the ball floats. It stands on the ball's top, inside the coil that makes it.
+ */
+function springArrow(v: Values): Part[] {
+  const s = settle(v);
+  return arrow("spring-arrow", v3(VX, s.ballY + BALL_R, 0), -90, s.rate * (PRELOAD_MM + s.lift) * MM_PER_N, "push", {
+    name: "Spring's push",
+    role: "The spring pressing the ball down onto its seat.",
+    on: on("ball", "glue"),
+  });
+}
+
+/** The softest spring's stop: the most any ball here lifts, the plot's full height. */
+const LIFT_MOST = springFor(OPEN.min).liftMax;
+
+/**
+ * How far the ball lifts for the pressure under it: nothing until the opening pressure, then a straight rise (a softer
+ * spring rises faster) until the coils touch. A stiffer spring moves the knee right and lays the rise flatter. The dot is
+ * the pressure the ball answers to now, so it rides the line while the plunger moves and as the ball reseats.
+ */
+function opening(v: Values) {
+  const s = settle(v);
+  const full = s.open * (1 + s.liftMax / PRELOAD_MM);
+  const at = (p: number): [number, number] => [p / THUMB, liftFor(s.open, p) / LIFT_MOST];
+  const line = [at(0), at(s.open), ...(full < THUMB ? [at(full)] : []), at(THUMB)];
+  const p = clamp(Math.max(s.pressure, v.held ?? 0), 0, THUMB);
+  return { line, dot: at(p), caption: "ball lift for pump pressure" };
+}
 
 export const valve: Primitive = {
   id: "valve",
@@ -515,6 +571,17 @@ export const valve: Primitive = {
     label: "Pump",
     at: (v) => v3(VX + settle(v).plunger, BARREL_Y, 0),
     solve: (point) => (point.x - VX - PLUNGER_X0) / PLUNGER_MM_PER_KPA,
+  },
+  play: {
+    // The plunger out at the barrel's mouth, no pressure under the ball, and the ball on its seat.
+    rest: { pressure: 0 },
+    // The valve alone: body, ball, spring and plunger. The bag is the game's thing to fill, and the push arrow is a force
+    // the thumb already feels.
+    build: (v) => build(v).filter((p) => p.id !== "bag" && p.id !== "push-arrow"),
+    // While the thumb is on the plunger: the pump's push up on the ball against the spring's push down, both to scale.
+    hand: (v) => [...build(v).filter((p) => p.id === "push-arrow"), ...springArrow(v)],
+    plot: opening,
+    release,
   },
   game: {
     name: "Pump it up",

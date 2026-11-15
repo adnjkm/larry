@@ -11,9 +11,13 @@
 // A run tells it in order: the lid is backed off and screwed down to the squeeze that was set (the gasket thins and
 // spreads by exactly that much), the line pressure counts up from 0 to 300 kPa, and only then does the joint show what
 // the squeeze means: drops escape at the gap, the rubber splits and sprays, or nothing comes out.
+//
+// Free play is a leaking jar lid: water under pressure in the pipe, drops spitting out round the joint. Press the lid
+// and the drips slow and stop; let go and the rubber springs back and it leaks again. Its law agrees with the game's:
+// at the game's test pressure the leak stops at exactly WEEP.
 import type { Part } from "../../kit.ts";
-import { clamp01, fall, smooth } from "../motion/ease.ts";
-import { frame, MARK, phases } from "../motion/run.ts";
+import { clamp01, easeOut, fall, smooth } from "../motion/ease.ts";
+import { frame, MARK, phases, returnTo } from "../motion/run.ts";
 import { COLOR, cylinder, fmt, type Look, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
@@ -200,6 +204,112 @@ const HOLD = 500;
 /** One drop reaches the plate in this long. */
 const DRIP_MS = 700;
 const SPRAY_MS = 1000;
+/** Free play: the gasket springing back from the hardest squeeze, ms. */
+const RELAX_MS = 380;
+
+// ---- Free play: a leaking jar lid -----------------------------------------------------------------------------------
+//
+// Water stands in the pipe under pressure. The rubber, squeezed, pushes back on the lid and the flange, and that contact
+// pressure is what holds the water in: where the water pushes harder than the rubber does, it opens a path and gets
+// out. So the joint leaks while the rubber's push is below the water's pressure, and the leak is driven by the
+// difference. Rubber this thin pushes back roughly in proportion to its squeeze, so higher pressure needs more squeeze.
+
+/** The game's test pressure, kPa: the pressure its 15% sealing squeeze is for. */
+const TEST_KPA = 300;
+/** The rubber's push on the faces per unit of squeeze, kPa: set so the game's test pressure seals at exactly WEEP. */
+const PUSH_PER_SQUEEZE = TEST_KPA / WEEP;
+const PRESSURE: Slider = { id: "pressure", label: "Water pressure", min: 100, max: 450, step: 10, initial: TEST_KPA, unit: " kPa", ends: ["Low", "High"] };
+
+/** The joint in free play: the rubber's push, the squeeze that seals, and how fast it leaks (0 dry, 1 the most it can). */
+export function leak(v: Values) {
+  const squeeze = valueOf(SQUEEZE, v);
+  const pressure = valueOf(PRESSURE, v);
+  const push = PUSH_PER_SQUEEZE * squeeze;
+  // Rounded off below a thousandth of a kPa, so 300 kPa at exactly 15% reads dry, as it does in the game.
+  const excess = pressure - push > 1e-6 ? pressure - push : 0;
+  return { squeeze, pressure, push, sealsAt: pressure / PUSH_PER_SQUEEZE, rate: excess / PRESSURE.max };
+}
+
+/**
+ * Drips in free play. Twelve drip points take turns round the joint (two at each of six places), each on its own loop:
+ * a bead swells where the water gets out, at the gasket's edge on the flange; it runs out to the flange's rim, falls,
+ * and is gone at the plate. The faster the leak, the more of them run; at the sealing squeeze none do. Every point keeps
+ * a fixed phase, so the picture depends on `ms` alone.
+ */
+const DRIP_POINTS = 12;
+/** Where round the joint each place is, degrees, most visible first, so a slow leak drips where it can be seen. */
+const DRIP_AT = [30, 150, 90, 330, 210, 270];
+const DRIP_CYCLE_MS = 1500;
+/** The shares of a loop spent swelling and running to the rim; the fall (the game's DRIP_MS) follows, then a pause. */
+const SWELL = 0.3;
+const RUN = 0.12;
+const FALL = DRIP_MS / DRIP_CYCLE_MS;
+/** A swelling bead in four sizes, smallest first. */
+const BEADS = [0.45, 0.65, 0.85, 1];
+const beadShapes = BEADS.map(
+  (k) =>
+    lathe(
+      Array.from({ length: 9 }, (_, i): Pt => {
+        const a = ((i / 8) * 180 - 90) * DEG_TO_RAD;
+        return [k * DROP_R * Math.cos(a), k * DROP_R * Math.sin(a)];
+      }),
+    ).shape,
+);
+
+/** One drop `u` of the way round its loop, as its distance from the axis, its height and its size; null in the pause. */
+function dripAt(outer: number, u: number): { r: number; y: number; size: number } | null {
+  if (u < SWELL) {
+    // Sitting on the flange against the rubber, growing.
+    const size = Math.min(BEADS.length - 1, Math.floor((u / SWELL) * BEADS.length));
+    const k = BEADS[size]!;
+    return { r: outer + k * DROP_R, y: GASKET_Y + k * DROP_R, size };
+  }
+  const top = GASKET_Y + DROP_R;
+  if (u < SWELL + RUN) return { r: outer + DROP_R + (DROP_X - outer - DROP_R) * smooth((u - SWELL) / RUN), y: top, size: BEADS.length - 1 };
+  if (u < SWELL + RUN + FALL) return { r: DROP_X, y: top - (top - (PLATE_TOP + DROP_R)) * fall((u - SWELL - RUN) / FALL), size: BEADS.length - 1 };
+  return null;
+}
+
+function drips(v: Values, ms: number): Part[] {
+  const running = Math.ceil(leak(v).rate * DRIP_POINTS - 1e-9);
+  const { outer } = settle(v);
+  const out: Part[] = [];
+  for (let i = 0; i < running; i++) {
+    // Point i's phase: i × 5/12 of a loop, which visits every twelfth once and spreads neighbours apart.
+    const d = dripAt(outer, (ms / DRIP_CYCLE_MS + ((i * 5) % DRIP_POINTS) / DRIP_POINTS) % 1);
+    if (!d) continue;
+    const a = DRIP_AT[i % DRIP_AT.length]! * DEG_TO_RAD;
+    out.push(
+      part(
+        `${MARK}leak-${i + 1}`,
+        "Drop",
+        "Water that got past the rubber and drips off the joint.",
+        beadShapes[d.size]!,
+        v3(d.r * Math.cos(a), d.y, d.r * Math.sin(a)),
+        look.slate,
+        on("plate", "glue"),
+      ),
+    );
+  }
+  return out;
+}
+
+/** Leak rate against squeeze at this pressure: falling in a straight line to zero where the rubber's push matches the water. */
+function leakPlot(v: Values) {
+  const l = leak(v);
+  const x = (s: number) => s / SQUEEZE_MAX;
+  const top = l.pressure / PRESSURE.max;
+  return {
+    line: [
+      [0, top],
+      [x(l.sealsAt), 0],
+      [1, 0],
+    ] as const,
+    dot: [x(l.squeeze), l.rate] as const,
+    zero: 0,
+    caption: "leak as you press",
+  };
+}
 
 /** Four drops of spray, two each side: where each is `u` of the way through its flight, from the lip. */
 function spray(outer: number, u: number): Part[] {
@@ -285,6 +395,19 @@ export const seal: Primitive = {
     at: (v) => v3(0, settle(v).lidTop + HANDLE_T / 2, 0),
     // The lid's top is at GASKET_Y + t + LID_T, t = T0 (1 - squeeze).
     solve: (point) => 1 - (point.y - HANDLE_T / 2 - LID_T - GASKET_Y) / T0,
+  },
+  play: {
+    // The squeeze is the hand's; the water's pressure is the one thing to try once the hand has felt the seal close.
+    sliders: [SQUEEZE, PRESSURE],
+    // The lid resting on a gasket at its full thickness, so the joint leaks from the start.
+    rest: { squeeze: 0 },
+    // The joint alone. The game's own drops (its `drip` pose) are left out: free play's leak is `ambient`, and runs by itself.
+    build: (v) => build(v).filter((p) => !p.id.startsWith("drop-")),
+    ambient: drips,
+    plot: leakPlot,
+    // Let go, the rubber pushes the lid back up to its full thickness: quickly, and without ringing, since rubber soaks
+    // up its own bounce.
+    release: (v) => returnTo(v, "squeeze", 0, SQUEEZE_MAX, RELAX_MS, easeOut),
   },
   game: {
     name: "Pressure test",

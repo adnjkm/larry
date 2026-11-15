@@ -13,10 +13,10 @@
 // The 45 degrees is this game's rule of thumb (real limits depend on friction and how long the guide is); it is a
 // simplification, and howItWorks says so.
 import type { Part } from "../../kit.ts";
-import { clamp, shudder, smooth } from "../motion/ease.ts";
+import { clamp, fall, shudder, smooth } from "../motion/ease.ts";
 import { frame, LEAD, phases, REWIND, SCENE, whenReaches } from "../motion/run.ts";
 import { fmt, knob, lathe, look, on, part, pivoted, plate, post, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres. The post is behind the cam and the follower; the whole rig sits in z so the union is centred.
@@ -157,6 +157,67 @@ export function settle(v: Values) {
   /** The bell's lift off its hook, a run only. */
   const bell = v.bell ?? 0;
   return { lift, turn, up, bell, footY: CAM_Y + R0 + up, topY: REST_TOP + up };
+}
+
+/** A cam whose ramps are gentle enough for the guide turns round and round: its turn wraps, the same pose every whole turn. */
+const turnsFreely = (v: Values) => rampAngle(valueOf(LIFT, v)) <= LIMIT;
+
+/** A turn taken back into 0..1, the same pose. A hair under a whole turn counts as 0, so a pose at 0 solves back to 0. */
+const wrap = (turn: number) => turn - Math.floor(turn + 1e-9);
+
+/**
+ * Where the rod's weight takes the cam when the hand lets go at `turn`. With the foot on a ramp, the rod pushes down on a
+ * slope, so it turns the cam until the foot is back on the base circle, down whichever ramp it is on. On the base circle
+ * or a bump's flat top the push points at the axle and turns nothing, so the cam stays. Unwrapped: it may cross 0 or 1.
+ */
+function rollDown(v: Values, turn: number): number {
+  const up = rise(v, turn);
+  if (up < 0.01 || up > valueOf(LIFT, v) - 0.01) return turn;
+  const dir = rise(v, turn + 0.001) > up ? -1 : 1;
+  const STEP = 0.0025;
+  let lo = turn;
+  while (rise(v, lo + dir * STEP) > 1e-6) lo += dir * STEP;
+  let hi = lo + dir * STEP;
+  for (let k = 0; k < 30; k++) {
+    const mid = (lo + hi) / 2;
+    if (rise(v, mid) > 1e-6) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
+
+/** Free play's let-go: the rod drops down its ramp and turns the cam back to the base circle, as fast as a fall. */
+const DROP_MS = 650;
+function release(v: Values): Motion {
+  const s = settle(v);
+  const to = rollDown(v, s.turn);
+  if (Math.abs(to - s.turn) < 1e-9) return { durationMs: 1, at: () => frame({ ...v, turn: s.turn }, "") };
+  const ms = Math.round(DROP_MS * Math.sqrt(s.up / s.lift));
+  return {
+    durationMs: ms,
+    cues: [{ ms, kind: "thud" }],
+    at: (t) => frame({ ...v, turn: clamp(wrap(s.turn + (to - s.turn) * fall(clamp(t / ms, 0, 1))), 0, 1) }, "Rod dropping"),
+  };
+}
+
+/** Plot samples over one turn: a multiple of the turn slider's 200 steps, so a turn on its grid is a vertex of the line. */
+const PLOT_POINTS = 400;
+const profiles = new Map<number, [number, number][]>();
+
+/**
+ * The cam's rim unrolled: how high the rod stands at each point of one turn, the cam's motion curve. Taller bumps raise
+ * both humps on the same ramp length, so they also get steeper. It is the follower's own solved height, so the dot (the
+ * turn now) rides the line exactly as the rod rides the rim. Height is a share of the tallest lift on the slider.
+ */
+function profile(v: Values) {
+  const lift = valueOf(LIFT, v);
+  let line = profiles.get(lift);
+  if (!line) {
+    line = Array.from({ length: PLOT_POINTS + 1 }, (_, i): [number, number] => [i / PLOT_POINTS, rise(v, i / PLOT_POINTS) / LIFT.max]);
+    profiles.set(lift, line);
+  }
+  const turn = wrap(settle(v).turn);
+  return { line, dot: [turn, rise(v, turn) / LIFT.max] as [number, number], caption: "rod height over one turn" };
 }
 
 const knobAngle = (turn: number) => KNOB_AT_0 + turn * 360;
@@ -346,7 +407,7 @@ function scene(v: Values): Part[] {
   ];
 }
 
-const LIFT: Slider = { id: "lift", label: "Lift", min: 4, max: 14, step: 1, initial: 12, unit: " mm" };
+const LIFT: Slider = { id: "lift", label: "Lift", min: 4, max: 14, step: 1, initial: 12, unit: " mm", ends: ["Low", "Tall"] };
 
 export const cam: Primitive = {
   id: "cam",
@@ -365,14 +426,33 @@ export const cam: Primitive = {
     slider: "turn",
     label: "Turn",
     at: (v) => knobPoint(settle(v).turn),
-    // The knob rides a circle round the cam's axle: the turn whose knob angle points at the finger, nearest the current one.
+    // The knob rides a circle round the cam's axle: the turn whose knob angle points at the finger. A cam that turns
+    // freely goes on round past a whole turn, so its turn wraps; one that jams keeps the turn nearest the current one,
+    // so its reach can stop it at the ramp.
     solve: (point, v) => {
       const a = Math.atan2(point.y - CAM_Y, point.x) * RAD_TO_DEG;
       const base = (a - KNOB_AT_0) / 360;
-      return base + Math.round((v.turn ?? 0) - base);
+      return turnsFreely(v) ? wrap(base) : base + Math.round((v.turn ?? 0) - base);
     },
     // A bump too steep for the guide stops the cam where the ramp first meets the rod.
     reach: (v) => (rampAngle(valueOf(LIFT, v)) > LIMIT ? [0, Math.min(1, firstReach(v, JAM_RISE))] : [0, 1]),
+  },
+  play: {
+    // The rod down on the base circle, between the two bumps. Half a turn, not none: a cam too steep to turn then has its
+    // whole stretch of base circle inside the slider, from one jammed ramp to the other.
+    rest: { turn: 0.5 },
+    // Round and round when the ramps are gentle enough. Too steep, and each ramp jams the rod where it first meets it, so
+    // the hand can only rock the cam on the stretch of base circle it is on: the bumps are mirror images, so the jam
+    // either side is the same distance from the middle of that stretch (turn 0, 0.5 or 1).
+    reach: (v) => {
+      if (turnsFreely(v)) return [0, 1];
+      const a = firstReach(v, JAM_RISE);
+      const mid = Math.round(settle(v).turn * 2) / 2;
+      return [Math.max(0, mid - a), Math.min(1, mid + a)];
+    },
+    // No hand arrow: the lesson is the timing, which the rod's height shows, not a force.
+    plot: profile,
+    release,
   },
   game: {
     name: "Ring the bell",

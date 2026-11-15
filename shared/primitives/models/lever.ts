@@ -7,8 +7,8 @@
 // The bar is never free to take any angle. Its underside always passes through the pivot's point. At rest its load end
 // lies on the plate, so it sits load side down at the angle that gives. Pushed down, the finger decides: holding the
 // block takes the load's weight over the arm ratio, 20 N only from a ratio of 1.5 up. With a smaller ratio the bar
-// strains a millimetre or two and no further (`handle.reach`), and whatever the sliders ask for, `settle` puts the bar
-// where the forces could hold it.
+// strains a millimetre or two and no further: the game's reach (`handle.reach`) and runs hold to that. Free play has a
+// hand, not that finger, so there the bar goes as far as its geometry lets it.
 //
 // Distance is the price. A finger moves a fixed TRAVEL (15 mm), so the block rises TRAVEL ÷ ratio: every point on the
 // bar turns through the same angle, and the effort end goes down `ratio` times as far as the load end goes up. The
@@ -18,10 +18,10 @@
 // The game, "One finger": raise the block 6.5 mm with one 20 N finger that moves 15 mm. A small ratio needs more than
 // 20 N; a large one turns 15 mm of finger into too little lift.
 import type { Part } from "../../kit.ts";
-import { clamp, shudder, smooth } from "../motion/ease.ts";
+import { clamp, clamp01, fall, rockBack, shudder, smooth } from "../motion/ease.ts";
 import { frame, handArrow, HOLD, phases, RESET, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, box, fmt, look, loadEdge, on, part, PLATE_TOP, plate, post, pushDisc, rotateAbout, tick, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Plot, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres.
@@ -55,6 +55,11 @@ export const RISE = 6.5;
 export const STRAIN = 1.5;
 /** mm per N for every arrow: the 30 N block is 36 long. */
 const MM_PER_N = 36 / LOAD;
+/**
+ * Free play's arrows, larger: the 30 N block is 48 long, so the push stays longer than the shortest arrow up to a ratio
+ * of 4 rather than 3, and the trade still reads near the long-arm end.
+ */
+const PLAY_MM_PER_N = 48 / LOAD;
 
 const BLOCK = loadEdge(LOAD);
 
@@ -75,18 +80,25 @@ export function bounds(ratio: number) {
 /** The finger's hold at a ratio: the force that balances the block at any angle. */
 export const holdFor = (ratio: number) => LOAD / ratio;
 
-/** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
+/**
+ * Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. The pose is
+ * geometry only: the bar goes wherever the push puts it, up to `stop`, the slider's 15 mm or the plate. How far one 20 N
+ * finger can take it, `limit`, is the game's, and only the game's reach and runs hold to it.
+ */
 export function settle(v: Values) {
   const ratio = valueOf(RATIO, v);
   const b = bounds(ratio);
   const hold = holdFor(ratio);
   /** The finger cannot lift this block at this ratio: the bar only strains. */
   const weak = hold > FINGER + 1e-9;
-  const limit = weak ? Math.min(STRAIN, b.pushMax) : Math.min(b.pushMax, TRAVEL);
-  const push = clamp(v.push ?? 8, 0, limit);
+  const stop = Math.min(b.pushMax, TRAVEL);
+  const limit = weak ? Math.min(STRAIN, stop) : stop;
+  const push = clamp(v.push ?? 8, 0, stop);
   const sin = b.s0 + push / b.aEff;
   const phi = Math.asin(clamp(sin, -1, 1));
-  return { ...b, hold, weak, limit, push, sin, phi, deg: phi * RAD_TO_DEG, rise: push / ratio, effort: weak ? FINGER : hold };
+  /** A weak finger straining the bar gives its all; anywhere else the push is the one that holds the block there. */
+  const straining = weak && push <= STRAIN + 1e-9;
+  return { ...b, hold, weak, straining, stop, limit, push, sin, phi, deg: phi * RAD_TO_DEG, rise: push / ratio, effort: straining ? FINGER : hold };
 }
 
 type Bar = { aEff: number; aLoad: number; xp: number };
@@ -96,8 +108,13 @@ export const onBar = (b: Bar, phi: number, lx: number, ly: number) => rotateAbou
 const padAt = (b: Bar, phi: number, up: number) => onBar(b, phi, -b.aEff, BAR_T + up);
 const blockAt = (b: Bar, phi: number) => onBar(b, phi, b.aLoad, BAR_T + BLOCK / 2);
 
-function build(v: Values): Part[] {
-  const s = settle(v);
+/** The lever as the game and the library show it: the forces drawn on it, to scale. */
+const build = (v: Values): Part[] => draw(settle(v), true);
+/** The lever alone, as free play's hand meets it: plate, fulcrum, bar, pad and the block, no arrows. */
+const bare = (v: Values): Part[] => draw(settle(v), false);
+
+/** The pose, and the forces on it unless bare, drawn `perN` mm long per N. */
+function draw(s: ReturnType<typeof settle>, forces: boolean, perN = MM_PER_N): Part[] {
   const bar = onBar(s, s.phi, (s.aLoad - s.aEff) / 2, BAR_T / 2);
   const pad = {
     ...pushDisc("pad", padAt(s, s.phi, PAD_T / 2), "y", { name: "Press pad", role: "Where one finger pushes the effort end down.", on: on("bar", "glue") }),
@@ -139,18 +156,21 @@ function build(v: Values): Part[] {
     ),
     pad,
     load,
-    ...arrow("load-arrow", v3(block.x, blockTop, 0), -90, arrowLength(LOAD, LOAD, 36), "push", {
+  ];
+  if (!forces) return parts;
+  parts.push(
+    ...arrow("load-arrow", v3(block.x, blockTop, 0), -90, arrowLength(LOAD, LOAD, LOAD * perN), "push", {
       name: "Arrow",
       role: "The block's weight, pulling down.",
       on: on("load", "glue"),
     }),
-  ];
+  );
   // The finger holds the bar only once it is pushing: at rest the plate carries the load.
   if (s.push > 1e-9) {
     parts.push(
-      ...arrow("effort-arrow", padAt(s, s.phi, PAD_T), -90, Math.max(FINGER_MIN, s.effort * MM_PER_N), "push", {
+      ...arrow("effort-arrow", padAt(s, s.phi, PAD_T), -90, Math.max(FINGER_MIN, s.effort * perN), "push", {
         name: "Arrow",
-        role: s.weak ? "A finger's whole push: 20 N, not enough." : "The push that balances the block, to the same scale.",
+        role: s.straining ? "A finger's whole push: 20 N, not enough." : "The push that balances the block, to the same scale.",
         on: on("pad", "glue"),
       }),
     );
@@ -160,13 +180,15 @@ function build(v: Values): Part[] {
 
 function readouts(v: Values) {
   const s = settle(v);
-  const state = s.weak
+  const state = s.straining
     ? `${fmt(s.hold, 1)} N needed, finger has ${FINGER}: it strains ${fmt(s.limit, 1)} mm`
     : s.push < 1e-9
       ? `block rests on the plate; ${fmt(s.hold, 1)} N would hold it level`
-      : s.push >= s.limit - 1e-9
+      : s.push >= TRAVEL - 1e-9
         ? `finger at the end of its ${TRAVEL} mm; ${fmt(s.hold, 1)} N holds the block ${fmt(s.rise, 1)} mm up`
-        : `${fmt(s.hold, 1)} N holds the block ${fmt(s.rise, 1)} mm up`;
+        : s.weak
+          ? `${fmt(s.hold, 1)} N holds the block ${fmt(s.rise, 1)} mm up, more than one finger's ${FINGER} N`
+          : `${fmt(s.hold, 1)} N holds the block ${fmt(s.rise, 1)} mm up`;
   return [
     { label: "Push", value: `F = ${LOAD} N ÷ ${fmt(s.ratio, 1)} = ${fmt(s.hold, 1)} N` },
     { label: "Travel", value: `your end down ${fmt(s.push, 1)} mm, block up ${fmt(s.push, 1)} ÷ ${fmt(s.ratio, 1)} = ${fmt(s.rise, 1)} mm` },
@@ -296,7 +318,63 @@ function scene(v: Values): Part[] {
   ];
 }
 
-const RATIO: Slider = { id: "ratio", label: "Arm ratio", min: 1, max: 5, step: 0.1, initial: 3, unit: "×" };
+// ---- Free play ---------------------------------------------------------------------------------------------------
+
+/** A bar let go from the whole stroke takes this long to fall back to the plate, and less from less. */
+const DROP_MS = 380;
+/** The load end bounces off the plate this far (as effort-end travel) when dropped from the whole stroke. */
+const REBOUND = 1.6;
+const REBOUND_MS = 320;
+
+/**
+ * Let go, nothing holds the effort end up: the block's weight swings the bar back until the load end lands on the plate,
+ * gathering speed as it falls, and it bounces once or twice, smaller each time.
+ */
+function release(v: Values): Motion {
+  const from = settle(v).push;
+  if (from < 1e-9) return { durationMs: 1, at: () => frame({ ...v, push: 0 }, "") };
+  const drop = Math.round(DROP_MS * Math.sqrt(from / TRAVEL));
+  const bounce = REBOUND * Math.min(1, from / TRAVEL);
+  return {
+    durationMs: drop + REBOUND_MS,
+    cues: [{ ms: drop, kind: "thud" }],
+    at: (ms) => {
+      const push = ms < drop ? from * (1 - fall(ms / drop)) : bounce * rockBack(clamp01((ms - drop) / REBOUND_MS), 2);
+      return frame({ ...v, push }, "");
+    },
+  };
+}
+
+/**
+ * While a hand is on the pad: the push that holds the block, against the block's weight, to one scale. A longer arm
+ * shrinks the push, which the bare figure alone cannot show. A hand, not the game's 20 N finger, so it is never shown
+ * straining: the push is always the one that holds the block.
+ */
+function hand(v: Values): Part[] {
+  const s = { ...settle(v), straining: false };
+  const held = { ...s, effort: s.hold };
+  const bareIds = new Set(draw(held, false).map((p) => p.id));
+  return draw(held, true, PLAY_MM_PER_N).filter((p) => !bareIds.has(p.id));
+}
+
+/**
+ * The other half of the trade: how far the block rises (up) for how far the finger presses (across). One straight line
+ * of slope 1 ÷ ratio, from rest to as far as the bar goes; a longer arm lays it flatter. Both axes are on the finger's
+ * stroke, so the widest the line can be is the whole stroke and the tallest is a ratio-1 lever's rise over it.
+ */
+function travel(v: Values): Plot {
+  const s = settle(v);
+  return {
+    line: [
+      [0, 0],
+      [s.stop / TRAVEL, s.stop / s.ratio / TRAVEL],
+    ],
+    dot: [s.push / TRAVEL, s.rise / TRAVEL],
+    caption: "block rise for finger travel",
+  };
+}
+
+const RATIO: Slider = { id: "ratio", label: "Arm ratio", min: 1, max: 5, step: 0.1, initial: 3, unit: "×", ends: ["Short arm", "Long arm"] };
 
 export const lever: Primitive = {
   id: "lever",
@@ -335,6 +413,17 @@ export const lever: Primitive = {
     },
     // A finger that cannot hold the block gets a millimetre or two; otherwise as far as a finger moves.
     reach: (v) => [0, settle(v).limit],
+  },
+  play: {
+    // The block stays: a see-saw with nothing on it would rest anywhere and show no trade. No arrows, no line to reach.
+    build: bare,
+    hand,
+    plot: travel,
+    // Left alone the block's side is down: the load end lies on the plate and the effort end is up in the air.
+    rest: { push: 0 },
+    // A hand, not the game's 20 N finger: the bar goes down the whole slider, at every ratio.
+    reach: (v) => [0, settle(v).stop],
+    release,
   },
   game: {
     name: "One finger",

@@ -145,3 +145,55 @@ describe("catch", () => {
     }
   });
 });
+
+/** How far a plot's dot is from its line, in plot units. */
+function offLine(plot: { line: readonly (readonly [number, number])[]; dot?: readonly [number, number] }): number {
+  const p = plot.dot!;
+  let best = Infinity;
+  for (let i = 1; i < plot.line.length; i++) {
+    const a = plot.line[i - 1]!;
+    const b = plot.line[i]!;
+    const len = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / len));
+    best = Math.min(best, Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])));
+  }
+  return best;
+}
+
+describe("catch free play", () => {
+  const plot = catchLatch.play!.plot!;
+  const hand = catchLatch.play!.hand!;
+  it("plots the hand's push along the door's last stretch, with the dot on it wherever the door is", () => {
+    for (const f of FORCES)
+      for (const d of [...DOORS, ...KEY_DOORS, -12.34, -3.1]) {
+        const p = plot({ force: f, door: d });
+        assert.ok(offLine(p) < 1e-3, `force ${f}, door ${d}: the dot is ${offLine(p).toFixed(4)} off the line`);
+      }
+  });
+
+  it("puts a small hump over the zero for the gentle face and a deep trough under it for the steep one, both scaled by the spring", () => {
+    for (const f of FORCES) {
+      const p = plot({ force: f, door: 0 });
+      const ys = p.line.map((q) => q[1]);
+      const unit = 1 / (force.max * (1 + CLOSE_GAIN / HOLD_GAIN));
+      // The hump: the spring's full push times tan 30°; the trough: times tan 70°, which is the release force.
+      assert.ok(Math.abs(Math.max(...ys) - p.zero! - ((f * CLOSE_GAIN) / HOLD_GAIN) * unit) < 2e-3, `force ${f}: hump`);
+      assert.ok(Math.abs(p.zero! - Math.min(...ys) - f * unit) < 2e-3, `force ${f}: trough`);
+    }
+  });
+
+  it("draws the holding arrow while the finger is on the door, longer for a stronger spring on the steep face", () => {
+    const length = (f: number, d: number) => {
+      const a = hand({ force: f, door: d });
+      if (a.length === 0) return 0;
+      const s = a[0]!.shape;
+      assert.ok(s.kind === "extrusion");
+      const xs = s.outline.map((q) => q.x);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    assert.equal(length(8, -36), 0, "clear of the bolt, the door needs no holding");
+    assert.equal(length(8, 0), 0, "shut, the post holds it");
+    assert.ok(length(8, -15) > 0, "on the gentle face");
+    assert.ok(length(20, -2) > length(4, -2) + 8, `steep face: ${length(4, -2)} at 4 N, ${length(20, -2)} at 20 N`);
+  });
+});

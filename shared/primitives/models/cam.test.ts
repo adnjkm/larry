@@ -192,3 +192,47 @@ describe("cam", () => {
     assert.ok(Math.max(...xs) - Math.min(...xs) > 3 * 10, "the cam is far wider than the post");
   });
 });
+
+/** How far a plot's dot is from its line, in plot units. */
+function offLine(plot: { line: readonly (readonly [number, number])[]; dot?: readonly [number, number] }): number {
+  const p = plot.dot!;
+  let best = Infinity;
+  for (let i = 1; i < plot.line.length; i++) {
+    const a = plot.line[i - 1]!;
+    const b = plot.line[i]!;
+    const len = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / len));
+    best = Math.min(best, Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])));
+  }
+  return best;
+}
+
+describe("cam free play", () => {
+  const plot = cam.play!.plot!;
+  it("plots the rod's height over a turn, with the dot on the line at every turn, on the grid or off it", () => {
+    for (const l of steps(lift))
+      for (const turn of [0, 0.1, 0.1234, 0.25, 0.5, 0.6789, 0.75, 1]) {
+        const p = plot({ lift: l, turn });
+        assert.ok(offLine(p) < 0.004, `lift ${l}, turn ${turn}: the dot is ${offLine(p).toFixed(4)} off the line`);
+        assert.ok(Math.abs(p.dot![1] - rise({ lift: l }, turn) / lift.max) < 1e-9);
+      }
+  });
+
+  it("reshapes the line with the lift: each hump is as tall as the bumps", () => {
+    for (const l of steps(lift)) {
+      const top = Math.max(...plot({ lift: l, turn: 0 }).line.map((q) => q[1]));
+      assert.ok(Math.abs(top - l / lift.max) < 0.002, `lift ${l}: the humps peak at ${top}`);
+    }
+    assert.notDeepEqual(plot({ lift: 4, turn: 0 }).line, plot({ lift: 14, turn: 0 }).line);
+  });
+
+  it("keeps the dot on the line as the rod drops back after a let-go", () => {
+    for (const l of [6, 12]) {
+      const run = cam.play!.release!({ lift: l, turn: 0.2 });
+      for (let k = 0; k <= 10; k++) {
+        const f = run.at((k / 10) * run.durationMs);
+        assert.ok(offLine(plot(f.values)) < 0.004, `lift ${l}, frame ${k}`);
+      }
+    }
+  });
+});

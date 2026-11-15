@@ -148,3 +148,34 @@ describe("gear", () => {
     assert.ok(rig.AXLE_Y > 0);
   });
 });
+
+/** How far a point lies from a polyline, in the plot's own 0 to 1 units. */
+function offLine(line: readonly (readonly [number, number])[], p: readonly [number, number]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1]!;
+    const [bx, by] = line[i]!;
+    const t = Math.max(0, Math.min(1, ((p[0] - ax) * (bx - ax) + (p[1] - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2 || 1)));
+    best = Math.min(best, Math.hypot(p[0] - ax - t * (bx - ax), p[1] - ay - t * (by - ay)));
+  }
+  return best;
+}
+
+describe("gear free play", () => {
+  const play = gear.play!;
+  it("names the ends of the tooth ratio", () => assert.deepEqual(ratio.ends, ["Fast", "Slow"]));
+  it("puts the plot's dot on its line at every turn, and tilts the line with the teeth", () => {
+    for (const r of steps(ratio)) {
+      for (const turn of [-3, -1.2, 0, 0.4, 2.75, 3]) {
+        const p = play.plot!({ ratio: r, turn });
+        assert.ok(offLine(p.line, p.dot!) < 1e-9, `ratio ${r}, turn ${turn}: dot off the line`);
+        for (const [x, y] of p.line) assert.ok(x >= 0 && x <= 1 && y >= -1e-9 && y <= 1 + 1e-9);
+      }
+    }
+    // Falls (the output turns the other way); 8 teeth run it top to bottom, 24 only a third of that.
+    const fast = play.plot!({ ratio: 8 / 12, turn: 0 }).line;
+    const slow = play.plot!({ ratio: 2, turn: 0 }).line;
+    assert.ok(Math.abs(fast[0]![1] - fast[1]![1] - 1) < 1e-9);
+    assert.ok(Math.abs(slow[0]![1] - slow[1]![1] - 1 / 3) < 1e-9);
+  });
+});

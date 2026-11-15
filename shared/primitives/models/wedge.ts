@@ -8,8 +8,9 @@
 // The forces are drawn where they act, at one scale, and only three: the hammer's push on the wedge, and F / (2 tan a)
 // pushing each log half out, drawn on that half's front face. The log pushes back with a grip of 100 N plus 5 N for
 // every mm it has given, through the pad. The wedge goes in only as far as its push can overcome the grip, so a fat
-// wedge stalls, or does not go in at all, and `handle.reach` stops a drag there. Its other limit is the plate: the tip
-// lands on it at 32 mm, right through the log.
+// wedge stalls, or does not go in at all, and the game's reach (`handle.reach`) stops a drag there. Its other limit is
+// the plate: the tip lands on it at 32 mm, right through the log. Free play has a hand, not the blows, so there it goes
+// in until the tip lands or a pad is squeezed solid.
 //
 // The game, "Split the log": up to five blows of 120 N. Each blow drives the wedge a further 6.4 mm if the sideways push
 // beats the log's grip. The log splits when each half has opened 9 mm, and the blows stop there. A fat wedge's sideways
@@ -19,7 +20,7 @@ import type { Part } from "../../kit.ts";
 import { clamp, easeOut } from "../motion/ease.ts";
 import { frame, handArrow, HOLD, LEAD, phases, RESET, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, arrowLength, box, fmt, look, on, part, PLATE_TOP, plate, post, pushDisc, tick, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Plot, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
 
 // Geometry, millimetres. The log is small beside the wedge, so the pink piece is what the eye lands on.
@@ -30,10 +31,12 @@ const TOP_Y = PLATE_TOP + BLOCK_H;
 /** How far the wedge can go in: its tip lands on the plate. */
 export const LENGTH = BLOCK_H;
 /** The wedge is a little longer than the log is tall, so its top stays above the log. */
-const WEDGE_L = LENGTH + 8;
+const WEDGE_L = LENGTH + 10;
 /** The pad between a log half and its post, at rest. */
 const PAD_L = 20;
 const PAD_H = 14;
+/** A pad squeezed this thin is solid: a hand can drive the wedge no further. */
+const PAD_SOLID = 6;
 const POST_X = BLOCK_W + PAD_L + 5;
 const POST_H = 24;
 const DISC_T = 4;
@@ -66,7 +69,12 @@ const tanOf = (slope: number) => Math.tan(slope * DEG_TO_RAD);
 /** What the log pushes back with when each half has given `open` mm. */
 export const gripAt = (open: number) => GRIP + STIFF * open;
 
-/** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
+/**
+ * Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. The pose is
+ * geometry only: the wedge goes wherever the push puts it, up to `stop`, where the tip lands on the plate or a pad is
+ * squeezed solid. How far the game's 120 N blows can drive it against the log's grip, `limit`, is the game's, and only
+ * the game's reach and runs hold to it.
+ */
 export function settle(v: Values) {
   const slope = valueOf(SLOPE, v);
   const t = tanOf(slope);
@@ -74,19 +82,23 @@ export function settle(v: Values) {
   const side = BLOW / (2 * t);
   /** How far each half could be opened by that push: where the grip has grown to match it. */
   const reachOpen = Math.max(0, (side - GRIP) / STIFF);
-  const limit = Math.min(LENGTH, Math.max(reachOpen / t, ELASTIC));
-  const push = clamp(v.push ?? 24, 0, limit);
+  const stop = Math.min(LENGTH, (PAD_L - PAD_SOLID) / t);
+  const limit = Math.min(stop, Math.max(reachOpen / t, ELASTIC));
+  const push = clamp(v.push ?? 24, 0, stop);
   const open = push * t;
   return {
     slope,
     t,
     side,
     reachOpen,
+    stop,
     limit,
     push,
     open,
     grip: gripAt(open),
-    stalled: push >= limit - 1e-9 && limit < LENGTH - 1e-9 && reachOpen > 0,
+    stalled: Math.abs(push - limit) < 1e-9 && limit < LENGTH - 1e-9 && reachOpen > 0,
+    /** In further than a blow could drive it: only a hand puts it there. */
+    beyond: push > limit + 1e-9,
     through: push >= LENGTH - 1e-9,
     tipY: TOP_Y - push,
   };
@@ -94,8 +106,18 @@ export function settle(v: Values) {
 
 const topOf = (tipY: number) => tipY + WEDGE_L;
 
-function build(v: Values): Part[] {
-  const s = settle(v);
+/** The wedge as the game and the library show it: the forces drawn on it, to scale. */
+const build = (v: Values): Part[] => draw(settle(v), true);
+/** The wedge alone, as free play's hand meets it: the log it splits and the pads it squeezes, no arrows. */
+const bare = (v: Values): Part[] => draw(settle(v), false);
+
+/** The forces drawn on the wedge: the push in, the push out on each half, and the scale, `largest` N drawn `longest` mm. */
+type Forces = { push: number; side: number; largest: number; longest: number };
+/** The game's: a 120 N blow, and what it makes on each half, F ÷ (2 tan a). */
+const blow = (s: ReturnType<typeof settle>): Forces => ({ push: BLOW, side: s.side, largest: SIDE_MAX, longest: ARROW_LONG });
+
+/** The pose, and the forces on it unless bare. */
+function draw(s: ReturnType<typeof settle>, forces: boolean, f: Forces = blow(s)): Part[] {
   const half = (sign: 1 | -1): Part[] => {
     const side = sign === 1 ? "right" : "left";
     return [
@@ -146,9 +168,9 @@ function build(v: Values): Part[] {
     pushDisc("disc", v3(0, top + DISC_T / 2, 0), "y", { name: "Tap pad", role: "Where the hammer's blow lands.", on: on("wedge", "glue") }),
   ];
   // Forces appear once the wedge is in: the push on it, and what it makes on each half, drawn on that half's face.
-  if (s.push > 1e-9) {
+  if (forces && s.push > 1e-9) {
     parts.push(
-      ...arrow("push-arrow", v3(0, top + DISC_T, 0), -90, arrowLength(BLOW, SIDE_MAX, ARROW_LONG), "push", {
+      ...arrow("push-arrow", v3(0, top + DISC_T, 0), -90, arrowLength(f.push, f.largest, f.longest), "push", {
         name: "Arrow",
         role: "The push on the wedge, to scale.",
         on: on("disc", "glue"),
@@ -162,7 +184,7 @@ function build(v: Values): Part[] {
           `out-arrow-${side}`,
           v3(sign * (s.open + ARROW_IN - 4), PLATE_TOP + BLOCK_H / 2, DEPTH / 2 + ARROW_OUT),
           sign === 1 ? 0 : 180,
-          arrowLength(s.side, SIDE_MAX, ARROW_LONG),
+          arrowLength(f.side, f.largest, f.longest),
           "pull",
           { name: "Arrow", role: "What the wedge pushes the half out with, drawn on the half.", on: on(`block-${side}`, "glue") },
         ),
@@ -174,8 +196,9 @@ function build(v: Values): Part[] {
 
 function readouts(v: Values) {
   const s = settle(v);
-  const state =
-    s.side < GRIP
+  const state = s.beyond
+    ? `pressed in past what a ${BLOW} N blow can: ${fmt(s.side)} N a side against ${fmt(s.grip)} N grip`
+    : s.side < GRIP
       ? `${fmt(s.side)} N a side < ${GRIP} N grip: the wedge won't go in`
       : s.push < 1e-9
         ? "resting on the seam: nothing pushed apart yet"
@@ -323,7 +346,40 @@ function scene(): Part[] {
   ];
 }
 
-const SLOPE: Slider = { id: "slope", label: "Slope (half-angle)", min: 8, max: 35, step: 1, initial: 20, unit: "°" };
+const SLOPE: Slider = { id: "slope", label: "Slope (half-angle)", min: 8, max: 35, step: 1, initial: 20, unit: "°", ends: ["Sharp", "Blunt"] };
+
+/** The widest a half can open: its pad squeezed solid. */
+const OPEN_MAX = PAD_L - PAD_SOLID;
+/** The hardest push a hand gives in free play: the bluntest wedge, its pads squeezed solid. 48 mm long. */
+const HAND_MAX = 2 * tanOf(SLOPE.max) * gripAt(OPEN_MAX);
+
+/**
+ * While a hand is on the pad: the push that holds the wedge where it is against the log's grip, 2 tan a times the grip,
+ * and the grip itself, which is what the wedge pushes each half out with, to one scale. A sharp wedge holds the log open
+ * with a push much smaller than its push out; a blunt one needs a push bigger than it. The game's fixed 120 N blow would
+ * leave every arrow at the blunt end the shortest one an arrow can be.
+ */
+function hand(v: Values): Part[] {
+  const s = settle(v);
+  const bareIds = new Set(draw(s, false).map((p) => p.id));
+  return draw(s, true, { push: 2 * s.t * s.grip, side: s.grip, largest: HAND_MAX, longest: 48 }).filter((p) => !bareIds.has(p.id));
+}
+
+/**
+ * The other half of the trade: how far each half opens (up) for how far the wedge goes in (across). One straight line
+ * of slope tan a, from the seam to where the tip lands or a pad goes solid; a sharper wedge lays it flatter.
+ */
+function opening(v: Values): Plot {
+  const s = settle(v);
+  return {
+    line: [
+      [0, 0],
+      [s.stop / LENGTH, (s.stop * s.t) / OPEN_MAX],
+    ],
+    dot: [s.push / LENGTH, s.open / OPEN_MAX],
+    caption: "log opening for depth in",
+  };
+}
 
 export const wedge: Primitive = {
   id: "wedge",
@@ -350,6 +406,20 @@ export const wedge: Primitive = {
     solve: (point) => topOf(TOP_Y) + DISC_T / 2 - point.y,
     // Only as far as the push can overcome the log's grip, and the plate.
     reach: (v) => [0, settle(v).limit],
+  },
+  play: {
+    // The game hammers it in with taps; a bare hand pushes it.
+    label: "Push",
+    // The log and its pads stay: a wedge means nothing without something to push apart. No arrows, no line to reach.
+    build: bare,
+    hand,
+    plot: opening,
+    // Resting point-down on the seam, nothing pushed apart, and a wedge shaped like a splitting wedge (30° across the
+    // point) rather than the slider's fatter 40°.
+    rest: { slope: 15, push: 0 },
+    // A hand, not the game's blows: the wedge goes in until its tip is on the plate or a pad is squeezed solid.
+    reach: (v) => [0, settle(v).stop],
+    // No release: a real wedge is held where it was driven by friction on its faces, as a doorstop is.
   },
   game: {
     name: "Split the log",

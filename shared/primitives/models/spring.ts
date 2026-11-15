@@ -38,6 +38,9 @@ const TICK_END = CX - 15 - 2;
 const MARK_POST_X = TICK_END - TICK_LEN - SLIM / 2;
 /** The bell's stand, right of the coil: game scene only. A slim post and an arm that reaches over to the bell. */
 const BELL_POST_X = CX + 22;
+/** How long a 2 N/mm spring takes to settle after it is let go, and how many times it swings. */
+const RELEASE_MS = 1100;
+const RELEASE_CYCLES = 3;
 /** The longest push arrow, at 50 N. */
 const ARROW_LONG = 36;
 const FORCE_MAX = 50;
@@ -134,10 +137,61 @@ function freeMark(): Part {
 }
 
 function build(v: Values): Part[] {
+  return [plate(48, 30), ...rig(v), freeMark(), ...pushArrow(v)];
+}
+
+/** The push on the plate, to scale: the game draws it always, free play only while a finger is on the plate. */
+function pushArrow(v: Values): Part[] {
   const s = settle(v);
-  const pushLen = arrowLength(s.force, FORCE_MAX, ARROW_LONG);
+  return arrow("push-arrow", v3(CX, discTop(s.length), ARROW_Z), -90, arrowLength(s.force, FORCE_MAX, ARROW_LONG), "push", {
+    name: "Push arrow",
+    role: "The push on the plate, to scale.",
+    on: on("disc", "glue"),
+  });
+}
+
+/** The plot's time axis: long enough for the softest spring to settle. */
+const PLOT_MS = 1600;
+const PLOT_POINTS = 160;
+
+/**
+ * The plate after a press is let go, over a fixed time: the curve a motion library draws for its springs, from the
+ * bottom of the press (0) through free length (0.5) and back. It is the release itself, so the line and the figure
+ * agree: a stiffer spring rings faster, so its line wiggles more tightly and flattens sooner.
+ *
+ * The dot is the plate. Pressing sinks it down the start of the line, as far as the press goes; let go, it runs along
+ * the line in time with the plate's ringing (the release's clock, `since`) and comes to rest at the end.
+ */
+function response(v: Values) {
+  const k = valueOf(STIFFNESS, v);
+  const ms = releaseMs(k);
+  const height = (t: number) => (t < ms ? 0.5 - 0.5 * ring(t / ms, RELEASE_CYCLES) : 0.5);
+  const line = Array.from({ length: PLOT_POINTS + 1 }, (_, i): [number, number] => [i / PLOT_POINTS, height((i / PLOT_POINTS) * PLOT_MS)]);
+  const since = v.since ?? 0;
+  const s = settle(v);
+  const deepest = Math.min(BIND, FORCE_MAX / k);
+  const dot: [number, number] =
+    since > 0 ? [Math.min(1, since / PLOT_MS), height(since)] : s.force > 0 ? [0, 0.5 - (0.5 * s.squeeze) / deepest] : [1, 0.5];
+  return { line, zero: 0.5, dot };
+}
+
+const releaseMs = (k: number) => Math.round(RELEASE_MS / Math.sqrt(k / 2));
+
+/**
+ * The spring alone, as a finger meets it: the coil and the push plate on a plate just big enough to stand on, centred
+ * under the coil. The game's long plate leaves room for its mark and bell; free play has neither.
+ */
+function bare(v: Values): Part[] {
+  return [plate(2 * COIL_R + 4, 2 * COIL_R + 4), ...rig(v).map(centred)];
+}
+
+/** A free-play part moved so the coil's axis is the plate's middle. */
+const centred = (q: Part): Part => ({ ...q, position: { ...q.position, x: q.position.x - CX } });
+
+/** The coil and its push plate, at the game's place on the long plate. */
+function rig(v: Values): Part[] {
+  const s = settle(v);
   return [
-    plate(48, 30),
     part(
       "coil",
       "Coil",
@@ -148,12 +202,6 @@ function build(v: Values): Part[] {
       on("plate", "spring"),
     ),
     pushDisc("disc", v3(CX, discCentreY(s.length), 0), "y", { name: "Push plate", role: "Takes the push and squeezes the coil.", on: on("coil", "weld") }),
-    freeMark(),
-    ...arrow("push-arrow", v3(CX, discTop(s.length), ARROW_Z), -90, pushLen, "push", {
-      name: "Push arrow",
-      role: "The push on the plate, to scale.",
-      on: on("disc", "glue"),
-    }),
   ];
 }
 
@@ -352,7 +400,18 @@ function puck(bottom: number): Part {
   );
 }
 
-const STIFFNESS: Slider = { id: "stiffness", label: "Stiffness", min: 1, max: 4, step: 0.1, initial: 2, unit: " N/mm" };
+const STIFFNESS: Slider = { id: "stiffness", label: "Stiffness", min: 1, max: 4, step: 0.1, initial: 2, unit: " N/mm", ends: ["Soft", "Stiff"] };
+
+const handle: Primitive["handle"] = {
+  slider: "force",
+  label: "Pull down",
+  at: (v) => v3(CX, discCentreY(settle(v).length), 0),
+  // The plate goes down F ÷ k for a push F, so a plate dragged to height y asks for k times the squeeze that puts it there.
+  solve: (point, v) => valueOf(STIFFNESS, v) * (discCentreY(FREE) - point.y),
+  // Past the coils touching, more push moves nothing.
+  reach: (v) => [0, Math.min(FORCE_MAX, valueOf(STIFFNESS, v) * BIND)],
+
+};
 
 export const spring: Primitive = {
   id: "spring",
@@ -367,14 +426,35 @@ export const spring: Primitive = {
   view: VIEW.coaxial,
   build,
   readouts,
-  handle: {
-    slider: "force",
-    label: "Pull down",
-    at: (v) => v3(CX, discCentreY(settle(v).length), 0),
-    // The plate goes down F ÷ k for a push F, so a plate dragged to height y asks for k times the squeeze that puts it there.
-    solve: (point, v) => valueOf(STIFFNESS, v) * (discCentreY(FREE) - point.y),
-    // Past the coils touching, more push moves nothing.
-    reach: (v) => [0, Math.min(FORCE_MAX, valueOf(STIFFNESS, v) * BIND)],
+  handle,
+
+  play: {
+    build: bare,
+    // The handle on the push plate, moved with the free-play figure to the middle of its plate.
+    handle: {
+      ...handle,
+      at: (v) => {
+        const p = handle.at(v);
+        return { ...p, x: p.x - CX };
+      },
+      solve: (point, v) => handle.solve({ x: point.x + CX, y: point.y }, v),
+    },
+    hand: (v) => pushArrow(v).map(centred),
+    label: "Press",
+    // At free length, nothing pushing.
+    rest: { force: 0 },
+    // Let go, the push is gone at once and the plate rings about its free length: up past it, back down, smaller each
+    // time. A stiffer spring rings faster.
+    plot: response,
+    release: (v) => {
+      const { k, squeeze } = settle(v);
+      const ms = releaseMs(k);
+      return {
+        // The plot's dot runs along on the release's own clock; past the ringing it carries on to the line's end.
+        durationMs: PLOT_MS,
+        at: (t) => frame({ ...v, force: 0, bounce: t < ms ? -squeeze * ring(t / ms, RELEASE_CYCLES) : 0, since: Math.max(1, t) }, ""),
+      };
+    },
   },
   game: {
     name: "Launch",
@@ -386,7 +466,11 @@ export const spring: Primitive = {
     judge,
     play,
     start: { stiffness: 3.5, force: 0 },
-    poses: [{ id: "bounce", label: "Bounce", min: -BIND, max: BIND, step: 0.1, initial: 0, unit: " mm" }],
+    poses: [
+      { id: "bounce", label: "Bounce", min: -BIND, max: BIND, step: 0.1, initial: 0, unit: " mm" },
+      // Free play's let-go clock, for the plot's dot. Nothing in the game sets it.
+      { id: "since", label: "Since let go", min: 0, max: PLOT_MS, step: 1, initial: 0, unit: " ms" },
+    ],
     scene,
   },
 };

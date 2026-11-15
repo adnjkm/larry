@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { measureParts } from "../bounds.ts";
 import { PRIMITIVES } from "./library.ts";
-import { computeFraming, framePrimitive, poses, runPoses } from "./framing.ts";
+import { computeFraming, framePrimitive, poses, releasePoses, runPoses } from "./framing.ts";
 
 describe("figure framing", () => {
   for (const p of PRIMITIVES) {
     it(`${p.id}: framing.json is current (run node scripts/generate-framing.ts if not)`, () => {
-      for (const mode of ["still", "game"] as const) {
+      for (const mode of ["still", "play", "game"] as const) {
         const baked = framePrimitive(p, mode);
         const fresh = computeFraming(p, mode);
         for (const key of Object.keys(fresh) as (keyof typeof fresh)[])
@@ -26,6 +26,15 @@ describe("figure framing", () => {
           `${at} leaves the framing's footprint`,
         );
         assert.ok(b.radius + Math.hypot(b.centerX - frame.centerX, b.centerZ - frame.centerZ) <= frame.radius, `${at} reaches past the framing's radius`);
+      }
+      const play = framePrimitive(p, "play");
+      for (const parts of releasePoses(p)) {
+        const b = measureParts(parts);
+        assert.ok(b.minY >= play.minY && b.maxY <= play.maxY, `${p.id}: a release frame leaves the play framing vertically`);
+        assert.ok(
+          b.radius + Math.hypot(b.centerX - play.centerX, b.centerZ - play.centerZ) <= play.radius,
+          `${p.id}: a release frame reaches past the play framing's radius`,
+        );
       }
       const game = framePrimitive(p, "game");
       for (const parts of runPoses(p)) {

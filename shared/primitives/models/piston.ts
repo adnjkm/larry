@@ -13,10 +13,10 @@
 // should end up. A wide tube spreads the push thin, so the plunger stops short of the line; a narrow tube makes more
 // pressure, so it goes past. One number, the area, sets one thing: where the push and the air balance.
 import type { Part } from "../../kit.ts";
-import { easeOut, smooth } from "../motion/ease.ts";
+import { clamp01, easeOut, smooth } from "../motion/ease.ts";
 import { frame, phases, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, box, cylinder, fmt, lathe, look, on, part, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
-import { type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Meter, type Motion, type Plot, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
 
 /** Outside air pressure, kPa. */
@@ -47,7 +47,10 @@ export const MARK = 22;
 export const TOLERANCE = 3;
 const START_AREA = 11.5;
 
-/** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
+/**
+ * Everything a pose needs, from the two sliders and the run-only bounce. `build`, `readouts`, the handle and the game all
+ * read this.
+ */
 export function settle(v: Values) {
   const area = valueOf(AREA, v);
   const force = v.force ?? 50;
@@ -57,7 +60,10 @@ export function settle(v: Values) {
   /** The plunger's fall from rest: the air squeezed until its push back is the push. */
   const down = (AIR * gauge) / (P0 + gauge);
   const wi = mm2 / Z;
-  return { area, force, mm2, gauge, down, air: AIR - down, ratio: P0 / (P0 + gauge), wi, headBottom: FLOOR_TOP + AIR - down };
+  /** Only while it swings after a let-go: how far the head is above where the push would hold it, mm. */
+  const bounce = v.bounce ?? 0;
+  const air = AIR - down + bounce;
+  return { area, force, mm2, gauge, down, air, ratio: P0 / (P0 + gauge), wi, headBottom: FLOOR_TOP + air };
 }
 
 /** Where the plunger sits for a push of `force` N on `area` cm². */
@@ -261,7 +267,47 @@ function scene(v: Values): Part[] {
   return [tick(`${SCENE}line`, v3(-(s.wi / 2 + WALL + 6), y, 0), 12, "x", { name: "Line", role: "Where the plunger should stop.", on: on("tube", "glue") })];
 }
 
-const AREA: Slider = { id: "area", label: "Area", min: 4, max: 12, step: 0.5, initial: 8, unit: " cm²" };
+// Free play. Let go, the squeezed air throws the plunger back up past its rest, the thin air under it then pulls it back,
+// and the seal's rub on the walls takes most of each swing: one big rebound, a small bob, still.
+const RELEASE_MS = 900;
+const RELEASE_CYCLES = 1.5;
+/** How hard the seal's rub damps each swing: the swing shrinks as (1 - t) to this power. */
+const RUB = 6;
+/** The highest the head swings above its rest, mm: the tube's top gap less a millimetre, so the head never leaves it. */
+const BOUNCE_MAX = TOP_GAP - 1;
+
+function release(v: Values): Motion {
+  const { down } = settle({ ...v, bounce: 0 });
+  const swing = (t: number) => -down * Math.cos(2 * Math.PI * RELEASE_CYCLES * t) * (1 - t) ** RUB;
+  return {
+    durationMs: RELEASE_MS,
+    at: (ms) => frame({ ...v, force: 0, bounce: Math.min(BOUNCE_MAX, swing(clamp01(ms / RELEASE_MS))) }, ""),
+  };
+}
+
+const AREA: Slider = { id: "area", label: "Area", min: 4, max: 12, step: 0.5, initial: 8, unit: " cm²", ends: ["Narrow", "Wide"] };
+
+/** While a thumb is on the disc: its push, to the game's scale. */
+const hand = (v: Values): Part[] => build(v).filter((p) => p.id === "push-arrow");
+
+/** The furthest any plunger goes here: the narrowest tube under the whole push. The plot's travel axis ends there. */
+const TRAVEL_MAX = downFor(FORCE_MAX, AREA.min);
+const PLOT_POINTS = 48;
+
+/**
+ * The air as a spring: the push it takes to hold the plunger (up) for how far it has gone down (across), from Boyle's
+ * law. Soft at first and stiffening as the air runs out of room; a wider tube spreads the same push thin, so its curve
+ * rises steeper and stops short. The dot is where the head is, on the same curve while it springs back.
+ */
+function airPush(v: Values): Plot {
+  const s = settle(v);
+  const end = downFor(FORCE_MAX, s.area);
+  const point = (down: number): [number, number] => [down / TRAVEL_MAX, forceFor(down, s.area) / FORCE_MAX];
+  const line = Array.from({ length: PLOT_POINTS + 1 }, (_, i) => point((end * i) / PLOT_POINTS));
+  // The head's own travel from rest: the push's, less how far the release has it swung above that.
+  const travel = AIR - s.air;
+  return travel >= 0 ? { line, dot: point(Math.min(travel, end)), caption: "air push for plunger travel" } : { line, caption: "air push for plunger travel" };
+}
 
 export const piston: Primitive = {
   id: "piston",
@@ -285,6 +331,17 @@ export const piston: Primitive = {
     // Your hand pushes HAND at most, so the plunger goes no further than where HAND balances the air.
     reach: () => [0, Math.min(FORCE_MAX, HAND)],
   },
+  play: {
+    // The tube, its air and the plunger, without the push arrow.
+    build: (v) => build(v).filter((p) => p.id !== "push-arrow"),
+    hand,
+    plot: airPush,
+    // No push: the head at rest, the air at outside pressure.
+    rest: { force: 0 },
+    // The game's hand pushes 80 N; a real thumb has the slider's whole 100.
+    reach: () => [0, FORCE_MAX],
+    release,
+  },
   game: {
     name: "Stop on the line",
     goal: "Push once and stop the plunger on the line.",
@@ -296,6 +353,7 @@ export const piston: Primitive = {
     play,
     start: { area: START_AREA, force: 0 },
     scene,
+    poses: [{ id: "bounce", label: "Bounce", min: -AIR, max: BOUNCE_MAX, step: 0.1, initial: 0, unit: " mm" }],
   },
 };
 

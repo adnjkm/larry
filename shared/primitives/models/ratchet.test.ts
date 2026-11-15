@@ -272,3 +272,42 @@ describe("ratchet", () => {
     }
   });
 });
+
+/** How far a plot's dot is from its line, in plot units. */
+function offLine(plot: { line: readonly (readonly [number, number])[]; dot?: readonly [number, number] }): number {
+  const p = plot.dot!;
+  let best = Infinity;
+  for (let i = 1; i < plot.line.length; i++) {
+    const a = plot.line[i - 1]!;
+    const b = plot.line[i]!;
+    const len = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / len));
+    best = Math.min(best, Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])));
+  }
+  return best;
+}
+
+describe("ratchet free play", () => {
+  const plot = ratchet.play!.plot!;
+  it("plots the drop a let-go would give as a sawtooth, one tooth a landing, with the dot on it", () => {
+    for (const n of TEETH)
+      for (const turn of [0, 0.03, 0.1, 0.2501, 0.5, 0.77, 1]) {
+        const p = plot({ teeth: n, turn });
+        assert.ok(offLine(p) < 1e-9, `n ${n}, turn ${turn}`);
+        const s = rig.settle({ teeth: n, turn });
+        assert.ok(Math.abs((p.dot![1] * LIFT_PER_TURN) / 8 - s.slack * LIFT_PER_TURN) < 1e-9, `n ${n}, turn ${turn}: the dot is not the drop`);
+      }
+  });
+
+  it("makes the teeth finer and the drop shorter with more teeth", () => {
+    const peaks = (n: number) => plot({ teeth: n, turn: 0 }).line.filter((q) => q[1] > 0);
+    assert.equal(peaks(8).length, 8);
+    assert.equal(peaks(24).length, 24);
+    assert.ok(Math.abs(peaks(8)[0]![1] - 1) < 1e-9 && Math.abs(peaks(24)[0]![1] - 8 / 24) < 1e-9);
+  });
+
+  it("keeps the dot on the line as the bucket drops back onto the pawl", () => {
+    const run = ratchet.play!.release!({ teeth: 10, turn: 0.37 });
+    for (let k = 0; k <= 10; k++) assert.ok(offLine(plot(run.at((k / 10) * run.durationMs).values)) < 1e-9, `frame ${k}`);
+  });
+});

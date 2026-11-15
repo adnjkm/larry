@@ -5,6 +5,8 @@
  * mode     "still" (default): drag sideways to turn the model, a flick keeps it turning. No handle.
  *          "game": fixed camera fitted to the rig, game.scene drawn at rest and during runs, and the drag handle (a ring
  *          over primitive.handle.at(values)) unless handle is false.
+ *          "play": free play. The same fixed camera and handle, no game scene; the figure starts at primitive.play.rest,
+ *          the handle moves within play.reach, and letting go plays play.release.
  * palette  "library" (default): part colours as built, Synthwave shadow, pink ring. "lesson": the app palette (pink
  *          parts orange, purple annotations blue), plain shadow, orange ring.
  * values   Merged over the start values on mount and passed to controller.set whenever its identity changes. Leave it
@@ -17,7 +19,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { type Ref, useEffect, useLayoutEffect, useRef } from "react";
 import { colors, fonts } from "../../tokens.stylex.ts";
-import { type Cue, type Primitive, type Values, motionSlider } from "../../../shared/primitives/types.ts";
+import { type Cue, type Primitive, type Values, motionSlider, playHandle, playMotion } from "../../../shared/primitives/types.ts";
 import type { StageController } from "./controller.ts";
 import { type Palette, RING_COLOR } from "./looks.ts";
 import { StageView } from "./view.ts";
@@ -29,7 +31,7 @@ export type { StageController } from "./controller.ts";
 type FigureStageProps = {
   primitive: Primitive;
   mode?: FigureMode;
-  /** Game mode only: false leaves the drag handle off, so the figure moves only through the controller. */
+  /** Game and play modes: false leaves the drag handle off, so the figure moves only through the controller. */
   handle?: boolean;
   palette?: Palette;
   values?: Values;
@@ -139,27 +141,28 @@ export function FigureStage({
     if (values) view.current?.controller.set(values);
   }, [values]);
 
-  const grip = primitive.handle;
-  const slider = motionSlider(primitive);
+  const grip = mode === "play" ? playHandle(primitive) : primitive.handle;
+  const verb = (mode === "play" && primitive.play?.label) || grip.label;
+  const slider = mode === "play" ? playMotion(primitive) : motionSlider(primitive);
   const color = RING_COLOR[palette];
 
   return (
     <div ref={root} {...viewerProps} {...stylex.props(styles.box(height))}>
       <canvas ref={canvas} {...stylex.props(styles.canvas, mode === "still" && styles.spin)} />
-      {mode === "game" && handle && (
+      {mode !== "still" && handle && (
         <div
           ref={ring}
           data-handle
           role="slider"
           tabIndex={0}
-          aria-label={`${grip.label}: ${slider.label}`}
+          aria-label={`${verb}: ${slider.label}`}
           aria-valuemin={slider.min}
           aria-valuemax={slider.max}
           aria-orientation="horizontal"
           {...stylex.props(styles.ring(color))}
         >
           <span aria-hidden data-handle-label {...stylex.props(styles.pill(color))}>
-            {grip.label}
+            {verb}
           </span>
         </div>
       )}

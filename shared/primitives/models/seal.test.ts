@@ -5,7 +5,9 @@ import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, find, sample } from "../checks.ts";
 import { startValues, steps } from "../types.ts";
 import { COLOR, PLATE_TOP } from "../parts.ts";
-import { geometry, seal, settle, SPLIT, T0, WEEP } from "./seal.ts";
+import { framePrimitive } from "../framing.ts";
+import { measurePoses } from "../../bounds.ts";
+import { geometry, leak, seal, settle, SPLIT, T0, WEEP } from "./seal.ts";
 
 const game = seal.game;
 const [squeeze] = seal.sliders as [NonNullable<(typeof seal.sliders)[0]>];
@@ -179,6 +181,66 @@ describe("seal", () => {
         (game.play({ squeeze: 0.2 }).cues ?? []).map((c) => c.kind),
         ["click"],
       );
+    });
+  });
+
+  describe("free play: a leaking jar lid", () => {
+    const play = seal.play!;
+    const drips = (v: Record<string, number>, ms: number) => play.ambient!(v, ms);
+    const pressures = steps(play.sliders!.find((s) => s.id === "pressure")!);
+    const moments = Array.from({ length: 40 }, (_, i) => i * 137);
+
+    it("agrees with the game: at the test pressure the leak stops at exactly the game's sealing squeeze", () => {
+      for (const s of steps(squeeze))
+        assert.equal(leak({ squeeze: s, pressure: 300 }).rate > 0, game.judge({ squeeze: s }).outcome === "weeping", `squeeze ${s}`);
+    });
+
+    it("drips below the sealing squeeze and never at or past it, which moves right with the pressure", () => {
+      for (const pressure of pressures) {
+        const { sealsAt } = leak({ squeeze: 0, pressure });
+        for (const s of steps(squeeze)) {
+          const n = Math.max(...moments.map((ms) => drips({ squeeze: s, pressure }, ms).length));
+          if (s >= sealsAt - 1e-9) assert.equal(n, 0, `dry at ${s}, ${pressure} kPa`);
+          else assert.ok(n > 0, `drips at ${s}, ${pressure} kPa`);
+        }
+      }
+      assert.ok(leak({ squeeze: 0, pressure: 450 }).sealsAt > leak({ squeeze: 0, pressure: 100 }).sealsAt);
+    });
+
+    it("drips less the harder the lid is pressed", () => {
+      const inFlight = (s: number) => moments.reduce((n, ms) => n + drips({ squeeze: s, pressure: 300 }, ms).length, 0);
+      for (let s = 0.01; s <= 0.15; s += 0.01) assert.ok(inFlight(s) <= inFlight(s - 0.01), `at ${s}`);
+      assert.ok(inFlight(0) > 3 * inFlight(0.12));
+    });
+
+    it("is the same picture for the same moment, and keeps every drop between the joint and the plate, clear of the flange and the rubber", () => {
+      for (const ms of moments) assert.deepEqual(drips({ squeeze: 0, pressure: 450 }, ms), drips({ squeeze: 0, pressure: 450 }, ms));
+      for (const ms of moments)
+        for (const d of drips({ squeeze: 0, pressure: 450 }, ms)) {
+          assert.ok(d.position.y - geometry.DROP_R >= PLATE_TOP - 1e-9 && d.position.y <= geometry.GASKET_Y + geometry.FLANGE_T, `drop at y ${d.position.y}`);
+          // On top of the flange and outside the rubber, or out past the flange's rim.
+          const r = Math.hypot(d.position.x, d.position.z);
+          const onTop = d.position.y - geometry.DROP_R * 0.45 >= geometry.GASKET_Y - 1e-9 && r >= settle({ squeeze: 0 }).outer - 1e-9;
+          assert.ok(onTop || r - geometry.DROP_R > geometry.FLANGE_R, `clear of the flange and the rubber at ${ms}`);
+          assert.equal(d.color, COLOR.slate);
+        }
+    });
+
+    it("stays inside the play framing at any moment", () => {
+      const frame = framePrimitive(seal, "play");
+      for (const ms of moments) {
+        const [b] = measurePoses([[...play.build!({ squeeze: 0, pressure: 450 }), ...drips({ squeeze: 0, pressure: 450 }, ms)]]);
+        assert.ok(b!.minY >= frame.minY && b!.maxY <= frame.maxY, `vertically at ${ms}`);
+        assert.ok(b!.radius + Math.hypot(b!.centerX - frame.centerX, b!.centerZ - frame.centerZ) <= frame.radius + 1e-9, `radius at ${ms}`);
+      }
+    });
+
+    it("plots the leak falling straight to zero at the sealing squeeze, the dot on the line", () => {
+      const p = play.plot!({ squeeze: 0.1, pressure: 300 });
+      assert.deepEqual(p.line.at(-1), [1, 0]);
+      assert.ok(Math.abs(p.line[1]![0] - WEEP / 0.4) < 1e-9);
+      assert.ok(Math.abs(p.dot![1] - p.line[0]![1] * (1 - 0.1 / WEEP)) < 1e-9);
+      assert.equal(play.plot!({ squeeze: 0.2, pressure: 300 }).dot![1], 0);
     });
   });
 

@@ -145,3 +145,33 @@ describe("thread", () => {
     assert.deepEqual(thread.handle.reach!({ pitch: 2, turns: 0 }), [0, 6]);
   });
 });
+
+/** How far a point lies from a polyline, in the plot's own 0 to 1 units. */
+function offLine(line: readonly (readonly [number, number])[], p: readonly [number, number]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1]!;
+    const [bx, by] = line[i]!;
+    const t = Math.max(0, Math.min(1, ((p[0] - ax) * (bx - ax) + (p[1] - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2 || 1)));
+    best = Math.min(best, Math.hypot(p[0] - ax - t * (bx - ax), p[1] - ay - t * (by - ay)));
+  }
+  return best;
+}
+
+describe("thread free play", () => {
+  const play = thread.play!;
+  const pitch = thread.sliders[0]!;
+  it("names the ends of the pitch", () => assert.deepEqual(pitch.ends, ["Fine", "Coarse"]));
+  it("puts the plot's dot on its line at every turn, and shortens the line as the pitch grows", () => {
+    for (const p of steps(pitch)) {
+      const [, top] = play.reach!({ pitch: p, turns: 0 });
+      for (const turns of [0, 1.3, top / 2, top]) {
+        const plot = play.plot!({ pitch: p, turns });
+        assert.ok(offLine(plot.line, plot.dot!) < 1e-9, `pitch ${p}, ${turns} turns: dot off the line`);
+      }
+    }
+    // The finest thread takes the whole width to reach the ridge's end, the coarsest a third of it.
+    assert.ok(Math.abs(play.plot!({ pitch: 2, turns: 0 }).line[1]![0] - 1) < 1e-9);
+    assert.ok(Math.abs(play.plot!({ pitch: 6, turns: 0 }).line[1]![0] - 1 / 3) < 1e-9);
+  });
+});

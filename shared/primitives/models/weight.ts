@@ -22,9 +22,9 @@
 // lightest bob that still snaps, where the string breaks the instant before the bottom.
 import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, fall, rockBack, smooth } from "../motion/ease.ts";
-import { frame, MARK, phases, SCENE } from "../motion/run.ts";
+import { frame, MARK, phases, ringTo, SCENE } from "../motion/run.ts";
 import { ARROW_GAP, ARROW_MIN, arrow, arrowLength, box, fmt, lathe, look, on, part, plate, PLATE_TOP, shaped, strand, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Plot, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 const G = 9.8;
@@ -42,9 +42,11 @@ const BOB_Y = 80;
 const PIVOT_Y = BOB_Y + STRING_MM;
 const ARM_T = 8;
 const POST_W = 10;
-/** The bob is held out to the left, between these two angles (negative = left). The crate is on the right, so the bob can only be pulled back away from it. */
+/** The bob can be held out this far either side of hanging straight down (negative = left). */
 const SWING_MIN = -40;
-const SWING_MAX = -25;
+const SWING_MAX = 40;
+/** In the game the crate is on the right, so the bob can only be pulled back away from it, and far enough (past the crate's 20°) to reach it. */
+const GAME_MAX = -25;
 const MASS_MAX = 5;
 export const bobRadius = (mass: number) => 12 * Math.cbrt(mass);
 /** How far left of the pivot the heaviest bob reaches, held out furthest. */
@@ -91,6 +93,8 @@ export const X0 = (REACH_LEFT - POST_RIGHT_OF_PIVOT) / 2;
 const POST_X = X0 + POST_RIGHT_OF_PIVOT - POST_W / 2;
 
 const swingOf = (v: Values) => v.swing ?? SWING.initial;
+/** The game's swing: held out on the left, between SWING_MIN and GAME_MAX, wherever free play left the slider. */
+const gameSwing = (v: Values) => clamp(swingOf(v), SWING_MIN, GAME_MAX);
 
 /** Everything a pose needs, from the sliders and the run-only poses. `build`, `readouts`, the handle and the game read this. */
 export function settle(v: Values) {
@@ -161,29 +165,38 @@ function stand(): Part {
 }
 
 /** The hand's pull on the bead, along the swing and away from the bottom: it balances the part of the weight that would swing the bob back. */
-function holdArrow(id: string, s: ReturnType<typeof settle>, parent: string): Part[] {
+function holdArrow(id: string, s: ReturnType<typeof settle>, parent: string, largest = FORCE_MAX): Part[] {
   if (s.a < 1e-9) return [];
   const t = s.angle > 0 ? 1 : -1;
   const at = v3(s.bead.x + 6 * t * Math.cos(s.angle * DEG_TO_RAD), s.bead.y + 6 * t * Math.sin(s.angle * DEG_TO_RAD), 0);
-  return arrow(id, at, s.angle > 0 ? s.angle : 180 + s.angle, arrowLength(s.along, FORCE_MAX, ARROW_LONG), "pull", {
+  return arrow(id, at, s.angle > 0 ? s.angle : 180 + s.angle, arrowLength(s.along, largest, ARROW_LONG), "pull", {
     name: "Hand arrow",
     role: "Your hand's pull along the swing: it holds the bob out.",
     on: on(parent, "glue"),
   });
 }
 
-function build(v: Values): Part[] {
+/** The pendulum as the game and the library show it: its weight and the hand's hold drawn on it, to scale. */
+const build = (v: Values): Part[] => draw(v, true);
+/** The pendulum alone, as free play's hand meets it: stand, string, bead and bob, no arrows. */
+const bare = (v: Values): Part[] => draw(v, false);
+
+function draw(v: Values, forces: boolean): Part[] {
   const s = settle(v);
   const string = strand(v3(X0, PIVOT_Y, 0), s.snap ? v3(X0, PIVOT_Y - STUB, 0) : s.bob, STRING_T);
   const bob = sphere(s.rb);
   const bead = lathe(BEAD_PROFILE);
   const weightLen = Math.max(ARROW_MIN, arrowLength(s.weight, FORCE_MAX, ARROW_LONG));
-  return [
+  const parts: Part[] = [
     plate(REACH_LEFT + POST_RIGHT_OF_PIVOT, 2 * bobRadius(MASS_MAX)),
     stand(),
     shaped("string", "String", "Lets the bob swing and carries its pull to the arm.", string, look.slate, on("stand", "hinge")),
     part("bob", "Bob", "The mass: pulled down by gravity, slow to change speed.", bob.shape, s.bob, look.focus, on("string", "glue")),
     part("bead", "Grip bead", "Where your hand holds the bob out.", bead.shape, s.bead, look.light, on("string", "glue"), v3(0, 0, s.lean)),
+  ];
+  if (!forces) return parts;
+  return [
+    ...parts,
     // A bob resting on the plate has the plate under it: the arrow would run through it, so it is not drawn.
     ...(s.bob.y - s.rb - ARROW_GAP - weightLen < PLATE_TOP
       ? []
@@ -222,7 +235,7 @@ function readouts(v: Values) {
 type Kind = "pass" | "light" | "snap";
 
 /** The outcome, decided once from the mass and the angle; meters, judge and play all read it. */
-export const strike = (v: Values) => strikeOf(valueOf(MASS, v), swingOf(v));
+export const strike = (v: Values) => strikeOf(valueOf(MASS, v), gameSwing(v));
 /** The same for any mass in kg and swing in degrees, not only on the sliders' grids (the tests use it right at the string's limit). */
 export function strikeOf(mass: number, swing: number) {
   const a = Math.abs(swing) * DEG_TO_RAD;
@@ -264,7 +277,7 @@ const gap = (b: Box, x: number, y: number) => Math.hypot(Math.max(b.x0 - x, 0, x
  * bisecting the last one). A bob that meets a vertical face loses its sideways motion there and drops down it; one that
  * meets the plate stays. Times are real seconds, before the run's slow-down. Null when the string holds.
  */
-export const freed = (v: Values) => freedAt(valueOf(MASS, v), swingOf(v));
+export const freed = (v: Values) => freedAt(valueOf(MASS, v), gameSwing(v));
 export function freedAt(mass: number, swing: number) {
   const r = strikeOf(mass, swing);
   if (r.kind !== "snap") return null;
@@ -366,7 +379,7 @@ const swingTo = (a0: number, angle: number) => Math.acos(clamp(angle / a0, -1, 1
 function play(v: Values): Run {
   const verdict = judge(v);
   const r = strike(v);
-  const a0 = swingOf(v);
+  const a0 = gameSwing(v);
   const snaps = r.kind === "snap";
   const slowMs = SLOW * 1000;
   const fl = freed(v);
@@ -484,7 +497,53 @@ function scene(v: Values): Part[] {
   ];
 }
 
-const MASS: Slider = { id: "mass", label: "Mass", min: 1, max: MASS_MAX, step: 0.1, initial: 2, unit: " kg" };
+// ---- Free play ---------------------------------------------------------------------------------------------------
+
+/** Free play's swing is slowed only this much, far less than the game's, so it still reads as a quick little pendulum. */
+const PLAY_SLOW = 1.2;
+/** How many whole swings it makes before it is shown settled. */
+const PLAY_SWINGS = 3;
+const PLAY_MS = Math.round(PLAY_SWINGS * PERIOD * 1000 * PLAY_SLOW);
+
+/**
+ * Let go, the bob swings down through the bottom and up the other side, back and forth at the string's own period
+ * whatever the mass, and settles hanging straight down. A real one swings far longer; the swing is damped so it settles
+ * in three swings.
+ */
+function release(v: Values): Motion {
+  return ringTo(v, "swing", 0, PLAY_MS, PLAY_SWINGS, SWING_MIN, SWING_MAX);
+}
+
+const MASS: Slider = { id: "mass", label: "Mass", min: 1, max: MASS_MAX, step: 0.1, initial: 2, unit: " kg", ends: ["Light", "Heavy"] };
+
+/** The biggest pull a hand needs here: the heaviest bob held out furthest. Free play's hold arrow is 40 long at it. */
+const HOLD_MAX = MASS_MAX * G * Math.sin(SWING_MAX * DEG_TO_RAD);
+
+/**
+ * While a hand holds the bob out: its pull along the swing, W sin a, drawn on free play's own scale, where the biggest
+ * hold rather than the biggest weight is 40 long. On the game's scale a 1 kg bob's hold is a head with no shaft at every
+ * angle. The weight arrow is left off: on this scale the heaviest bob's would run into the plate, and the bob's size
+ * already says its mass.
+ */
+const hand = (v: Values): Part[] => holdArrow("hold-arrow", settle(v), "bead", HOLD_MAX);
+
+/**
+ * What the mass changes, and the swing does not: the pull that holds the bob out (up, signed by the side) at each angle
+ * (across), W sin a. A heavier bob raises the whole curve. Its time to swing back would be the same line at every mass,
+ * since the pull and the bob's reluctance to move grow together, so that is left to the release to show.
+ */
+function holding(v: Values): Plot {
+  const s = settle(v);
+  const N = 40;
+  const y = (deg: number) => 0.5 + (0.5 * s.weight * Math.sin(deg * DEG_TO_RAD)) / HOLD_MAX;
+  const x = (deg: number) => (deg - SWING_MIN) / (SWING_MAX - SWING_MIN);
+  const line = Array.from({ length: N + 1 }, (_, i): [number, number] => {
+    const deg = SWING_MIN + ((SWING_MAX - SWING_MIN) * i) / N;
+    return [x(deg), y(deg)];
+  });
+  const at = clamp(s.angle, SWING_MIN, SWING_MAX);
+  return { line, zero: 0.5, dot: [x(at), y(at)], caption: "pull to hold it out" };
+}
 const SWING: Slider = { id: "swing", label: "Swing angle", min: SWING_MIN, max: SWING_MAX, step: 1, initial: -28, unit: "°" };
 
 export const weight: Primitive = {
@@ -498,8 +557,8 @@ export const weight: Primitive = {
   seenIn: ["Hammer", "Pendulum", "Flywheel"],
   sliders: [
     MASS,
-    // One side only: the crate stands on the right, so the bob can only be pulled back to the left of the bottom, and far
-    // enough out (past the crate's 20°) to reach it.
+    // Was -40..-25, one side only for the game's crate. Now either side of the bottom, so free play can start the bob
+    // hanging straight down and swing it through; the game keeps to -40..-25 with the handle's reach and `gameSwing`.
     SWING,
   ],
   view: VIEW.bench,
@@ -511,6 +570,19 @@ export const weight: Primitive = {
     at: (v) => settle(v).bead,
     // The bead rides the string, so the string's angle is the angle from the arm to the finger.
     solve: (point) => Math.atan2(point.x - X0, PIVOT_Y - point.y) * RAD_TO_DEG,
+    // In the game the bob is only pulled back away from the crate, and far enough out to reach it.
+    reach: () => [SWING_MIN, GAME_MAX],
+  },
+  play: {
+    // The stand, the string and the bob: no crate, no arrows.
+    build: bare,
+    hand,
+    plot: holding,
+    // Hanging straight down: the string's pull cancels the weight, and nothing needs holding.
+    rest: { swing: 0 },
+    // A hand can hold the bob out either side, as far as the slider goes.
+    reach: () => [SWING_MIN, SWING_MAX],
+    release,
   },
   game: {
     name: "Wrecking ball",
@@ -557,4 +629,5 @@ export const geometry = {
   gap,
   SWING_MIN,
   SWING_MAX,
+  GAME_MAX,
 };

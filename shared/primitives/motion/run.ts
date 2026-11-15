@@ -1,8 +1,8 @@
 // Building blocks for a game's `play` run (src/primitives/docs/motion-language.md). Pure TypeScript: no React, no three.
 import type { Part } from "../../kit.ts";
 import { arrow, on, type Vec } from "../parts.ts";
-import { type Frame, type Primitive, type Run, type Values, initialValues, motionSlider } from "../types.ts";
-import { clamp, clamp01 } from "./ease.ts";
+import { type Frame, type Motion, type Primitive, type Run, type Values, initialValues, motionSlider } from "../types.ts";
+import { clamp, clamp01, easeOut, ring } from "./ease.ts";
 
 /** The usual length of a run's phases, ms. A model whose choreography needs another keeps its own constant. */
 export const LEAD = 250;
@@ -136,4 +136,24 @@ export function sweepRun(p: Primitive, start: Values = initialValues(p)): Pick<R
       return { values: { ...start, [s.id]: value }, live: `${s.label} ${unit(value)}` };
     },
   };
+}
+
+/**
+ * A free-play release that takes one value back to `rest` with no overshoot, as a lifted load drops back or a squeezed
+ * pad relaxes: `ease` shapes it (`fall` for gravity, `easeOut` for a spring's push). Takes `ms` for the whole way across
+ * `span`, less for less. Holds still at `rest` already.
+ */
+export function returnTo(v: Values, id: string, rest: number, span: number, ms: number, ease: (t: number) => number = easeOut): Motion {
+  const from = v[id] ?? rest;
+  const durationMs = span > 0 ? Math.max(1, Math.round(ms * Math.sqrt(Math.min(1, Math.abs(from - rest) / span)))) : 1;
+  return { durationMs, at: (t) => frame({ ...v, [id]: from + (rest - from) * ease(clamp01(t / durationMs)) }, "") };
+}
+
+/**
+ * A free-play release that swings one value through `rest` and back, smaller each time, until it settles there: a weight
+ * on a string, a sprung plate. `lo` and `hi` keep the swing inside the slider's range.
+ */
+export function ringTo(v: Values, id: string, rest: number, ms: number, cycles: number, lo: number, hi: number): Motion {
+  const from = v[id] ?? rest;
+  return { durationMs: ms, at: (t) => frame({ ...v, [id]: clamp(rest + (from - rest) * ring(clamp01(t / ms), cycles), lo, hi) }, "") };
 }

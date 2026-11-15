@@ -310,6 +310,8 @@ function meters(v: Values): [Meter, Meter] {
 // Choreography, ms.
 const PREP = { unload: 200, lift: 200, lower: 450, setDown: 200 };
 const AT_MARK = 300;
+/** How long the bucket takes to drop `mm` back onto the pawl: a short fall, with the root of the distance. */
+const dropMs = (mm: number) => clamp(110 * Math.sqrt(mm), 80, 320);
 const STRAIN = 380;
 /** A chip of tooth falls to the plate in this long. */
 const CHIP_FALL = 380;
@@ -334,7 +336,7 @@ function play(v: Values): Run {
   const mid = (Math.floor(t0 * n + 1e-9) + 0.5) / n;
   const from = prepped ? 0.5 / n : t0;
   const windMs = clamp(400 + 1100 * (r.markTurn - from), 400, prepped ? 1000 : 1400);
-  const dropMs = clamp(110 * Math.sqrt(r.drop), 80, 320);
+  const dropFor = dropMs(r.drop);
   const strips = r.kind === "strips";
   const downMs = clamp(260 * Math.sqrt((r.landTurn * LIFT_PER_TURN) / 10), 450, 800);
   const tl = phases({
@@ -345,7 +347,7 @@ function play(v: Values): Run {
     lead: prepped ? 0 : LEAD,
     wind: windMs,
     atMark: AT_MARK,
-    drop: dropMs,
+    drop: dropFor,
     strain: strips ? STRAIN : 0,
     rundown: strips ? downMs : 0,
     hold: HOLD,
@@ -477,7 +479,22 @@ function scene(): Part[] {
   ];
 }
 
-const TEETH: Slider = { id: "teeth", label: "Teeth", min: 8, max: 24, step: 1, initial: 12 };
+/**
+ * How far the bucket drops if let go, over one turn of winding: a sawtooth, one tooth per landing. It climbs as the
+ * wheel is wound past a landing and falls to nothing as the pawl clicks into the next. More teeth give more, smaller
+ * teeth: finer landings and a shorter drop. The height is a share of the coarsest wheel's drop, a whole tooth of it.
+ */
+function slipBack(v: Values) {
+  const s = settle(v);
+  const most = LIFT_PER_TURN / TEETH.min;
+  const tooth = LIFT_PER_TURN / s.n / most;
+  const line: [number, number][] = [[0, 0]];
+  for (let k = 1; k <= s.n; k++) line.push([k / s.n, tooth], [k / s.n, 0]);
+  const turn = clamp01(s.turn);
+  return { line, dot: [turn, (s.slack * LIFT_PER_TURN) / most] as [number, number], caption: "drop if you let go" };
+}
+
+const TEETH: Slider = { id: "teeth", label: "Teeth", min: 8, max: 24, step: 1, initial: 12, ends: ["Coarse", "Fine"] };
 
 export const ratchet: Primitive = {
   id: "ratchet",
@@ -507,6 +524,26 @@ export const ratchet: Primitive = {
     reach: (v) => {
       const s = settle(v);
       return s.strip > 0 || s.lift > 0.5 ? [0, 1] : [s.landing, 1];
+    },
+  },
+  play: {
+    // The bucket on the plate and the pawl seated behind the first cliff. The handle's own reach is the real thing: the
+    // wheel winds forward, clicking over each tooth, and backward only as far as the cliff the pawl last dropped behind.
+    rest: { turn: 0 },
+    // No hand arrow: winding takes the same pull whatever the tooth count, so an arrow would not change with the slider.
+    plot: slipBack,
+    // Let go, the bucket's weight turns the wheel back until that cliff meets the pawl's nose: it drops what it was wound
+    // past the last landing, as a fall, and the pawl catches it with a click. Seated in a notch, it does not move.
+    release: (v) => {
+      const s = settle(v);
+      const drop = s.slack * LIFT_PER_TURN;
+      if (drop < 1e-6) return { durationMs: 1, at: () => frame({ ...v, turn: s.turn }, "") };
+      const ms = dropMs(drop);
+      return {
+        durationMs: ms,
+        cues: [{ ms, kind: "click" }],
+        at: (t) => frame({ ...v, turn: s.turn - s.slack * fall(clamp01(t / ms)) }, "Caught"),
+      };
     },
   },
   game: {

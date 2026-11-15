@@ -11,6 +11,11 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 const game = weight.game;
 const [mass, swing] = weight.sliders as [NonNullable<(typeof weight.sliders)[0]>, NonNullable<(typeof weight.sliders)[1]>];
 const has = (parts: Part[], id: string) => parts.some((p) => p.id === id);
+/** The swing angles the game's handle can hold the bob out at: the left of the bottom, past the crate's angle. */
+const gameSwings = steps(swing).filter((a) => {
+  const [lo, hi] = weight.handle.reach!({});
+  return a >= lo && a <= hi;
+});
 
 type Pt = [number, number];
 /** The crate's four corners in the world, from the part the scene returns. */
@@ -99,10 +104,13 @@ describe("weight", () => {
   });
 
   it("keeps the crate on one side: the bob can only be pulled back to the left of the bottom, and the crate never moves across", () => {
-    assert.ok(swing.max < 0 && swing.min < swing.max, "the slider holds the bob out on one side only");
-    assert.ok(-swing.max > CONTACT, "and far enough out to reach the crate at its strike angle");
+    const [lo, hi] = weight.handle.reach!({});
+    assert.ok(hi < 0 && lo < hi && lo >= swing.min, "the game's handle holds the bob out on one side only");
+    assert.ok(-hi > CONTACT, "and far enough out to reach the crate at its strike angle");
+    // Wherever free play left the slider, the game swings from the left.
+    for (const a of [0, 15, 40]) assert.ok(game.play({ mass: 2, swing: a }).at(0).values.swing! <= hi, `swing ${a}: the game starts on the crate's side`);
     let crateX: number | undefined;
-    for (const a of steps(swing)) {
+    for (const a of gameSwings) {
       for (const m of [1, 3, 5]) {
         const v = { mass: m, swing: a };
         const crate = rect(find(game.scene!(v), "game-crate"));
@@ -115,7 +123,7 @@ describe("weight", () => {
     }
     // The crate does not move when only the swing angle does.
     for (const m of [1, 3, 5]) {
-      const x = steps(swing).map((a) => rect(find(game.scene!({ mass: m, swing: a }), "game-crate")).x0);
+      const x = gameSwings.map((a) => rect(find(game.scene!({ mass: m, swing: a }), "game-crate")).x0);
       assert.ok(
         x.every((q) => Math.abs(q - x[0]!) < 1e-9),
         `m ${m}: crate moved with the swing slider`,
@@ -129,7 +137,7 @@ describe("weight", () => {
       assert.ok(q.shape.kind === "extrusion");
       return Math.max(...q.shape.outline.map((o) => o.x));
     };
-    for (const a of steps(swing)) {
+    for (const a of steps(swing).filter((x) => x !== 0)) {
       for (const m of [1, 2.6, 5]) {
         const parts = weight.build({ mass: m, swing: a });
         const w = len(parts, "weight-arrow");
@@ -266,9 +274,9 @@ describe("weight", () => {
     // Every setting on the sliders' grids that snaps, and, for each swing angle, the lightest bob that snaps at all: the
     // string then breaks just before the bottom and the freed bob has the swing's whole speed.
     const failing: { mass: number; swing: number }[] = [];
-    for (const a of steps(swing)) for (const m of steps(mass)) if (strikeOf(m, a).kind === "snap") failing.push({ mass: m, swing: a });
+    for (const a of gameSwings) for (const m of steps(mass)) if (strikeOf(m, a).kind === "snap") failing.push({ mass: m, swing: a });
     const limit: { mass: number; swing: number }[] = [];
-    for (const a of steps(swing)) {
+    for (const a of gameSwings) {
       const m = SNAP / (9.8 * (3 - 2 * Math.cos(Math.abs(a) * DEG_TO_RAD)));
       if (m * (1 + 1e-9) <= 5) limit.push({ mass: m * (1 + 1e-9), swing: a });
     }

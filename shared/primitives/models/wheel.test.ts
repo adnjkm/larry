@@ -146,11 +146,14 @@ describe("wheel", () => {
       assert.equal(lo, 0);
       if ((LOAD * R_EFF) / r > ARM + 1e-9) {
         assert.ok(hi * TAU * r <= 1.5 + 1e-9 && hi > 0, `radius ${r}: reach ${hi}`);
-        assert.ok(settle({ radius: r, turn: 0.5 }).turn <= hi + 1e-12);
+        // At the arm's limit it strains; past it (free play's hand, not the arm) it holds the bucket with the full pull.
+        assert.ok(settle({ radius: r, turn: hi }).straining && settle({ radius: r, turn: hi }).effort === ARM);
+        assert.ok(!settle({ radius: r, turn: 0.5 }).straining && settle({ radius: r, turn: 0.5 }).effort > ARM);
       } else assert.equal(hi, TURN_MAX);
     }
     assert.equal(settle({ radius: 36, turn: 0.3 }).turn, 0.3);
-    assert.ok(settle({ radius: 31, turn: 0.3 }).turn < 0.01, "a wheel that has become too small re-settles");
+    // Free play's hand is a person's: it turns even a too-small wheel the whole way.
+    assert.deepEqual(wheel.play!.reach!({ radius: 20, turn: 0 }), [0, TURN_MAX]);
   });
 
   it("draws the rim pull that holds the bucket, from the same numbers as the readout", () => {

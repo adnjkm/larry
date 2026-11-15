@@ -13,7 +13,7 @@ import type { Part } from "../../kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
 import { frame, HOLD, LEAD, phases, REWIND, SCENE, whenReaches } from "../motion/run.ts";
 import { bar, fmt, knob, look, on, pin, plate, post, shaped, travelArc, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Plot, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, steps, valueOf } from "../types.ts";
 import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, mm.
@@ -87,9 +87,8 @@ export function swingOf(rocker: number) {
   return s;
 }
 
-/** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
-export function settle(v: Values) {
-  const rocker = valueOf(ROCKER, v);
+/** Everything a pose needs. `build`, `readouts`, the handle and the game all read this; free play passes its own rocker. */
+export function settle(v: Values, rocker = valueOf(ROCKER, v)) {
   const crank = v.crank ?? 50;
   const { B, C, rockerDeg } = fourBar(rocker, crank);
   const swing = swingOf(rocker);
@@ -109,8 +108,11 @@ function link(a: Pt, b: Pt, z: number) {
 const pinAt = (id: string, p: Pt, zFront: number, zBack: number, name: string, role: string, parent: string) =>
   pin(id, v3(p[0], p[1], (zFront + zBack) / 2), zFront - zBack, { name, role, on: on(parent, "press-fit") });
 
-function build(v: Values): Part[] {
-  const s = settle(v);
+const build = (v: Values) => pose(v, valueOf(ROCKER, v));
+
+/** The linkage with a rocker `rocker` long, and the arc of its rock. */
+function pose(v: Values, rocker: number): Part[] {
+  const s = settle(v, rocker);
   const parts: Part[] = [
     plate(114.5, 52),
     post("post-a", A[0], Z_POST_A, A[1] + 4, { name: "Post", role: "Holds the crank's pivot." }),
@@ -306,7 +308,33 @@ function scene(): Part[] {
   ];
 }
 
-const ROCKER: Slider = { id: "rocker", label: "Rocker bar", min: 50, max: 90, step: 1, initial: 66, unit: " mm" };
+const ROCKER: Slider = { id: "rocker", label: "Rocker bar", min: 50, max: 90, step: 1, initial: 66, unit: " mm", ends: ["Short", "Long"] };
+
+/**
+ * Free play's rocker, down to 40 mm from the game's 50: the rock grows fast as the rocker shortens (36 degrees at 90 mm,
+ * 57 at 50, 74 at 40), so the short end is where the difference shows. Below about 34 mm the loop cannot go all the
+ * way round (crank plus frame would outrun coupler plus rocker); past 90 the rock stops shrinking and grows again.
+ */
+const LENGTH: Slider = { id: "length", label: "Rocker bar", min: 40, max: 90, step: 1, initial: 66, unit: " mm", ends: ["Short", "Long"] };
+const freeRocker = (v: Values) => valueOf(LENGTH, v);
+
+/** The plot's fixed height: the rocker's lowest and highest angle over every free-play length, with a little room. */
+const ANGLE_LO = Math.min(...steps(LENGTH).map((r) => swingOf(r).lo)) - 2;
+const ANGLE_HI = Math.max(...steps(LENGTH).map((r) => swingOf(r).hi)) + 2;
+const PLOT_POINTS = 120;
+
+/**
+ * The rocker's angle (up) over one turn of the crank (across): the to-and-fro a steady turn becomes, solved from the
+ * same four-bar as the figure. It is not a sine: the rocker goes up and comes back at different speeds. The height is
+ * fixed over every length, so a short rocker's wave fills it and a long one's flattens to half. The dot is the crank now.
+ */
+function rock(v: Values): Plot {
+  const rocker = freeRocker(v);
+  const y = (deg: number) => (deg - ANGLE_LO) / (ANGLE_HI - ANGLE_LO);
+  const line = Array.from({ length: PLOT_POINTS + 1 }, (_, i): [number, number] => [i / PLOT_POINTS, y(fourBar(rocker, (360 * i) / PLOT_POINTS).rockerDeg)]);
+  const crank = (((v.crank ?? 50) % 360) + 360) % 360;
+  return { line, dot: [crank / 360, y(fourBar(rocker, crank).rockerDeg)], caption: "rocker angle over one turn" };
+}
 
 export const linkage: Primitive = {
   id: "linkage",
@@ -328,12 +356,25 @@ export const linkage: Primitive = {
       const s = settle(v);
       return v3(s.B[0], s.B[1], Z_KNOB);
     },
-    // The knob goes round the crank pivot: the crank angle pointing at the finger, the turn nearest the current one.
-    solve: (point, v) => {
+    // The knob goes round the crank pivot: the crank angle pointing at the finger. The crank goes all the way round and
+    // on, so the angle wraps into 0..360 (the same pose every whole turn) instead of stopping at the slider's ends.
+    solve: (point) => {
       const a = Math.atan2(point.y - A[1], point.x - A[0]) * RAD_TO_DEG;
-      const now = v.crank ?? 50;
-      return a + 360 * Math.round((now - a) / 360);
+      return a - 360 * Math.floor(a / 360 + 1e-9);
     },
+  },
+  play: {
+    // Its own rocker length, wider than the game's; the crank is the primitive's.
+    sliders: [LENGTH],
+    // The linkage alone: the arc behind the rocker's tip measures its rock for the game and the sliders, and a hand
+    // working the crank sees the rock for itself. The handle is the primitive's: the knob is on the crank, which no
+    // rocker length moves.
+    build: (v) => pose(v, freeRocker(v)).filter((q) => q.id !== "swing-arc"),
+    plot: rock,
+    // No hand arrows: the lesson is the motion, not a force, and the plot draws it.
+    // Where the crank is left: nothing pulls on it, since the bars' weight and friction are left out.
+    rest: { crank: 50 },
+    // No reach and no release: the crank turns round and round as far as the hand takes it, and stays where it is let go.
   },
   game: {
     name: "Wiper",

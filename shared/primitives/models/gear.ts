@@ -14,7 +14,7 @@ import type { Part } from "../../kit.ts";
 import { clamp, smooth } from "../motion/ease.ts";
 import { frame, LEAD, phases, REWIND, SCENE } from "../motion/run.ts";
 import { arrow, fmt, gearOutline, knob, look, on, part, pin, pivoted, plate, post, turnMark, v3, type Pt, type Vec } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Plot, type Primitive, type Run, type Slider, type Values, type Verdict, VIEW } from "../types.ts";
 import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres.
@@ -32,6 +32,8 @@ const KNOB_AT_0 = 150;
 /** The output's turn mark, degrees from the gear's own first tooth. */
 const MARK_AT = 100;
 const ARROW_R = 9;
+/** How many turns the knob can be wound each way from the start. */
+const TURNS = 3;
 
 export const pitchR = (teeth: number) => (MODULE * teeth) / 2;
 export const tipR = (teeth: number) => pitchR(teeth) + MODULE;
@@ -86,6 +88,9 @@ function curvedArrow(id: string, centre: Vec, radius: number, from: number, to: 
   const a = pivoted(outline, 4, [0, 0], centre, turnBy);
   return part(id, name, role, a.shape, a.position, look.accent, on(parentId, "glue"), a.rotation);
 }
+
+/** The two gears on their posts and the knob, without the output's turn mark and direction arrow: free play's figure. */
+const bare = (v: Values): Part[] => build(v).filter((p) => p.id !== "mark-driven" && p.id !== "arrow-driven");
 
 function build(v: Values): Part[] {
   const s = settle(v);
@@ -225,6 +230,33 @@ function scene(v: Values): Part[] {
   });
 }
 
+/** The fastest output on the slider, 12 ÷ 8 of a turn per turn, wound the knob's whole three turns: the plot's half-height. */
+const OUT_MOST = (TURNS * DRIVER_TEETH) / 8;
+
+/**
+ * The output's turns (up) for the knob's turns (across), over the knob's whole six turns, three each way. One straight
+ * line through the middle: it falls, because one mesh turns the output the other way round, and how steeply is the
+ * speed. The axes are fixed at the fastest pair's, so fewer teeth tilt the line toward upright and more lay it down. The
+ * dot is the knob now.
+ */
+function speed(v: Values): Plot {
+  const s = settle(v);
+  const y = (turn: number) => 0.5 + (s.out * turn) / (2 * OUT_MOST);
+  const x = (turn: number) => (turn + TURNS) / (2 * TURNS);
+  const turn = clamp(s.turn, -TURNS, TURNS);
+  return {
+    line: [
+      [0, y(-TURNS)],
+      [1, y(TURNS)],
+    ],
+    dot: [x(turn), y(turn)],
+    zero: 0.5,
+    caption: "output turn for knob turn",
+  };
+}
+
+const RATIO: Slider = { id: "ratio", label: "Tooth ratio", min: 8 / 12, max: 2, step: 1 / 12, initial: 1.5, unit: "×", ends: ["Fast", "Slow"] };
+
 export const gear: Primitive = {
   id: "gear",
   name: "Gear",
@@ -235,8 +267,10 @@ export const gear: Primitive = {
   madeOf: ["wheel", "wheel"],
   seenIn: ["Watch", "Bike", "Hand drill"],
   sliders: [
-    { id: "ratio", label: "Tooth ratio", min: 8 / 12, max: 2, step: 1 / 12, initial: 1.5, unit: "×" },
-    { id: "turn", label: "Turn", min: 0, max: 1, step: 0.005, initial: 0.1, unit: "°", displayScale: 360 },
+    RATIO,
+    // Gears turn without end either way, so the turn runs three turns each side of the start, up from 0 to 1: free play
+    // turns the knob round and round. The game's one turn is the handle's reach.
+    { id: "turn", label: "Turn", min: -TURNS, max: TURNS, step: 0.005, initial: 0.1, unit: "°", displayScale: 360 },
   ],
   view: VIEW.bench,
   build,
@@ -255,6 +289,19 @@ export const gear: Primitive = {
       const base = (a - KNOB_AT_0) / 360;
       return base + Math.round((v.turn ?? 0) - base);
     },
+    // The game turns the driver once from the start, so its drag stays in that one turn.
+    reach: () => [0, 1],
+  },
+  play: {
+    build: bare,
+    // The knob at its start.
+    rest: { turn: 0 },
+    // Nothing stops a pair of gears: the knob goes round as far as the slider runs, either way.
+    reach: () => [-TURNS, TURNS],
+    plot: speed,
+    // No hand arrows: the lesson here is speed and direction, which the teeth and the plot show; the torque is the same
+    // trade the wheel already drew with arrows.
+    // No release: nothing pushes the gears back, and the rub in the axles stops them as soon as the hand lets go.
   },
   game: {
     name: "Shadow the ghost",

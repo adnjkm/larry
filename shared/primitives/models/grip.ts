@@ -8,11 +8,16 @@
 //
 // The game, "Hold on": a glass rod is held while the load climbs to LOAD_END. Squeeze too little and the load passes the
 // friction limit, so the rod slides down; squeeze too much and the glass cracks. One number, the squeeze, decides both.
+//
+// Free play is its own rig, the plainest picture of a grip there is: a block resting on a plank hinged at one end. Lift
+// the plank's free end and the block holds, holds, then slides off once the slope passes the friction angle, where
+// tan θ = μ. The slider is the grip, from ice to rubber, and it moves that angle.
 import type { Part } from "../../kit.ts";
-import { clamp01, fall } from "../motion/ease.ts";
+import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
+import { clamp01, fall, lerp, smooth } from "../motion/ease.ts";
 import { frame, phases } from "../motion/run.ts";
-import { arrow, arrowLength, box, cylinder, fmt, knob, look, on, part, plate, PLATE_TOP, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { arrow, arrowLength, box, COLOR, cylinder, fmt, knob, look, on, part, pin, plate, PLATE_TOP, rotateAbout, v3, type Vec } from "../parts.ts";
+import { type Cue, type Meter, type Motion, type Plot, type Primitive, type Run, type Slider, type Values, type Verdict, steps, VIEW } from "../types.ts";
 
 /** Friction coefficient, assumed: it depends on the surfaces. */
 export const MU = 0.4;
@@ -199,6 +204,177 @@ function play(v: Values): Run {
   };
 }
 
+// ---- Free play: a block on a plank -------------------------------------------------------------------------------
+//
+// Values: `mu` (the grip, the slider shown), `tilt` (the handle's), and two that only the let-go sets, so no slider
+// shows them: `slid`, how far the block has gone from its spot (0) down the plank (ALONG) and off onto the plate (1),
+// and `put`, how far it has been carried back to its spot (0 to 1). `slid` below 0 or missing means the tilt decides it.
+
+const GRIP: Slider = { id: "mu", label: "Grip", min: 0.1, max: 1, step: 0.05, initial: 0.5, ends: ["Ice", "Rubber"] };
+const TILT: Slider = { id: "tilt", label: "Tilt", min: 0, max: 60, step: 0.5, initial: 0, unit: "°" };
+
+// Geometry, millimetres. The plank turns about a pin through its low end, at its mid-thickness, so lying flat it rests
+// on the plate and tilted no corner of it dips below the plate.
+const PLANK_L = 100;
+const PLANK_T = 6;
+const PLANK_Z = 30;
+const BLOCK = 20;
+const HINGE_R = 3;
+const HINGE_LEN = PLANK_Z + 8;
+/** The knob's centre is this far past the plank's end, so the knob's side meets the end face. Also the knob's radius. */
+const LIFT_OUT = 5.5;
+/** A block that has slid off stands this far clear of the hinge pin. */
+const LAND_GAP = 1;
+/** From the landed block's far face to the knob's far side: the rig's width, centred on the plate. */
+const RIG_W = BLOCK + LAND_GAP + HINGE_R + PLANK_L + 2 * LIFT_OUT;
+const HINGE: Vec = v3(-RIG_W / 2 + BLOCK + LAND_GAP + HINGE_R, PLATE_TOP + PLANK_T / 2, 0);
+/** Along the plank from the hinge: the block's centre at its spot near the raised end, and with its downhill face at the low end. */
+const BLOCK_HOME = PLANK_L - BLOCK / 2 - 6;
+const BLOCK_END = BLOCK / 2;
+/** The block's centre once it has slid off and landed on the plate, beyond the hinge. */
+const LANDED = v3(HINGE.x - HINGE_R - LAND_GAP - BLOCK / 2, PLATE_TOP + BLOCK / 2, 0);
+/** The share of `slid` spent going down the plank; the rest is the drop onto the plate. */
+const ALONG = 0.75;
+/**
+ * Past the friction angle, the drag alone shows the block going: it runs down the plank, faster and faster, over this
+ * many more degrees of tilt, then is off. The stage moves a held figure only with the finger, so this stands in for the
+ * second or so a real block takes; the let-go finishes any slide still under way in real time.
+ */
+const SLIP_WINDOW = 2;
+/** How high the block is lifted, mid-way, when it is carried back to its spot. */
+const CARRY = 28;
+/** Grip at or under this shows the plank slick (a metal shine) rather than matte. */
+const SLICK = 0.25;
+
+/** The friction angle in degrees: the steepest slope the grip holds on, where tan θ = μ. */
+export const slipAngle = (mu: number) => Math.atan(mu) * RAD_TO_DEG;
+
+/** Free play's state at `v`; the build, the handle, the plot and the let-go all read it. */
+export function ramp(v: Values) {
+  const mu = v.mu ?? GRIP.initial;
+  const tilt = v.tilt ?? TILT.min;
+  const angle = slipAngle(mu);
+  const over = (tilt - angle) / SLIP_WINDOW;
+  const set = v.slid ?? -1;
+  // Set by a let-go, or else followed from the tilt: still until the friction angle, then down the plank (distance as
+  // the square, as gravity gives) and off once SLIP_WINDOW is passed.
+  const slid = set >= 0 ? Math.min(1, set) : over <= 0 ? 0 : over >= 1 ? 1 : ALONG * over * over;
+  const put = clamp01(v.put ?? 0);
+  return { mu, tilt, angle, slips: tilt > angle, slid, put, onPlank: slid < ALONG + 1e-9 && put === 0 };
+}
+
+type Pose = { centre: Vec; angle: number };
+
+/** The block on the plank, its centre `x` along it from the hinge, its underside on the plank's top. */
+const onPlank = (x: number, tilt: number): Pose => ({ centre: rotateAbout([x, PLANK_T / 2 + BLOCK / 2], tilt, HINGE), angle: tilt });
+
+/** Where the block is and how it is turned. */
+export function blockPose(r: ReturnType<typeof ramp>): Pose {
+  let pose: Pose;
+  if (r.slid <= ALONG) pose = onPlank(lerp(BLOCK_HOME, BLOCK_END, r.slid / ALONG), r.tilt);
+  else {
+    // Off the low end and onto the plate: it keeps on down the slope while it levels out, so its trailing edge clears
+    // the plank's corner before it is flat.
+    const k = (r.slid - ALONG) / (1 - ALONG);
+    const from = onPlank(BLOCK_END, r.tilt).centre;
+    pose = { centre: v3(lerp(from.x, LANDED.x, k), lerp(from.y, LANDED.y, k)), angle: r.tilt * (1 - k) ** 2 };
+  }
+  if (r.put === 0) return pose;
+  // Carried back in a low arc over the hinge to its spot, so it can slide again.
+  const home = onPlank(BLOCK_HOME, r.tilt);
+  return {
+    centre: v3(lerp(pose.centre.x, home.centre.x, r.put), lerp(pose.centre.y, home.centre.y, r.put) + CARRY * Math.sin(Math.PI * r.put)),
+    angle: lerp(pose.angle, home.angle, r.put),
+  };
+}
+
+/** The knob at the plank's free end: the point the finger lifts. */
+const liftAt = (tilt: number) => rotateAbout([PLANK_L + LIFT_OUT, 0], tilt, HINGE);
+
+function rampBuild(v: Values): Part[] {
+  const r = ramp(v);
+  const b = blockPose(r);
+  return [
+    plate(RIG_W, HINGE_LEN),
+    pin("hinge", HINGE, HINGE_LEN, { name: "Hinge", role: "The plank turns on it." }),
+    part(
+      "plank",
+      "Plank",
+      "Its top is the grip: the block stays put on it until the slope is too steep.",
+      box(PLANK_L, PLANK_T, PLANK_Z, 1),
+      rotateAbout([PLANK_L / 2, 0], r.tilt, HINGE),
+      { color: COLOR.focus, finish: r.mu <= SLICK + 1e-9 ? "metal" : "matte" },
+      on("hinge", "hinge"),
+      v3(0, 0, r.tilt),
+    ),
+    part(
+      "block",
+      "Block",
+      "The load the grip holds on the slope.",
+      box(BLOCK, BLOCK, BLOCK, 1.5),
+      b.centre,
+      look.stone,
+      on(r.onPlank ? "plank" : "plate", "slide"),
+      v3(0, 0, b.angle),
+    ),
+    knob("handle", liftAt(r.tilt), "z", { name: "Lift knob", role: "Where your finger lifts the plank's end.", on: on("plank", "glue") }),
+  ];
+}
+
+/**
+ * The friction the plank gives the block, as a share of the block's weight: exactly what the slope asks for (sin θ)
+ * while it holds, then the most the grip can give (μ cos θ) once it slides. Sliding friction is taken as the limit.
+ */
+const friction = (tilt: number, mu: number) => (tilt <= slipAngle(mu) ? Math.sin(tilt * DEG_TO_RAD) : mu * Math.cos(tilt * DEG_TO_RAD));
+/** The plot's top: a little over the most any grip on the slider holds, sin 45° for μ = 1. */
+const PLOT_TOP = 0.75;
+
+/**
+ * The grip's law as the plank is lifted: the friction rises with the slope, peaks at the friction angle and falls away
+ * as the block slides. A better grip puts the peak higher and later; ice gives a small, early one. The dot is the plank
+ * now, while the block is on it.
+ */
+function rampPlot(v: Values): Plot {
+  const r = ramp(v);
+  const at = (t: number) => [t / TILT.max, friction(t, r.mu) / PLOT_TOP] as const;
+  const tilts = [...steps(TILT).filter((t) => Math.abs(t - r.angle) > 1e-9), r.angle].sort((a, b) => a - b);
+  return { line: tilts.map(at), ...(r.onPlank ? { dot: at(r.tilt) } : {}), zero: 0, caption: "grip as you lift" };
+}
+
+// The let-go, ms. The plank falls flat under its own weight; a block already going finishes its run off; one that
+// has slid off sits on the plate a moment, then is carried back to its spot.
+const PLANK_FALL_MS = 420;
+const SLIDE_MS = 420;
+const LANDED_MS = 500;
+const CARRY_MS = 650;
+
+function letGo(v: Values): Motion {
+  const r = ramp(v);
+  const fallMs = Math.round(PLANK_FALL_MS * Math.sqrt(r.tilt / TILT.max));
+  const tiltAt = (ms: number) => (fallMs > 0 ? r.tilt * (1 - fall(clamp01(ms / fallMs))) : 0);
+  const rest: Values = { ...v, tilt: 0, slid: -1, put: 0 };
+  if (r.slid === 0 && r.put === 0) {
+    // Still held by the grip: the block rides the plank down.
+    const durationMs = Math.max(1, fallMs);
+    return {
+      durationMs,
+      at: (ms) => frame(ms >= durationMs ? rest : { ...rest, tilt: tiltAt(ms) }, ""),
+      ...(fallMs > 0 ? { cues: [{ ms: fallMs, kind: "thud" as const }] } : {}),
+    };
+  }
+  const slideMs = r.slid < 1 ? Math.round(SLIDE_MS * Math.sqrt(1 - r.slid)) : 0;
+  const tl = phases({ drop: Math.max(fallMs, slideMs), landed: r.put > 0 ? 0 : LANDED_MS, carry: Math.round(CARRY_MS * (1 - r.put)) });
+  return {
+    durationMs: tl.total,
+    cues: [{ ms: slideMs > 0 ? slideMs : fallMs, kind: "thud" }],
+    at: (ms) => {
+      if (ms >= tl.total) return frame(rest, "");
+      const slid = slideMs > 0 ? r.slid + (1 - r.slid) * fall(clamp01(ms / slideMs)) : 1;
+      return frame({ ...v, tilt: tiltAt(ms), slid, put: r.put + (1 - r.put) * smooth(tl.t("carry", ms)) }, "");
+    },
+  };
+}
+
 export const grip: Primitive = {
   id: "grip",
   name: "Grip",
@@ -221,6 +397,28 @@ export const grip: Primitive = {
     at: (v) => handleAt(settle(v).t),
     // The knob sits on the right pad's outer face, which is ROD_R + thickness out: invert thickness = PAD_T (1 - N ÷ SOFT).
     solve: (point) => SOFT * (1 - (point.x - X0 - KNOB / 2 - ROD_R) / PAD_T),
+  },
+  play: {
+    sliders: [GRIP, TILT],
+    handle: {
+      slider: TILT.id,
+      label: "Lift",
+      at: (v) => liftAt(ramp(v).tilt),
+      // The knob rides a circle about the hinge, so the tilt is the angle from the hinge to the finger.
+      solve: (point) => Math.atan2(point.y - HINGE.y, point.x - HINGE.x) * RAD_TO_DEG,
+      // Once the block has started down, the hand can only lift further until it lets go. Lowering the plank would show
+      // the block climbing back up: while held, the figure can only follow the tilt, so it cannot remember the slide.
+      reach: (v) => {
+        const r = ramp(v);
+        return r.slid > 0 ? [r.tilt, TILT.max] : [TILT.min, TILT.max];
+      },
+    },
+    label: "Lift",
+    build: rampBuild,
+    plot: rampPlot,
+    // The plank lying flat with the block at its spot near the free end, on a middling grip.
+    rest: { mu: GRIP.initial, tilt: 0 },
+    release: letGo,
   },
   game: {
     name: "Hold on",

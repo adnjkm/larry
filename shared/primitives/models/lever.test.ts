@@ -134,18 +134,39 @@ describe("lever", () => {
     }
   });
 
-  it("only goes as far as one finger can move it: a millimetre or two when the ratio is too small", () => {
+  it("only goes as far as one finger can move it in the game: a millimetre or two when the ratio is too small", () => {
     for (const r of steps(ratio).filter((x) => holdFor(x) > FINGER + 1e-9)) {
       const [lo, hi] = lever.handle.reach!({ ratio: r, push: 8 });
       assert.equal(lo, 0);
       assert.ok(hi <= STRAIN + 1e-9 && hi >= 1, `ratio ${r}: reach ${hi}`);
-      assert.ok(settle({ ratio: r, push: 12 }).push <= STRAIN + 1e-9, "the picture holds to it however far the slider asks");
     }
   });
 
-  it("re-settles when the ratio changes: the same push is held where the forces allow it, and no further", () => {
+  it("is moved by a hand in free play, not the game's finger: as far as the slider or the plate allows, at every ratio", () => {
+    for (const r of steps(ratio)) {
+      const [lo, hi] = lever.play!.reach!({ ratio: r, push: 8 });
+      assert.equal(lo, 0);
+      assert.equal(hi, Math.min(TRAVEL, bounds(r).pushMax), `ratio ${r}: free play reach ${hi}`);
+      assert.equal(settle({ ratio: r, push: hi }).push, hi, `ratio ${r}: the picture stops short of the reach`);
+      const { effort, load } = corners(lever.play!.build!({ ratio: r, push: hi }), r);
+      assert.ok(Math.min(effort.y, load.y) >= 6 - 1e-6, `ratio ${r}: the bar is in the plate`);
+    }
+  });
+
+  it("draws the bare lever in free play: the same bar, pad and block as the game's, and no arrows", () => {
+    for (const v of [
+      { ratio: 3, push: 8 },
+      { ratio: 1.2, push: 10 },
+    ]) {
+      const bare = lever.play!.build!(v);
+      assert.deepEqual(bare.map((p) => p.id).sort(), ["bar", "load", "pad", "pivot", "plate"]);
+      for (const p of bare) assert.deepEqual(p, find(lever.build(v), p.id));
+    }
+  });
+
+  it("settles to the push, whatever the ratio, short of the plate and the stroke", () => {
     assert.equal(settle({ ratio: 2, push: 12 }).push, 12);
-    assert.ok(settle({ ratio: 1.4, push: 12 }).push <= STRAIN);
+    assert.equal(settle({ ratio: 1.4, push: 12 }).push, 12);
     assert.equal(settle({ ratio: 5, push: push.max }).push, TRAVEL);
   });
 

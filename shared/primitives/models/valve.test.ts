@@ -228,3 +228,55 @@ describe("valve", () => {
 function pick(k: { pump: number; bag: number; held: number }): Values {
   return { pressure: k.pump, bag: k.bag, held: k.held };
 }
+
+/** How far a plot's dot is from its line, in plot units. */
+function offLine(plot: { line: readonly (readonly [number, number])[]; dot?: readonly [number, number] }): number {
+  const p = plot.dot!;
+  let best = Infinity;
+  for (let i = 1; i < plot.line.length; i++) {
+    const a = plot.line[i - 1]!;
+    const b = plot.line[i]!;
+    const len = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / len));
+    best = Math.min(best, Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])));
+  }
+  return best;
+}
+
+describe("valve free play", () => {
+  const plot = valve.play!.plot!;
+  const hand = valve.play!.hand!;
+  it("plots the ball's lift for the pressure, the dot on the line, flat until the opening pressure", () => {
+    for (const o of steps(open)) {
+      for (const p of steps(pressure)) {
+        const q = plot({ open: o, pressure: p });
+        assert.ok(offLine(q) < 1e-9, `open ${o}, pressure ${p}`);
+        assert.equal(q.dot![1] > 0, p > o, `open ${o}, pressure ${p}: lifts only past the opening pressure`);
+      }
+      assert.deepEqual(plot({ open: o, pressure: 0 }).line[1], [o / THUMB, 0], `open ${o}: the knee`);
+    }
+  });
+
+  it("keeps the dot on the line while the ball reseats late after a let-go", () => {
+    for (const o of [20, 80, 160]) {
+      const run = valve.play!.release!({ open: o, pressure: 240 });
+      for (let k = 0; k <= 12; k++) assert.ok(offLine(plot(run.at((k / 12) * run.durationMs).values)) < 1e-9, `open ${o}, frame ${k}`);
+    }
+  });
+
+  it("draws the pump's push and the spring's push while held: equal once the ball floats", () => {
+    const len = (parts: Part[], id: string) => {
+      const a = find(parts, id);
+      assert.ok(a.shape.kind === "extrusion");
+      const xs = a.shape.outline.map((q) => q.x);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    // Shut: the spring's preload outweighs the pump; up: the two balance.
+    const shut = hand({ open: 160, pressure: 140 });
+    assert.ok(len(shut, "spring-arrow") > len(shut, "push-arrow"));
+    const floating = hand({ open: 80, pressure: 150 });
+    assert.ok(!settle({ open: 80, pressure: 150 }).solid);
+    assert.ok(Math.abs(len(floating, "spring-arrow") - len(floating, "push-arrow")) < 1e-9);
+    assert.equal(hand({ open: 80, pressure: 0 }).filter((p) => p.id === "push-arrow").length, 0, "no pressure, no push");
+  });
+});

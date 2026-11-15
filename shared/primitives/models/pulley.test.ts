@@ -209,3 +209,43 @@ describe("pulley", () => {
     for (const p of [0, 12, 33]) assert.ok(Math.abs(h.solve(h.at({ strands: 3, pull: p }), { strands: 3, pull: p }) - p) < 1e-9);
   });
 });
+
+/** How far a point lies from a polyline, in the plot's own 0 to 1 units. */
+function offLine(line: readonly (readonly [number, number])[], p: readonly [number, number]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1]!;
+    const [bx, by] = line[i]!;
+    const t = Math.max(0, Math.min(1, ((p[0] - ax) * (bx - ax) + (p[1] - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2 || 1)));
+    best = Math.min(best, Math.hypot(p[0] - ax - t * (bx - ax), p[1] - ay - t * (by - ay)));
+  }
+  return best;
+}
+
+describe("pulley free play", () => {
+  const play = pulley.play!;
+  const strands = pulley.sliders[0]!;
+  it("names the ends of the strands", () => assert.deepEqual(strands.ends, ["Few", "Many"]));
+  it("puts the plot's dot on its line at every pull, and lays the line down one over the strands", () => {
+    for (const n of steps(strands)) {
+      for (const pull of [0, 7, 25, 50]) {
+        const p = play.plot!({ strands: n, pull });
+        assert.ok(offLine(p.line, p.dot!) < 1e-9, `${n} strands, pull ${pull}: dot off the line`);
+      }
+      assert.ok(Math.abs(play.plot!({ strands: n, pull: 0 }).line.at(-1)![1] - 1 / n) < 1e-9);
+    }
+  });
+  it("draws, while held, the pull against the weight, the pull shrinking with the strands", () => {
+    const pullLength = (n: number) => {
+      const a = find(play.hand!({ strands: n, pull: 20 }), "pull-arrow");
+      return a.shape.kind === "extrusion" ? Math.max(...a.shape.outline.map((q) => q.x)) - Math.min(...a.shape.outline.map((q) => q.x)) : NaN;
+    };
+    for (const n of steps(strands)) {
+      const ids = play.hand!({ strands: n, pull: 20 })
+        .map((q) => q.id)
+        .sort();
+      assert.deepEqual(ids, ["pull-arrow", "weight-arrow"]);
+    }
+    assert.ok(pullLength(1) > 4 * pullLength(5) - 1e-6);
+  });
+});

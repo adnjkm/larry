@@ -23,7 +23,7 @@ import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, shudder, smooth } from "../motion/ease.ts";
 import { frame, handArrow, LEAD as LEAD_MS, MARK, phases, REWIND } from "../motion/run.ts";
 import { arrow, arrowLength, coilSpring, fmt, look, on, part, pivoted, plate, PLATE_TOP, pullRing, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import {
   BOLT,
   BOLT_W,
@@ -116,7 +116,9 @@ export function settle(v: Values) {
   /** The spring's push now, and the hand's push along the travel that holds the door here (+ shuts, − opens). */
   const push = spring.rate * (PRELOAD + lift);
   const gain = gainAt(door);
-  const hand = Math.abs(gain) < 1e-6 ? 0 : push * gain;
+  const shut = door > -1e-9 && lift < 1e-9;
+  // Shut, the post holds the door against the spring, so no hand is needed (the slope there is the steep face's corner).
+  const hand = shut || Math.abs(gain) < 1e-6 ? 0 : push * gain;
   return {
     release,
     ...spring,
@@ -124,7 +126,7 @@ export function settle(v: Values) {
     lift,
     push,
     hand,
-    shut: door > -1e-9 && lift < 1e-9,
+    shut,
     length: FITTED - lift,
     /** Run-only: whether build draws the holding hand's arrow (a run draws its own). */
     showHand: (v.hand ?? 1) > 0.5,
@@ -426,7 +428,62 @@ function play(v: Values): Run {
   };
 }
 
-const FORCE: Slider = { id: "force", label: "Release force", min: 2, max: 20, step: 1, initial: 8, unit: " N" };
+// ---- Free play ---------------------------------------------------------------------------------------------------
+
+/** The spring pushing the door back down the whole gentle face, ms, and how far the door coasts on once off it, mm. */
+const PUSHED_OUT_MS = 380;
+const COAST = 1.5;
+/** The spring driving the bolt down the whole steep face and the door onto the post, ms. */
+const SNAP_SHUT_MS = 140;
+
+/**
+ * Let go of the door: on the flat, clear of the bolt or shut, nothing pushes it along, so it stays. On the gentle face
+ * the spring pushes the bolt down it and the door back out, off the face. On the steep face the spring drives the bolt
+ * down into the notch and pulls the door shut onto the post, faster as it goes, with a snap.
+ */
+function release(v: Values): Motion {
+  const s = settle(v);
+  const from = s.door;
+  const values = (door: number) => ({ ...v, door, hand: 0 });
+  if (s.hand > 1e-6) {
+    const to = TOUCH_AT - COAST;
+    const ms = Math.round(PUSHED_OUT_MS * Math.sqrt((from - to) / (FLAT_AT - to)));
+    return { durationMs: ms, at: (t) => frame(values(from + (to - from) * easeOut(clamp01(t / ms))), "") };
+  }
+  if (s.hand < -1e-6) {
+    const ms = Math.max(1, Math.round(SNAP_SHUT_MS * Math.sqrt(-from / -LIP_AT)));
+    return { durationMs: ms, cues: [{ ms, kind: "snap" }], at: (t) => frame(values(from * (1 - clamp01(t / ms) ** 2)), "") };
+  }
+  return { durationMs: 1, at: () => frame(v, "") };
+}
+
+const FORCE: Slider = { id: "force", label: "Release force", min: 2, max: 20, step: 1, initial: 8, unit: " N", ends: ["Weak", "Strong"] };
+
+/** The plot's door axis: from a little before the door's edge meets the bolt, to shut. Further open, nothing touches. */
+const PLOT_FROM = Math.ceil(TOUCH_AT) - 4;
+/** Its force axis: the strongest spring's pull on the steep face, down to its push on the gentle one. */
+const PLOT_PULL = FORCE.max;
+const PLOT_PUSH = PLOT_PULL * (CLOSE_GAIN / HOLD_GAIN);
+const plotX = (door: number) => clamp01((door - PLOT_FROM) / -PLOT_FROM);
+const plotY = (hand: number) => (hand + PLOT_PULL) / (PLOT_PULL + PLOT_PUSH);
+
+/**
+ * What it takes to hold the door at each point of its last stretch: above the line a push (riding up the gentle face),
+ * below it a pull (the steep face trying to snap it shut, and what opening it takes). The two faces under one spring:
+ * a small hump, a deep trough. A stronger spring scales both. It is the same hand force settle() gives the figure,
+ * sampled on the door slider's grid and either side of each corner, so the dot (the door now) is on the line.
+ */
+function holding(v: Values) {
+  const at = (door: number): [number, number] => [plotX(door), plotY(settle({ ...v, door }).hand)];
+  const doors = new Set<number>();
+  for (let d = PLOT_FROM; d <= 0; d += 0.5) doors.add(d);
+  for (const c of [TOUCH_AT, FLAT_AT, LIP_AT]) doors.add(c - 1e-4).add(c + 1e-4);
+  doors.add(-1e-4);
+  const line = [...doors].sort((a, b) => a - b).map(at);
+  const s = settle(v);
+  // Further open than the plot's left end, the door touches nothing: the dot waits at the start of the flat.
+  return { line, dot: at(Math.max(PLOT_FROM, s.door)), zero: plotY(0), caption: "push to hold it here" };
+}
 
 export const catchLatch: Primitive = {
   id: "catch",
@@ -446,6 +503,17 @@ export const catchLatch: Primitive = {
     label: "Slide",
     at: (v) => ringAt(settle(v).door),
     solve: (point) => point.x - ringAt(0).x,
+  },
+  play: {
+    // The door slid open, clear of the bolt, which hangs all the way down on its spring.
+    rest: { door: OPEN_DOOR },
+    // The latch alone: no holding hand's arrow, since the hand is the finger on the ring.
+    build: (v) => build(v).filter((p) => p.id !== "hand-arrow"),
+    // While the finger holds the door, the game's holding arrow, to scale: a light push on the gentle face, a pull as big
+    // as the release force on the steep one.
+    hand: (v) => build({ ...v, hand: 1 }).filter((p) => p.id === "hand-arrow"),
+    plot: holding,
+    release,
   },
   game: {
     name: "Shut and hold",

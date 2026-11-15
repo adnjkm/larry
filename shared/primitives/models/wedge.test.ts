@@ -86,16 +86,40 @@ describe("wedge", () => {
     }
   });
 
-  it("only goes in as far as its push can hold against the log's grip: a fat wedge stalls, a fatter one will not go in", () => {
+  it("only goes in as far as its push can hold against the log's grip in the game: a fat wedge stalls, a fatter one will not go in", () => {
     for (const sl of steps(slope)) {
-      const s = settle({ slope: sl, push: push.max });
+      const s = settle({ slope: sl, push: settle({ slope: sl }).limit });
       if (s.push > ELASTIC + 1e-9) assert.ok(s.side >= gripAt(s.open) - 1e-6 || s.through, `slope ${sl}: ${s.side} N against a grip of ${gripAt(s.open)} N`);
       if (s.side < GRIP) assert.ok(s.push <= ELASTIC + 1e-9, `slope ${sl}: pushes in against more grip than it makes`);
       const [lo, hi] = wedge.handle.reach!({ slope: sl, push: 10 });
       assert.deepEqual([lo, hi], [0, s.limit]);
     }
-    assert.ok(settle({ slope: 28, push: 24 }).push < 24, "a fat wedge is held to its stall");
-    assert.ok(settle({ slope: 30, push: 24 }).push <= ELASTIC);
+    assert.ok(settle({ slope: 28 }).limit < 24, "a fat wedge is held to its stall");
+    assert.ok(settle({ slope: 30 }).limit <= ELASTIC);
+  });
+
+  it("is driven by a hand in free play, not the game's blows: until the tip lands or a pad is squeezed solid", () => {
+    for (const sl of steps(slope)) {
+      const [lo, hi] = wedge.play!.reach!({ slope: sl, push: 0 });
+      assert.equal(lo, 0);
+      assert.ok(hi >= settle({ slope: sl }).limit - 1e-9, `slope ${sl}: free play reaches less than the game`);
+      const parts = wedge.play!.build!({ slope: sl, push: hi });
+      for (const side of ["left", "right"]) assert.ok(box(find(parts, `pad-${side}`)).width >= 6 - 1e-9, `slope ${sl}: the ${side} pad is squeezed through`);
+      assert.ok(wedgeCorners(parts)[0]!.y >= 6 - 1e-9, `slope ${sl}: the tip is under the plate`);
+    }
+    assert.equal(wedge.play!.reach!({ slope: 15, push: 0 })[1], LENGTH, "a splitting wedge goes right through");
+    assert.equal(wedge.play!.release, undefined, "friction holds it where it is driven");
+  });
+
+  it("draws the bare wedge in free play: the same wedge, log and pads as the game's, and no arrows", () => {
+    for (const v of [
+      { slope: 15, push: 20 },
+      { slope: 30, push: 10 },
+    ]) {
+      const bare = wedge.play!.build!(v);
+      assert.ok(bare.every((p) => !/arrow/.test(p.id)) && bare.some((p) => p.id === "wedge") && bare.some((p) => p.id === "block-left"));
+      for (const p of bare) assert.deepEqual(p, find(wedge.build(v), p.id));
+    }
   });
 
   it("draws three arrows only, all on something: the hammer's push on the tap pad and one push on the face of each half; none at rest, none above the logs", () => {
@@ -137,7 +161,7 @@ describe("wedge", () => {
     for (const sl of [10, 14, 17]) {
       for (const p of [0, 4, 9]) {
         const v: Values = { slope: sl, push: p };
-        assert.ok(Math.abs(h.solve(h.at(v), v) - Math.min(p, settle(v).limit)) < 1e-9, `slope ${sl}, push ${p}`);
+        assert.ok(Math.abs(h.solve(h.at(v), v) - Math.min(p, settle(v).stop)) < 1e-9, `slope ${sl}, push ${p}`);
       }
     }
   });

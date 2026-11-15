@@ -18,6 +18,8 @@ export type Slider = {
   unit?: string;
   /** Multiplies the value for display, e.g. 100 to show a fraction as a percentage. */
   displayScale?: number;
+  /** A word for each end, low then high, shown where numbers are not: ["Soft", "Stiff"]. */
+  ends?: readonly [string, string];
 };
 
 export type Values = Record<string, number>;
@@ -86,6 +88,71 @@ export type Frame = {
   live: string;
   /** Props that exist only while they matter (a hand arrow, a puck, a staple), drawn with the figure's own parts. Their ids never clash with `build`'s. */
   marks?: Part[];
+};
+
+/**
+ * One line drawn under the free-play figure: the primitive's law, reshaped live by its sliders. Both axes run 0 to 1,
+ * y up. Ultra plain: the line, a faint zero, and the dot where the machine is now.
+ */
+export type Plot = {
+  line: readonly (readonly [number, number])[];
+  /** Where the machine is now on the line, if it is on it. */
+  dot?: readonly [number, number];
+  /** Height of a faint zero line, 0 to 1. */
+  zero?: number;
+  /** Two or three words under the line, when the line needs them: "pull at the rim". */
+  caption?: string;
+};
+
+/** A scripted motion with no outcome to report: what a machine does on its own, such as when the hand lets go of it. */
+export type Motion = {
+  durationMs: number;
+  /** The frame at `ms`, for ms in [0, durationMs]. at(durationMs) is where the figure comes to rest. */
+  at: (ms: number) => Frame;
+  cues?: Cue[];
+};
+
+/**
+ * Free play: the machine on its own, worked by its handle the way the real thing works, before any game. It starts at
+ * rest, the handle moves it as far as the real thing goes, and when the hand lets go it does what the real thing does.
+ */
+export type Play = {
+  /**
+   * Free play's own sliders, when the bare primitive is a different rig from the game's (the grip is a block on a ramp
+   * here, two pads in the game). With them, `handle` and `build` must read them. Defaults to the primitive's sliders.
+   */
+  sliders?: Slider[];
+  /** Free play's handle, when its rig is its own. Defaults to the primitive's. */
+  handle?: Handle;
+  /** What the hand is doing, drawn only while the finger holds the handle: a force arrow, sized by the push. */
+  hand?: (v: Values) => Part[];
+  /** The primitive's law under the figure, reshaped live by the sliders. */
+  plot?: (v: Values) => Plot;
+  /**
+   * What keeps happening while the machine sits there, drawn over the figure at `ms` since free play opened: drops
+   * leaking past a seal. Loops on its own; stays inside the figure's framing.
+   */
+  ambient?: (v: Values, ms: number) => Part[];
+  /**
+   * The primitive alone, as a finger meets it: the spring and the plate it stands on, a bolt and its nut. None of the
+   * game's apparatus (targets, marks, measuring posts, ticks, hand arrows), and no load unless the primitive means
+   * nothing without one. Same values and geometry as `build`, so the handle sits on it the same way. Defaults to `build`.
+   */
+  build?: (v: Values) => Part[];
+  /**
+   * The machine left alone, over the sliders' initials: where it starts and what it comes back to. A spring at its free
+   * length, a weight hanging straight down, a lever with its load sitting on the plate.
+   */
+  rest: Values;
+  /** The handle's verb in free play, when the game's does not fit a bare hand on the part: "Press" for a spring the game pulls down. */
+  label?: string;
+  /** How far the handle moves it, when that is less than its slider's range. Real stops only: coils touching, a thread's end. */
+  reach?: (v: Values) => [number, number];
+  /**
+   * What the machine does when the hand lets go at `v`, ending at rest: a spring springs back, a weight swings and
+   * settles, a lifted load drops. Leave it out for a machine that stays where it is left: a screw, a ratchet, a wheel.
+   */
+  release?: (v: Values) => Motion;
 };
 
 /** A scripted motion: the outcome is decided first, then `at` plays the choreography that outcome implies. Closed form, no simulation. */
@@ -188,11 +255,13 @@ export type Primitive = {
   build: (v: Values) => Part[];
   readouts: (v: Values) => Readout[];
   handle: Handle;
+  /** Free play, before the game. */
+  play?: Play;
   game: Game;
 };
 
-/** Every slider the figure's values can hold: the primitive's, its game's controls and its run-only poses. */
-export const allSliders = (p: Primitive): Slider[] => [...p.sliders, ...(p.game.controls ?? []), ...(p.game.poses ?? [])];
+/** Every slider the figure's values can hold: the primitive's, its free play's own, its game's controls and its run-only poses. */
+export const allSliders = (p: Primitive): Slider[] => [...p.sliders, ...(p.play?.sliders ?? []), ...(p.game.controls ?? []), ...(p.game.poses ?? [])];
 
 /** The slider the handle and the play sweep move: the handle's, else the last slider (the first is the number). */
 export const motionSlider = (p: Primitive): Slider => allSliders(p).find((s) => s.id === p.handle.slider) ?? p.sliders.at(-1)!;
@@ -202,6 +271,21 @@ export const numberSlider = (p: Primitive): Slider => [...p.sliders, ...(p.game.
 
 /** Each slider's initial value. */
 export const initialValues = (p: Primitive): Values => Object.fromEntries(p.sliders.map((s) => [s.id, s.initial]));
+
+/** Free play's handle: its own, else the primitive's. */
+export const playHandle = (p: Primitive): Handle => p.play?.handle ?? p.handle;
+
+/** The slider free play's handle drives. */
+export const playMotion = (p: Primitive): Slider => allSliders(p).find((s) => s.id === playHandle(p).slider) ?? motionSlider(p);
+
+/** The sliders free play shows once the machine has been moved: its own, else the primitive's, less the one the handle drives. */
+export const playTuning = (p: Primitive): Slider[] => (p.play?.sliders ?? p.sliders).filter((s) => s.id !== playMotion(p).id);
+
+/** The figure free play draws: the play's bare figure, else the primitive's own. */
+export const playBuild = (p: Primitive): ((v: Values) => Part[]) => p.play?.build ?? p.build;
+
+/** Where free play starts: every slider, control and run-only pose at its initial, then the play's rest. */
+export const playValues = (p: Primitive): Values => ({ ...startValues(p, false), ...p.play?.rest });
 
 /** Every value the figure can hold at rest: each slider, control and run-only pose at its initial, then, for the game, `game.start`. */
 export const startValues = (p: Primitive, game = true): Values => ({

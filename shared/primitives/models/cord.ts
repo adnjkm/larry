@@ -17,10 +17,10 @@
 // (1 + yank) for that moment, and the weight carries on rising after the hand stops, 10 x yank further. The line is 15 mm
 // up and the cord breaks at 40 N: too gentle and the weight never reaches the line, too hard and the cord snaps.
 import type { Part } from "../../kit.ts";
-import { clamp, easeOut, fall, smooth } from "../motion/ease.ts";
+import { clamp, clamp01, easeOut, fall, rockBack, smooth } from "../motion/ease.ts";
 import { frame, handArrow, HOLD, MARK, phases, RESET, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, box, chain, cylinder, fmt, look, on, part, PLATE_TOP, plate, post, pullRing, tick, v3, type Pt, type Vec } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Plot, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres.
 const PEG_R = 6;
@@ -103,7 +103,12 @@ export function cordPath(s: ReturnType<typeof settle>): Pt[] {
   return pts;
 }
 
-function build(v: Values): Part[] {
+/** The cord as the game and the library show it: the weight's pull and the cord's drawn on it, to scale. */
+const build = (v: Values): Part[] => draw(v, true);
+/** The cord alone, as free play's hand meets it: post, peg, cord, ring and the weight it lifts, no arrows. */
+const bare = (v: Values): Part[] => draw(v, false);
+
+function draw(v: Values, forces: boolean): Part[] {
   const s = settle(v);
   const at = (p: Pt): Vec => v3(p[0] + PX, p[1], zc(Z_CORD));
   const path = cordPath(s).map(at);
@@ -125,13 +130,16 @@ function build(v: Values): Part[] {
     ...chain("cord", "Cord", "Carries the pull from the hand, round the peg, to the weight. It can only pull.", path, CORD, look.focus, "peg", "slide"),
     pullRing("ring", ringAt, { name: "Pull ring", role: "Where the hand pulls.", on: on("plate", "glue") }),
     part("weight", "Weight", "The load the cord lifts.", box(s.edge, s.edge, s.edge, 1.5), weightAt, look.stone, on("plate", "glue")),
+  ];
+  if (!forces) return parts;
+  parts.push(
     // The weight's own pull, over its top-left, clear of the cord that holds it.
     ...arrow("weight-arrow", v3(PX - RC - 9, PLATE_TOP + s.lift + s.edge, zc(Z_CORD)), -90, s.weight * MM_PER_N, "push", {
       name: "Arrow",
       role: "The weight, pulling down.",
       on: on("weight", "glue"),
     }),
-  ];
+  );
   // The cord's pull, drawn over the hand's end: the same size as the weight's while it holds it, nothing when it is slack.
   if (s.tension > 1e-9) {
     parts.push(
@@ -327,8 +335,66 @@ function scene(v: Values): Part[] {
   ];
 }
 
+// ---- Free play ---------------------------------------------------------------------------------------------------
+
+/** A weight let go from the ring's farthest pull (30 mm up) lands in this long, and sooner from lower. */
+const FALL_MS = 460;
+/** It bounces off the floor this high when dropped from 30 mm, and the cord goes slack over it while it is up. */
+const BOUNCE_MM = 2;
+const BOUNCE_MS = 300;
+
+/**
+ * Let go of a ring that holds the weight up, and the weight falls, dragging the cord and the ring back with it until it
+ * lands on the floor, then bounces a little with the cord slack over it. Let go of a slack cord and nothing pulls
+ * anything: it stays where it was left.
+ */
+function release(v: Values): Motion {
+  const s = settle(v);
+  if (s.pull <= 0) return { durationMs: 1, at: () => frame({ ...v, pull: s.pull }, "") };
+  const drop = Math.round(FALL_MS * Math.sqrt(s.pull / PULL.max));
+  const bounce = BOUNCE_MM * Math.sqrt(s.pull / PULL.max);
+  return {
+    durationMs: drop + BOUNCE_MS,
+    cues: [{ ms: drop, kind: "thud" }],
+    at: (ms) =>
+      ms < drop
+        ? frame({ ...v, pull: s.pull * (1 - fall(ms / drop)) }, "")
+        : frame({ ...v, pull: 0, flight: bounce * rockBack(clamp01((ms - drop) / BOUNCE_MS), 2) }, ""),
+  };
+}
+
 const PULL: Slider = { id: "pull", label: "Hand pulls out", min: -20, max: 30, step: 1, initial: 12, unit: " mm" };
-const TENSION: Slider = { id: "tension", label: "Tension", min: 10, max: 40, step: 1, initial: 25, unit: " N" };
+const TENSION: Slider = { id: "tension", label: "Tension", min: 10, max: 40, step: 1, initial: 25, unit: " N", ends: ["Light", "Heavy"] };
+
+/**
+ * While a hand is on the ring: the hand's pull and the weight's, the same length, as the game draws them. The pull goes
+ * round the peg undiminished; pushed toward the peg the cord goes slack and only the weight's arrow is left.
+ */
+function hand(v: Values): Part[] {
+  const bareIds = new Set(bare(v).map((p) => p.id));
+  return build(v).filter((p) => !bareIds.has(p.id));
+}
+
+/**
+ * The cord's one rule as a line: the pull in it (up) for where the hand is (across). Nothing while the hand is toward
+ * the peg, since a slack cord carries nothing; the weight's whole pull the moment the hand is out past just taut. A
+ * heavier weight raises the step.
+ */
+function tension(v: Values): Plot {
+  const s = settle(v);
+  const x = (pull: number) => (pull - PULL.min) / (PULL.max - PULL.min);
+  const y = s.weight / TENSION.max;
+  return {
+    line: [
+      [0, 0],
+      [x(0), 0],
+      [x(0), y],
+      [1, y],
+    ],
+    dot: [x(s.pull), s.tension / TENSION.max],
+    caption: "cord pull for hand travel",
+  };
+}
 
 export const cord: Primitive = {
   id: "cord",
@@ -350,6 +416,15 @@ export const cord: Primitive = {
     solve: (point) => point.x - PX - RING_R - C0,
     // Toward the peg the ring only makes slack, never a push on the weight, so the drag has the whole slider; the cord's tension is the weight's, and a hand can hold it.
     reach: () => [-20, 30],
+  },
+  play: {
+    // The weight stays: a cord with nothing on it only lies there, and pulls nothing round the peg. No arrows, no line.
+    build: bare,
+    hand,
+    plot: tension,
+    // The weight on the floor and the cord just taut: nothing in it until the hand pulls.
+    rest: { pull: 0 },
+    release,
   },
   game: {
     name: "Don't snap it",
