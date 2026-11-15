@@ -2,7 +2,7 @@
 // too little it leaves gaps and the joint leaks upside down; squeezed too hard it grips what closes
 // over it, and that part no longer opens by hand.
 import type { Kit, Part, Shape } from "../../../shared/kit.ts";
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { AXIS, type Mark, type PartMove, type Rigid, STILL, type Test, type TestCtx, type Values, type Vec, vec, type Window } from "../model.ts";
 import { extents, rigidPoint } from "../pose.ts";
 import { add, carry, clearance, latheAxis, overlay, type Pair, pairOf, scale, shudder, targetOf, type Template, tenth } from "./pair.ts";

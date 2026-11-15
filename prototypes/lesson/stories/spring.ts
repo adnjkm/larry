@@ -2,7 +2,7 @@
 // (the parts the kit itself calls a spring, else the joint) it stays wherever the hand leaves it.
 // The player sets the spring's stiffness: too soft loses to friction, too stiff beats a hand.
 import type { Kit, Part, Shape } from "../../../shared/kit.ts";
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { type Control, type Ctx, type Mark, type Run, type StoryModuleSpec, type Test, type TestCtx, type Values, type Vec, vec, zoneAt } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";
 import { arrowMark, latheAxis, overlay } from "../templates/pair.ts";

@@ -1,7 +1,7 @@
 // Falling drops, their splash and the puddle they make, from the bottle's flip and spill. Scaled by
 // `k`, the object's size over a hand-tall bottle's, so a small object drips small drops on the same timing.
 import type { Shape } from "../../../shared/kit.ts";
-import { clamp01 } from "../ease.ts";
+import { clamp01 } from "../../../shared/primitives/motion/ease.ts";
 import { type Mark, vec, type Vec } from "../model.ts";
 
 const DEG = Math.PI / 180;

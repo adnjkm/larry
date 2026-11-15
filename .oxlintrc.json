@@ -20,6 +20,15 @@
         "larry/font-tokens": "warn",
         "larry/ui-sdk": "warn"
       }
+    },
+    {
+      "files": [
+        "shared/**",
+        "server/**"
+      ],
+      "rules": {
+        "larry/shared-pure": "error"
+      }
     }
   ],
   "ignorePatterns": [
