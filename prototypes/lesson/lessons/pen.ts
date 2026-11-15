@@ -493,6 +493,45 @@ const clickIn: Test = {
   },
 };
 
+/**
+ * Two clicks in a row, the question the cam answers. With the cam, the first leaves the tip out and the second lets it
+ * back. Without it every click is the same: the tip goes out with the thumb and comes straight back.
+ */
+const clickTwice: Test = {
+  id: "twice",
+  label: "Click twice",
+  run: (_, ctx) => {
+    const cam = has(ctx, CAM);
+    const inside: Pose = { out: 0, press: 0, sag: 0 };
+    const down: Pose = { out: T, press: T, sag: 0 };
+    const held: Pose = { out: T, press: 0, sag: 0 };
+    const after = cam ? held : inside;
+    const [push, hold, up, stay, again, back, rest] = [420, 220, 360, 900, 420, 420, 600];
+    const steps: [number, Pose, Pose][] = [
+      [push, inside, down],
+      [hold, down, down],
+      [up, down, after],
+      [stay, after, after],
+      [again, after, down],
+      [hold, down, down],
+      [back, down, inside],
+      [rest, inside, inside],
+    ];
+    return {
+      verdict: cam ? { pass: true, line: "One click leaves it out. The next lets it back." } : { pass: false, line: "Every click is the same: it comes straight back." },
+      durationMs: steps.reduce((sum, [ms]) => sum + ms, 0),
+      at: (ms) => {
+        let from = 0;
+        for (const [length, a, b] of steps) {
+          if (ms <= from + length) return frame(ctx, mixPose(a, b, seg(ms, from, from + length)), "");
+          from += length;
+        }
+        return frame(ctx, inside, "");
+      },
+    };
+  },
+};
+
 /** Retraction, working: a click sends the tip out and it stays; the next click tucks it away. Played on the finished pen. */
 const clicking: Test = {
   id: "clicking",
@@ -804,7 +843,7 @@ export default defineStory({
 export const PEN_RIG = {
   keys: { squeeze: SQUEEZE, stiffness: STIFFNESS, press: PRESS, pressure: PRESSURE, notch: NOTCH },
   controls: { squeeze, stiffness, pressing, pressure, notch },
-  tests: { write, wait, lift, press, letgo, again, clickOut, clickIn, push },
+  tests: { write, wait, lift, press, letgo, again, clickOut, clickIn, push, clickTwice },
   /** Each mechanism working, to watch before building it. */
   demos: { writing: write, clicking },
   frames: FRAMES,

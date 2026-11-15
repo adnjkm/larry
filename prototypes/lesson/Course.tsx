@@ -8,6 +8,7 @@ import { bindStory, familyOf, presentAfter, type Story, type Test, type Values, 
 import { MatchRow } from "./MatchRow.tsx";
 import { Place } from "./Place.tsx";
 import { Rig } from "./Rig.tsx";
+import { Advance } from "./Tip.tsx";
 import { Actions, Plain, Say, Shell, type Step } from "./ui.tsx";
 import { Mechanism, PrimitiveScreen } from "../primitives/PrimitiveScreen.tsx";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
@@ -110,15 +111,16 @@ export function CourseFlow({
         story={story}
         kit={kit}
         index={screen.module}
-        next="Continue"
-        onNext={next}
+        next={screen.last ? "Start Over" : "Continue"}
+        onNext={screen.last ? onRestart : next}
+        tip={screen.tip}
         instruction={screen.say}
         trial={screen.trial}
         absent={screen.absent}
         header={
           <>
             <Mechanism name={name} step={mechanism} />
-            {screen.does ? <Needs lines={[screen.does]} /> : null}
+            {screen.does ? <Needs lines={[screen.does, ...(screen.also ?? [])]} /> : null}
           </>
         }
       />
@@ -127,13 +129,10 @@ export function CourseFlow({
     const page = { name, step: mechanism, onNext: next };
     if (screen.kind === "demo") body = <Demo key={at} story={story} kit={sealed} {...page} screen={screen} />;
     else if (screen.kind === "match") body = <Match key={at} {...page} screen={screen} jobs={course.jobs} />;
-    else if (screen.kind === "works") body = <Works key={at} {...bench} {...page} screen={screen} values={values} onValues={setValues} onNext={screen.last ? onRestart : next} />;
     else if (screen.kind === "gap") body = <Gap key={at} {...bench} {...page} screen={screen} />;
     else if (screen.kind === "who") body = <Who key={at} {...bench} {...page} screen={screen} options={learned} jobs={course.jobs} />;
-    else if (screen.kind === "much") body = <Much key={at} {...bench} {...page} screen={screen} values={values} onValues={setValues} />;
-    else if (screen.kind === "broke") body = <Broke key={at} {...bench} {...page} screen={screen} values={values} onValues={setValues} jobs={course.jobs} />;
-    else if (screen.kind === "break") body = <Break key={at} {...bench} {...page} screen={screen} values={values} onValues={setValues} />;
-    else body = <Final key={at} {...bench} {...page} screen={screen} values={values} onValues={setValues} onNext={onRestart} />;
+    // The slider screens are retired (course.ts): a lesson that still lists one shows nothing for it.
+    else body = null;
   }
 
   return (
@@ -164,8 +163,9 @@ function Page({
   bad,
   next = "Continue",
   onNext,
+  tip,
   children,
-}: PageProps & { kind: keyof typeof FORMAT | "demo"; say: string; note?: boolean; done: boolean; line?: string; bad?: boolean; next?: string; children: ReactNode }) {
+}: PageProps & { kind: keyof typeof FORMAT | "demo"; say: string; note?: boolean; done: boolean; line?: string; bad?: boolean; next?: string; children: ReactNode; /** More of an explanation, offered until the question is answered. */ tip?: readonly string[] }) {
   // A demo doesn't cut to the next screen: its rows go and its bubble draws down first (DemoBubble), then it moves on.
   const [leaving, setLeaving] = useState(false);
   return (
@@ -191,9 +191,13 @@ function Page({
         </p>
       )}
       <Actions>
-        <button type="button" className="btn" data-next disabled={!done} onClick={kind === "demo" ? () => setLeaving(true) : onNext}>
-          <PillSurface>{next}</PillSurface>
-        </button>
+        {kind === "demo" ? (
+          <button type="button" className="btn" data-next disabled={!done} onClick={() => setLeaving(true)}>
+            <PillSurface>{next}</PillSurface>
+          </button>
+        ) : (
+          <Advance done={done} next={next} onNext={onNext} tip={tip} />
+        )}
       </Actions>
     </main>
   );
@@ -418,6 +422,8 @@ function Match({ screen, jobs, ...page }: PageProps & { screen: Of<"match">; job
     const ids = [...new Set(screen.rows.map((r) => r.primitive))];
     return [...ids.slice(1), ...ids.slice(0, 1)];
   }, [screen]);
+  // The tip is each primitive in a line: what it is, as its own screen put it.
+  const tips = useMemo(() => tray.map((id) => `${primitive(id).name}: ${lower(primitive(id).play?.facts?.is ?? primitive(id).job)}`), [tray]);
   const [placed, setPlaced] = useState<Readonly<Record<number, string>>>({});
   const [drag, setDrag] = useState<Drag | null>(null);
   const [miss, setMiss] = useState<string>();
@@ -438,7 +444,7 @@ function Match({ screen, jobs, ...page }: PageProps & { screen: Of<"match">; job
   };
 
   return (
-    <Page kind="match" {...page} say="Drag each one to the job it does." done={done} line={miss ?? why} bad={miss !== undefined}>
+    <Page kind="match" {...page} say="Drag each one to the job it does." done={done} line={miss ?? why} bad={miss !== undefined} tip={tips}>
       <ul className="match-rows">
         {screen.rows.map((row, i) => (
           <MatchRow key={row.does} index={i} does={row.does} filled={placed[i] !== undefined} over={drag?.over === i && placed[i] === undefined} slot={placed[i] ? <Chip id={placed[i]} slotted /> : <Well />} />
@@ -481,53 +487,6 @@ function Match({ screen, jobs, ...page }: PageProps & { screen: Of<"match">; job
   );
 }
 
-/** The hard problem: every dial at once, set wrong and saying nothing, and a test for each sub-function. All must pass at one setting. */
-function Works({ story, kit, screen, values, onValues, ...page }: Bench & PageProps & Tuned & { screen: Of<"works"> }) {
-  const { present, pink } = useParts(story, kit, screen.after, NONE, screen.hide);
-  // Each dial carries its primitive's name, not what it does: knowing which one to reach for is the question.
-  const controls = useMemo(() => screen.dials.map((d) => ({ ...d.control, verb: primitive(d.primitive).name })), [screen]);
-  const tests = useMemo(() => screen.goals.map((g) => g.test), [screen]);
-  const [last, setLast] = useState<Verdict>();
-  const [results, setResults] = useState<Readonly<Record<string, Verdict>>>({});
-  const done = tests.every((t) => results[t.id]?.pass);
-  return (
-    <Page kind="works" {...page} say={screen.say} done={done} line={done ? undefined : last?.line} bad={last !== undefined && !last.pass} next={screen.last ? "Start Over" : "Continue"}>
-      <ul className="goals">
-        {screen.goals.map((g) => {
-          const r = results[g.test.id];
-          return (
-            <li key={g.does} data-state={r ? (r.pass ? "pass" : "fail") : "idle"}>
-              {g.does}
-            </li>
-          );
-        })}
-      </ul>
-      <Rig
-        story={story}
-        kit={kit}
-        present={present}
-        pink={pink}
-        frame={screen.frame}
-        controls={controls}
-        values={values}
-        onValues={(v) => {
-          setLast(undefined);
-          setResults({});
-          onValues(v);
-        }}
-        tests={tests}
-        blind
-        locked={done}
-        onResult={(_, verdict, all) => {
-          setLast(verdict);
-          setResults(all);
-        }}
-      />
-    </Page>
-  );
-}
-
-/** The primitives to pick from, as keys: a wrong one is marked and stays wrong, the right one ends the picking. */
 function Choices({ options, answer, picked, onPick }: { options: readonly string[]; answer: string; picked: readonly string[]; onPick: (id: string) => void }) {
   const solved = picked.includes(answer);
   return (
@@ -564,135 +523,6 @@ function Who({ story, kit, screen, options, jobs, ...page }: Bench & PageProps &
     <Page kind="who" {...page} say={`${screen.does}.`} done={solved} line={solved ? screen.why : wrong} bad={!solved}>
       <Rig story={story} kit={kit} present={present} pink={NONE} frame={screen.frame} values={NO_VALUES} tests={NO_TESTS} />
       <Choices options={options} answer={screen.answer} picked={picked} onPick={pick} />
-    </Page>
-  );
-}
-
-type Tuned = { values: Values; onValues: (next: Values) => void };
-
-function Much({ story, kit, screen, values, onValues, ...page }: Bench & PageProps & Tuned & { screen: Of<"much"> }) {
-  const { present, pink } = useParts(story, kit, screen.after);
-  const [last, setLast] = useState<Verdict>();
-  const [done, setDone] = useState(false);
-  return (
-    <Page kind="much" {...page} say={`${screen.does}.`} done={done} line={done ? screen.need : last?.line} bad={!done}>
-      <Rig
-        story={story}
-        kit={kit}
-        present={present}
-        pink={pink}
-        frame={screen.frame}
-        controls={[screen.control]}
-        blind
-        values={values}
-        onValues={(v) => {
-          setLast(undefined);
-          onValues(v);
-        }}
-        tests={screen.tests}
-        locked={done}
-        onResult={(_, verdict, all) => {
-          setLast(verdict);
-          if (screen.tests.every((t) => all[t.id]?.pass)) setDone(true);
-        }}
-      />
-    </Page>
-  );
-}
-
-function Broke({ story, kit, screen, values, onValues, jobs, ...page }: Bench & PageProps & Tuned & { screen: Of<"broke">; jobs: Course["jobs"] }) {
-  const { present, pink } = useParts(story, kit, screen.after, NONE, screen.hide);
-  const { picked, solved, wrong, pick } = usePick(screen.answer, jobs);
-  const [watched, setWatched] = useState<Verdict>();
-  const [last, setLast] = useState<Verdict>();
-  const [fixed, setFixed] = useState(false);
-  const faulty = useMemo(() => ({ ...values, ...screen.fault }), [screen]);
-  const behaviour = useMemo(() => [screen.behaviour], [screen]);
-  // First the behaviour and the pick; then the same bench with the faulty part's control, to put it right.
-  if (!solved)
-    return (
-      <Page kind="broke" {...page} say="Watch it. Which part is at fault?" done={false} line={wrong ?? watched?.line} bad>
-        <Rig story={story} kit={kit} present={present} pink={pink} frame={screen.frame} values={faulty} tests={behaviour} opening={screen.behaviour} onResult={(_, v) => setWatched(v)} />
-        <Choices options={screen.options} answer={screen.answer} picked={picked} onPick={pick} />
-      </Page>
-    );
-  return (
-    <Page kind="broke" {...page} say={`The ${lower(primitive(screen.answer).name)}. Now fix it.`} note done={fixed} line={last?.line ?? screen.found} bad={last !== undefined && !fixed}>
-      <Rig
-        story={story}
-        kit={kit}
-        present={present}
-        pink={pink}
-        frame={screen.frame}
-        controls={[screen.control]}
-        values={values}
-        onValues={(v) => {
-          setLast(undefined);
-          onValues(v);
-        }}
-        tests={screen.tests}
-        locked={fixed}
-        onResult={(_, verdict, all) => {
-          setLast(verdict);
-          if (screen.tests.every((t) => all[t.id]?.pass)) setFixed(true);
-        }}
-      />
-    </Page>
-  );
-}
-
-function Break({ story, kit, screen, values, onValues, ...page }: Bench & PageProps & Tuned & { screen: Of<"break"> }) {
-  const { present, pink } = useParts(story, kit, screen.after);
-  const [last, setLast] = useState<Verdict>();
-  const done = last?.kind === screen.outcome;
-  const line = last === undefined ? "Change one thing, then try it." : done ? last.line : last.pass ? "Still working. Change something." : `${last.line} Not the failure asked for.`;
-  return (
-    <Page kind="break" {...page} say={`${screen.failure}.`} done={done} line={line} bad={last !== undefined && !done}>
-      <Rig
-        story={story}
-        kit={kit}
-        present={present}
-        pink={pink}
-        frame={screen.frame}
-        controls={screen.controls}
-        values={values}
-        onValues={(v) => {
-          setLast(undefined);
-          onValues(v);
-        }}
-        tests={[screen.test]}
-        locked={done}
-        onResult={(_, verdict) => setLast(verdict)}
-      />
-    </Page>
-  );
-}
-
-/** The whole object with its last control in hand: every test has to pass. */
-function Final({ story, kit, screen, values, onValues, ...page }: Bench & PageProps & Tuned & { screen: Of<"final"> }) {
-  const { present } = useParts(story, kit, screen.after);
-  const [last, setLast] = useState<Verdict>();
-  const [done, setDone] = useState(false);
-  return (
-    <Page kind="final" {...page} say={screen.say} done={done} line={done ? screen.success : last?.line} bad={!done} next="Start Over">
-      <Rig
-        story={story}
-        kit={kit}
-        present={present}
-        pink={NONE}
-        frame={screen.frame}
-        controls={[screen.control]}
-        values={values}
-        onValues={(v) => {
-          setLast(undefined);
-          onValues(v);
-        }}
-        tests={screen.tests}
-        onResult={(_, verdict, all) => {
-          setLast(verdict);
-          if (screen.tests.every((t) => all[t.id]?.pass)) setDone(true);
-        }}
-      />
     </Page>
   );
 }

@@ -26,6 +26,9 @@ export type Screen =
    * primitives wait below as small pictures. Each is dragged to the job it does.
    */
   | { kind: "match"; rows: readonly { does: string; primitive: string; why: string }[] }
+  // RETIRED (2026-11-15): every screen below that hands over a slider to set ("works", "much", "broke", "break",
+  // "final") is no longer a lesson format. Lessons do not use them and Course.tsx does not draw them; the types stay
+  // only because prototypes/combined still names them.
   /**
    * The hard problem. Every dial the mechanism has is handed over at once, set wrong, named only by its primitive and
    * with no word for where it stands. Each sub-function has a test, and it is done when every test passes at one
@@ -41,7 +44,7 @@ export type Screen =
    * A piece dragged onto the object. With `does` it is shown as answering that sub-function: the sub-function sits in
    * the pink card, `say` tells the player what to drag, and `trial` plays after every drop to show whether it now holds.
    */
-  | { kind: "place"; module: number; does?: string; say?: string; trial?: Trial; /** Parts not on the object yet, though an earlier module of the story makes them. */ absent?: readonly string[] }
+  | { kind: "place"; module: number; does?: string; /** Further sub-functions the piece answers, listed under the first. */ also?: readonly string[]; say?: string; trial?: Trial; /** What the Tip pill explains. */ tip?: readonly string[]; /** The lesson's last screen. */ last?: boolean; /** Parts not on the object yet, though an earlier module of the story makes them. */ absent?: readonly string[] }
   /** How much? Set the primitive's number so the sub-function is met: every test passes. */
   | { kind: "much"; after: number; frame?: Frame; does: string; need: string; control: Control; tests: readonly Test[]; set?: Values }
   /** What broke? A behaviour plays at `fault`; pick the primitive responsible, then fix it with `control`. */

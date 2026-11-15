@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Kit, Part, Shape } from "../../shared/kit.ts";
 import { play, useAlive } from "./anim.ts";
-import { PillSurface } from "../../src/ui/PillSurface.tsx";
+import { Advance } from "./Tip.tsx";
 import { Cheer } from "./Cheer.tsx";
 import { cornersOf, cover, GHOST, MIN_HIT, screenBox } from "./DragBuild.tsx";
 import { lensOf, type Point } from "./lens.ts";
@@ -89,9 +89,11 @@ type Props = {
   trial?: Trial;
   /** Parts not on the object yet, though an earlier module of the story makes them. */
   absent?: readonly string[];
+  /** More of an explanation, offered on the pill until the piece is found. */
+  tip?: readonly string[];
 };
 
-export function Place({ story, kit, index, next, onNext, header, instruction, trial, absent }: Props) {
+export function Place({ story, kit, index, next, onNext, header, instruction, trial, absent, tip }: Props) {
   const alive = useAlive();
   const module = story.modules[index]!;
   const place = module.place!;
@@ -372,9 +374,7 @@ export function Place({ story, kit, index, next, onNext, header, instruction, tr
         </p>
       )}
       <Actions>
-        <button type="button" className="btn" data-next disabled={!found} onClick={onNext}>
-          <PillSurface>{next}</PillSurface>
-        </button>
+        <Advance done={found} next={next} onNext={onNext} tip={tip} />
       </Actions>
     </main>
   );
