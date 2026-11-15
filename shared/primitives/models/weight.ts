@@ -22,7 +22,7 @@
 // lightest bob that still snaps, where the string breaks the instant before the bottom.
 import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, fall, rockBack, smooth } from "../motion/ease.ts";
-import { frame, MARK, phases, say, SCENE } from "../motion/run.ts";
+import { frame, MARK, phases, SCENE } from "../motion/run.ts";
 import { ARROW_GAP, ARROW_MIN, arrow, arrowLength, box, fmt, lathe, look, on, part, plate, PLATE_TOP, RAD, shaped, strand, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -265,14 +265,13 @@ export function freedAt(mass: number, swing: number) {
 
 function judge(v: Values): Verdict {
   const r = strike(v);
-  const hit = `${fmt(r.mass, 1)} kg × ${fmt(r.speed, 2)} m/s = ${fmt(r.momentum, 2)} kg·m/s`;
   switch (r.kind) {
     case "light":
-      return { pass: false, outcome: "too-light", headline: "Crate only rocked", detail: `${hit}, short of the ${NEED} the crate needs.` };
+      return { pass: false, outcome: "too-light", headline: "Crate only rocked", detail: "Too light: the ball hits too softly to knock the crate off." };
     case "snap":
-      return { pass: false, outcome: "string-snapped", headline: "The string snapped", detail: `${fmt(r.mass, 1)} kg × 9.8 × ${fmt(r.factor, 2)} = ${fmt(r.pull)} N; it takes ${SNAP}. The ball drops short of the crate.` };
+      return { pass: false, outcome: "string-snapped", headline: "The string snapped", detail: "Too heavy: the string cannot take the pull, so the ball drops short." };
     case "pass":
-      return { pass: true, outcome: "knocked-off", headline: "Crate knocked off", detail: `${hit}, over the ${NEED} needed; the string takes ${fmt(r.pull)} of its ${SNAP} N.` };
+      return { pass: true, outcome: "knocked-off", headline: "Crate knocked off", detail: "Hard enough to knock the crate off, and the string held." };
   }
 }
 
@@ -280,7 +279,7 @@ function meters(v: Values): [Meter, Meter] {
   const r = strike(v);
   return [
     { label: "Hit", value: r.momentum, target: NEED, max: 3, unit: "kg·m/s", need: "atLeast", digits: 2 },
-    { label: "String pull", value: r.pull, target: SNAP, max: 80, unit: "N", need: "atMost" },
+    { label: "String load", value: r.pull, target: SNAP, max: 80, unit: "N", need: "atMost" },
   ];
 }
 
@@ -321,7 +320,6 @@ const swingTo = (a0: number, angle: number) => Math.acos(clamp(angle / a0, -1, 1
 function play(v: Values): Run {
   const verdict = judge(v);
   const r = strike(v);
-  const s0 = settle(v);
   const a0 = swingOf(v);
   const snaps = r.kind === "snap";
   const slowMs = SLOW * 1000;
@@ -357,9 +355,9 @@ function play(v: Values): Run {
   const crateAfter = (t: number): { crate: Crate; live: string } => {
     if (r.kind === "light") {
       const tilt = clamp((ROCK_MAX * r.momentum) / NEED, 0, ROCK_MAX) * rockBack(t / ROCK_MS, 2);
-      return { crate: rocking(tilt), live: `Hit ${say(r.momentum, 1)} of ${NEED} needed` };
+      return { crate: rocking(tilt), live: "Crate rocks" };
     }
-    if (t < SLIDE_MS) return { crate: { away: SLIDE * easeOut(t / SLIDE_MS), down: 0, tilt: 0 }, live: `Hit ${say(r.momentum, 1)} kg·m/s` };
+    if (t < SLIDE_MS) return { crate: { away: SLIDE * easeOut(t / SLIDE_MS), down: 0, tilt: 0 }, live: "Crate sliding" };
     if (t < SLIDE_MS + TIP_MS) return { crate: tipping(TIP_A * fall((t - SLIDE_MS) / TIP_MS)), live: "Crate tips over" };
     const u = clamp01((t - SLIDE_MS - TIP_MS) / FALL_MS);
     return { crate: tipping(TIP_A + (90 - TIP_A) * u, SPREAD * easeOut(u), DROP * fall(u)), live: u >= 1 ? "Crate knocked off" : "Crate falls" };
@@ -375,24 +373,24 @@ function play(v: Values): Run {
       const { phase } = tl.at(ms);
       switch (phase) {
         case "lead":
-          return frame(values({}), `Held ${say(Math.abs(a0))}° out`);
+          return frame(values({}), "Ball held back");
         case "swing": {
           const t = ms - tl.start("swing");
-          return frame(values(bobAt(angleAt(t))), `Swing ${say(t / slowMs, 2)} s`);
+          return frame(values(bobAt(angleAt(t))), "Swinging");
         }
         case "after": {
           const t = ms - impact;
           if (fl) {
             const p = fl.position(t / slowMs);
             const up = t > flightMs ? BOUNCE * rockBack((t - flightMs) / LAND_BOUNCE_MS, 2) : 0;
-            const live = t < fl.tHit * slowMs ? "String snapped" : t < flightMs ? "Ball falls short" : `Snapped at ${SNAP} N`;
+            const live = t < fl.tHit * slowMs ? "String snapped" : t < flightMs ? "Ball falls short" : "Snapped!";
             return frame(values({ ...bobAt(-r.breakAt * DEG), snap: 1, fx: p.x, fy: p.y + up }), live);
           }
           const { crate, live } = crateAfter(t);
           return frame(values({ ...bobAt(bobAfter(t)), ...cratePose(crate) }), live);
         }
         case "hold": {
-          if (fl) return frame(values({ ...bobAt(-r.breakAt * DEG), snap: 1, fx: fl.hit.x, fy: fl.yRest }), `Snapped at ${SNAP} N`);
+          if (fl) return frame(values({ ...bobAt(-r.breakAt * DEG), snap: 1, fx: fl.hit.x, fy: fl.yRest }), "String snapped");
           const end = crateAfter(afterMs).crate;
           return frame(values({ ...bobAt(bobAfter(afterMs + ms - tl.start("hold"))), ...cratePose(end) }), r.kind === "pass" ? "Crate knocked off" : "Crate stayed put");
         }
@@ -448,7 +446,7 @@ export const weight: Primitive = {
   game: {
     name: "Wrecking ball",
     goal: "Knock the crate off its pedestal without snapping the string.",
-    rules: `The crate needs a ${NEED} kg·m/s hit. The string breaks at ${SNAP} N. Drag the bob back to set the angle; the swing takes the same time at any mass.`,
+    rules: "A heavier ball hits harder, but a heavy ball also pulls harder on the string. Pull the ball back to choose how far it swings.",
     number: "mass",
     action: "Let go",
     meters,

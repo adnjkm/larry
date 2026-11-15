@@ -1,6 +1,13 @@
 # Larry figure design language
 
-## Simple first (this outranks everything below)
+## No numbers on screen (owner's rule, 2026-11-14; outranks everything below)
+The player never reads a number, unit or formula. The game teaches by feel, like the water bottle lesson: slide, act, watch what happens.
+- Goal, rules, action, slider and meter labels, verdict headline and detail, and every live caption are words only. `checks.ts` fails any digit in them.
+- Meters and sliders show bars, not values. Readouts stay in the model for tests and the library page, but the game screen does not show them.
+- Say why the part matters in plain words: what it lets you do, and what fails without it ("Too short an arm: your finger can't push hard enough"). No "15 ÷ 4 = 3.8".
+- Numbers still live in the code. Geometry, judge and play keep their real quantities; only the text the player reads changes.
+
+## Simple first
 These figures teach fundamentals. A reader should recognise the textbook picture at a glance: a seesaw, a wedge between two blocks, a weight on a string. The project owner's note on the first rewrites: high quality, but some are coming out overly complicated, which defeats the point.
 - A figure is the piece, plus the least that lets it do its job. If a part can go and the idea still reads, it goes.
 - Budget, counting distinct kinds of part at rest (repeated copies such as teeth, spokes or chain links count once): an element has at most 7, a mechanism at most 9. The plate, the handle, the load and arrows are all included in that count.

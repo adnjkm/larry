@@ -18,7 +18,7 @@
 // up and the cord breaks at 40 N: too gentle and the weight never reaches the line, too hard and the cord snaps.
 import type { Part } from "../../kit.ts";
 import { clamp, easeOut, fall, smooth } from "../motion/ease.ts";
-import { frame, handArrow, MARK, phases, say, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, handArrow, MARK, phases, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, box, chain, cylinder, fmt, look, on, part, PLATE_TOP, plate, post, pullRing, tick, v3, type Pt, type Vec } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -160,22 +160,21 @@ export function yank(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = yank(v);
-  const f = fmt(r.f, 2);
   switch (r.kind) {
     case "snap":
-      return { pass: false, outcome: "cord-snapped", headline: "The cord snapped", detail: `The pull peaks at ${fmt(r.weight)} × (1 + ${f}) = ${fmt(r.peak, 1)} N; the cord breaks at ${BREAK} N.` };
+      return { pass: false, outcome: "cord-snapped", headline: "The cord snapped", detail: "Too hard a yank: the cord cannot take the sudden pull, so it breaks." };
     case "gentle":
-      return { pass: false, outcome: "too-gentle", headline: "Fell short", detail: `A yank of ${f} lifts the weight ${STROKE} × (1 + ${f}) = ${fmt(r.reach, 1)} mm; the line is ${LINE} mm up.` };
+      return { pass: false, outcome: "too-gentle", headline: "Fell short", detail: "Too soft a yank: the weight lifts but never gets as high as the line." };
     case "pass":
-      return { pass: true, outcome: "reached-the-line", headline: "Reached the line", detail: `${fmt(r.weight)} × (1 + ${f}) = ${fmt(r.peak, 1)} N is under ${BREAK} N, and ${STROKE} × (1 + ${f}) = ${fmt(r.reach, 1)} mm is past the ${LINE} mm line.` };
+      return { pass: true, outcome: "reached-the-line", headline: "Reached the line", detail: "The yank is hard enough to throw the weight past the line, and gentle enough to spare the cord." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = yank(v);
   return [
-    { label: "Peak pull", value: r.peak, target: BREAK, max: 90, unit: "N", need: "atMost", digits: 1 },
-    { label: "Rises to", value: r.reach, target: LINE, max: 30, unit: "mm", need: "atLeast", digits: 1 },
+    { label: "Cord strain", value: r.peak, target: BREAK, max: 90, unit: "N", need: "atMost", digits: 1 },
+    { label: "Height", value: r.reach, target: LINE, max: 30, unit: "mm", need: "atLeast", digits: 1 },
   ];
 }
 
@@ -223,16 +222,16 @@ function play(v: Values): Run {
         const q = tl.t("yank", ms) * qb;
         const pull = pullAt(q);
         const extra = w * r.f * smooth(q);
-        return frame(values(pull, { extra }), `Pull ${say(w + extra)} N, up ${say(Math.max(0, pull))} mm`);
+        return frame(values(pull, { extra }), "Yanking");
       }
       if (phase === "up" || phase === "down") {
         // The yank's extra pull is spent in the first moments of the flight, and the cord goes slack under the weight.
         const q = tl.t("up", ms);
         const flight = phase === "up" ? free * easeOut(q) : free * (1 - fall(tl.t("down", ms)));
         const extra = phase === "up" ? w * r.f * (1 - smooth(clamp(q / 0.15, 0, 1))) : 0;
-        return frame(values(STROKE, { flight, extra }), `Flying: ${say(STROKE + flight)} of ${LINE} mm`);
+        return frame(values(STROKE, { flight, extra }), "Flying up");
       }
-      if (phase === "land") return frame(values(STROKE), r.reach >= LINE - 1e-9 ? `Past the line, ${say(r.reach)} mm` : `Short by ${say(LINE - r.reach)} mm`);
+      if (phase === "land") return frame(values(STROKE), r.reach >= LINE - 1e-9 ? "Past the line" : "Too low");
       if (phase === "drop") return frame(values(pullB, { snapped: 1, flight: -Math.max(pullB, 0) * fall(tl.t("drop", ms)) }), "The weight drops");
       if (phase === "hold") return frame(snaps ? values(pullB, { snapped: 1, flight: -Math.max(pullB, 0) }) : values(STROKE), snaps ? "The cord is gone" : r.reach >= LINE - 1e-9 ? "It reached the line" : "It never got there");
       const from = snaps ? pullB : STROKE;
@@ -286,7 +285,7 @@ export const cord: Primitive = {
   game: {
     name: "Don't snap it",
     goal: "Yank the weight up to the line without snapping the cord.",
-    rules: `The cord breaks above ${BREAK} N. A yank of 1 doubles the pull. The weight must rise ${LINE} mm: ${STROKE} with the hand, the rest on its own.`,
+    rules: "A harder yank throws the weight higher, but strains the cord more. Too hard and it snaps; too soft and the weight falls short.",
     number: "yank",
     controls: [{ id: "yank", label: "Yank", min: 0, max: 2, step: 0.05, initial: 0.2, unit: "×" }],
     action: "Pull",

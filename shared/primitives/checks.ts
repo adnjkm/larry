@@ -78,11 +78,14 @@ export function checkWords(p: Primitive): void {
   const g = p.game as Game;
   const words = (s: string) => s.trim().split(/\s+/).length;
   assert.ok(words(g.rules) <= 30, fail(p, `rules run to ${words(g.rules)} words`));
+  for (const text of [g.name, g.goal, g.rules, g.action, ...[...p.sliders, ...(g.controls ?? [])].map((q) => q.label)])
+    assert.doesNotMatch(text, /\d/, fail(p, `"${text}" shows a number`));
   for (const v of numberSweep(p)) {
     const verdict = g.judge(v);
     assert.match(verdict.outcome, /^[a-z]+(-[a-z]+)*$/, fail(p, `outcome "${verdict.outcome}" is not kebab-case`));
     assert.ok(words(verdict.headline) >= 2 && words(verdict.headline) <= 5, fail(p, `headline "${verdict.headline}" is not 2 to 5 words`));
-    assert.match(verdict.detail, /\d/, fail(p, "the verdict's detail carries no number", v));
+    // No numbers anywhere the player reads: the game teaches by feel, not arithmetic (owner's rule, 2026-11-14).
+    assert.doesNotMatch(`${verdict.headline} ${verdict.detail}`, /\d/, fail(p, `the verdict "${verdict.headline} ${verdict.detail}" shows a number`, v));
     for (const m of g.meters(v)) assert.ok(m.label.length <= 12, fail(p, `meter label "${m.label}" is over 12 characters`));
   }
 }
@@ -106,6 +109,7 @@ export function checkRunFrames(p: Primitive): void {
       }
       const words = frame.live.trim().split(/\s+/).filter(Boolean).length;
       assert.ok(words >= 1 && words <= 6, fail(p, `${at} caption "${frame.live}" is not 1 to 6 words`, v));
+      assert.doesNotMatch(frame.live, /\d/, fail(p, `${at} caption "${frame.live}" shows a number`, v));
       const built = p.build(frame.values);
       const scene = g.scene?.(frame.values) ?? [];
       const ids = new Set([...built, ...scene].map((q) => q.id));

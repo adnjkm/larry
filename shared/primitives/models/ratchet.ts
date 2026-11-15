@@ -13,7 +13,7 @@
 // by the teeth, in newtons) is the game's own simplification: it says finer teeth are weaker, not what steel does.
 import type { Part } from "../../kit.ts";
 import { clamp, clamp01, fall, shudder, smooth } from "../motion/ease.ts";
-import { frame, MARK as MARK_ID, phases, say, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, MARK as MARK_ID, phases, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, coil, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, pin, pivoted, plate, PLATE_TOP, post, shaped, strand, tick, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 import { LIFT_CLEAR, PAWL, PIVOT, ROOT, STUMP, type Stripped, toothHeight, turnAbout, Wheel, restingLift, wheelDeg } from "./ratchetGeometry.ts";
@@ -188,22 +188,21 @@ export function stopAt(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = stopAt(v);
-  const apart = `${r.n} teeth put landings ${fmt(LIFT_PER_TURN, 1)} ÷ ${r.n} = ${fmt(r.spacing, 1)} mm apart`;
   switch (r.kind) {
     case "strips":
-      return { pass: false, outcome: "teeth-stripped", headline: "The teeth sheared off", detail: `On this wheel each of ${r.n} teeth holds about ${TOOTH} ÷ ${r.n} = ${fmt(r.holds)} N, under the ${LOAD} N bucket, so they shear.` };
+      return { pass: false, outcome: "teeth-stripped", headline: "Teeth sheared off", detail: "Too many fine teeth: each one is too weak to hold the bucket." };
     case "slips":
-      return { pass: false, outcome: "slipped-past", headline: "Slipped past the mark", detail: `${apart}, so it fell back to one ${fmt(r.drop, 1)} mm under the mark; it may drop ${TOLERANCE} mm at most.` };
+      return { pass: false, outcome: "slipped-past", headline: "Slipped past the mark", detail: "Too few teeth: the pawl only catches far below the mark, so the bucket sinks." };
     case "pass":
-      return { pass: true, outcome: "held-at-mark", headline: "Held at the mark", detail: `${apart}; the one under the mark is ${fmt(r.drop, 1)} mm below it, and each tooth holds about ${fmt(r.holds)} N against the ${LOAD} N bucket.` };
+      return { pass: true, outcome: "held-at-mark", headline: "Held at the mark", detail: "The pawl catches right under the mark, and the teeth are strong enough to hold." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = stopAt(v);
   return [
-    { label: "Tooth holds", value: r.holds, target: LOAD, max: 140, unit: "N", need: "atLeast" },
-    { label: "Under mark", value: r.drop, target: TOLERANCE, max: 7, unit: "mm", need: "atMost", digits: 1 },
+    { label: "Tooth grip", value: r.holds, target: LOAD, max: 140, unit: "N", need: "atLeast" },
+    { label: "Sinks", value: r.drop, target: TOLERANCE, max: 7, unit: "mm", need: "atMost", digits: 1 },
   ];
 }
 
@@ -313,7 +312,7 @@ function play(v: Values): Run {
           return frame(values(t0), "Wind to the mark");
         case "wind": {
           const turn = windTurn(ms);
-          return frame(values(turn), `Click ${Math.round(landingBelow(turn, n) * n)}, ${say(turn * LIFT_PER_TURN)} of ${MARK} mm`);
+          return frame(values(turn), "Clicking up");
         }
         case "atMark":
           return frame(values(r.markTurn), "At the mark");
@@ -325,17 +324,15 @@ function play(v: Values): Run {
         case "strain": {
           // The tooth takes the bucket's weight and the wheel shivers on the pawl: forward only, never through it.
           const turn = r.landTurn + (0.4 / 360) * Math.abs(shudder(tl.t("strain", ms)));
-          return frame(values(turn), `Tooth takes ${LOAD} N`);
+          return frame(values(turn), "Tooth takes weight");
         }
         case "rundown": {
           const turn = downTurn(ms);
-          const gone = sheared.filter((c) => ms >= c.ms).length;
-          return frame(values(turn, { strip: r.landTurn }), `Stripping: ${gone} teeth`, chips(ms));
+          return frame(values(turn, { strip: r.landTurn }), "Teeth shearing", chips(ms));
         }
         case "hold": {
-          if (strips) return frame(values(0, { strip: r.landTurn }), `Stripped ${sheared.length} teeth`, chips(ms));
-          const under = r.drop;
-          return frame(values(r.landTurn), r.kind === "pass" ? `Held ${say(under)} mm under` : `Slipped ${say(under)} mm under`);
+          if (strips) return frame(values(0, { strip: r.landTurn }), "Teeth gone", chips(ms));
+          return frame(values(r.landTurn), r.kind === "pass" ? "Held" : "Slipped");
         }
       }
     },
@@ -392,8 +389,8 @@ export const ratchet: Primitive = {
   },
   game: {
     name: "Stop at the mark",
-    goal: "Wind the bucket up to the mark and let go: it has to stay there.",
-    rules: `Bucket ${LOAD} N, a turn lifts ${fmt(LIFT_PER_TURN, 1)} mm. On this wheel a tooth holds about ${TOOTH} ÷ teeth N (finer teeth are weaker). End within ${TOLERANCE} mm under the mark.`,
+    goal: "Wind the bucket to the mark and let go: it must stay.",
+    rules: "More teeth let the pawl catch closer to the mark, but each tooth is thinner and weaker. Too few and it sinks; too many and they snap.",
     number: "teeth",
     action: "Let go",
     meters,

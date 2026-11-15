@@ -46,10 +46,11 @@ A story lesson (`defineStory`, `Story.tsx`, `Play.tsx`) teaches the same parts w
 no units, counts, percentages or slider values on any screen or sheet. Each module runs:
 
 1. **Without it**: the object without this part fails in 3D (the cap shakes off, the neck drips).
-2. **Learn**: the primitive with word-only grips ("Twist", "Squeeze") and a Why sheet in plain words.
+2. **Learn**: the primitive from the shared library (`src/primitives`), drawn by its own figure stage with
+   its drag handle on the part ("Twist", "Press") and its slider row under it, and a Why sheet in plain words.
 3. **Build**: as above.
-4. **Make it work**: drag the grip to twist the cap on. The word beside it (Loose, Snug, Too tight)
-   comes from the same zones the tests read, and the grip gets stiffer as it tightens.
+4. **Make it work**: slide the twist to turn the cap on. The word beside it (Loose, Snug, Too tight)
+   comes from the same zones the tests read, and the slider gets stiffer as it tightens.
 
 The final screen runs every test and names each part's job. `defineStory` refuses any copy with a
 digit, and `verify.ts` checks that no digit shows on any screen. Only the bottle uses it so far.
@@ -90,6 +91,7 @@ kit's joints and words, otherwise Inspect (take it apart and name each part's jo
 | `App.tsx`, `main.tsx` | Picks the lesson for a sample and mounts the app |
 | `Home.tsx` | Sample picker and scan screen |
 | `Workshop.tsx`, `Learn.tsx`, `Assemble.tsx`, `Sandbox.tsx` | The module steps above |
+| `LearnRig.tsx` | A story's Learn step: the library figure, its handle and slider rows from `src/primitives` |
 | `DragBuild.tsx`, `lens.ts`, `outline.ts` | Build by dragging: the step, screen to kit and back through the viewer's camera, the ghost outline |
 | `Story.tsx`, `Play.tsx` | The story lesson's flow and its test screens (without it, make it work, final) |
 | `Inspect.tsx` | The take-apart lesson |
