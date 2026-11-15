@@ -3,7 +3,7 @@
 // primitive with a game; a model's own test file can call them directly. Test-only: imports node:assert.
 import assert from "node:assert/strict";
 import { Kit, kitProblems, type Part } from "../kit.ts";
-import { measurePoses } from "../../src/kit3d/buildKit.ts";
+import { measurePoses } from "../bounds.ts";
 import { poses } from "../../src/primitives/stage/framing.ts";
 import { MARK, SCENE } from "./motion/run.ts";
 import { ARROW_MIN, COLOR, PLATE_T, PLATE_MARGIN, PLATE_TOP } from "./parts.ts";

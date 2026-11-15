@@ -2,7 +2,7 @@
 // No DOM and no WebGL here, so it runs (and is measured) under node --test.
 import { type BufferGeometry, Group, type Material, Mesh, OrthographicCamera, PlaneGeometry, Scene, Vector3 } from "three";
 import type { Finish, Part, Shape } from "../../../shared/kit.ts";
-import type { KitBounds } from "../../kit3d/buildKit.ts";
+import type { KitBounds } from "../../../shared/bounds.ts";
 import type { Point } from "../../../shared/primitives/types.ts";
 import { GeometryCache, Stretch, sameShape, shapeKey, stretchFamily } from "./shapes.ts";
 

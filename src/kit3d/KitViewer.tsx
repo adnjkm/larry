@@ -1,13 +1,14 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as stylex from "@stylexjs/stylex";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, type ShaderMaterial, Vector3 } from "three";
+import { type KitBounds, measureParts } from "../../shared/bounds.ts";
 import type { Part } from "../../shared/kit.ts";
 import { reducedMotion, velocityTracker } from "../motion.ts";
-import { type BuiltPart, type KitBounds, measure, rotationOf } from "./buildKit.ts";
+import { geometries } from "../primitives/stage/scene.ts";
+import { shapeKey } from "../primitives/stage/shapes.ts";
 import { DEFAULT_LOOK, type DitherLook } from "./ditherLook.ts";
 import { applyLook, createDitherMaterial, createLookUniforms, createShadowMaterial } from "./ditherMaterial.ts";
-import { buildGeometry } from "./geometry.ts";
 
 const MARGIN = 1.12;
 const SPIN_RADIANS_PER_SECOND = 0.5;
@@ -50,16 +51,21 @@ const styles = stylex.create({
   }),
 });
 
+const DEG = Math.PI / 180;
+
+const lookKey = (part: Part) => `${part.color} ${part.finish}`;
+const disposeMaterial = (material: ShaderMaterial) => material.dispose();
+
 /**
- * One resource per distinct key, shared by every part with that key and kept across rebuilds.
- * A slider tick builds new part objects, but most parts only move, so their shapes and looks are reused.
+ * One material per distinct colour and finish, shared by every part with that look and kept across rebuilds.
+ * A slider tick builds new part objects, but most parts only move, so their looks are reused.
  */
-function useShared<T>(parts: Part[], key: (part: Part) => string, make: (part: Part) => T, dispose: (item: T) => void): T[] {
-  const cache = useRef(new Map<string, T>());
+function useMaterials(parts: Part[], make: (part: Part) => ShaderMaterial): ShaderMaterial[] {
+  const cache = useRef(new Map<string, ShaderMaterial>());
   const items = useMemo(
     () =>
       parts.map((part) => {
-        const k = key(part);
+        const k = lookKey(part);
         let item = cache.current.get(k);
         if (item === undefined) {
           item = make(part);
@@ -67,63 +73,102 @@ function useShared<T>(parts: Part[], key: (part: Part) => string, make: (part: P
         }
         return item;
       }),
-    [parts, key, make],
+    [parts, make],
   );
   useEffect(() => {
-    const live = new Set(parts.map(key));
+    const live = new Set(parts.map(lookKey));
     for (const [k, item] of cache.current) {
       if (live.has(k)) continue;
-      dispose(item);
+      disposeMaterial(item);
       cache.current.delete(k);
     }
-  }, [parts, key, dispose]);
-  useEffect(() => () => cache.current.forEach(dispose), [dispose]);
+  }, [parts]);
+  useEffect(() => () => cache.current.forEach(disposeMaterial), [make]);
   return items;
 }
 
-const shapeKey = (part: Part) => JSON.stringify(part.shape);
-const makeGeometry = (part: Part) => buildGeometry(part.shape);
-const disposeGeometry = (geometry: BufferGeometry) => geometry.dispose();
-const lookKey = (part: Part) => `${part.color} ${part.finish}`;
-const disposeMaterial = (material: ShaderMaterial) => material.dispose();
+const shapeKeys = new WeakMap<Part["shape"], string>();
+function keyOf(part: Part): string {
+  let key = shapeKeys.get(part.shape);
+  if (key === undefined) shapeKeys.set(part.shape, (key = shapeKey(part.shape)));
+  return key;
+}
+
+/**
+ * The parts' geometries from the stage's shared cache, so a viewer that mounts again (a new lesson step) builds nothing
+ * new. Each list of parts takes its references before the last list lets go of its own, so a shape both use is never released.
+ */
+function useGeometries(parts: Part[]): BufferGeometry[] {
+  const held = useMemo(() => {
+    const byKey = new Map<string, BufferGeometry>();
+    for (const part of parts) {
+      const key = keyOf(part);
+      if (!byKey.has(key)) byKey.set(key, geometries.acquire(key, part.shape));
+    }
+    return byKey;
+  }, [parts]);
+  useEffect(
+    () => () => {
+      for (const key of held.keys()) geometries.release(key);
+    },
+    [held],
+  );
+  return useMemo(() => parts.map((part) => held.get(keyOf(part))!), [parts, held]);
+}
+
+const cameraTarget = new Vector3();
+const cameraOffset = new Vector3();
+const FIT_KEYS = ["zoom", "targetY", "distance"] as const;
 
 function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimuth: number) {
-  const el = (elevation * Math.PI) / 180;
-  const az = (azimuth * Math.PI) / 180;
-  const target = new Vector3(0, fit.targetY, 0);
-  cam.position.copy(target).add(new Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(fit.distance));
-  cam.lookAt(target);
+  const el = elevation * DEG;
+  const az = azimuth * DEG;
+  cameraTarget.set(0, fit.targetY, 0);
+  cameraOffset.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(fit.distance);
+  cam.position.copy(cameraTarget).add(cameraOffset);
+  cam.lookAt(cameraTarget);
   cam.near = 0.1;
   cam.far = fit.distance * 2;
   cam.zoom = fit.zoom;
   cam.updateProjectionMatrix();
 }
 
-export function KitViewer({ parts, spin: wantsSpin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops, look = DEFAULT_LOOK }: KitViewerProps) {
+export const KitViewer = memo(function KitViewer({ parts, spin: wantsSpin = false, elevation = 20, azimuth = 30, height = 360, frame, pixelScale, shadowStops, look = DEFAULT_LOOK }: KitViewerProps) {
+  const box = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry!.isIntersecting));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const spin = wantsSpin && !reducedMotion.matches;
   const pixelSize = pixelScale ?? look.pixels.size;
   return (
-    <div data-kit-viewer {...stylex.props(styles.box(height, pixelSize, look.colors.paper))}>
+    <div ref={box} data-kit-viewer {...stylex.props(styles.box(height, pixelSize, look.colors.paper))}>
       <Canvas
         orthographic
         flat
-        frameloop={spin ? "always" : "demand"}
+        frameloop={spin && visible ? "always" : "demand"}
         dpr={1 / pixelSize}
-        gl={{ antialias: false, alpha: false }}
+        gl={{ antialias: false, alpha: false, powerPreference: "low-power" }}
         camera={{ position: [0, 0, 100], near: 0.1, far: 10000 }}
+        onCreated={({ gl }) => {
+          gl.debug.checkShaderErrors = import.meta.env.DEV;
+        }}
       >
         <color attach="background" args={[look.colors.paper]} />
         <Scene parts={parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} shadowStops={shadowStops} look={look} />
       </Canvas>
     </div>
   );
-}
+});
 
 function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { parts: Part[]; spin: boolean; elevation: number; azimuth: number; frame: KitBounds | undefined; shadowStops: readonly string[] | undefined; look: DitherLook }) {
   const { camera, size, gl, invalidate } = useThree();
-  const geometries = useShared(parts, shapeKey, makeGeometry, disposeGeometry);
-  const built = useMemo((): BuiltPart[] => parts.map((part, i) => ({ part, geometry: geometries[i]!, rotation: rotationOf(part) })), [parts, geometries]);
-  const bounds = useMemo(() => frame ?? measure(built), [frame, built]);
+  const shapes = useGeometries(parts);
+  const bounds = useMemo(() => frame ?? measureParts(parts), [frame, parts]);
   const pivot = useRef<Group>(null);
   const shadow = useRef<Mesh>(null);
   const yaw = useRef(0);
@@ -141,7 +186,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
   }, [lookUniforms, look, invalidate]);
 
   const makeMaterial = useCallback((part: Part) => createDitherMaterial(part.color, part.finish, lookUniforms), [lookUniforms]);
-  const materials = useShared(parts, lookKey, makeMaterial, disposeMaterial);
+  const materials = useMaterials(parts, makeMaterial);
 
   const shadowGeometry = useMemo(() => new PlaneGeometry(2, 2).rotateX(-Math.PI / 2), []);
   const shadowMaterial = useMemo(() => createShadowMaterial(lookUniforms, shadowStops), [lookUniforms, shadowStops]);
@@ -160,7 +205,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
   const shadowReach = sideways + Math.max(shadowRadius.x, shadowRadius.z);
 
   useLayoutEffect(() => {
-    const el = (elevation * Math.PI) / 180;
+    const el = elevation * DEG;
     const height = bounds.maxY - bounds.minY;
     const halfWide = Math.max(bounds.radius, shadowReach * 0.85);
     const halfTall = (height / 2) * Math.cos(el) + bounds.radius * Math.sin(el);
@@ -216,13 +261,15 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
     };
   }, [gl, invalidate]);
 
-  useFrame((_, delta) => {
+  useFrame((_, elapsed) => {
+    // After a pause (off screen, or a still view that was only redrawn on demand) the first frame would otherwise lurch.
+    const delta = Math.min(elapsed, 0.1);
     const current = fit.current;
     const goal = fitGoal.current;
     if (current && goal) {
       const k = reducedMotion.matches ? 1 : 1 - Math.exp(-delta / FIT_EASE_SECONDS);
       let moving = false;
-      for (const key of ["zoom", "targetY", "distance"] as const) {
+      for (const key of FIT_KEYS) {
         const gap = goal[key] - current[key];
         if (Math.abs(gap) < 1e-3 * Math.max(1, Math.abs(goal[key]))) current[key] = goal[key];
         else {
@@ -248,7 +295,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
     }
   });
 
-  const az = (azimuth * Math.PI) / 180;
+  const az = azimuth * DEG;
   const shadowPosition: [number, number, number] = [
     Math.cos(az) * sideways - Math.sin(az) * away,
     Math.min(0, bounds.minY),
@@ -260,8 +307,8 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
       <mesh ref={shadow} visible={look.shadow.show} geometry={shadowGeometry} material={shadowMaterial} position={shadowPosition} scale={[shadowRadius.x, 1, shadowRadius.z]} renderOrder={-1} />
       <group ref={pivot}>
         <group position={[-bounds.centerX, 0, -bounds.centerZ]}>
-          {built.map(({ part, geometry, rotation }, i) => (
-            <mesh key={part.id} geometry={geometry} material={materials[i]} position={[part.position.x, part.position.y, part.position.z]} rotation={rotation} />
+          {parts.map((part, i) => (
+            <mesh key={part.id} geometry={shapes[i]} material={materials[i]} position={[part.position.x, part.position.y, part.position.z]} rotation={[part.rotation.x * DEG, part.rotation.y * DEG, part.rotation.z * DEG]} />
           ))}
         </group>
       </group>

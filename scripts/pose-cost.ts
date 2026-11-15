@@ -2,9 +2,8 @@
 // a geometry per new key, an Euler per part) against the stage's (build, then diff-apply into a kept scene).
 // Each model's motion slider moves on the play sweep's cosine, a new value every frame, as in a run.
 // Usage: node scripts/pose-cost.ts [id ...]
-import { type BufferGeometry, MeshBasicMaterial } from "three";
+import { type BufferGeometry, Euler, MeshBasicMaterial } from "three";
 import type { Part } from "../shared/kit.ts";
-import { rotationOf } from "../src/kit3d/buildKit.ts";
 import { buildGeometry } from "../src/kit3d/geometry.ts";
 import { framePrimitive } from "../src/primitives/stage/framing.ts";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
@@ -13,6 +12,7 @@ import { StageScene } from "../src/primitives/stage/scene.ts";
 import type { Primitive, Values } from "../shared/primitives/types.ts";
 
 const FRAMES = 600;
+const rotationOf = (part: Part) => new Euler((part.rotation.x * Math.PI) / 180, (part.rotation.y * Math.PI) / 180, (part.rotation.z * Math.PI) / 180, "XYZ");
 const wanted = process.argv.slice(2);
 const material = new MeshBasicMaterial();
 

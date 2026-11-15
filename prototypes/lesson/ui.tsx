@@ -1,6 +1,6 @@
 import { createContext, type ReactNode, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Part } from "../../shared/kit.ts";
-import { type KitBounds, measureParts } from "../../src/kit3d/buildKit.ts";
+import { type KitBounds, measureParts } from "../../shared/bounds.ts";
 import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "./primitives/library.ts";
 import { SYNTHWAVE } from "./primitives/parts.ts";

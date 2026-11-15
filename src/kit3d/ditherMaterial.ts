@@ -45,6 +45,7 @@ function lookValues(look: DitherLook) {
     uLookContrast: look.light.contrast,
     uBrightness: look.light.brightness,
     uDarkColors: look.light.darkColors,
+    uDarkByValue: look.light.darkBy === "value" ? 1 : 0,
     uLookSpecular: look.light.specular,
     uShadowSoftness: look.shadow.softness,
     uShadowCore: look.shadow.core,
@@ -113,6 +114,7 @@ uniform float uRim;
 uniform float uLookContrast;
 uniform float uBrightness;
 uniform float uDarkColors;
+uniform float uDarkByValue;
 uniform float uLookSpecular;
 uniform vec3 uInk;
 uniform vec3 uPaper;
@@ -127,8 +129,8 @@ void main() {
   float lambert = max(dot(n, uLight), 0.0);
   float rim = pow(1.0 - clamp(n.z, 0.0, 1.0), 3.0) * uRim;
   float shade = uAmbient + (1.0 - uAmbient) * lambert + rim;
-  float luminance = dot(uColor, vec3(0.2126, 0.7152, 0.0722));
-  shade = (shade - 0.5) * uContrast * uLookContrast + 0.5 + uBias + uBrightness - uDarkColors * (1.0 - luminance);
+  float brightness = mix(dot(uColor, vec3(0.2126, 0.7152, 0.0722)), max(uColor.r, max(uColor.g, uColor.b)), uDarkByValue);
+  shade = (shade - 0.5) * uContrast * uLookContrast + 0.5 + uBias + uBrightness - uDarkColors * (1.0 - brightness);
   vec3 halfway = normalize(uLight + vec3(0.0, 0.0, 1.0));
   shade += uSpecular * uLookSpecular * pow(max(dot(n, halfway), 0.0), uShininess);
   shade = clamp(shade, 0.0, 1.0);
