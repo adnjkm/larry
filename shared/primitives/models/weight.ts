@@ -23,11 +23,11 @@
 import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, fall, rockBack, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases, SCENE } from "../motion/run.ts";
-import { ARROW_GAP, ARROW_MIN, arrow, arrowLength, box, fmt, lathe, look, on, part, plate, PLATE_TOP, RAD, shaped, strand, v3, type Pt } from "../parts.ts";
+import { ARROW_GAP, ARROW_MIN, arrow, arrowLength, box, fmt, lathe, look, on, part, plate, PLATE_TOP, shaped, strand, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 const G = 9.8;
-const DEG = 180 / Math.PI;
 /** The string as drawn, the arm's underside to the bob's centre, mm. The period is worked out from this length, not from a made-up one. */
 export const STRING_MM = 100;
 const L = STRING_MM / 1000;
@@ -48,7 +48,7 @@ const SWING_MAX = -25;
 const MASS_MAX = 5;
 export const bobRadius = (mass: number) => 12 * Math.cbrt(mass);
 /** How far left of the pivot the heaviest bob reaches, held out furthest. */
-const REACH_LEFT = STRING_MM * Math.sin(-SWING_MIN * RAD) + bobRadius(MASS_MAX);
+const REACH_LEFT = STRING_MM * Math.sin(-SWING_MIN * DEG_TO_RAD) + bobRadius(MASS_MAX);
 const STRING_T = 3.2;
 const BEAD_LEN = 12;
 const BEAD_GAP = 9;
@@ -65,8 +65,8 @@ export const SNAP = 60;
 const CRATE = 24;
 /** Where the bob strikes the crate: this far from the vertical, on the far side of the bottom, degrees. */
 export const CONTACT = 20;
-const CONTACT_X = STRING_MM * Math.sin(CONTACT * RAD);
-const CONTACT_Y = PIVOT_Y - STRING_MM * Math.cos(CONTACT * RAD);
+const CONTACT_X = STRING_MM * Math.sin(CONTACT * DEG_TO_RAD);
+const CONTACT_Y = PIVOT_Y - STRING_MM * Math.cos(CONTACT * DEG_TO_RAD);
 /** The bob's centre meets the crate this far above the crate's bottom. */
 const LOW = 4;
 /** The crate's bottom: the pedestal's top. */
@@ -98,17 +98,17 @@ export function settle(v: Values) {
   const swing = swingOf(v);
   /** Where the bob hangs, signed: the slider's angle, plus how far a run has swung it on from there (0 while the hand holds it). */
   const angle = swing + (v.ahead ?? 0);
-  const a = Math.abs(angle) * RAD;
+  const a = Math.abs(angle) * DEG_TO_RAD;
   const rb = bobRadius(mass);
   const snap = (v.snap ?? 0) > 0.5;
   const weight = mass * G;
   const along = weight * Math.sin(a);
   /** Where the bob is, hanging from the string. After the string snaps it is wherever the fall has put it. */
-  const bob = snap ? v3(v.fx ?? 0, v.fy ?? 0, 0) : v3(X0 + STRING_MM * Math.sin(angle * RAD), PIVOT_Y - STRING_MM * Math.cos(angle * RAD), 0);
+  const bob = snap ? v3(v.fx ?? 0, v.fy ?? 0, 0) : v3(X0 + STRING_MM * Math.sin(angle * DEG_TO_RAD), PIVOT_Y - STRING_MM * Math.cos(angle * DEG_TO_RAD), 0);
   /** The string's direction at the bob, up toward the arm: the bead sits on it. */
   const lean = snap ? 0 : angle;
   const up = rb + BEAD_GAP + BEAD_LEN / 2;
-  const bead = v3(bob.x - up * Math.sin(lean * RAD), bob.y + up * Math.cos(lean * RAD), 0);
+  const bead = v3(bob.x - up * Math.sin(lean * DEG_TO_RAD), bob.y + up * Math.cos(lean * DEG_TO_RAD), 0);
   /** A hand holds the bob out while a run has not yet let it go: the bob is where the slider put it. */
   const held = !snap && (v.ahead ?? 0) < 1e-9 && a > 1e-9;
   return { mass, swing, angle, a, rb, snap, weight, along, bob, lean, bead, held, rise: STRING_MM * (1 - Math.cos(a)) };
@@ -119,7 +119,7 @@ const SPHERE_STEPS = 12;
 const sphere = (r: number) =>
   lathe(
     Array.from({ length: SPHERE_STEPS + 1 }, (_, i): Pt => {
-      const t = ((i / SPHERE_STEPS) * 180 - 90) * RAD;
+      const t = ((i / SPHERE_STEPS) * 180 - 90) * DEG_TO_RAD;
       return [r * Math.cos(t), r * Math.sin(t)];
     }),
   );
@@ -142,7 +142,7 @@ function stand(): Part {
 function holdArrow(id: string, s: ReturnType<typeof settle>, parent: string): Part[] {
   if (s.a < 1e-9) return [];
   const t = s.angle > 0 ? 1 : -1;
-  const at = v3(s.bead.x + 6 * t * Math.cos(s.angle * RAD), s.bead.y + 6 * t * Math.sin(s.angle * RAD), 0);
+  const at = v3(s.bead.x + 6 * t * Math.cos(s.angle * DEG_TO_RAD), s.bead.y + 6 * t * Math.sin(s.angle * DEG_TO_RAD), 0);
   return arrow(id, at, s.angle > 0 ? s.angle : 180 + s.angle, arrowLength(s.along, FORCE_MAX, ARROW_LONG), "pull", { name: "Hand arrow", role: "Your hand's pull along the swing: it holds the bob out.", on: on(parent, "glue") });
 }
 
@@ -183,10 +183,10 @@ type Kind = "pass" | "light" | "snap";
 export const strike = (v: Values) => strikeOf(valueOf(MASS, v), swingOf(v));
 /** The same for any mass in kg and swing in degrees, not only on the sliders' grids (the tests use it right at the string's limit). */
 export function strikeOf(mass: number, swing: number) {
-  const a = Math.abs(swing) * RAD;
+  const a = Math.abs(swing) * DEG_TO_RAD;
   const cosA = Math.cos(a);
   /** Exact, from the height the bob has fallen when it meets the crate, on the far side of the bottom. */
-  const speed = Math.sqrt(Math.max(0, 2 * G * L * (Math.cos(CONTACT * RAD) - cosA)));
+  const speed = Math.sqrt(Math.max(0, 2 * G * L * (Math.cos(CONTACT * DEG_TO_RAD) - cosA)));
   const momentum = mass * speed;
   /** The string's pull at the bottom, where it is greatest: weight plus the bob's turning: m g (3 − 2 cos a). */
   const factor = 3 - 2 * cosA;
@@ -300,7 +300,7 @@ const ROCK_MAX = 10;
 type Crate = { away: number; down: number; tilt: number };
 /** Rotating the crate about a point P (away, y) by θ, clockwise: the centre goes round it. */
 function about(px: number, py: number, dx: number, dy: number, deg: number): Crate {
-  const t = deg * RAD;
+  const t = deg * DEG_TO_RAD;
   const cx = px + dx * Math.cos(t) + dy * Math.sin(t);
   const cy = py - dx * Math.sin(t) + dy * Math.cos(t);
   return { away: cx - CRATE / 2, down: LEDGE_Y + CRATE / 2 - cy, tilt: deg };
@@ -326,7 +326,7 @@ function play(v: Values): Run {
   const angleAt = (ms: number) => a0 * Math.cos((OMEGA * ms) / slowMs);
 
   // To the strike on the far side: a0 cos(ωt) reaches +CONTACT. To the break: it reaches −breakAt, still on the way down.
-  const swingDur = (snaps ? swingTo(a0, -r.breakAt * DEG) : swingTo(a0, CONTACT)) * slowMs;
+  const swingDur = (snaps ? swingTo(a0, -r.breakAt * RAD_TO_DEG) : swingTo(a0, CONTACT)) * slowMs;
   const flightMs = fl ? fl.tEnd * slowMs : 0;
   const afterMs = snaps ? flightMs + LAND_BOUNCE_MS : r.kind === "pass" ? SLIDE_MS + TIP_MS + FALL_MS : ROCK_MS;
   const tl = phases({ lead: LEAD, swing: swingDur, after: afterMs, hold: HOLD, reset: snaps ? 0 : RESET });
@@ -383,13 +383,13 @@ function play(v: Values): Run {
             const p = fl.position(t / slowMs);
             const up = t > flightMs ? BOUNCE * rockBack((t - flightMs) / LAND_BOUNCE_MS, 2) : 0;
             const live = t < fl.tHit * slowMs ? "String snapped" : t < flightMs ? "Ball falls short" : "Snapped!";
-            return frame(values({ ...bobAt(-r.breakAt * DEG), snap: 1, fx: p.x, fy: p.y + up }), live);
+            return frame(values({ ...bobAt(-r.breakAt * RAD_TO_DEG), snap: 1, fx: p.x, fy: p.y + up }), live);
           }
           const { crate, live } = crateAfter(t);
           return frame(values({ ...bobAt(bobAfter(t)), ...cratePose(crate) }), live);
         }
         case "hold": {
-          if (fl) return frame(values({ ...bobAt(-r.breakAt * DEG), snap: 1, fx: fl.hit.x, fy: fl.yRest }), "String snapped");
+          if (fl) return frame(values({ ...bobAt(-r.breakAt * RAD_TO_DEG), snap: 1, fx: fl.hit.x, fy: fl.yRest }), "String snapped");
           const end = crateAfter(afterMs).crate;
           return frame(values({ ...bobAt(bobAfter(afterMs + ms - tl.start("hold"))), ...cratePose(end) }), r.kind === "pass" ? "Crate knocked off" : "Crate stayed put");
         }
@@ -443,7 +443,7 @@ export const weight: Primitive = {
     label: "Pull back",
     at: (v) => settle(v).bead,
     // The bead rides the string, so the string's angle is the angle from the arm to the finger.
-    solve: (point) => Math.atan2(point.x - X0, PIVOT_Y - point.y) * DEG,
+    solve: (point) => Math.atan2(point.x - X0, PIVOT_Y - point.y) * RAD_TO_DEG,
   },
   game: {
     name: "Wrecking ball",

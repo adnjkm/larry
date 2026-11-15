@@ -10,6 +10,7 @@ import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
 import { steps, type Values } from "../types.ts";
 import { COLOR } from "../parts.ts";
 import { beat, cam, geometry, JAM_RISE, LIMIT, rampAngle, rise, STRIKE } from "./cam.ts";
+import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 type Pt = [number, number];
 const game = cam.game;
@@ -113,7 +114,7 @@ describe("cam", () => {
     const edge = Math.max(...o.map(([x, y], i) => {
       const [x1, y1] = o[(i + 1) % o.length]!;
       const [r0, r1] = [Math.hypot(x, y), Math.hypot(x1, y1)];
-      return Math.atan2(Math.abs(r1 - r0), ((r0 + r1) / 2) * (Math.PI / 180)) * (180 / Math.PI);
+      return Math.atan2(Math.abs(r1 - r0), ((r0 + r1) / 2) * DEG_TO_RAD) * RAD_TO_DEG;
     }));
     assert.ok(Math.abs(edge - rampAngle(13)) < 1e-9);
   });

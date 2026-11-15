@@ -5,10 +5,10 @@ import type { Finish, Part, Shape } from "../../../shared/kit.ts";
 import type { KitBounds } from "../../../shared/bounds.ts";
 import type { Point } from "../../../shared/primitives/types.ts";
 import { GeometryCache, Stretch, sameShape, shapeKey, stretchFamily } from "./shapes.ts";
+import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
 /** Fit margin around the framed bounds, as in KitViewer. */
 const MARGIN = 1.12;
-const DEG = Math.PI / 180;
 
 /** Where the scene gets its materials. The page passes the dither shaders; tests pass plain ones. Materials are shared, never disposed here. */
 export type Looks = { part: (color: string, finish: Finish) => Material; shadow: () => Material };
@@ -59,7 +59,7 @@ export class StageScene {
     this.looks = looks;
     this.recolor = recolor;
     const footprint = Math.max(bounds.halfX, bounds.halfZ);
-    const az = view.azimuth * DEG;
+    const az = view.azimuth * DEG_TO_RAD;
     const sideways = footprint * 0.3;
     const away = footprint * 0.2;
     this.shadow = new Mesh(shadowPlane, looks.shadow());
@@ -103,7 +103,7 @@ export class StageScene {
     const { mesh } = slot;
     mesh.visible = true;
     mesh.position.set(part.position.x, part.position.y, part.position.z);
-    mesh.rotation.set(part.rotation.x * DEG, part.rotation.y * DEG, part.rotation.z * DEG);
+    mesh.rotation.set(part.rotation.x * DEG_TO_RAD, part.rotation.y * DEG_TO_RAD, part.rotation.z * DEG_TO_RAD);
   }
 
   private reshape(slot: Slot, shape: Shape): void {
@@ -152,8 +152,8 @@ export class StageScene {
   resize(boxW: number, boxH: number, viewW: number, viewH: number): void {
     this.size = { boxW, boxH, viewW, viewH };
     const { bounds, camera } = this;
-    const el = this.view.elevation * DEG;
-    const az = this.view.azimuth * DEG;
+    const el = this.view.elevation * DEG_TO_RAD;
+    const az = this.view.azimuth * DEG_TO_RAD;
     const footprint = Math.max(bounds.halfX, bounds.halfZ);
     const shadowReach = footprint * 0.3 + Math.max(bounds.halfX * 1.05 + 3, bounds.halfZ * 1.05 + 3);
     const height = bounds.maxY - bounds.minY;

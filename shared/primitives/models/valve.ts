@@ -20,6 +20,7 @@ import { clamp, clamp01, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases, SCENE } from "../motion/run.ts";
 import { arrow, box, coilSpring, fmt, lathe, look, on, part, pivoted, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { DEG_TO_RAD } from "../../angles.ts";
 
 // Geometry, mm. x = 0 is the valve's axis before VX shifts the rig to centre it on the plate.
 const WALL = 3;
@@ -307,7 +308,7 @@ const DOT_LO = SHOULDER + DOT_R + 0.5;
 const DOT_HI = NECK_TOP - DOT_R - 0.5;
 const DOT_KPA = 12;
 const dot = lathe(Array.from({ length: 9 }, (_, i): Pt => {
-  const a = ((i / 8) * 180 - 90) * (Math.PI / 180);
+  const a = ((i / 8) * 180 - 90) * DEG_TO_RAD;
   return [DOT_R * Math.cos(a), DOT_R * Math.sin(a)];
 }));
 function airDots(bag: number): Part[] {

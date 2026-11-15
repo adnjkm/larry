@@ -7,6 +7,7 @@
 //   geometry kept for a while because a drag snaps to the slider's step and revisits the same shapes.
 import type { BufferAttribute, BufferGeometry } from "three";
 import type { Shape } from "../../../shared/kit.ts";
+import { boxRadius, torusSegments } from "../../../shared/segments.ts";
 import { buildGeometry } from "../../kit3d/geometry.ts";
 
 const close = (a: number, b: number) => a === b || Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
@@ -56,9 +57,6 @@ export function shapeKey(s: Shape): string {
   }
 }
 
-/** The corner radius geometry.ts really uses for a box. */
-const boxRadius = (s: Extract<Shape, { kind: "box" }>) => Math.max(0, Math.min(s.cornerRadius, Math.min(s.width, s.height, s.depth) / 2));
-
 /**
  * Whether `next` can be had by stretching a geometry built for `base`.
  * A torus: the same ring and tube, and an arc with the same number of segments.
@@ -66,12 +64,6 @@ const boxRadius = (s: Extract<Shape, { kind: "box" }>) => Math.max(0, Math.min(s
  * each axis, and moving the sides apart is exact). A coil: the same radius, wire and turns (only the pitch changes; the
  * wire's round section rides on the stretched centre line, its tilt off by the change in pitch angle, a few degrees).
  */
-/** geometry.ts's segment count along a torus's arc. */
-const torusSegments = (arcDegrees: number) => {
-  const arc = (Math.min(arcDegrees, 360) * Math.PI) / 180;
-  return Math.max(8, Math.ceil((48 * arc) / (2 * Math.PI)));
-};
-
 export function canStretch(base: Shape, next: Shape): boolean {
   // An arc that grows or shrinks with the same segment count: every vertex is recomputed from its place on the ring, exactly.
   if (base.kind === "torus" && next.kind === "torus") return close(base.radius, next.radius) && close(base.tube, next.tube) && torusSegments(base.arcDegrees) === torusSegments(next.arcDegrees);

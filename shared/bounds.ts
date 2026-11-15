@@ -2,6 +2,8 @@
 // (centred) frame plus a sphere radius to grow them by; the points are rotated into place and boxed. The geometry builders
 // in src/kit3d/geometry.ts are the reference: bounds.test.ts checks every kind against their real vertices.
 import type { Part, Shape } from "./kit.ts";
+import { DEG_TO_RAD } from "./angles.ts";
+import { boxRadius, helixSegments, LATHE_SEGMENTS, torusArc, torusSegments } from "./segments.ts";
 
 export type KitBounds = {
   /** Centre of the kit's footprint, the axis it spins around. */
@@ -22,10 +24,6 @@ type Hull = {
   inflate: number;
 };
 
-const DEG = Math.PI / 180;
-// The segment counts geometry.ts builds with, so the sample points fall where its vertices do.
-const LATHE_SEGMENTS = 40;
-const HELIX_SEGMENTS_PER_TURN = 20;
 
 function centre(points: number[]): void {
   for (let axis = 0; axis < 3; axis++) {
@@ -44,7 +42,7 @@ function hullOf(shape: Shape): Hull {
   const points: number[] = [];
   switch (shape.kind) {
     case "box": {
-      const r = Math.max(0, Math.min(shape.cornerRadius, Math.min(shape.width, shape.height, shape.depth) / 2));
+      const r = boxRadius(shape);
       const hx = shape.width / 2 - r;
       const hy = shape.height / 2 - r;
       const hz = shape.depth / 2 - r;
@@ -62,8 +60,8 @@ function hullOf(shape: Shape): Hull {
       return { points, inflate: 0 };
     }
     case "torus": {
-      const arc = (Math.min(shape.arcDegrees, 360) * Math.PI) / 180;
-      const segments = Math.max(8, Math.ceil((48 * arc) / (2 * Math.PI)));
+      const arc = torusArc(shape.arcDegrees);
+      const segments = torusSegments(shape.arcDegrees);
       for (let i = 0; i <= segments; i++) {
         const a = (i / segments - 0.5) * arc;
         points.push(shape.radius * Math.cos(a), 0, -shape.radius * Math.sin(a));
@@ -72,7 +70,7 @@ function hullOf(shape: Shape): Hull {
     }
     case "helix": {
       const rise = shape.length - 2 * shape.tube;
-      const segments = Math.max(8, Math.ceil(shape.turns * HELIX_SEGMENTS_PER_TURN));
+      const segments = helixSegments(shape.turns);
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const a = 2 * Math.PI * shape.turns * t;
@@ -103,12 +101,12 @@ let footprint = new Float64Array(0);
 /** Row-major rotation for Euler angles in degrees, applied in x, y, z order (three.js's "XYZ"). */
 function rotation(part: Part): Float64Array {
   const { x, y, z } = part.rotation;
-  const a = Math.cos(x * DEG);
-  const b = Math.sin(x * DEG);
-  const c = Math.cos(y * DEG);
-  const d = Math.sin(y * DEG);
-  const e = Math.cos(z * DEG);
-  const f = Math.sin(z * DEG);
+  const a = Math.cos(x * DEG_TO_RAD);
+  const b = Math.sin(x * DEG_TO_RAD);
+  const c = Math.cos(y * DEG_TO_RAD);
+  const d = Math.sin(y * DEG_TO_RAD);
+  const e = Math.cos(z * DEG_TO_RAD);
+  const f = Math.sin(z * DEG_TO_RAD);
   turn.set([c * e, -c * f, d, a * f + b * e * d, a * e - b * f * d, -b * c, b * f - a * e * d, b * e + a * f * d, a * c]);
   return turn;
 }

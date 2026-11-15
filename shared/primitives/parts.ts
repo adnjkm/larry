@@ -1,6 +1,7 @@
 // Shared building blocks for primitives: the Synthwave palette and helpers that turn simple
 // geometry into kit parts. Units are millimetres, y up, resting on y = 0.
 import type { Finish, Joint, Part, Shape } from "../kit.ts";
+import { DEG_TO_RAD, RAD_TO_DEG } from "../angles.ts";
 // Pure TypeScript: no three, no React. Runs in Node tests and on the server.
 
 /** The Synthwave preset from iamnoman.com/funky-shadow, darkest to brightest. */
@@ -34,8 +35,6 @@ export const look = {
   light: { color: COLOR.light, finish: "matte" },
 } satisfies Record<string, Look>;
 
-export const DEG = 180 / Math.PI;
-export const RAD = Math.PI / 180;
 
 export type Vec = { x: number; y: number; z: number };
 export const v3 = (x: number, y: number, z = 0): Vec => ({ x, y, z });
@@ -85,7 +84,7 @@ export function pivoted(outline: Pt[], depth: number, pivotLocal: Pt, pivotWorld
   const ys = outline.map(([, y]) => y);
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2 - pivotLocal[0];
   const cy = (Math.min(...ys) + Math.max(...ys)) / 2 - pivotLocal[1];
-  const a = angleDeg * RAD;
+  const a = angleDeg * DEG_TO_RAD;
   return {
     shape: { kind: "extrusion", outline: outline.map(([x, y]) => ({ x, y })), depth } satisfies Shape,
     position: v3(pivotWorld.x + cx * Math.cos(a) - cy * Math.sin(a), pivotWorld.y + cx * Math.sin(a) + cy * Math.cos(a), pivotWorld.z),
@@ -95,7 +94,7 @@ export function pivoted(outline: Pt[], depth: number, pivotLocal: Pt, pivotWorld
 
 /** Where a point given in a frame rotated by `angleDeg` about z (origin at `pivotWorld`) lands in the world. */
 export function rotateAbout(local: Pt, angleDeg: number, pivotWorld: Vec): Vec {
-  const a = angleDeg * RAD;
+  const a = angleDeg * DEG_TO_RAD;
   return v3(pivotWorld.x + local[0] * Math.cos(a) - local[1] * Math.sin(a), pivotWorld.y + local[0] * Math.sin(a) + local[1] * Math.cos(a), pivotWorld.z);
 }
 
@@ -105,14 +104,14 @@ export function bar(a: Pt, b: Pt, thick: number, depth: number, z = 0): { shape:
   return {
     shape: box(len, thick, depth, Math.min(thick, depth) / 2 - 0.01),
     position: v3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, z),
-    rotation: v3(0, 0, Math.atan2(b[1] - a[1], b[0] - a[0]) * DEG),
+    rotation: v3(0, 0, Math.atan2(b[1] - a[1], b[0] - a[0]) * RAD_TO_DEG),
   };
 }
 
 /** A regular polygon outline, e.g. 6 for a hex nut seen from above. */
 export const polygon = (sides: number, r: number, startDeg = 0): Pt[] =>
   Array.from({ length: sides }, (_, i) => {
-    const a = (startDeg + (i * 360) / sides) * RAD;
+    const a = (startDeg + (i * 360) / sides) * DEG_TO_RAD;
     return [r * Math.cos(a), r * Math.sin(a)];
   });
 
@@ -185,7 +184,7 @@ export function strand(a: Vec, b: Vec, thick: number) {
     shape: box(len + thick * 0.8, thick, thick, thick / 2 - 0.01),
     position: v3((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2),
     // Euler XYZ with x = 0 is yaw (about y) applied after pitch (about z): lines the box's x axis up with the strand.
-    rotation: v3(0, Math.atan2(-dz, dx) * DEG, Math.asin(Math.max(-1, Math.min(1, dy / len))) * DEG),
+    rotation: v3(0, Math.atan2(-dz, dx) * RAD_TO_DEG, Math.asin(Math.max(-1, Math.min(1, dy / len))) * RAD_TO_DEG),
   };
 }
 
@@ -250,7 +249,7 @@ function arrowOutline(length: number): Pt[] {
 export function arrow(id: string, at: Vec, angleDeg: number, length: number, kind: "push" | "pull", opts: PartOpts = {}): Part[] {
   if (!(length > 1e-9)) return [];
   const len = Math.max(ARROW_MIN, length);
-  const a = angleDeg * RAD;
+  const a = angleDeg * DEG_TO_RAD;
   const ux = Math.cos(a);
   const uy = Math.sin(a);
   const back = kind === "push" ? -(ARROW_GAP + len) : ARROW_GAP;
@@ -295,7 +294,7 @@ export function loadBlock(
 
 /** A radial bar, 3 x 3, from a turning part's centre out to 0.8 of its radius, at `angleDeg`, so its turning shows in a still. */
 export function turnMark(id: string, centre: Vec, radius: number, angleDeg: number, opts: PartOpts = {}): Part {
-  const a = angleDeg * RAD;
+  const a = angleDeg * DEG_TO_RAD;
   const s = bar([centre.x, centre.y], [centre.x + 0.8 * radius * Math.cos(a), centre.y + 0.8 * radius * Math.sin(a)], 3, 3, centre.z);
   return part(id, opts.name ?? "Turn mark", opts.role ?? "Shows how far it has turned.", s.shape, s.position, look.structure, ground(opts), s.rotation);
 }
@@ -331,6 +330,6 @@ export function shaped(id: string, name: string, role: string, s: { shape: Shape
 /** A coil spring whose axis runs from a to b in the plane z, `radius` to the wire's centre, wire `tube` in radius. */
 export function coilSpring(id: string, name: string, role: string, a: Pt, b: Pt, z: number, radius: number, tube: number, turns: number, appearance: Look, attach: Attach): Part {
   const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-  const lean = Math.atan2(-(b[0] - a[0]), b[1] - a[1]) * DEG;
+  const lean = Math.atan2(-(b[0] - a[0]), b[1] - a[1]) * RAD_TO_DEG;
   return part(id, name, role, coil(radius, tube, len, turns), v3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, z), appearance, attach, v3(0, 0, lean));
 }

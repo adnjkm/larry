@@ -6,6 +6,7 @@
 // it back anticlockwise, which pushes the holding tooth's cliff up into the underside of the nose. The pawl's pivot is
 // above the nose and outside it, so that push turns the pawl further into the tooth: a backward load locks it.
 import type { Pt } from "../parts.ts";
+import { DEG_TO_RAD } from "../../angles.ts";
 
 /** Root radius: the bottom of every notch. */
 export const ROOT = 20;
@@ -44,11 +45,10 @@ export const LIFT_CLEAR = 24;
 /** Penetration up to this, in mm, counts as touching. */
 const TOUCH = 0.01;
 
-const DEG = Math.PI / 180;
 
 /** `p` turned `deg` degrees anticlockwise about `c`. */
 export function turnAbout(p: Pt, deg: number, c: Pt = [0, 0]): Pt {
-  const a = deg * DEG;
+  const a = deg * DEG_TO_RAD;
   const dx = p[0] - c[0];
   const dy = p[1] - c[1];
   return [c[0] + dx * Math.cos(a) - dy * Math.sin(a), c[1] + dx * Math.sin(a) + dy * Math.cos(a)];
@@ -179,8 +179,8 @@ const ahead = (a: number, from: number) => (((a - from) % (2 * Math.PI)) + 2 * M
 function penetration(wheel: Wheel, turn: number, psi: number, from?: number): number {
   const counts = (q: Pt) => from === undefined || ahead(Math.atan2(q[1], q[0]), from);
   // Pawl frame to wheel frame: turn by psi about the pivot, then undo the wheel's turn about the centre.
-  const [c1, s1] = [Math.cos(psi * DEG), Math.sin(psi * DEG)];
-  const [c2, s2] = [Math.cos(-wheelDeg(turn) * DEG), Math.sin(-wheelDeg(turn) * DEG)];
+  const [c1, s1] = [Math.cos(psi * DEG_TO_RAD), Math.sin(psi * DEG_TO_RAD)];
+  const [c2, s2] = [Math.cos(-wheelDeg(turn) * DEG_TO_RAD), Math.sin(-wheelDeg(turn) * DEG_TO_RAD)];
   const reach2 = wheel.tip * wheel.tip;
   let worst = 0;
   for (const [qx, qy] of PAWL_POINTS) {

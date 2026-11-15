@@ -12,11 +12,11 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { Shape, ShapeKind } from "../../shared/kit.ts";
+import { LATHE_SEGMENTS, boxRadius, helixSegments, torusArc, torusSegments } from "../../shared/segments.ts";
 
 type Builders = { [K in ShapeKind]: (shape: Extract<Shape, { kind: K }>) => BufferGeometry };
 
 const SHARP_CORNER_DEGREES = 40;
-const HELIX_SEGMENTS_PER_TURN = 20;
 
 /** The wire's centre line: starts on +x at y = 0, climbs `rise` along y over `turns` right-handed turns. */
 class HelixCurve extends Curve<Vector3> {
@@ -63,19 +63,19 @@ function splitSharpCorners(points: Vector2[]): Vector2[] {
 const builders: Builders = {
   lathe: ({ profile }) => {
     const points = profile.map(({ r, y }) => new Vector2(r, y));
-    return recenter(new LatheGeometry(splitSharpCorners(points), 40));
+    return recenter(new LatheGeometry(splitSharpCorners(points), LATHE_SEGMENTS));
   },
 
-  box: ({ width, height, depth, cornerRadius }) => {
-    const radius = Math.min(cornerRadius, Math.min(width, height, depth) / 2);
+  box: (shape) => {
+    const { width, height, depth } = shape;
+    const radius = boxRadius(shape);
     return radius > 0 ? new RoundedBoxGeometry(width, height, depth, 3, radius) : new BoxGeometry(width, height, depth);
   },
 
   // TorusGeometry lies in x-y with its arc starting at +x. Turn it about its own axis so the arc is centred on +x, then lay it into x-z.
   torus: ({ radius, tube, arcDegrees }) => {
-    const arc = (Math.min(arcDegrees, 360) * Math.PI) / 180;
-    const tubular = Math.max(8, Math.ceil((48 * arc) / (2 * Math.PI)));
-    const geometry = new TorusGeometry(radius, tube, 10, tubular, arc);
+    const arc = torusArc(arcDegrees);
+    const geometry = new TorusGeometry(radius, tube, 10, torusSegments(arcDegrees), arc);
     geometry.rotateZ(-arc / 2);
     geometry.rotateX(-Math.PI / 2);
     return geometry;
@@ -84,7 +84,7 @@ const builders: Builders = {
   helix: ({ radius, tube, length, turns }) => {
     const rise = length - 2 * tube;
     const path = new HelixCurve(radius, rise, turns);
-    return recenter(new TubeGeometry(path, Math.max(8, Math.ceil(turns * HELIX_SEGMENTS_PER_TURN)), tube, 8));
+    return recenter(new TubeGeometry(path, helixSegments(turns), tube, 8));
   },
 
   extrusion: ({ outline, depth }) => {

@@ -12,8 +12,9 @@
 import type { Part } from "../../kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
 import { frame, HOLD, LEAD, phases, REWIND, SCENE, whenReaches } from "../motion/run.ts";
-import { bar, DEG, fmt, knob, look, on, pin, plate, post, RAD, shaped, travelArc, v3, type Pt } from "../parts.ts";
+import { bar, fmt, knob, look, on, pin, plate, post, shaped, travelArc, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, mm.
 export const CRANK = 24;
@@ -42,7 +43,7 @@ const ARC_PAST = 6;
 
 /** Crank tip B and coupler/rocker joint C, by intersecting the coupler's circle round B with the rocker's round D. */
 export function fourBar(rocker: number, crankDeg: number) {
-  const a = crankDeg * RAD;
+  const a = crankDeg * DEG_TO_RAD;
   const B: Pt = [A[0] + CRANK * Math.cos(a), A[1] + CRANK * Math.sin(a)];
   const dx = D[0] - B[0];
   const dy = D[1] - B[1];
@@ -52,7 +53,7 @@ export function fourBar(rocker: number, crankDeg: number) {
   const ux = dx / d;
   const uy = dy / d;
   const C: Pt = [B[0] + along * ux - h * uy, B[1] + along * uy + h * ux];
-  return { B, C, rockerDeg: Math.atan2(C[1] - D[1], C[0] - D[0]) * DEG };
+  return { B, C, rockerDeg: Math.atan2(C[1] - D[1], C[0] - D[0]) * RAD_TO_DEG };
 }
 
 /** The rocker's two ends of travel over a full crank turn, and the crank angles where it reaches them. Refined by golden-section search. */
@@ -151,9 +152,9 @@ export const STOP_LO = 96;
 const STOP_R = 32;
 const PEG_R = 3;
 const PEG_LENGTH = 20;
-const PEG_AT_DEG = STOP_LO - Math.asin((BAR / 2 + PEG_R) / STOP_R) * DEG;
+const PEG_AT_DEG = STOP_LO - Math.asin((BAR / 2 + PEG_R) / STOP_R) * RAD_TO_DEG;
 /** The peg's centre, in x and y. */
-const PEG: Pt = [D[0] + STOP_R * Math.cos(PEG_AT_DEG * RAD), D[1] + STOP_R * Math.sin(PEG_AT_DEG * RAD)];
+const PEG: Pt = [D[0] + STOP_R * Math.cos(PEG_AT_DEG * DEG_TO_RAD), D[1] + STOP_R * Math.sin(PEG_AT_DEG * DEG_TO_RAD)];
 /** How close to the stop the wiper has to come to count as wiping it clean, degrees. */
 export const TOLERANCE = 4;
 
@@ -314,7 +315,7 @@ export const linkage: Primitive = {
     },
     // The knob goes round the crank pivot: the crank angle pointing at the finger, the turn nearest the current one.
     solve: (point, v) => {
-      const a = Math.atan2(point.y - A[1], point.x - A[0]) * DEG;
+      const a = Math.atan2(point.y - A[1], point.x - A[0]) * RAD_TO_DEG;
       const now = v.crank ?? 50;
       return a + 360 * Math.round((now - a) / 360);
     },

@@ -2,9 +2,9 @@ import { DoubleSide, Group, Mesh, MeshStandardMaterial, Scene } from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import type { Finish, Kit } from "../../shared/kit.ts";
 import { buildGeometry } from "./geometry.ts";
+import { DEG_TO_RAD } from "../../shared/angles.ts";
 
 const MM_TO_M = 0.001;
-const DEG = Math.PI / 180;
 
 const SURFACE: Record<Finish, { roughness: number; metalness: number }> = {
   matte: { roughness: 0.85, metalness: 0 },
@@ -31,7 +31,7 @@ function buildScene(kit: Kit) {
     const mesh = new Mesh(geometry, material);
     mesh.name = part.name;
     mesh.position.set(part.position.x, part.position.y, part.position.z);
-    mesh.rotation.set(part.rotation.x * DEG, part.rotation.y * DEG, part.rotation.z * DEG);
+    mesh.rotation.set(part.rotation.x * DEG_TO_RAD, part.rotation.y * DEG_TO_RAD, part.rotation.z * DEG_TO_RAD);
     root.add(mesh);
     owned.push(geometry, material);
   }

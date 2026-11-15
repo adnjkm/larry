@@ -16,8 +16,9 @@
 import type { Part } from "../../kit.ts";
 import { clamp, fall, smooth } from "../motion/ease.ts";
 import { frame, HOLD, LEAD, phases, REWIND, SCENE } from "../motion/run.ts";
-import { coil, cylinder, DEG, fmt, knob, loadBlock, loadEdge, look, on, part, pivoted, plate, PLATE_TOP, polygon, RAD, v3 } from "../parts.ts";
+import { coil, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, pivoted, plate, PLATE_TOP, polygon, v3 } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres. The bolt stands on the middle of the plate, x = 0, z = 0.
 const ROD_R = 6;
@@ -46,12 +47,12 @@ const LOAD_BOTTOM_0 = PLATE_TOP + NUT_H;
 export const TARGET = 32;
 /** Friction coefficient of the thread, 0.2: a friction angle of atan 0.2 = 11.3 degrees. */
 export const FRICTION = 0.2;
-export const FRICTION_DEG = Math.atan(FRICTION) * DEG;
+export const FRICTION_DEG = Math.atan(FRICTION) * RAD_TO_DEG;
 
 /** The slider's pitch, snapped to its step. */
 /** The ridge spacing as drawn, mm: the nut climbs this far per turn. */
 const pitchOf = (v: Values) => valueOf(PITCH, v) * PITCH_UNIT;
-const leadOf = (pitch: number) => Math.atan(pitch / (2 * Math.PI * MEAN_R)) * DEG;
+const leadOf = (pitch: number) => Math.atan(pitch / (2 * Math.PI * MEAN_R)) * RAD_TO_DEG;
 
 /** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
@@ -63,7 +64,7 @@ export function settle(v: Values) {
 
 const nutMid = (rise: number) => PLATE_TOP + NUT_H / 2 + rise;
 const handleAngle = (turns: number) => HANDLE_AT_0 + turns * 360;
-const handlePoint = (turns: number, rise: number) => v3(HAND_R * Math.cos(handleAngle(turns) * RAD), nutMid(rise), -HAND_R * Math.sin(handleAngle(turns) * RAD));
+const handlePoint = (turns: number, rise: number) => v3(HAND_R * Math.cos(handleAngle(turns) * DEG_TO_RAD), nutMid(rise), -HAND_R * Math.sin(handleAngle(turns) * DEG_TO_RAD));
 
 /** The ridge wire's radius for a drawn pitch: thicker as the pitch grows, never under 1.2 (a 2.4 wire) and always clear of the next turn. */
 export const ridgeWire = (pitch: number) => clamp(0.12 * pitch + 0.72, 1.2, 2);
@@ -236,7 +237,7 @@ export const thread: Primitive = {
     },
     // The handle goes round the bolt: its x gives the angle, and of the two turns that give that x, take the one nearest the current turn.
     solve: (point, v) => {
-      const theta = Math.acos(clamp(point.x / HAND_R, -1, 1)) * DEG;
+      const theta = Math.acos(clamp(point.x / HAND_R, -1, 1)) * RAD_TO_DEG;
       const now = v.turns ?? 0;
       const options = [theta, -theta].map((q) => {
         const base = (q - HANDLE_AT_0) / 360;

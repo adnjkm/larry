@@ -6,12 +6,12 @@ import { checkDesign, checkGame, sample } from "../checks.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { startValues, steps, type Values } from "../types.ts";
 import { bobRadius, CONTACT, freed, freedAt, geometry, NEED, OMEGA, PERIOD, QUARTER, SNAP, strike, strikeOf, STRING_MM, weight, X0 } from "./weight.ts";
+import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 const game = weight.game;
 const [mass, swing] = weight.sliders as [NonNullable<(typeof weight.sliders)[0]>, NonNullable<(typeof weight.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const has = (parts: Part[], id: string) => parts.some((p) => p.id === id);
-const RAD = Math.PI / 180;
 
 type Pt = [number, number];
 /** The crate's four corners in the world, from the part the scene returns. */
@@ -116,7 +116,7 @@ describe("weight", () => {
         const w = len(parts, "weight-arrow");
         const h = len(parts, "hold-arrow");
         assert.ok(Math.abs(w - Math.max(12, (40 * m) / 5)) < 1e-9, "weight arrow");
-        assert.ok(Math.abs(h - Math.max(12, (40 * m * Math.sin(Math.abs(a) * RAD)) / 5)) < 1e-9, `hold arrow ${h} at ${a}, ${m}`);
+        assert.ok(Math.abs(h - Math.max(12, (40 * m * Math.sin(Math.abs(a) * DEG_TO_RAD)) / 5)) < 1e-9, `hold arrow ${h} at ${a}, ${m}`);
       }
     }
     for (const v of [{ mass: 3, swing: -35 }, { mass: 1, swing: -26 }]) {
@@ -143,7 +143,7 @@ describe("weight", () => {
       const reset = game.play({ mass: 3, swing: a });
       const frameAt = reset.at(reset.durationMs - 100);
       const hand = frameAt.marks!.find((q) => q.id === "mark-hand-arrow")!;
-      const ang = (a + (frameAt.values.ahead ?? 0)) * RAD;
+      const ang = (a + (frameAt.values.ahead ?? 0)) * DEG_TO_RAD;
       assert.ok(Math.abs(len([hand], "mark-hand-arrow") - Math.max(12, (40 * 3 * Math.sin(Math.abs(ang))) / 5)) < 1e-9);
     }
   });
@@ -156,7 +156,7 @@ describe("weight", () => {
         assert.ok(bob.position.x + bobRadius(m) < geometry.POST_X - geometry.POST_W / 2 - 1, `m ${m}, a ${a}: bob reaches the post`);
         const handle = weight.handle.at({ mass: m, swing: a });
         assert.ok(Math.abs(Math.hypot(handle.x - X0, geometry.PIVOT_Y - handle.y) - (STRING_MM - bobRadius(m) - 9 - 6)) < 1e-9, "the bead sits just above the bob");
-        assert.ok(Math.abs(Math.atan2(handle.x - X0, geometry.PIVOT_Y - handle.y) * (180 / Math.PI) - a) < 1e-9, "the bead is on the string's line");
+        assert.ok(Math.abs(Math.atan2(handle.x - X0, geometry.PIVOT_Y - handle.y) * RAD_TO_DEG - a) < 1e-9, "the bead is on the string's line");
         assert.ok(Math.abs(weight.handle.solve(handle, { mass: m, swing: a }) - a) < 1e-9, "solve undoes at");
       }
     }
@@ -181,7 +181,7 @@ describe("weight", () => {
       const v = { ...startValues(weight), mass: m };
       const r = strike(v);
       const a = (35 * Math.PI) / 180;
-      assert.ok(Math.abs(r.momentum - m * Math.sqrt(2 * 9.8 * 0.1 * (Math.cos(CONTACT * RAD) - Math.cos(a)))) < 1e-9);
+      assert.ok(Math.abs(r.momentum - m * Math.sqrt(2 * 9.8 * 0.1 * (Math.cos(CONTACT * DEG_TO_RAD) - Math.cos(a)))) < 1e-9);
       assert.ok(Math.abs(r.pull - m * 9.8 * (3 - 2 * Math.cos(a))) < 1e-9);
       assert.equal(game.judge(v).pass, r.momentum >= NEED && r.pull <= SNAP);
     }
@@ -192,8 +192,8 @@ describe("weight", () => {
       const v = { mass: m, swing: -35 };
       const crate = rect(find(game.scene!(v), "game-crate"));
       // The bob's centre when the string is at CONTACT degrees.
-      const cx = X0 + STRING_MM * Math.sin(CONTACT * RAD);
-      const cy = geometry.PIVOT_Y - STRING_MM * Math.cos(CONTACT * RAD);
+      const cx = X0 + STRING_MM * Math.sin(CONTACT * DEG_TO_RAD);
+      const cy = geometry.PIVOT_Y - STRING_MM * Math.cos(CONTACT * DEG_TO_RAD);
       assert.ok(Math.abs(crate.x0 - (cx + bobRadius(m))) < 1e-9, `m ${m}: the crate's near face is not at the bob's rim`);
       assert.ok(cy > crate.y0 && cy < crate.y1, "the bob meets the crate's face");
       // And the bob, resting at the bottom, is clear of it.
@@ -244,7 +244,7 @@ describe("weight", () => {
     for (const a of steps(swing)) for (const m of steps(mass)) if (strikeOf(m, a).kind === "snap") failing.push({ mass: m, swing: a });
     const limit: { mass: number; swing: number }[] = [];
     for (const a of steps(swing)) {
-      const m = SNAP / (9.8 * (3 - 2 * Math.cos(Math.abs(a) * RAD)));
+      const m = SNAP / (9.8 * (3 - 2 * Math.cos(Math.abs(a) * DEG_TO_RAD)));
       if (m * (1 + 1e-9) <= 5) limit.push({ mass: m * (1 + 1e-9), swing: a });
     }
 
@@ -256,7 +256,7 @@ describe("weight", () => {
     it("breaks where the pull first reaches the string's strength, with the swing's speed there", () => {
       for (const f of [...failing, ...limit]) {
         const r = strikeOf(f.mass, f.swing);
-        const A = Math.abs(f.swing) * RAD;
+        const A = Math.abs(f.swing) * DEG_TO_RAD;
         assert.ok(Math.abs(f.mass * 9.8 * (3 * Math.cos(r.breakAt) - 2 * Math.cos(A)) - SNAP) < 1e-6, `pull at the break, ${JSON.stringify(f)}`);
         assert.ok(Math.abs(0.5 * r.speedAtBreak ** 2 - 9.8 * 0.1 * (Math.cos(r.breakAt) - Math.cos(A))) < 1e-9, "energy");
         assert.ok(r.breakAt >= 0 && r.breakAt < A, "on the way down");

@@ -13,8 +13,9 @@
 import type { Part } from "../../kit.ts";
 import { clamp, smooth } from "../motion/ease.ts";
 import { frame, LEAD, phases, REWIND, SCENE } from "../motion/run.ts";
-import { arrow, fmt, gearOutline, knob, look, on, part, pin, pivoted, plate, post, turnMark, v3, DEG, RAD, type Pt, type Vec } from "../parts.ts";
+import { arrow, fmt, gearOutline, knob, look, on, part, pin, pivoted, plate, post, turnMark, v3, type Pt, type Vec } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres.
 const MODULE = 3;
@@ -61,7 +62,7 @@ export function settle(v: Values) {
 }
 
 const knobAngle = (theta1: number) => KNOB_AT_0 + theta1;
-const knobPoint = (x1: number, theta1: number): Vec => v3(x1 + KNOB_R * Math.cos(knobAngle(theta1) * RAD), AXLE_Y + KNOB_R * Math.sin(knobAngle(theta1) * RAD), Z0 + GEAR_T / 2 + 10);
+const knobPoint = (x1: number, theta1: number): Vec => v3(x1 + KNOB_R * Math.cos(knobAngle(theta1) * DEG_TO_RAD), AXLE_Y + KNOB_R * Math.sin(knobAngle(theta1) * DEG_TO_RAD), Z0 + GEAR_T / 2 + 10);
 
 /**
  * A curved arrow in the x-y plane, one flat part: a band of `radius` about `centre` from `fromDeg` round to `toDeg`,
@@ -73,9 +74,9 @@ function curvedArrow(id: string, centre: Vec, radius: number, from: number, to: 
   const fromDeg = from - turnBy;
   const toDeg = to - turnBy;
   const dir = Math.sign(toDeg - fromDeg) || 1;
-  const headDeg = ((12 / radius) * DEG) * dir;
+  const headDeg = ((12 / radius) * RAD_TO_DEG) * dir;
   const bodyEnd = toDeg - headDeg;
-  const at = (r: number, deg: number): Pt => [r * Math.cos(deg * RAD), r * Math.sin(deg * RAD)];
+  const at = (r: number, deg: number): Pt => [r * Math.cos(deg * DEG_TO_RAD), r * Math.sin(deg * DEG_TO_RAD)];
   const steps = Math.max(2, Math.ceil(Math.abs(bodyEnd - fromDeg) / 8));
   const along = (r: number, reverse: boolean) => Array.from({ length: steps + 1 }, (_, i) => at(r, fromDeg + ((bodyEnd - fromDeg) * (reverse ? steps - i : i)) / steps));
   // Going the way the arrow points, the outer edge is on the left for anticlockwise (dir +1) and on the right for clockwise; the outline just needs to be a simple loop.
@@ -225,7 +226,7 @@ export const gear: Primitive = {
     // The knob rides a circle round the driver's axle: the turn whose knob angle points at the finger, nearest the current one.
     solve: (point, v) => {
       const s = settle(v);
-      const a = Math.atan2(point.y - AXLE_Y, point.x - s.x1) * DEG;
+      const a = Math.atan2(point.y - AXLE_Y, point.x - s.x1) * RAD_TO_DEG;
       const base = (a - KNOB_AT_0) / 360;
       return base + Math.round((v.turn ?? 0) - base);
     },

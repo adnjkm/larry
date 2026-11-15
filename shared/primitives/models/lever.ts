@@ -20,8 +20,9 @@
 import type { Part } from "../../kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
 import { frame, handArrow, HOLD, phases, RESET, SCENE } from "../motion/run.ts";
-import { arrow, arrowLength, box, DEG, fmt, look, loadEdge, on, part, PLATE_TOP, plate, post, pushDisc, rotateAbout, tick, v3 } from "../parts.ts";
+import { arrow, arrowLength, box, fmt, look, loadEdge, on, part, PLATE_TOP, plate, post, pushDisc, rotateAbout, tick, v3 } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres.
 /** Effort point to load point, along the bar. */
@@ -85,12 +86,12 @@ export function settle(v: Values) {
   const push = clamp(v.push ?? 8, 0, limit);
   const sin = b.s0 + push / b.aEff;
   const phi = Math.asin(clamp(sin, -1, 1));
-  return { ...b, hold, weak, limit, push, sin, phi, deg: phi * DEG, rise: push / ratio, effort: weak ? FINGER : hold };
+  return { ...b, hold, weak, limit, push, sin, phi, deg: phi * RAD_TO_DEG, rise: push / ratio, effort: weak ? FINGER : hold };
 }
 
 type Bar = { aEff: number; aLoad: number; xp: number };
 /** A point given in the bar's frame (along it from the pivot, up from its underside) as it lands in the world. */
-export const onBar = (b: Bar, phi: number, lx: number, ly: number) => rotateAbout([lx, ly], phi * DEG, v3(b.xp, PIVOT_Y, 0));
+export const onBar = (b: Bar, phi: number, lx: number, ly: number) => rotateAbout([lx, ly], phi * RAD_TO_DEG, v3(b.xp, PIVOT_Y, 0));
 /** The press pad's centre (`up` above the bar's top) and the block's centre, for a bar turned `phi`. */
 const padAt = (b: Bar, phi: number, up: number) => onBar(b, phi, -b.aEff, BAR_T + up);
 const blockAt = (b: Bar, phi: number) => onBar(b, phi, b.aLoad, BAR_T + BLOCK / 2);

@@ -8,11 +8,11 @@ import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
 import { startValues, steps, type Values } from "../types.ts";
 import { bounds, FINGER, holdFor, lever, LOAD, lift, RISE, rig, settle, STRAIN, TRAVEL } from "./lever.ts";
+import { DEG_TO_RAD } from "../../angles.ts";
 
 const game = lever.game;
 const [ratio, push] = lever.sliders as [NonNullable<(typeof lever.sliders)[0]>, NonNullable<(typeof lever.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
-const DEG = Math.PI / 180;
 const EXT = rig.EXT;
 const SPAN_BAR = rig.SPAN + 2 * rig.EXT;
 
@@ -25,13 +25,13 @@ const pivotOf = (parts: Part[]) => {
 /** A world point given in the bar's frame (x along it from the pivot, y up from its underside), from the drawn pivot and bar. */
 function onBar(parts: Part[], lx: number, ly: number) {
   const pivot = pivotOf(parts);
-  const a = find(parts, "bar").rotation.z * DEG;
+  const a = find(parts, "bar").rotation.z * DEG_TO_RAD;
   return { x: pivot.x + lx * Math.cos(a) - ly * Math.sin(a), y: pivot.y + lx * Math.sin(a) + ly * Math.cos(a) };
 }
 /** A world point as seen in the bar's frame. */
 function inBar(parts: Part[], x: number, y: number) {
   const pivot = pivotOf(parts);
-  const a = find(parts, "bar").rotation.z * DEG;
+  const a = find(parts, "bar").rotation.z * DEG_TO_RAD;
   const dx = x - pivot.x;
   const dy = y - pivot.y;
   return { lx: dx * Math.cos(a) + dy * Math.sin(a), ly: -dx * Math.sin(a) + dy * Math.cos(a) };
@@ -44,7 +44,7 @@ const corners = (parts: Part[], r: number) => {
 /** Where the top of the block is, from the drawn parts: its highest corner. */
 const topOf = (parts: Part[]) => {
   const b = find(parts, "load");
-  const a = b.rotation.z * DEG;
+  const a = b.rotation.z * DEG_TO_RAD;
   return b.position.y + (rig.BLOCK / 2) * (Math.cos(a) + Math.abs(Math.sin(a)));
 };
 /** The ratios at which the finger can hold the block. */
@@ -260,13 +260,13 @@ describe("lever", () => {
       for (const p of steps(push)) {
         const parts = lever.build({ ratio: r, push: p });
         const block = find(parts, "load");
-        const a = block.rotation.z * DEG;
+        const a = block.rotation.z * DEG_TO_RAD;
         const half = rig.BLOCK / 2;
         const farthest = Math.max(...[[half, half], [half, -half], [-half, half], [-half, -half]].map(([x, y]) => block.position.x + x! * Math.cos(a) - y! * Math.sin(a)));
         assert.ok(farthest <= post.position.x - post.shape.width / 2 - 0.5, `ratio ${r}, push ${p}: the block reaches x = ${farthest.toFixed(1)}, into the post`);
         // The bar shares the line's z range, so beyond the line's left end the bar's top edge must stay under it, and short of the post.
         const bar = find(parts, "bar");
-        const ba = bar.rotation.z * DEG;
+        const ba = bar.rotation.z * DEG_TO_RAD;
         const along = (x: number, y: number) => ({ x: bar.position.x + x * Math.cos(ba) - y * Math.sin(ba), y: bar.position.y + x * Math.sin(ba) + y * Math.cos(ba) });
         const end = along(SPAN_BAR / 2, rig.BAR_T / 2);
         const start = along(-SPAN_BAR / 2, rig.BAR_T / 2);

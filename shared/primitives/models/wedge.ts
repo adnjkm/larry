@@ -18,8 +18,9 @@
 import type { Part } from "../../kit.ts";
 import { clamp, easeOut } from "../motion/ease.ts";
 import { frame, handArrow, HOLD, LEAD, phases, RESET, SCENE, whenReaches } from "../motion/run.ts";
-import { arrow, arrowLength, box, fmt, look, on, part, PLATE_TOP, plate, post, pushDisc, RAD, tick, v3 } from "../parts.ts";
+import { arrow, arrowLength, box, fmt, look, on, part, PLATE_TOP, plate, post, pushDisc, tick, v3 } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { DEG_TO_RAD } from "../../angles.ts";
 
 // Geometry, millimetres. The log is small beside the wedge, so the pink piece is what the eye lands on.
 const BLOCK_W = 22;
@@ -40,7 +41,7 @@ const DISC_T = 4;
 const TICK_LEN = 10;
 /** Arrows: the biggest sideways push the sliders can make (slope 8°) is 34 long, so it ends short of the post. */
 const BLOW_FOR_SCALE = 120;
-const SIDE_MAX = BLOW_FOR_SCALE / (2 * Math.tan(8 * RAD));
+const SIDE_MAX = BLOW_FOR_SCALE / (2 * Math.tan(8 * DEG_TO_RAD));
 const ARROW_LONG = 34;
 /** A side arrow lies on the log half's front face, this far in from its inner edge, and stands this far off it. */
 const ARROW_IN = 1;
@@ -61,7 +62,7 @@ export const ELASTIC = 1.5;
 /** A blow drives the wedge this much further. Five of them go right through. */
 const STEP = LENGTH / BLOWS;
 
-const tanOf = (slope: number) => Math.tan(slope * RAD);
+const tanOf = (slope: number) => Math.tan(slope * DEG_TO_RAD);
 /** What the log pushes back with when each half has given `open` mm. */
 export const gripAt = (open: number) => GRIP + STIFF * open;
 

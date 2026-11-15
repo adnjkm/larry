@@ -16,6 +16,7 @@ import { clamp01, fall, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases } from "../motion/run.ts";
 import { COLOR, cylinder, fmt, type Look, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { DEG_TO_RAD } from "../../angles.ts";
 
 // Geometry, millimetres.
 /** The gasket's thickness before squeezing. */
@@ -69,7 +70,7 @@ const DRIP_REST = 1.4;
 /** A drop's height `phase` of the way down (0 at the joint, 1 on the plate), falling faster as it goes. */
 const dropY = (phase: number) => GASKET_Y + FLANGE_T / 2 - (GASKET_Y + FLANGE_T / 2 - (PLATE_TOP + DROP_R)) * fall(phase);
 const dropShape = lathe(Array.from({ length: 9 }, (_, i): Pt => {
-  const a = ((i / 8) * 180 - 90) * (Math.PI / 180);
+  const a = ((i / 8) * 180 - 90) * DEG_TO_RAD;
   return [DROP_R * Math.cos(a), DROP_R * Math.sin(a)];
 }));
 

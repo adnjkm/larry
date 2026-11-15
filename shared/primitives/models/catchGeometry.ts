@@ -6,16 +6,16 @@
 // up and down; its spring pushes it down until its flange sits on the frame's lips. `door` is the door's x (0 = shut),
 // and `lift` is how far the door's top edge has pushed the bolt up from there.
 import type { Pt } from "../parts.ts";
+import { DEG_TO_RAD } from "../../angles.ts";
 
-const RAD = Math.PI / 180;
 
 /** The bolt's leading face, which the door's edge meets as it shuts, rises at this angle from the door's travel. */
 export const CLOSE_DEG = 30;
 /** Its trailing face, which the notch's wall bears on when the door is pulled, rises this steeply. */
 export const HOLD_DEG = 70;
 /** A face at angle a turns the spring's push S into a push along the travel of S × tan a (no friction). */
-export const CLOSE_GAIN = Math.tan(CLOSE_DEG * RAD);
-export const HOLD_GAIN = Math.tan(HOLD_DEG * RAD);
+export const CLOSE_GAIN = Math.tan(CLOSE_DEG * DEG_TO_RAD);
+export const HOLD_GAIN = Math.tan(HOLD_DEG * DEG_TO_RAD);
 
 /** How far the bolt sticks down below the door's top edge: the furthest the door pushes it up. */
 export const THROW = 10;

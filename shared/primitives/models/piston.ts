@@ -17,6 +17,7 @@ import { easeOut, smooth } from "../motion/ease.ts";
 import { frame, phases, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, box, cylinder, fmt, lathe, look, on, part, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
 import { type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { DEG_TO_RAD } from "../../angles.ts";
 
 /** Outside air pressure, kPa. */
 const P0 = 101.3;
@@ -81,7 +82,7 @@ function tube(wi: number): Part {
 const DOT_ROWS = 3;
 const DOT_COLS = 2;
 const dot = lathe(Array.from({ length: 9 }, (_, i): Pt => {
-  const t = ((i / 8) * 180 - 90) * (Math.PI / 180);
+  const t = ((i / 8) * 180 - 90) * DEG_TO_RAD;
   return [DOT_R * Math.cos(t), DOT_R * Math.sin(t)];
 }));
 

@@ -15,8 +15,9 @@
 import type { Part } from "../../kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
 import { frame, LEAD, phases, REWIND, SCENE, whenReaches } from "../motion/run.ts";
-import { DEG, fmt, knob, lathe, look, on, part, pivoted, plate, post, RAD, v3, type Pt } from "../parts.ts";
+import { fmt, knob, lathe, look, on, part, pivoted, plate, post, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres. The post is behind the cam and the follower; the whole rig sits in z so the union is centred.
 const R0 = 20;
@@ -67,7 +68,7 @@ const outlines = new Map<number, Pt[]>();
 function outlineOf(lift: number): Pt[] {
   let o = outlines.get(lift);
   if (!o) {
-    o = Array.from({ length: 360 }, (_, i): Pt => [rim(lift, i) * Math.cos(i * RAD), rim(lift, i) * Math.sin(i * RAD)]);
+    o = Array.from({ length: 360 }, (_, i): Pt => [rim(lift, i) * Math.cos(i * DEG_TO_RAD), rim(lift, i) * Math.sin(i * DEG_TO_RAD)]);
     outlines.set(lift, o);
   }
   return o;
@@ -85,8 +86,8 @@ export function rampAngle(lift: number): number {
     const [x0, y0] = o[i] as Pt;
     const [x1, y1] = o[(i + 1) % o.length] as Pt;
     const dr = Math.hypot(x1, y1) - Math.hypot(x0, y0);
-    const along = ((Math.hypot(x0, y0) + Math.hypot(x1, y1)) / 2) * (Math.PI / 180);
-    worst = Math.max(worst, Math.atan2(Math.abs(dr), along) * DEG);
+    const along = ((Math.hypot(x0, y0) + Math.hypot(x1, y1)) / 2) * DEG_TO_RAD;
+    worst = Math.max(worst, Math.atan2(Math.abs(dr), along) * RAD_TO_DEG);
   }
   return worst;
 }
@@ -96,7 +97,7 @@ export function rampAngle(lift: number): number {
  * the drawn polygon, so this takes its vertices under the foot and where its edges cross the foot's two ends.
  */
 export function rise(v: Values, turn: number): number {
-  const th = turn * 360 * RAD;
+  const th = turn * 360 * DEG_TO_RAD;
   const c = Math.cos(th);
   const s = Math.sin(th);
   const o = outlineOf(valueOf(LIFT, v));
@@ -145,7 +146,7 @@ export function settle(v: Values) {
 }
 
 const knobAngle = (turn: number) => KNOB_AT_0 + turn * 360;
-const knobPoint = (turn: number) => v3(KNOB_R * Math.cos(knobAngle(turn) * RAD), CAM_Y + KNOB_R * Math.sin(knobAngle(turn) * RAD), KNOB_Z);
+const knobPoint = (turn: number) => v3(KNOB_R * Math.cos(knobAngle(turn) * DEG_TO_RAD), CAM_Y + KNOB_R * Math.sin(knobAngle(turn) * DEG_TO_RAD), KNOB_Z);
 
 function build(v: Values): Part[] {
   const s = settle(v);
@@ -313,7 +314,7 @@ export const cam: Primitive = {
     at: (v) => knobPoint(settle(v).turn),
     // The knob rides a circle round the cam's axle: the turn whose knob angle points at the finger, nearest the current one.
     solve: (point, v) => {
-      const a = Math.atan2(point.y - CAM_Y, point.x) * DEG;
+      const a = Math.atan2(point.y - CAM_Y, point.x) * RAD_TO_DEG;
       const base = (a - KNOB_AT_0) / 360;
       return base + Math.round((v.turn ?? 0) - base);
     },
