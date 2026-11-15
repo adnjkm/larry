@@ -1,6 +1,6 @@
 type Size = { width: number; height: number };
 
-export type PhotoFit = "cover" | "contain";
+type PhotoFit = "cover" | "contain";
 
 /** Portrait photos fill the viewfinder; landscape ones sit inside it over a blurred copy, the way the feed shows them. */
 export function fitFor(image: Size, box: Size): PhotoFit {

@@ -85,7 +85,6 @@ export function Surface(props: SurfaceProps) {
   const cellCss = deviceCell / dpr;
   const strip = stripFor(props, cellCss);
 
-  // The frame to show, and the frames that blur into it.
   const n = strip.count;
   const index = n === 1 ? 0 : Math.floor((((at % 1) + 1) % 1) * n) % n;
   const blur = Math.min(n, Math.max(1, Math.round(smear)));

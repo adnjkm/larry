@@ -7,7 +7,7 @@ import { drawPhoto, type Framing, greyField } from "./photo.ts";
 import { reducedMotion } from "../motion.ts";
 
 /** The sweep as it stands this frame, for the glow: the band and where it is, or null between sweeps. */
-export type SweepNow = { frame: SweepFrame | null; band: HTMLCanvasElement | null };
+type SweepNow = { frame: SweepFrame | null; band: HTMLCanvasElement | null };
 
 type DevelopOptions = {
   /** How the viewfinder framed the photo at the last shot; null until then. The swell draws while it is set. */
@@ -26,7 +26,7 @@ type DevelopOptions = {
 const FPS = 30;
 const EASE_IN_MS = 1400;
 /** The glow copies the frame at this fraction of its size; it is blurred anyway, so more would only cost. */
-export const GLOW_SCALE = 1 / 8;
+const GLOW_SCALE = 1 / 8;
 /** The glow's canvas reaches this many blur radii past the frame, so the blur spills past its edge. */
 const GLOW_SPILL = 2;
 

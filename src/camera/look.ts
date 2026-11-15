@@ -52,5 +52,4 @@ export const TUNING: Tuning = {
 /** The pink the primitives use for the part that matters. */
 export const ACCENT = colors.pink;
 
-/** Rounds to the 2px half-step grid. */
 export const even = (n: number) => Math.round(n / 2) * 2;
