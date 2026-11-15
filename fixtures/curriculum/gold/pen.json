@@ -1,10 +1,10 @@
 {
   "accept": [
-    "The ballpoint is preferred as a lesson (valve, or seal), but filing the ink tube and its ball as a given is acceptable: no primitive is exactly a rolling ball. Do not take points off for either choice. Any other primitive there is bent.",
+    "The ballpoint must be a lesson: the pen exists to write, and a person cannot see how the tip works. Filing the ink tube and its ball as a given is wrong. Its steps are a seal (the ball closes the tip) and a grip (the paper turns the ball); a valve in place of the seal is acceptable. Any other primitive there is bent.",
     "Retraction must use spring. Holding the tip out may be catch or ratchet. Alternating the press must be cam. Two sub-functions (spring, cam) are acceptable if the cam's step covers holding the tip out.",
     "The pocket clip, the barrel, the nose cone and the ink tube are givens. Making any of them a lesson is wrong.",
     "Nose cone as its own given, or the ink tube merged into the ballpoint lesson, is fine.",
-    "If the ballpoint is a lesson it comes before retraction. The barrel may come before or after it."
+    "The ballpoint comes before retraction. The barrel may come before or after it."
   ],
   "plan": {
     "object": "Click pen",
@@ -39,13 +39,27 @@
         "needs": [
           "ink-tube"
         ],
-        "known": null,
-        "words": [],
+        "known": "ball-tip",
+        "words": [
+          {
+            "slot": "fluid",
+            "phrase": "the ink"
+          },
+          {
+            "slot": "surface",
+            "phrase": "the paper"
+          }
+        ],
         "subfunctions": [
           {
-            "id": "meter-ink",
-            "does": "Let ink out only while the tip rolls",
-            "primitive": "valve"
+            "id": "ballpoint-close",
+            "does": "Keep the ink in while the ball is still",
+            "primitive": "seal"
+          },
+          {
+            "id": "ballpoint-roll",
+            "does": "Turn the ball as it crosses the paper",
+            "primitive": "grip"
           }
         ],
         "lesson": true,

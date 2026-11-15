@@ -1,5 +1,6 @@
 // The known mechanisms: what many everyday objects do the same way, each written and checked once.
 // A new entry is one file in entries/ and one line here; library.test.ts fails when a file is left out.
+import { ballTip } from "./entries/ball-tip.ts";
 import { camClamp } from "./entries/cam-clamp.ts";
 import { checkValve } from "./entries/check-valve.ts";
 import { clickLatch } from "./entries/click-latch.ts";
@@ -25,6 +26,7 @@ import { zipSlider } from "./entries/zip-slider.ts";
 import type { KnownMechanism } from "./types.ts";
 
 export const MECHANISMS: KnownMechanism[] = [
+  ballTip,
   camClamp,
   checkValve,
   clickLatch,
