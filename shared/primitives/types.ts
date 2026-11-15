@@ -1,10 +1,11 @@
-// Types for the primitives library. Two levels:
+// Types for the primitives library, and the helpers that read its sliders. Two levels:
 // - Element: one piece, one job, one number, and it can't be made from the others.
 // - Mechanism: two or three elements combined to do one new job none of them does alone.
 //
 // A primitive is a pose function (`build`) plus a premade game. Nothing is simulated: the game knows what will
 // happen for any setting, so motion is a closed-form script of slider values over time (`Run`).
 import type { Part } from "../kit.ts";
+import { clamp } from "./motion/ease.ts";
 
 export type Slider = {
   id: string;
@@ -20,6 +21,24 @@ export type Slider = {
 };
 
 export type Values = Record<string, number>;
+
+/** Every value on a slider's step grid, min to max. */
+export function steps(s: Slider): number[] {
+  const n = Math.round((s.max - s.min) / s.step);
+  return Array.from({ length: n + 1 }, (_, i) => Number((s.min + i * s.step).toFixed(10)));
+}
+
+/** `count` values spread from a slider's min to its max, each on the slider's own step grid. */
+export function sliderSamples(s: Slider, count: number): number[] {
+  const n = Math.round((s.max - s.min) / s.step);
+  return [...new Set(Array.from({ length: count }, (_, i) => Math.round((i * n) / (count - 1))))].map((k) => s.min + k * s.step);
+}
+
+/** `x` held inside the slider's range and snapped to its step grid. */
+export const snap = (s: Slider, x: number): number => clamp(Number((s.min + Math.round((x - s.min) / s.step) * s.step).toFixed(10)), s.min, s.max);
+
+/** A model's reading of its own slider: `v[s.id]` (the slider's initial when absent or not a number), clamped and snapped to the slider itself. */
+export const valueOf = (s: Slider, v: Values): number => snap(s, Number.isFinite(v[s.id]) ? v[s.id]! : s.initial);
 export type Readout = { label: string; value: string };
 
 export type Level = "Element" | "Mechanism";
@@ -49,7 +68,7 @@ export type Handle = {
   reach?: (v: Values) => [number, number];
 };
 
-export type CueKind = "click" | "snap" | "thud" | "pop" | "slip" | "drip" | "ring";
+type CueKind = "click" | "snap" | "thud" | "pop" | "slip" | "drip" | "ring";
 /** Something that happens at one moment of a run, for a haptic tick, a sound or a flash. */
 export type Cue = { ms: number; kind: CueKind };
 
@@ -63,10 +82,7 @@ export type Frame = {
   marks?: Part[];
 };
 
-/**
- * A scripted motion, the same shape as a test run in prototypes/lesson (model.ts `Run`): the outcome is decided
- * first, then `at` plays the choreography that outcome implies. Closed form, no simulation.
- */
+/** A scripted motion: the outcome is decided first, then `at` plays the choreography that outcome implies. Closed form, no simulation. */
 export type Run = {
   verdict: Verdict;
   /** Keep a game's run under 4500. */
@@ -137,7 +153,7 @@ export type Game = {
 };
 
 /** "bench" looks slightly down at a rig laid out left to right. "coaxial" looks further down at a rig built up one vertical axis. */
-export type ViewPreset = "bench" | "coaxial";
+type ViewPreset = "bench" | "coaxial";
 export const VIEW: Record<ViewPreset, { elevation: number; azimuth: number }> = {
   bench: { elevation: 14, azimuth: 24 },
   coaxial: { elevation: 22, azimuth: 24 },
@@ -165,8 +181,21 @@ export type Primitive = {
   viewReason?: string;
   build: (v: Values) => Part[];
   readouts: (v: Values) => Readout[];
-  /** Optional until every model has one. */
-  handle?: Handle;
-  /** Optional until every model has one. */
-  game?: Game;
+  handle: Handle;
+  game: Game;
 };
+
+/** Every slider the figure's values can hold: the primitive's, its game's controls and its run-only poses. */
+export const allSliders = (p: Primitive): Slider[] => [...p.sliders, ...(p.game.controls ?? []), ...(p.game.poses ?? [])];
+
+/** The slider the handle and the play sweep move: the handle's, else the last slider (the first is the number). */
+export const motionSlider = (p: Primitive): Slider => allSliders(p).find((s) => s.id === p.handle.slider) ?? p.sliders.at(-1)!;
+
+/** Each slider's initial value. */
+export const initialValues = (p: Primitive): Values => Object.fromEntries(p.sliders.map((s) => [s.id, s.initial]));
+
+/** Every value the figure can hold at rest: each slider, control and run-only pose at its initial, then, for the game, `game.start`. */
+export const startValues = (p: Primitive, game = true): Values => ({
+  ...Object.fromEntries(allSliders(p).map((s) => [s.id, s.initial])),
+  ...(game ? p.game.start : undefined),
+});

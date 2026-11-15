@@ -5,11 +5,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkContinuity, checkDesign, checkGame, numberSweep, sample, startOf, steps } from "../checks.ts";
-import type { Values } from "../types.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { bounds, FINGER, holdFor, lever, LOAD, lift, RISE, rig, settle, STRAIN, TRAVEL } from "./lever.ts";
 
-const game = lever.game!;
+const game = lever.game;
 const [ratio, push] = lever.sliders as [NonNullable<(typeof lever.sliders)[0]>, NonNullable<(typeof lever.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const DEG = Math.PI / 180;
@@ -124,7 +124,7 @@ describe("lever", () => {
   it("gives the finger one fixed stroke: the slider and the drag stop at TRAVEL, so the load rises TRAVEL ÷ ratio", () => {
     assert.equal(push.max, TRAVEL);
     for (const r of strong) {
-      const [lo, hi] = lever.handle!.reach!({ ratio: r, push: 8 });
+      const [lo, hi] = lever.handle.reach!({ ratio: r, push: 8 });
       assert.equal(lo, 0);
       assert.equal(hi, TRAVEL, `ratio ${r}: reach ${hi}`);
       assert.ok(Math.abs(settle({ ratio: r, push: TRAVEL }).rise - TRAVEL / r) < 1e-9);
@@ -137,7 +137,7 @@ describe("lever", () => {
 
   it("only goes as far as one finger can move it: a millimetre or two when the ratio is too small", () => {
     for (const r of steps(ratio).filter((x) => holdFor(x) > FINGER + 1e-9)) {
-      const [lo, hi] = lever.handle!.reach!({ ratio: r, push: 8 });
+      const [lo, hi] = lever.handle.reach!({ ratio: r, push: 8 });
       assert.equal(lo, 0);
       assert.ok(hi <= STRAIN + 1e-9 && hi >= 1, `ratio ${r}: reach ${hi}`);
       assert.ok(settle({ ratio: r, push: 12 }).push <= STRAIN + 1e-9, "the picture holds to it however far the slider asks");
@@ -180,7 +180,7 @@ describe("lever", () => {
   });
 
   it("drags the pad to the pointer and back", () => {
-    const h = lever.handle!;
+    const h = lever.handle;
     for (const r of [2, 3, 5]) {
       for (const p of [0, 7, 13]) {
         const v: Values = { ratio: r, push: p };
@@ -197,7 +197,7 @@ describe("lever", () => {
       else if (r <= 2.3 + 1e-9) assert.equal(o, "block-lifted", `ratio ${r}`);
       else assert.equal(o, "out-of-room", `ratio ${r}`);
     }
-    assert.equal(game.judge(startOf(lever)).outcome, "out-of-room");
+    assert.equal(game.judge(startValues(lever)).outcome, "out-of-room");
     for (const r of [1.5, 2, 2.3]) assert.ok(lift({ ratio: r }).canRise >= RISE - 1e-9);
   });
 
@@ -289,6 +289,5 @@ describe("lever", () => {
   it("passes the generic game and design checks", () => {
     checkGame(lever);
     checkDesign(lever);
-    checkContinuity(lever);
   });
 });

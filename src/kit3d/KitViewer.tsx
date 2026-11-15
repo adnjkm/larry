@@ -9,6 +9,7 @@ import { geometries } from "../primitives/stage/scene.ts";
 import { shapeKey } from "../primitives/stage/shapes.ts";
 import { DEFAULT_LOOK, type DitherLook } from "./ditherLook.ts";
 import { applyLook, createDitherMaterial, createLookUniforms, createShadowMaterial } from "./ditherMaterial.ts";
+import { VIEWER_SELECTOR, markViewerReady, viewerProps } from "../viewport.ts";
 
 const MARGIN = 1.12;
 const SPIN_RADIANS_PER_SECOND = 0.5;
@@ -146,7 +147,7 @@ export const KitViewer = memo(function KitViewer({ parts, spin: wantsSpin = fals
   const spin = wantsSpin && !reducedMotion.matches;
   const pixelSize = pixelScale ?? look.pixels.size;
   return (
-    <div ref={box} data-kit-viewer {...stylex.props(styles.box(height, pixelSize, look.colors.paper))}>
+    <div ref={box} {...viewerProps} {...stylex.props(styles.box(height, pixelSize, look.colors.paper))}>
       <Canvas
         orthographic
         flat
@@ -291,7 +292,7 @@ function Scene({ parts, spin, elevation, azimuth, frame, shadowStops, look }: { 
     if (shadow.current) shadow.current.rotation.y = yaw.current;
     if (++framesDrawn.current === 1) {
       // The first frame is presented once this animation frame ends.
-      requestAnimationFrame(() => gl.domElement.closest("[data-kit-viewer]")?.setAttribute("data-ready", ""));
+      requestAnimationFrame(() => markViewerReady(gl.domElement.closest(VIEWER_SELECTOR)));
     }
   });
 

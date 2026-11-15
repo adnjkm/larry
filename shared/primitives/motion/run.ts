@@ -1,11 +1,17 @@
 // Building blocks for a game's `play` run (src/primitives/docs/motion-language.md). Pure TypeScript: no React, no three.
 import type { Part } from "../../kit.ts";
 import { arrow, on, type Vec } from "../parts.ts";
-import type { Frame, Primitive, Run, Slider, Values } from "../types.ts";
+import { type Frame, type Primitive, type Run, type Values, initialValues, motionSlider } from "../types.ts";
 import { clamp, clamp01 } from "./ease.ts";
 
+/** The usual length of a run's phases, ms. A model whose choreography needs another keeps its own constant. */
+export const LEAD = 250;
+export const HOLD = 700;
+export const RESET = 600;
+export const REWIND = 450;
+
 /** A run's phases in order. Every query takes the run's own clock, ms from the start. */
-export type Timeline<K extends string> = {
+type Timeline<K extends string> = {
   /** Sum of every phase. */
   total: number;
   start: (name: K) => number;
@@ -84,25 +90,25 @@ export function say(n: number, digits?: number): string {
   return Number(n.toFixed(d)).toString();
 }
 
-/** The play sweep: the motion slider from one end to the other and back. */
+/** One full low-high-low cycle of the play sweep. */
 export const SWEEP_MS = 4000;
 const SWEEP_STEP = 16;
 
-/** The slider a stage moves when nothing else says: the handle's, or else the last slider (the first is the number). */
-export const motionSlider = (p: Primitive): Slider => p.sliders.find((s) => s.id === p.handle?.slider) ?? (p.sliders[p.sliders.length - 1] as Slider);
-
 /**
- * The play sweep (motion-language.md): the motion slider runs end to end and back on `0.5 - 0.5 cos(2 pi t / 4 s)`.
- * When the handle has a `reach`, the sweep stays inside it: the ends come from `reach(start)`, and every 16 ms step is
- * held inside `reach` of the step before, so a one-way machine (a ratchet) winds up and then holds rather than running
- * backward through its pawl. `at(ms)` repeats every SWEEP_MS.
+ * The play sweep (motion-language.md): the motion slider runs end to end and back on `0.5 - 0.5 cos(2 pi t / 4 s)`,
+ * starting from where it is in `start`, heading up, so it never jumps. When the handle has a `reach`, the sweep stays
+ * inside it: the ends come from `reach(start)`, and every 16 ms step is held inside `reach` of the step before, so a
+ * one-way machine (a ratchet) winds up and then holds rather than running backward through its pawl. `at(ms)` repeats
+ * every SWEEP_MS; `moves` is false when the reach is a single value.
  */
-export function sweepRun(p: Primitive, start: Values = Object.fromEntries(p.sliders.map((s) => [s.id, s.initial]))): Pick<Run, "durationMs" | "at"> {
+export function sweepRun(p: Primitive, start: Values = initialValues(p)): Pick<Run, "durationMs" | "at"> & { moves: boolean } {
   const s = motionSlider(p);
-  const reach = p.handle?.slider === s.id ? p.handle.reach : undefined;
+  const reach = p.handle.slider === s.id ? p.handle.reach : undefined;
   const inRange = ([lo, hi]: [number, number]): [number, number] => [clamp(lo, s.min, s.max), clamp(hi, s.min, s.max)];
   const [lo, hi] = inRange(reach ? reach(start) : [s.min, s.max]);
-  const target = (ms: number) => lo + (hi - lo) * (0.5 - 0.5 * Math.cos((2 * Math.PI * ms) / SWEEP_MS));
+  const fraction = hi > lo ? clamp01(((start[s.id] ?? s.initial) - lo) / (hi - lo)) : 0;
+  const phase = (Math.acos(1 - 2 * fraction) / (2 * Math.PI)) * SWEEP_MS;
+  const target = (ms: number) => lo + (hi - lo) * (0.5 - 0.5 * Math.cos((2 * Math.PI * (ms + phase)) / SWEEP_MS));
   const steps: number[] = [];
   const valueAt = (k: number): number => {
     while (steps.length <= k) {
@@ -120,6 +126,7 @@ export function sweepRun(p: Primitive, start: Values = Object.fromEntries(p.slid
   const last = Math.floor(SWEEP_MS / SWEEP_STEP);
   return {
     durationMs: SWEEP_MS,
+    moves: hi > lo,
     at: (ms) => {
       const local = ((ms % SWEEP_MS) + SWEEP_MS) % SWEEP_MS;
       const k = Math.floor(local / SWEEP_STEP);

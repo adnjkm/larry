@@ -32,7 +32,7 @@ const TIP_R = TIP_L + TIP;
 export const CLEAR = 1.5;
 export const LIP = 3;
 /** The flange stands out this far either side of the bolt's body, and is this tall. */
-export const FLANGE = 3.5;
+const FLANGE = 3.5;
 export const FLANGE_T = 3;
 /** The flange's top, with the bolt all the way down: the spring's foot. */
 export const FLANGE_TOP = CLEAR + LIP + FLANGE_T;
@@ -58,7 +58,7 @@ const NOTCH_D = THROW + 2;
 /** Its left wall stands this far clear of the bolt's widest point. */
 const NOTCH_L = -HALF - 1.5;
 /** The keeper: the door's top between the notch and the door's leading edge. */
-export const KEEPER = 4;
+const KEEPER = 4;
 /** The door's leading edge, from the bolt's axis with the door shut: it rests on the frame's post there. */
 export const LEAD = HALF + KEEPER;
 /** The door's trailing edge: the door is this far across, so the notch sits near its leading end. */

@@ -15,7 +15,7 @@ import type { Part } from "../../kit.ts";
 import { clamp01, fall, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases } from "../motion/run.ts";
 import { COLOR, cylinder, fmt, type Look, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres.
 /** The gasket's thickness before squeezing. */
@@ -27,7 +27,7 @@ const GASKET_R0 = 36;
 export const WEEP = 0.15;
 export const SPLIT = 0.3;
 /** The flange is as wide as the gasket gets at SPLIT, so the gasket reaches its edge exactly there: volume conservation, not a typed number. */
-export const wideAt = (s: number, r0 = GASKET_R0) => Math.sqrt(BORE_R ** 2 + (r0 ** 2 - BORE_R ** 2) / (1 - s));
+const wideAt = (s: number, r0 = GASKET_R0) => Math.sqrt(BORE_R ** 2 + (r0 ** 2 - BORE_R ** 2) / (1 - s));
 const FLANGE_R = wideAt(SPLIT);
 const FLANGE_T = 10;
 const PIPE_H = 48;
@@ -40,11 +40,9 @@ const DROP_X = FLANGE_R + DROP_R + 1;
 const WIDEST = wideAt(0.4);
 const SQUEEZE_MAX = 0.4;
 
-const squeezeOf = (v: Values) => clamp01(Math.round((v.squeeze ?? 0.2) * 100) / 100);
-
 /** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const squeeze = squeezeOf(v);
+  const squeeze = valueOf(SQUEEZE, v);
   const t = T0 * (1 - squeeze);
   /** The gasket's outer radius: the rubber is moved, not lost. */
   const outer = wideAt(squeeze);
@@ -206,6 +204,8 @@ function play(v: Values): Run {
   };
 }
 
+const SQUEEZE: Slider = { id: "squeeze", label: "Squeeze", min: 0, max: SQUEEZE_MAX, step: 0.01, initial: 0.2, unit: "%", displayScale: 100 };
+
 export const seal: Primitive = {
   id: "seal",
   name: "Seal",
@@ -215,7 +215,7 @@ export const seal: Primitive = {
     "Two hard surfaces never touch everywhere: up close they are hills and valleys, and a liquid finds the valleys. A rubber gasket clamped between them is squeezed into those gaps and pushes back on both faces, closing the path. The squeeze is the thickness lost divided by the thickness it started with. Rubber cannot be compressed, only moved, so a thinner gasket spreads wider. Too little squeeze and gaps stay open; too much and the rubber is forced out of the joint. Static seals are typically squeezed roughly 15 to 30 percent.",
   madeOf: [],
   seenIn: ["Bottle cap", "Jar lid", "Tap washer"],
-  sliders: [{ id: "squeeze", label: "Squeeze", min: 0, max: SQUEEZE_MAX, step: 0.01, initial: 0.2, unit: "%", displayScale: 100 }],
+  sliders: [SQUEEZE],
   view: VIEW.bench,
   build,
   readouts,

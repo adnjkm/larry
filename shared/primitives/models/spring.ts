@@ -11,9 +11,9 @@
 // not the strongest launch.
 import type { Part } from "../../kit.ts";
 import { clamp, fall, ring, rockBack, smooth } from "../motion/ease.ts";
-import { frame, MARK, phases, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, HOLD, MARK, phases, RESET, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, arrowLength, coil, cylinder, fmt, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres.
 /** Coil length with no push. */
@@ -68,11 +68,9 @@ function wireFor(k: number): number {
   return (lo + hi) / 2;
 }
 
-const stiffnessOf = (v: Values) => Math.round((v.stiffness ?? 2) * 10) / 10;
-
 /** Everything a pose needs, from the two sliders and the run-only bounce. `build`, `readouts` and the game all read this. */
 export function settle(v: Values) {
-  const k = stiffnessOf(v);
+  const k = valueOf(STIFFNESS, v);
   const force = v.force ?? 30;
   const wire = wireFor(k);
   /** What Hooke's law asks for, before the coils stop it. */
@@ -90,7 +88,6 @@ const discTop = (length: number) => PLATE_TOP + length + DISC_T;
 /** Where the plate's top sits with no push: the puck launches from here. */
 const LAUNCH_Y = discTop(FREE);
 const BELL_MOUTH = LAUNCH_Y + PUCK_H + BELL_GAP;
-
 
 /** An L cut from one sheet: a slim post on the plate and, from its top, an arm of thickness `arm` reaching to `x1` (either side of the post), its middle at height `y`. */
 function ell(id: string, name: string, role: string, postX: number, top: number, x1: number, y: number, arm: number, depth: number, joint: "weld"): Part {
@@ -145,7 +142,7 @@ type Kind = "pass" | "stiff" | "soft";
 
 /** The outcome, decided once from the stiffness; meters, judge and play all read it. */
 export function launch(v: Values) {
-  const k = stiffnessOf(v);
+  const k = valueOf(STIFFNESS, v);
   const s = settle({ stiffness: k, force: Math.min(HAND, k * BIND) });
   const kind: Kind = s.energy >= NEED - 1e-9 ? "pass" : HAND / k > BIND ? "soft" : "stiff";
   /** How high the puck's flight would take it, on the bell gap's scale. */
@@ -179,8 +176,6 @@ const PULL = 800;
 const HOLD_DOWN = 300;
 /** The plate rings for this long after the hand lets go. */
 const RING_MS = 1000;
-const HOLD = 700;
-const RESET = 600;
 /** Rise time to the bell's height. A lower flight is quicker, as a thrown thing is: time goes with the square root of height. */
 const RISE_MS = 460;
 /** The plate's lift off solid coils when it hits them, mm. */
@@ -292,6 +287,8 @@ function puck(bottom: number): Part {
   return part(`${MARK}puck`, "Puck", "The load the spring throws.", cylinder(PUCK_R, PUCK_H).shape, v3(CX, bottom + PUCK_H / 2, 0), look.stone, on("disc", "glue"));
 }
 
+const STIFFNESS: Slider = { id: "stiffness", label: "Stiffness", min: 1, max: 4, step: 0.1, initial: 2, unit: " N/mm" };
+
 export const spring: Primitive = {
   id: "spring",
   name: "Spring",
@@ -302,7 +299,7 @@ export const spring: Primitive = {
   madeOf: [],
   seenIn: ["Pen", "Stapler", "Clothes peg"],
   sliders: [
-    { id: "stiffness", label: "Stiffness", min: 1, max: 4, step: 0.1, initial: 2, unit: " N/mm" },
+    STIFFNESS,
     { id: "force", label: "Push", min: 0, max: 50, step: 1, initial: 30, unit: " N" },
   ],
   view: VIEW.coaxial,
@@ -313,9 +310,9 @@ export const spring: Primitive = {
     label: "Pull down",
     at: (v) => v3(CX, discCentreY(settle(v).length), 0),
     // The plate goes down F ÷ k for a push F, so a plate dragged to height y asks for k times the squeeze that puts it there.
-    solve: (point, v) => stiffnessOf(v) * (discCentreY(FREE) - point.y),
+    solve: (point, v) => valueOf(STIFFNESS, v) * (discCentreY(FREE) - point.y),
     // Past the coils touching, more push moves nothing.
-    reach: (v) => [0, Math.min(FORCE_MAX, stiffnessOf(v) * BIND)],
+    reach: (v) => [0, Math.min(FORCE_MAX, valueOf(STIFFNESS, v) * BIND)],
   },
   game: {
     name: "Launch",

@@ -1,4 +1,5 @@
-// Shared setup for the stage scripts: a Vite server and Chromium (SwiftShader by default, the Mac's GPU with --gpu).
+// Shared browser setup for every Playwright script: Playwright's cached Chromium (SwiftShader by default, the Mac's GPU
+// with gpu = true), and a Vite server plus browser for the scripts that need nothing more.
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -24,14 +25,18 @@ function findChromium(): string {
   throw new Error(`No chromium in ${cache}`);
 }
 
+export function launchChromium(gpu = false): Promise<Browser> {
+  return chromium.launch({
+    executablePath: findChromium(),
+    args: gpu ? ["--use-angle=metal", "--ignore-gpu-blocklist", "--enable-gpu"] : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-webgl"],
+  });
+}
+
 export async function launch(gpu = false): Promise<{ url: string; browser: Browser; server: ViteDevServer; close: () => Promise<void> }> {
   const server = await createServer({ root, logLevel: "warn", server: { port: 0, host: "127.0.0.1" } });
   await server.listen();
   const url = server.resolvedUrls!.local[0]!;
-  const browser = await chromium.launch({
-    executablePath: findChromium(),
-    args: gpu ? ["--use-angle=metal", "--ignore-gpu-blocklist", "--enable-gpu"] : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-webgl"],
-  });
+  const browser = await launchChromium(gpu);
   return {
     url,
     browser,

@@ -18,9 +18,9 @@
 // 15 N; a big one needs more rim travel than the arm has, so it stops short.
 import type { Part } from "../../kit.ts";
 import { clamp, fall, rockBack, shudder, smooth } from "../motion/ease.ts";
-import { frame, handArrow, phases, SCENE } from "../motion/run.ts";
+import { frame, handArrow, HOLD, phases, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, PLATE_TOP, plate, post, ring, shaped, strand, tick, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres. The wheel's face is at z = 0 before the shift that centres the rig.
 const AXLE_R = 8;
@@ -55,7 +55,6 @@ export const LIFT = 30;
 /** A little over the half turn the lift takes (30 ÷ (2 pi x 9.6) = 0.50). Was 0.8, which swung the knob down to the bucket. */
 export const TURN_MAX = 0.55;
 
-const radiusOf = (v: Values) => clamp(Math.round(v.radius ?? 36), 20, 44);
 const TAU = 2 * Math.PI;
 /** Where the knob sits: its centre is on the rim, so the hand's radius is the wheel's. */
 const knobR = (radius: number) => radius;
@@ -67,7 +66,7 @@ const knobPoint = (radius: number, turn: number): Pt => {
 
 /** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const radius = radiusOf(v);
+  const radius = valueOf(RADIUS, v);
   /** The hand's radius: where the knob is, the one radius every force and travel below uses. */
   const hand = knobR(radius);
   const ratio = hand / R_EFF;
@@ -128,7 +127,7 @@ type Kind = "pass" | "weak" | "short";
 
 /** The outcome, decided once from the radius; meters, judge and play all read it. */
 export function winch(v: Values) {
-  const radius = radiusOf(v);
+  const radius = valueOf(RADIUS, v);
   const hand = knobR(radius);
   const hold = (LOAD * R_EFF) / hand;
   /** The travel at the knob the lift takes: the bucket rises R_EFF per radian, the hand travels `hand` per radian. */
@@ -161,7 +160,6 @@ function meters(v: Values): [Meter, Meter] {
 
 // Choreography, ms.
 const LEAD = 300;
-const HOLD = 700;
 const RESET = 650;
 const TWITCH = 700;
 const REBOUND_MS = 260;
@@ -240,6 +238,8 @@ function scene(): Part[] {
   ];
 }
 
+const RADIUS: Slider = { id: "radius", label: "Wheel radius", min: 20, max: 44, step: 1, initial: 36, unit: " mm" };
+
 export const wheel: Primitive = {
   id: "wheel",
   name: "Wheel",
@@ -250,7 +250,7 @@ export const wheel: Primitive = {
   madeOf: [],
   seenIn: ["Doorknob", "Screwdriver handle", "Tap"],
   sliders: [
-    { id: "radius", label: "Wheel radius", min: 20, max: 44, step: 1, initial: 36, unit: " mm" },
+    RADIUS,
     { id: "turn", label: "Turn", min: 0, max: TURN_MAX, step: 0.01, initial: 0.3, unit: " turns" },
   ],
   view: VIEW.bench,

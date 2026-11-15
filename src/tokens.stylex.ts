@@ -24,6 +24,12 @@ export const colors = stylex.defineConsts({
   hairline: "#1414140F",
   faint: "#1414140D",
   shadow: "#14141426",
+  /** The game meters' failing bar, the empty track and the unlit page dot. */
+  red: "#E0432B",
+  track: "#EFEFEF",
+  dotOff: "#DADADA",
+  /** Paper at 85%, for a button over the figure. */
+  paperGlass: "#FFFFFFD9",
 });
 
 /** Open Runde for text, Paper Mono for labels and numbers. Loaded in public/fonts/fonts.css. `pnpm lint` rejects font families written anywhere else. */

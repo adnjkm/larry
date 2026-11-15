@@ -5,12 +5,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample, startOf, steps } from "../checks.ts";
-import type { Values } from "../types.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { BALL_R, LEAK_LIMIT, pumpUp, rig, SEAT_AREA, settle, springFor, STEP, STROKES, strokeAt, TARGET, TAU, THUMB, valve } from "./valve.ts";
 
 type Pt = [number, number];
-const game = valve.game!;
+const game = valve.game;
 const [open, pressure] = valve.sliders as [NonNullable<(typeof valve.sliders)[0]>, NonNullable<(typeof valve.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
@@ -145,7 +145,7 @@ describe("valve", () => {
   });
 
   it("shows three different pictures: the pass reaches the mark, the stall stops below it, the leak sags between strokes", () => {
-    const tops = (o: number) => sample(game.play({ ...startOf(valve), open: o })).map(({ frame }) => rig.bagTop(frame.values.bag ?? 0));
+    const tops = (o: number) => sample(game.play({ ...startValues(valve), open: o })).map(({ frame }) => rig.bagTop(frame.values.bag ?? 0));
     assert.ok(Math.max(...tops(80)) >= rig.MARK_Y, "the pass gets the bag's top to the mark");
     assert.ok(Math.max(...tops(160)) < rig.MARK_Y - 5, "the stall leaves it well below");
     const leak = pumpUp({ open: 20 });
@@ -175,7 +175,7 @@ describe("valve", () => {
         assert.ok(Math.abs(strokeAt(r, n, rig.STROKE - 1).bag - (r.list[n]!.after - r.list[n]!.lost)) < 1e-9);
       }
     }
-    const run = game.play({ ...startOf(valve), open: 20 });
+    const run = game.play({ ...startValues(valve), open: 20 });
     let up = false;
     let down = false;
     for (const { frame } of sample(run)) {
@@ -191,12 +191,12 @@ describe("valve", () => {
   });
 
   it("never lets the ball cut into the body during a run; the bag sits on the neck and clear of the mark", () => {
-    const tick = find(game.scene!(startOf(valve)), "game-mark");
+    const tick = find(game.scene!(startValues(valve)), "game-mark");
     assert.ok(tick.shape.kind === "box" && tick.shape.width >= 10, "the mark is at least 10 mm long");
-    const post = find(game.scene!(startOf(valve)), "game-mark-post");
+    const post = find(game.scene!(startValues(valve)), "game-mark-post");
     assert.ok(post.shape.kind === "box" && Math.abs(tick.position.x - tick.shape.width / 2 - (post.position.x + post.shape.width / 2)) < 1e-9, "the mark meets its post");
     const tickLine: [Pt, Pt] = [[tick.position.x - tick.shape.width / 2, tick.position.y], [tick.position.x + tick.shape.width / 2, tick.position.y]];
-    for (const v of [startOf(valve), ...numberSweep(valve).filter((q) => [20, 50, 80, 120, 160].includes(q.open ?? 0))]) {
+    for (const v of [startValues(valve), ...numberSweep(valve).filter((q) => [20, 50, 80, 120, 160].includes(q.open ?? 0))]) {
       for (const { ms, frame } of sample(game.play(v))) {
         assert.ok(inBody(frame.values, "ball") <= 1e-6, `open ${v.open} at ${ms} ms: ball in the body`);
         assert.ok(inBody(frame.values, "bag") <= 1e-6, `open ${v.open} at ${ms} ms: bag in the neck`);

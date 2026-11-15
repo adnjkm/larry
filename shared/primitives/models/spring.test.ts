@@ -1,13 +1,13 @@
-// Spring's own tests. The generic game and design checks (checks.ts) run for it in library.test.ts.
+// Spring's own tests. The generic game and design checks (checks.ts) run here, in its own file, so node runs the models in parallel.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { numberSweep, sample, startOf, steps } from "../checks.ts";
+import { numberSweep, sample } from "../checks.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
-import type { Values } from "../types.ts";
 import { BIND, geometry, HAND, launch, NEED, settle, spring } from "./spring.ts";
 
-const game = spring.game!;
+const game = spring.game;
 const [stiffness, force] = spring.sliders as [NonNullable<(typeof spring.sliders)[0]>, NonNullable<(typeof spring.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const discBottom = (parts: Part[]) => {
@@ -123,7 +123,7 @@ describe("spring", () => {
   });
 
   it("launches best at a middle stiffness: the stiffest spring fails, and so does the softest", () => {
-    const pass = steps(stiffness).filter((k) => game.judge({ ...startOf(spring), stiffness: k }).pass);
+    const pass = steps(stiffness).filter((k) => game.judge({ ...startValues(spring), stiffness: k }).pass);
     assert.deepEqual(pass, [1.8, 1.9, 2, 2.1, 2.2]);
     assert.equal(game.judge({ stiffness: 4, force: 0 }).outcome, "too-stiff");
     assert.equal(game.judge({ stiffness: 1, force: 0 }).outcome, "too-soft");
@@ -131,7 +131,7 @@ describe("spring", () => {
   });
 
   it("drags only as far as the push can move the plate", () => {
-    const h = spring.handle!;
+    const h = spring.handle;
     for (const k of [1, 2, 4]) {
       const v: Values = { stiffness: k, force: 20 };
       assert.deepEqual(h.reach!(v), [0, Math.min(50, k * BIND)]);

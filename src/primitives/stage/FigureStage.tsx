@@ -1,52 +1,36 @@
 /**
- * FigureStage: a primitive drawn by the one shared WebGL renderer into the figure's own 2D canvas, posed imperatively.
+ * FigureStage: a primitive drawn by the one shared WebGL renderer into the figure's own 2D canvas, posed imperatively
+ * through its StageController (controller.ts), which `controllerRef` receives.
  *
- * Props
- *   primitive    the Primitive to draw.
- *   mode         "still" (default): drag sideways to turn the model, a flick keeps it turning. No handle.
- *                "game": fixed camera fitted to the rig, game.scene and sampled runs; game.scene (the target) drawn at
- *                rest and during runs; and the drag handle (a ring over primitive.handle.at(values)) when there is one.
- *   palette      "library" (default): part colours as built, Synthwave shadow, pink ring.
- *                "lesson": the app palette (pink parts orange, purple annotations blue), plain shadow, orange ring.
- *   values       Optional. Merged over the start values (each slider's initial, plus game.start in game mode) on mount, and
- *                passed to controller.set whenever its identity changes. Leave it unset to drive the figure only through the
- *                controller.
- *   height       CSS px, default 270. The width is the container's.
- *   controllerRef  Receives the StageController once mounted, and null on unmount. A new controller is handed over when
- *                primitive, mode or palette change (the scene is rebuilt).
- *   onLive(text) A run's frame.live, called only when the text changes.
- *   onCue(cue)   Each cue of a run as its moment passes (for a haptic tick or a sound).
+ * mode     "still" (default): drag sideways to turn the model, a flick keeps it turning. No handle.
+ *          "game": fixed camera fitted to the rig, game.scene drawn at rest and during runs, and the drag handle (a ring
+ *          over primitive.handle.at(values)) unless handle is false.
+ * palette  "library" (default): part colours as built, Synthwave shadow, pink ring. "lesson": the app palette (pink
+ *          parts orange, purple annotations blue), plain shadow, orange ring.
+ * values   Merged over the start values on mount and passed to controller.set whenever its identity changes. Leave it
+ *          unset to drive the figure only through the controller.
+ * height   CSS px, default 270. The width is the container's.
  *
- * StageController (controller.ts)
- *   get()          the values shown now (do not mutate).
- *   set(values)    merge values in, clamped to their sliders; stops a run or sweep if anything changes. No React render.
- *   play(run)      play a game Run: Promise<boolean>, true when it finishes, false when interrupted (set, drag, stop, play).
- *                  Reduced motion: jumps to at(durationMs), reports its live text and its last cue, resolves true.
- *                  The figure stays on the run's last frame (marks included) until the next set or play.
- *   sweep()        the play sweep: the handle's slider (else the last slider) across handle.reach(values) (else its whole
- *                  range) and back on a 4 s cosine, starting from where it is. Nothing under reduced motion.
- *   stop()         stop a run or sweep where it is.
- *   reset(values?) stop, clear a finished run's props and run-only poses, merge values if given, and redraw, even when
- *                  no value changes (a plain set() that changes nothing keeps the run's last frame on purpose).
- *   subscribe(fn)  fn(values) after every change, every frame of a run or sweep included. Returns unsubscribe.
- *   state()        "idle" | "playing" | "sweeping".
- *
- * DOM: the root has data-kit-viewer, data-ready once first drawn, data-grain (device px per dither pixel). The handle is
+ * DOM: the root matches VIEWER_SELECTOR and gets data-ready once first drawn (src/viewport.ts), data-grain (device px per dither pixel). The handle is
  * [data-handle] with role="slider"; arrow keys, Page Up/Down, Home and End move it when focused.
  */
 import * as stylex from "@stylexjs/stylex";
 import { type Ref, useEffect, useLayoutEffect, useRef } from "react";
 import { colors, fonts } from "../../tokens.stylex.ts";
-import type { Cue, Primitive, Values } from "../../../shared/primitives/types.ts";
+import { type Cue, type Primitive, type Values, motionSlider } from "../../../shared/primitives/types.ts";
 import type { StageController } from "./controller.ts";
 import { type Palette, RING_COLOR } from "./looks.ts";
-import { type Mode, StageView, motionSlider } from "./view.ts";
+import { StageView } from "./view.ts";
+import type { FigureMode } from "../../../shared/primitives/framing.ts";
+import { VIEWPORT_HEIGHT, viewerProps } from "../../viewport.ts";
 
 export type { StageController } from "./controller.ts";
 
-export type FigureStageProps = {
+type FigureStageProps = {
   primitive: Primitive;
-  mode?: Mode;
+  mode?: FigureMode;
+  /** Game mode only: false leaves the drag handle off, so the figure moves only through the controller. */
+  handle?: boolean;
   palette?: Palette;
   values?: Values;
   height?: number;
@@ -112,7 +96,7 @@ function hand<T>(ref: Ref<T | null> | undefined, value: T | null) {
   else if (ref) ref.current = value;
 }
 
-export function FigureStage({ primitive, mode = "still", palette = "library", values, height = 270, controllerRef, onLive, onCue }: FigureStageProps) {
+export function FigureStage({ primitive, mode = "still", handle = true, palette = "library", values, height = VIEWPORT_HEIGHT, controllerRef, onLive, onCue }: FigureStageProps) {
   const root = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const ring = useRef<HTMLDivElement>(null);
@@ -149,27 +133,27 @@ export function FigureStage({ primitive, mode = "still", palette = "library", va
     if (values) view.current?.controller.set(values);
   }, [values]);
 
-  const handle = mode === "game" ? primitive.handle : undefined;
-  const slider = handle && motionSlider(primitive);
+  const grip = primitive.handle;
+  const slider = motionSlider(primitive);
   const color = RING_COLOR[palette];
 
   return (
-    <div ref={root} data-kit-viewer {...stylex.props(styles.box(height))}>
+    <div ref={root} {...viewerProps} {...stylex.props(styles.box(height))}>
       <canvas ref={canvas} {...stylex.props(styles.canvas, mode === "still" && styles.spin)} />
-      {handle && slider && (
+      {mode === "game" && handle && (
         <div
           ref={ring}
           data-handle
           role="slider"
           tabIndex={0}
-          aria-label={`${handle.label}: ${slider.label}`}
+          aria-label={`${grip.label}: ${slider.label}`}
           aria-valuemin={slider.min}
           aria-valuemax={slider.max}
           aria-orientation="horizontal"
           {...stylex.props(styles.ring(color))}
         >
           <span aria-hidden data-handle-label {...stylex.props(styles.pill(color))}>
-            {handle.label}
+            {grip.label}
           </span>
         </div>
       )}

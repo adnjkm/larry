@@ -143,7 +143,7 @@ export type Attach = { parentId: string; joint: Joint };
 export const on = (parentId: string, joint: Joint): Attach => ({ parentId, joint });
 
 /** A part's words, and what it hangs off. Each helper has defaults, so only what differs needs saying. */
-export type PartOpts = { name?: string; role?: string; on?: Attach | null };
+type PartOpts = { name?: string; role?: string; on?: Attach | null };
 
 /** Every figure's base plate is this thick, so its top face is at y = PLATE_TOP. */
 export const PLATE_T = 6;
@@ -225,7 +225,7 @@ export function pullRing(id: string, centre: Vec, opts: PartOpts = {}): Part {
 export const ARROW_MIN = 12;
 export const ARROW_GAP = 4;
 /** About the longest arrow a figure draws over its slider range. */
-export const ARROW_LONGEST = 40;
+const ARROW_LONGEST = 40;
 
 /**
  * Length of a force's arrow when the figure's largest force over its slider range is `largest`:

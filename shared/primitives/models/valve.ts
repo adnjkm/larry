@@ -19,7 +19,7 @@ import type { Part } from "../../kit.ts";
 import { clamp, clamp01, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases, SCENE } from "../motion/run.ts";
 import { arrow, box, coilSpring, fmt, lathe, look, on, part, pivoted, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, mm. x = 0 is the valve's axis before VX shifts the rig to centre it on the plate.
 const WALL = 3;
@@ -76,8 +76,6 @@ const RESEAT_20 = 110;
 /** While the ball is still up after the pump drops below the bag, the bag loses 1/TAU of its pressure each ms. */
 export const TAU = 250;
 
-const openOf = (v: Values) => clamp(v.open ?? 80, 20, 160);
-
 /** Wire diameter for the 20 kPa spring; k goes as d⁴ ÷ turns, and turns = SOLID ÷ d − 1 keeps the solid length fixed. */
 const WIRE_SOFT = 2.4;
 const WIRE_C = WIRE_SOFT ** 4 / (SOLID / WIRE_SOFT - 1);
@@ -103,13 +101,13 @@ export function springFor(open: number) {
 }
 
 /** How far the ball lifts for a pressure difference `across` (under minus over): the extra over the opening pressure squeezes the spring past its preload. */
-export function liftFor(open: number, across: number) {
+function liftFor(open: number, across: number) {
   return clamp((PRELOAD_MM * (across - open)) / open, 0, springFor(open).liftMax);
 }
 
 /** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const open = openOf(v);
+  const open = valueOf(OPEN, v);
   const pressure = v.pressure ?? 130;
   /** Run-only: the bag's pressure, and the pump pressure a ball that is late to reseat still answers to. */
   const bag = v.bag ?? 0;
@@ -249,7 +247,7 @@ export const LEAK_LIMIT = (() => {
 
 /** The outcome, decided once from the opening pressure; meters, judge and play all read it. */
 export function pumpUp(v: Values) {
-  const open = openOf(v);
+  const open = valueOf(OPEN, v);
   const s = strokes(open);
   const kind: Kind = s.final >= TARGET - 1e-9 ? "pass" : s.share > LEAK_LIMIT ? "leaks" : "stalls";
   return { kind, open, ...s };
@@ -362,6 +360,8 @@ function scene(): Part[] {
   ];
 }
 
+const OPEN: Slider = { id: "open", label: "Opening pressure", min: 20, max: 160, step: 5, initial: 80, unit: " kPa" };
+
 export const valve: Primitive = {
   id: "valve",
   name: "Valve",
@@ -372,7 +372,7 @@ export const valve: Primitive = {
   madeOf: ["seal", "spring"],
   seenIn: ["Bike tyre", "Spray bottle", "Tap"],
   sliders: [
-    { id: "open", label: "Opening pressure", min: 20, max: 160, step: 5, initial: 80, unit: " kPa" },
+    OPEN,
     { id: "pressure", label: "Pressure", min: 0, max: 250, step: 5, initial: 130, unit: " kPa" },
   ],
   view: VIEW.bench,

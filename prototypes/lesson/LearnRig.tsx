@@ -1,12 +1,12 @@
 // Learn in a story lesson: the primitive from the shared library (src/primitives), drawn by its own figure stage, with
-// its drag handle on the part and its slider rows under it, as on the library's game page. The words, the Why sheet
+// its slider rows under it. The words, the Why sheet
 // and "in this object" are the story's own; the figure, the handle and the sliders are the library's.
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GameStore, useSelect } from "../../src/primitives/game/store.ts";
-import { PRIMITIVE_BY_ID } from "../../src/primitives/catalog.ts";
-import type { Primitive, Slider } from "../../src/primitives/library.ts";
+import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
+import type { Primitive, Slider } from "../../shared/primitives/library.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
-import { startValues } from "../../src/primitives/stage/view.ts";
+import { startValues } from "../../shared/primitives/types.ts";
 import { framingParts, type InObject } from "./Learn.tsx";
 import type { StoryModule, View } from "./model.ts";
 import { initialValues, PRIMITIVES as FIRST_PASS, type Values } from "./primitives/library.ts";
@@ -19,14 +19,14 @@ import { Actions, Inset, Say, Strip, TURNS, Viewer, Why } from "./ui.tsx";
 const FIRST_PASS_FIGURE = new Set(["seal"]);
 
 /**
- * The library figure as Learn shows it: the game's handle stays, but not its target or its starting challenge, so the
- * figure opens at rest on its sliders' own values and nothing on it asks for a goal Learn does not set.
+ * The library figure as Learn shows it: no target, no starting challenge and no drag handle, so the figure opens at
+ * rest on its sliders' own values and moves only by the control under it (the project owner's call, 2026-11-14).
  */
 const learnFigures = new WeakMap<Primitive, Primitive>();
 function figureOf(p: Primitive): Primitive {
   const known = learnFigures.get(p);
   if (known) return known;
-  const figure = p.game ? { ...p, game: { ...p.game, scene: undefined, start: undefined } } : p;
+  const figure = { ...p, game: { ...p.game, scene: undefined, start: undefined } };
   learnFigures.set(p, figure);
   return figure;
 }
@@ -56,10 +56,10 @@ function StoreRow({ store, slider }: { store: GameStore; slider: Slider }) {
   return <Strip id={slider.id} label={slider.label} wheel={TURNS.test(slider.label)} value={value} min={slider.min} max={slider.max} onChange={(n) => store.controller?.set({ [slider.id]: n })} />;
 }
 
-/** One primitive's figure, then `children`, then the sliders its rig names. Figure and rows share one store, so the handle and the rows move together. */
+/** One primitive's figure, then `children`, then the sliders its rig names. Figure and rows share one store. */
 function Rig({ primitive, controls, children }: { primitive: Primitive; controls: Readonly<Record<string, string>>; children: ReactNode }) {
   const figure = figureOf(primitive);
-  const store = useMemo(() => new GameStore(startValues(figure, "game")), [figure]);
+  const store = useMemo(() => new GameStore(startValues(figure)), [figure]);
   const [sweeping, setSweeping] = useState(false);
   const [box, height] = useHeight();
   const shown = useMemo(() => primitive.sliders.flatMap((s) => (controls[s.id] ? [{ ...s, label: controls[s.id]! }] : [])), [primitive, controls]);
@@ -77,7 +77,7 @@ function Rig({ primitive, controls, children }: { primitive: Primitive; controls
   return (
     <>
       <div className="viewer" data-figure={primitive.id} ref={box}>
-        {height > 0 ? <FigureStage primitive={figure} mode="game" palette="library" height={height} controllerRef={store.attach} /> : null}
+        {height > 0 ? <FigureStage primitive={figure} mode="game" handle={false} palette="library" height={height} controllerRef={store.attach} /> : null}
         <button type="button" className="play" data-play aria-pressed={sweeping} onClick={toggle}>{sweeping ? "Stop" : "Play"}</button>
       </div>
       {children}
