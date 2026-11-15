@@ -5,7 +5,7 @@ import { MeshBasicMaterial } from "three";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { sweepRun } from "../shared/primitives/motion/run.ts";
 import { type Primitive, type Values, startValues } from "../shared/primitives/types.ts";
-import { framePrimitive } from "../src/primitives/stage/framing.ts";
+import { framePrimitive } from "../shared/primitives/framing.ts";
 import { StageScene } from "../src/primitives/stage/scene.ts";
 
 const FRAMES = 600;

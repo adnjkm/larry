@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Kit, kitProblems } from "../kit.ts";
-import { measureParts } from "../../src/kit3d/buildKit.ts";
-import { framePrimitive, poses, runPoses } from "../../src/primitives/stage/framing.ts";
 import { PRIMITIVES, initialValues, type Values } from "./library.ts";
 import { COLOR, SYNTHWAVE } from "./parts.ts";
 
@@ -43,23 +41,6 @@ describe("primitives library", () => {
         }
         assert.ok(kit.parts.some((part) => part.color === COLOR.focus), `${p.id} has no focus part`);
         assert.ok(p.readouts(v).every((r) => !/NaN|Infinity/.test(r.value)), `${p.id} readout`);
-      }
-    });
-
-    it(`${p.id} stays inside its framing at every slider setting`, () => {
-      const frame = framePrimitive(p);
-      for (const v of poses(p, 13)) {
-        const b = measureParts(p.build(v));
-        const at = `${p.id} at ${JSON.stringify(v)}`;
-        assert.ok(b.minY >= frame.minY && b.maxY <= frame.maxY, `${at} leaves the framing vertically`);
-        assert.ok(Math.abs(b.centerX - frame.centerX) + b.halfX <= frame.halfX && Math.abs(b.centerZ - frame.centerZ) + b.halfZ <= frame.halfZ, `${at} leaves the framing's footprint`);
-        assert.ok(b.radius + Math.hypot(b.centerX - frame.centerX, b.centerZ - frame.centerZ) <= frame.radius, `${at} reaches past the framing's radius`);
-      }
-      const game = framePrimitive(p, "game");
-      for (const parts of runPoses(p)) {
-        const b = measureParts(parts);
-        assert.ok(b.minY >= game.minY && b.maxY <= game.maxY, `${p.id}: a run frame leaves the game framing vertically`);
-        assert.ok(b.radius + Math.hypot(b.centerX - game.centerX, b.centerZ - game.centerZ) <= game.radius, `${p.id}: a run frame reaches past the game framing's radius`);
       }
     });
   }

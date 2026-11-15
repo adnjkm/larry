@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { reducedMotion, spring } from "../../src/motion.ts";
 import { play, useAlive } from "./anim.ts";
-import { clamp01, easeOut, lerp, smooth } from "./ease.ts";
+import { clamp01, easeOut, lerp, smooth } from "../../shared/primitives/motion/ease.ts";
 import { useExplode } from "./useExplode.ts";
 import { type Lens, lensOf, type Point } from "./lens.ts";
 import { outline } from "./outline.ts";

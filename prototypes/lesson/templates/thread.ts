@@ -1,6 +1,6 @@
 // A threaded or screwed joint is a thread: pitch decides whether a shake walks the child off and
 // how many turns it takes to undo.
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { AXIS, type PartMove, type Rigid, type Test, type Values, type Window } from "../model.ts";
 import { carry, clearance, overlay, type Pair, scale, targetOf, type Template, turnMark } from "./pair.ts";
 

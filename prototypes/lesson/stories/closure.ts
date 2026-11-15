@@ -3,7 +3,7 @@
 // stay on), Open or Pull (does a hand get it off) and, when a seal sits under it, Flip. The bottle's
 // cap choreography, read off any kit part: it rides down turning and crooked, sits, then presses in.
 import type { Kit, Part } from "../../../shared/kit.ts";
-import { clamp01, easeOut, smooth } from "../ease.ts";
+import { clamp01, easeOut, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { AXIS, type Control, type Ctx, EMPTY_SCENE, type PartMove, type Rigid, STILL, type StoryModuleSpec, type Test, type Values, type Vec, vec, type Zone, zoneAt } from "../model.ts";
 import { add, overlay, scale, shudder, targetOf, turnMark } from "../templates/pair.ts";
 import { carryAll, dropBelow, fit, floorOf, type Piece, pieceOf, threeZones } from "./piece.ts";

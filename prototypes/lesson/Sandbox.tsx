@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { formatSlider, initialValues } from "./primitives/library.ts";
 import { play, useAlive } from "./anim.ts";
-import { lerp, smooth } from "./ease.ts";
+import { lerp, smooth } from "../../shared/primitives/motion/ease.ts";
 import { listOf, type Module, type Overlay, passBand, presentAfter, type Run, type Test, type Values, type Verdict, type Workshop } from "./model.ts";
 import { compose, drawObject, enclosed, restCentre } from "./pose.ts";
 import { Actions, ExplodeSlider, Say, SliderRow, Viewer, Why } from "./ui.tsx";

@@ -62,6 +62,8 @@ function create(): Shared | null {
     return null;
   }
   stageStats.contexts++;
+  // The shader check reads the program's info log back from the driver, which stalls the first draw; the shaders are ours and fixed.
+  renderer.debug.checkShaderErrors = !!import.meta.env?.DEV;
   renderer.setPixelRatio(1);
   renderer.setClearColor(colors.paper, 1);
   const s: Shared = { renderer, canvas, width: 0, height: 0, lost: false };
@@ -82,13 +84,19 @@ function create(): Shared | null {
   return s;
 }
 
+/** False once WebGL turned out to be missing, so a figure can say so instead of waiting to draw. */
+export const hasWebGL = () => shared !== null;
+
+/** Creates the shared renderer if it does not exist yet and compiles `scene`'s shaders without blocking the main thread. */
+export async function precompile(scene: Scene, camera: Camera): Promise<void> {
+  if (shared === undefined) shared = create();
+  await shared?.renderer.compileAsync(scene, camera);
+}
+
 /**
  * Renders `scene` at w x h pixels and copies it into `target` scaled by the whole number `n`. Returns false when there
  * is no context (lost, or WebGL missing), in which case the target keeps what it had.
  */
-/** False once WebGL turned out to be missing, so a figure can say so instead of waiting to draw. */
-export const hasWebGL = () => shared !== null;
-
 export function renderTo(scene: Scene, camera: Camera, w: number, h: number, target: CanvasRenderingContext2D, n: number): boolean {
   if (shared === undefined) shared = create();
   const s = shared;

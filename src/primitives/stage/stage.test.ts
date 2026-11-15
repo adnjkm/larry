@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { MeshBasicMaterial } from "three";
 import type { Shape } from "../../../shared/kit.ts";
 import { buildGeometry } from "../../kit3d/geometry.ts";
-import { framePrimitive } from "./framing.ts";
+import { framePrimitive } from "../../../shared/primitives/framing.ts";
 import { PRIMITIVES } from "../../../shared/primitives/library.ts";
 import { SWEEP_MS } from "../../../shared/primitives/motion/run.ts";
 import { spring } from "../../../shared/primitives/models/spring.ts";

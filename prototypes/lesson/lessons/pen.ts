@@ -1,7 +1,7 @@
 // The click pen: ink only on paper (the ball seated in its socket) and click out, stay out (a catch).
 // Rules and choreography for Write, Tip down, Click and Write hard live here, as pure functions of the tuned values.
 import type { Kit, Part, Shape } from "../../../shared/kit.ts";
-import { clamp01, lerp, smooth } from "../ease.ts";
+import { clamp01, lerp, smooth } from "../../../shared/primitives/motion/ease.ts";
 import { type Ctx, defineLesson, EMPTY_SCENE, type Mark, type Overlay, type Rigid, type Scene, STILL, type Test, type TestCtx, type Values, vec, type Vec, type Window } from "../model.ts";
 import { extents, rigidPoint } from "../pose.ts";
 

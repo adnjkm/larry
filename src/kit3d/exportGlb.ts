@@ -1,9 +1,10 @@
 import { DoubleSide, Group, Mesh, MeshStandardMaterial, Scene } from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import type { Finish, Kit } from "../../shared/kit.ts";
-import { buildPart } from "./buildKit.ts";
+import { buildGeometry } from "./geometry.ts";
 
 const MM_TO_M = 0.001;
+const DEG = Math.PI / 180;
 
 const SURFACE: Record<Finish, { roughness: number; metalness: number }> = {
   matte: { roughness: 0.85, metalness: 0 },
@@ -19,7 +20,8 @@ function buildScene(kit: Kit) {
   root.name = kit.name;
   root.scale.setScalar(MM_TO_M);
   const owned: { dispose: () => void }[] = [];
-  for (const { part, geometry, rotation } of kit.parts.map(buildPart)) {
+  for (const part of kit.parts) {
+    const geometry = buildGeometry(part.shape);
     const material = new MeshStandardMaterial({
       color: part.color,
       ...SURFACE[part.finish],
@@ -29,7 +31,7 @@ function buildScene(kit: Kit) {
     const mesh = new Mesh(geometry, material);
     mesh.name = part.name;
     mesh.position.set(part.position.x, part.position.y, part.position.z);
-    mesh.rotation.copy(rotation);
+    mesh.rotation.set(part.rotation.x * DEG, part.rotation.y * DEG, part.rotation.z * DEG);
     root.add(mesh);
     owned.push(geometry, material);
   }
