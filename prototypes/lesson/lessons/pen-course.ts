@@ -8,6 +8,7 @@ import { lessonOf, subfunctionsOf, wordsFor } from "../../../shared/mechanisms/i
 import type { KnownMechanism } from "../../../shared/mechanisms/types.ts";
 import type { Course, Mechanism, Screen } from "../course.ts";
 import pen, { PEN_RIG } from "./pen.ts";
+import { PEN_SHELL } from "./pen-kit.ts";
 
 const { controls, tests, keys, frames, demos } = PEN_RIG;
 
@@ -129,6 +130,7 @@ const click = mechanismOf(
 
 export default {
   story: pen,
+  reveal: PEN_SHELL,
   mechanisms: [
     tip,
     {

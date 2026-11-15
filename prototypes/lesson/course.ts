@@ -3,6 +3,7 @@
 // questions that apply them, in the five fixed formats, with the piece dragged in before the first question that
 // needs it on the bench. The words come from the mechanism library (shared/mechanisms); a lesson file only binds each
 // question to the object's 3D model.
+import type { Kit } from "../../shared/kit.ts";
 import type { Control, Frame, Story, Test, Values } from "./model.ts";
 
 /**
@@ -48,6 +49,8 @@ export type Mechanism = { id: string; name: string; screens: readonly Screen[] }
 export type Course = {
   /** The object's 3D model, rest pose, pieces and final screen. */
   story: Story;
+  /** The object as it looks from outside, for the result screen, when the lesson's own model is cut away or see-through. */
+  reveal?: Kit;
   mechanisms: readonly Mechanism[];
   /** What each primitive does, in a few words, for the line a wrong pick gets: "closes a gap". */
   jobs: Readonly<Record<string, string>>;

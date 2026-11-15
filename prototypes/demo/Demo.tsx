@@ -99,7 +99,7 @@ export function Demo() {
     <>
       <style>{LESSON_CSS}</style>
       <style>{DEMO_CSS}</style>
-      <CameraMock object={__DEMO_OBJECT__} after={(props) => <Lesson {...props} />} dials={TUNING} compare={TUNING} mechanisms={COURSE?.mechanisms.length} kit={COURSE?.story.kit} />
+      <CameraMock object={__DEMO_OBJECT__} after={(props) => <Lesson {...props} />} dials={TUNING} compare={TUNING} mechanisms={COURSE?.mechanisms.length} kit={COURSE?.reveal ?? COURSE?.story.kit} />
     </>
   );
 }

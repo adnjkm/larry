@@ -1,20 +1,25 @@
-// A hand-made click pen for the pen lesson, drawn retracted and standing on its nose cone, in a real pen's proportions
-// (about twelve times as long as it is wide). It is too tall to read whole on a phone, so each screen frames the end it
-// is about. The lesson's ids (barrel, nose, refill, ball, spring, cam, plunger) are the roots of
-// its assemblies; every detail part is fixed to one of them, so it moves, shows and lights up with it.
-// All sizes in mm, y up from the table, round parts on the y axis.
+// A hand-made click pen for the pen lesson, after the photo in fixtures/photos/pen.jpg: a silver barrel with rows of
+// dimples where the fingers go, a red panel under a pressed-steel clip, and a plain round button. It is drawn retracted
+// and standing on its nose cone, in a real pen's proportions (about twelve times as long as it is wide). It is too tall
+// to read whole on a phone, so each screen frames the end it is about. The lesson's ids (barrel, nose, refill, ball,
+// spring, cam, plunger) are the roots of its assemblies; every detail part is fixed to one of them, so it moves, shows
+// and lights up with it. All sizes in mm, y up from the table, round parts on the y axis.
+//
+// PEN_KIT is the lesson's pen, its barrel and nose see-through so the works inside can be watched. PEN_SHELL is the
+// same pen as it looks in the hand, for the result screen.
 import { type Kit, parseKit, type Shape } from "../../../shared/kit.ts";
 import { coil, lathe, type Look, part, type Pt, v3 } from "../primitives/parts.ts";
 
-const COAT = { color: "#4a4d53", finish: "clear" } as const;
+const COAT = { color: "#c6c8cc", finish: "clear" } as const;
 const STEEL = { color: "#a9adb3", finish: "metal" } as const;
-const NOSE = { color: "#8d9097", finish: "clear" } as const;
+const NOSE = { color: "#aeb1b6", finish: "clear" } as const;
+const CHROME = { color: "#d6d8dc", finish: "metal" } as const;
+const PANEL = { color: "#b0212b", finish: "glossy" } as const;
+const DIMPLE = { color: "#8b8e94", finish: "matte" } as const;
 const BRASS = { color: "#c9a24b", finish: "metal" } as const;
 const BALL = { color: "#e2e4e8", finish: "metal" } as const;
 const TUBE = { color: "#d4d6da", finish: "matte" } as const;
 const CAMLOOK = { color: "#2a2c31", finish: "matte" } as const;
-const CLIP = { color: "#26282c", finish: "metal" } as const;
-const RUBBER = { color: "#1c1c1e", finish: "rubber" } as const;
 
 /** Every height the lesson needs, so it never repeats a dimension. */
 const BALL_R = 4.4;
@@ -88,22 +93,37 @@ const band = (inner: number, outer: number, bottom: number, top: number): Pt[] =
   [inner, bottom],
 ];
 
-/** The rubber sleeve: a few plain ridges round the lower barrel. */
-function gripProfile(): Pt[] {
-  const [bottom, top, ridges] = [88, 176, 8];
-  const [inner, base, crest] = [PEN.barrelR - 0.1, PEN.barrelR + 1, PEN.barrelR + 1.9];
-  const pitch = (top - bottom) / ridges;
-  const ridge: Pt[] = Array.from({ length: ridges }, (_, k): Pt[] => {
-    const y = bottom + k * pitch;
-    return [
-      [base, y + 0.4],
-      [crest, y + 1.1],
-      [crest, y + pitch - 1.5],
-      [base, y + pitch - 0.8],
-    ];
-  }).flat();
-  return [[inner, bottom], [base, bottom], ...ridge, [base, top], [inner, top], [inner, bottom]];
-}
+/** A direction round the pen's axis, in degrees from +x toward the camera, as a unit vector and as the turn that faces a part's +x that way. */
+const round = (degrees: number) => {
+  const a = (degrees * Math.PI) / 180;
+  return { x: Math.cos(a), z: Math.sin(a), turn: -degrees };
+};
+
+/** Where the fingers go: rows of shallow round dimples pressed into the barrel, each row half a step round from the last. */
+const DIMPLES = { rows: [112, 126, 140, 154], around: 8, r: 2.3, proud: 0.45 } as const;
+const dimple = lathe([
+  [0, 0],
+  [DIMPLES.r, 0],
+  [DIMPLES.r - 0.5, DIMPLES.proud * 0.8],
+  [0, DIMPLES.proud],
+]).shape;
+const dimples = DIMPLES.rows.flatMap((y, row) =>
+  Array.from({ length: DIMPLES.around }, (_, k) => {
+    const way = round((360 / DIMPLES.around) * (k + (row % 2) / 2));
+    const r = PEN.barrelR + DIMPLES.proud / 2 - 0.1;
+    // The disc's flat axis is y; z = -90 lays it along +x, and the turn about y then faces it out from the barrel.
+    return part(
+      `dimple-${row + 1}-${k + 1}`,
+      "grip dimple",
+      "A shallow dimple that gives the fingers something to hold.",
+      dimple,
+      v3(r * way.x, y, r * way.z),
+      DIMPLE,
+      on("barrel", "molded"),
+      v3(0, way.turn, -90),
+    );
+  }),
+);
 
 /** A sphere as a lathe, `steps` rings from pole to pole. */
 function sphere(r: number, y: number, steps = 8): Pt[] {
@@ -113,31 +133,48 @@ function sphere(r: number, y: number, steps = 8): Pt[] {
   });
 }
 
-/** The clip seen from the side: a bar standing off the barrel, joined to it at the top, its lower end curled in to a bump that touches the barrel. */
+/**
+ * The clip seen from the side: a strip of pressed steel fixed to the top of the barrel. It bows away from the barrel,
+ * comes back in to touch it near its lower end, and flares out again so a pocket's edge can slide under.
+ */
 function clipShape(): { shape: Shape; centre: Pt } {
   const [top, bottom] = [PEN.clipTop, PEN.clipBottom];
   const R = PEN.barrelR;
+  const half = 0.65;
+  // The strip's middle line, top to bottom.
+  const line: Pt[] = [
+    [R + 3.6, top - 1],
+    [R + 4.7, top - 40],
+    [R + 4.1, bottom + 34],
+    [R + 2.7, bottom + 12],
+    [R + half + 0.1, bottom + 2],
+    [R + 1.9, bottom - 4],
+  ];
   const outline: Pt[] = [
     [R - 0.8, top],
-    [R + 4.6, top],
-    [R + 4.6, bottom + 6],
-    [R + 3.4, bottom + 1.5],
-    [R + 1.4, bottom - 0.8],
-    [R + 0.1, bottom + 0.8],
-    [R + 1.6, bottom + 3.2],
-    [R + 1.8, top - 7],
-    [R - 0.8, top - 7],
+    [R + 3.6 + half, top],
+    ...line.slice(1).map(([x, y]): Pt => [x + half, y]),
+    ...line
+      .slice(1)
+      .reverse()
+      .map(([x, y]): Pt => [x - half, y]),
+    [R + 3.6 - half, top - 5],
+    [R - 0.8, top - 5],
   ];
   const xs = outline.map(([x]) => x);
   const ys = outline.map(([, y]) => y);
   return {
-    shape: { kind: "extrusion", outline: outline.map(([x, y]) => ({ x, y })), depth: 8 },
+    shape: { kind: "extrusion", outline: outline.map(([x, y]) => ({ x, y })), depth: 7 },
     centre: [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2],
   };
 }
 
 const clip = clipShape();
-const clipRad = (PEN.clipAngle * Math.PI) / 180;
+const clipWay = round(PEN.clipAngle);
+/** The red panel: a strip let into the barrel beside the clip, its middle standing just proud of the round. */
+const PANEL_BOX = { bottom: 245, top: 359, width: 11, thick: 1.2, angle: PEN.clipAngle + 78 } as const;
+const panelWay = round(PANEL_BOX.angle);
+const panelR = PEN.barrelR - 0.2;
 
 const LUG = 3;
 const lugAt = (k: number) => {
@@ -146,7 +183,7 @@ const lugAt = (k: number) => {
 };
 
 const parts = [
-  // Barrel: a hollow dark tube open at both ends, with a rubber grip, a clip and a steel band at the top.
+  // Barrel: a hollow silver tube open at both ends, with dimples for the fingers, a red panel, a clip and a cap at the top.
   turnedPart(
     "barrel",
     "barrel",
@@ -154,24 +191,52 @@ const parts = [
     band(PEN.barrelIn, PEN.barrelR, PEN.barrelBottom, PEN.barrelTop),
     COAT,
   ),
-  turnedPart("grip", "rubber grip", "A soft sleeve your fingers hold without slipping.", gripProfile(), RUBBER, on("barrel", "glue")),
+  ...dimples,
+  part(
+    "panel",
+    "red panel",
+    "A coloured strip set into the barrel.",
+    { kind: "box", width: PANEL_BOX.thick, height: PANEL_BOX.top - PANEL_BOX.bottom, depth: PANEL_BOX.width, cornerRadius: 0.5 },
+    v3(panelR * panelWay.x, (PANEL_BOX.bottom + PANEL_BOX.top) / 2, panelR * panelWay.z),
+    PANEL,
+    on("barrel", "glue"),
+    v3(0, panelWay.turn, 0),
+  ),
+  // Two fine rings turned into the barrel just above the nose, where the two screw together.
+  ...[50, 53.6].map((y, i) =>
+    turnedPart(
+      `seam-${i + 1}`,
+      "seam ring",
+      "A fine ring that marks where the nose screws on.",
+      band(PEN.barrelR - 0.2, PEN.barrelR + 0.35, y, y + 1.2),
+      CHROME,
+      on("barrel", "molded"),
+    ),
+  ),
   part(
     "clip",
     "pocket clip",
     "Holds the pen to a pocket.",
     clip.shape,
-    v3(clip.centre[0] * Math.cos(clipRad), clip.centre[1], clip.centre[0] * Math.sin(clipRad)),
-    CLIP,
+    v3(clip.centre[0] * clipWay.x, clip.centre[1], clip.centre[0] * clipWay.z),
+    CHROME,
     on("barrel", "weld"),
-    v3(0, -PEN.clipAngle, 0),
+    v3(0, clipWay.turn, 0),
   ),
-  // The top band narrows the barrel's opening so only the button's dome stands above it.
+  // The cap narrows the barrel's opening so only the button stands above it. Its top edge is turned to a bevel.
   turnedPart(
     "barrel-band",
-    "top band",
-    "A steel ring that finishes the barrel's top and holds the button in.",
-    band(PEN.buttonR + 0.8, PEN.barrelR + 0.5, PEN.barrelTop - 6, PEN.barrelTop),
-    STEEL,
+    "top cap",
+    "A steel cap that finishes the barrel's top and holds the button in.",
+    [
+      [PEN.buttonR + 0.8, PEN.barrelTop - 8],
+      [PEN.barrelR + 0.5, PEN.barrelTop - 8],
+      [PEN.barrelR + 0.5, PEN.barrelTop - 2.2],
+      [PEN.barrelR - 1.8, PEN.barrelTop],
+      [PEN.buttonR + 0.8, PEN.barrelTop],
+      [PEN.buttonR + 0.8, PEN.barrelTop - 8],
+    ],
+    CHROME,
     on("barrel", "weld"),
   ),
 
@@ -267,7 +332,7 @@ const parts = [
     ),
   ),
 
-  // Plunger: the button. Its stem hides in the barrel and only the dome shows above the band, so pressing sinks it into the opening.
+  // Plunger: the button, a plain round post with a bevelled top. Its stem hides in the barrel, so pressing sinks it into the cap.
   turnedPart(
     "plunger",
     "button",
@@ -277,18 +342,20 @@ const parts = [
       [5, PEN.stemBottom],
       [5, PEN.buttonBottom],
       [PEN.buttonR, PEN.buttonBottom],
-      [PEN.buttonR, PEN.top - 5],
-      [PEN.buttonR - 0.6, PEN.top - 2.4],
-      [PEN.buttonR - 2.4, PEN.top - 0.8],
+      [PEN.buttonR, PEN.top - 1.8],
+      [PEN.buttonR - 1.6, PEN.top],
       [0, PEN.top],
     ],
-    STEEL,
+    CHROME,
     { parentId: "barrel", joint: "slide" },
   ),
 ];
 
-export const PEN_KIT: Kit = parseKit({
-  name: "Click Pen",
-  summary: "A ball at the tip rolls ink onto the page; a spring tucks the tip away and a cam holds it out each click.",
-  parts,
-});
+const about = { name: "Click Pen", summary: "A ball at the tip rolls ink onto the page; a spring tucks the tip away and a cam holds it out each click." };
+
+/** The lesson's pen: the barrel and the nose are see-through, so what moves inside can be watched. */
+export const PEN_KIT: Kit = parseKit({ ...about, parts });
+
+/** The same pen as it looks in the hand, for the result screen: nothing see-through. */
+const SOLID: Readonly<Record<string, Look>> = { barrel: { color: "#dcdee1", finish: "glossy" }, nose: { color: "#c2c5c9", finish: "glossy" } };
+export const PEN_SHELL: Kit = parseKit({ ...about, parts: parts.map((p) => ({ ...p, ...SOLID[p.id] })) });
