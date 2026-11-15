@@ -26,6 +26,9 @@ html, body { height: 100%; }
 .do .prompt { quotes: "“" "”"; }
 .why { flex: none; min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--soft); font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 150ms ease-out; }
 .why:active { transform: scale(0.96); }
+/* A dithered border beam rides round an unopened Why (Beam.tsx), on its edge; taps go through it to the button. */
+.why-wrap { position: relative; flex: none; display: inline-flex; }
+.beam { position: absolute; z-index: 1; image-rendering: pixelated; pointer-events: none; }
 
 .viewer { flex: 1 1 0; min-height: 150px; position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #fff; }
 .viewer::after { content: ""; position: absolute; inset: 0; border-radius: 16px; box-shadow: 0 0 0 1px var(--rule) inset; pointer-events: none; }

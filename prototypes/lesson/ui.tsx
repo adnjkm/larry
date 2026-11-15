@@ -5,6 +5,7 @@ import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "./primitives/library.ts";
 import { SYNTHWAVE } from "./primitives/parts.ts";
 import { DitherRange, TRACK, Wheel } from "./controls.tsx";
+import { Beam } from "./Beam.tsx";
 import { Dither } from "./dither.tsx";
 import { DEFAULT_VIEW, type View, type Zone, zoneAt as zoneOf } from "./model.ts";
 import { fitFrame, reuseParts } from "./pose.ts";
@@ -174,13 +175,33 @@ export function Say({ kicker, children, why, note, found }: { kicker: string; ch
 }
 
 /** Everything explanatory on a screen, behind one button: a bottom sheet that is closed until asked for. */
-export function Why({ label = "Why?", title, children }: { label?: string; title: string; children: ReactNode }) {
+/** The label that gets the beam: the reason behind a step, which we want people to open. "Hint" stays plain. */
+const WHY = "Why?";
+
+export function Why({ label = WHY, title, children }: { label?: string; title: string; children: ReactNode }) {
   const sheet = useRef<HTMLDialogElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  // Once the sheet has been opened and closed on this screen, the button goes back to plain.
+  const [seen, setSeen] = useState(false);
   const close = () => sheet.current?.close();
+  useLayoutEffect(() => {
+    const el = button.current;
+    if (!el) return;
+    const read = () => setSize({ width: el.offsetWidth, height: el.offsetHeight });
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const lit = label === WHY && !seen && size.width > 0;
   return (
     <>
-      <button type="button" className="why" data-why aria-haspopup="dialog" onClick={() => sheet.current?.showModal()}>{label}</button>
-      <dialog ref={sheet} className="sheet" data-sheet aria-label={title} onClick={(e) => e.target === sheet.current && close()}>
+      <span className="why-wrap">
+        <button ref={button} type="button" className="why" data-why data-lit={lit ? "" : undefined} aria-haspopup="dialog" onClick={() => sheet.current?.showModal()}>{label}</button>
+        {lit ? <Beam width={size.width} height={size.height} /> : null}
+      </span>
+      <dialog ref={sheet} className="sheet" data-sheet aria-label={title} onClick={(e) => e.target === sheet.current && close()} onClose={() => setSeen(true)}>
         <div className="sheet-in">
           <div className="sheet-head">
             <strong>{title}</strong>
