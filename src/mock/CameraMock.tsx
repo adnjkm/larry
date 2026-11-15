@@ -7,12 +7,15 @@ import { DialRoot, useDialKitController } from "dialkit";
 import "dialkit/styles.css";
 import { accentChain } from "glimm";
 import { GlimmScope, type GlimmScopeHandle } from "glimm/react";
-import { type CSSProperties, type ReactNode, type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, type Ref, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Kit, type Part, parseKit } from "../../shared/kit.ts";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
 import { DEFAULT_LOOK, type DitherLook } from "../kit3d/ditherLook.ts";
-import { type DitherMethod, ditherBand, ditherPhoto, drawDitherBar, drawDitherDisc, drawScanBand, drawThumbwheel, fitFor } from "./dither.ts";
+import { type DitherMethod, ditherBand, drawDitherBar, fitFor } from "./dither.ts";
+import { type DevelopLook, useDevelop } from "./Develop.tsx";
+import { Surface } from "../surface/Surface.tsx";
+import { circle, drum, type Relief, rrect } from "../surface/relief.ts";
 import { thumbwheel } from "./thumbwheel.ts";
 import { screen } from "./screen.stylex.ts";
 
@@ -55,10 +58,9 @@ const LOOK: DitherLook = { ...DEFAULT_LOOK, colors: { ...DEFAULT_LOOK.colors, ac
 const even = (n: number) => Math.round(n / 2) * 2;
 
 /** Sizes of the camera's top row: the photo bar and the flash switch share one height. `ditherGrain` is the dither's cell size in CSS px (renamed from ditherCell when its unit changed, so stale saved values are dropped). */
-type TopSizes = { height: number; barWidth: number; barRadius: number; flashWidth: number; ditherGrain: number; idleDither: number };
+type TopSizes = { height: number; barWidth: number; barRadius: number; flashWidth: number; ditherGrain: number; idleDither: number; relief: number };
 const MAX_PHOTOS = 3;
 
-type Transition = "sweep" | "develop";
 type Pace = "demo" | "real";
 type Phase = "live" | "reading" | "building" | "done";
 type StartAt = "live" | "done";
@@ -75,6 +77,8 @@ type Layout = {
   top: TopSizes;
   wheel: { width: number; height: number; ridges: number; rim: number };
   shot: ShotLook;
+  /** `glow` is the frame glow's opacity, 0 to 1, and `reach` its blur in CSS px. */
+  develop: DevelopLook & { from: "shutter" | "centre"; glow: number; reach: number };
 };
 
 /** How a shot's sweep looks: glimm's band, redrawn as dither. */
@@ -91,7 +95,6 @@ const PACES: Record<Pace, { started: number; first: number; gap: number; tail: n
   real: { started: 5000, first: 6700, gap: 1300, tail: 900 },
 };
 
-const LOOKING_FOR = ["Separate pieces", "How they join", "What they're made of"];
 const EASE_OUT = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 
 const drift = stylex.keyframes({
@@ -112,6 +115,15 @@ const light = stylex.createTheme(screen, {
   muted: "#6B6B6B",
   chrome: "rgba(20, 20, 20, 0.06)",
   card: "#FFFFFF",
+});
+
+/** The camera's own colours, the screen's defaults, set again on the camera so it stays dark over the light result as it lifts away. */
+const dark = stylex.createTheme(screen, {
+  bg: "#141414",
+  fg: "#FFFFFF",
+  muted: "#8C8C8C",
+  chrome: "rgba(255, 255, 255, 0.1)",
+  card: "#232323",
 });
 
 const colorFade = "color 600ms ease, background-color 600ms ease";
@@ -323,7 +335,6 @@ const s = stylex.create({
     animationIterationCount: "infinite",
   },
   feedFrozen: { animationPlayState: "paused" },
-  feedGone: { opacity: 0, transition: "opacity 400ms ease" },
   angle: (transform: string) => ({ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", transform, transition: "transform 300ms ease" }),
   photo: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
   photoCover: { objectFit: "cover" },
@@ -331,12 +342,37 @@ const s = stylex.create({
   photoBackdrop: { objectFit: "cover", filter: "blur(24px) brightness(0.55)", transform: "scale(1.2)" },
   fill: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
   overlay: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" },
-  hidden: { opacity: 0, pointerEvents: "none" },
 
-  // Scan layer
-  scan: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "#232323", transition: "opacity 400ms ease" },
-  pixels: { position: "absolute", top: 0, left: 0, imageRendering: "pixelated" },
-  band: { position: "absolute", top: 0, left: 0, imageRendering: "pixelated", willChange: "transform" },
+  pixelated: { imageRendering: "pixelated" },
+  // The grey photo starts hidden; the develop wave opens it as a growing circle.
+  unrevealed: { clipPath: "circle(0px at 0px 0px)" },
+  // While Larry works the frame glows like a lit screen: a tiny copy of what it shows, blurred, behind it, so each
+  // part of its edge spills its own colour (see useDevelop).
+  glow: (width: number, height: number, reach: number) => ({
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width,
+    height,
+    filter: `blur(${reach}px)`,
+    opacity: 0,
+    transition: "opacity 700ms ease",
+    pointerEvents: "none",
+  }),
+  glowOn: (strength: number) => ({ opacity: strength }),
+
+  // The two screens: the result underneath, the camera over it as a sheet that lifts away.
+  page: { position: "absolute", top: 0, left: 0, width: DEVICE.width, height: DEVICE.height, backgroundColor: screen.bg, color: screen.fg },
+  sheet: (radius: number) => ({
+    borderBottomLeftRadius: radius,
+    borderBottomRightRadius: radius,
+    overflow: "hidden",
+    transition: "transform 820ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 820ms ease",
+  }),
+  sheetUp: { transform: `translateY(${-DEVICE.height}px)`, boxShadow: "0 24px 48px rgba(0, 0, 0, 0.3)" },
+  // While Larry works the camera's controls dim, leaving the glowing frame to hold the eye.
+  dimmable: { flexShrink: 0, transition: "opacity 500ms ease" },
+  dimmed: { opacity: 0.3, pointerEvents: "none" },
 
   viewer: { position: "absolute", top: 0, left: 0, width: "100%", animationName: fadeIn, animationDuration: "500ms", animationDelay: "150ms", animationFillMode: "both" },
   pip: {
@@ -359,7 +395,6 @@ const s = stylex.create({
   // Below the card
   lower: { position: "relative", flexGrow: 1 },
   layer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", transition: `opacity 300ms ease, transform 400ms ${EASE_OUT}` },
-  layerOut: { opacity: 0, transform: "translateY(16px)", pointerEvents: "none" },
   label: { fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "0.08em", textTransform: "uppercase", color: screen.muted, transition: colorFade },
   // The shutter is centred in the band below the card. The side slots keep it centred across too.
   // Three columns, the outer two equal, so the shutter stays centred however wide the wheel gets.
@@ -376,15 +411,13 @@ const s = stylex.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
-    boxShadow: "0 0 0 3px #FFFFFF",
     cursor: "pointer",
   }),
   // The face's shape is drawn by its dithered disc, so the element itself has no background or rounding.
   shutterFace: (size: number) => ({ position: "relative", width: size, height: size, transition: `transform 160ms ${EASE_OUT}` }),
-  disc: (size: number) => ({ position: "absolute", top: 0, left: 0, width: size, height: size, borderRadius: radii.pill, pointerEvents: "none" }),
-  // Above a disc's canvas, which is positioned.
-  overDisc: { position: "relative", display: "flex" },
-  shutterPressed: { transform: "scale(0.86)" },
+  // Above a Surface's canvas, which is positioned.
+  overSurface: { position: "relative", display: "flex" },
+  shutterPressed: { transform: "scale(0.94)" },
   // Equal side slots keep the shutter in the middle.
   slot: { minWidth: 0, display: "flex", justifyContent: "center" },
   slotStart: { justifyContent: "flex-start" },
@@ -417,12 +450,10 @@ const s = stylex.create({
     outline: { default: "none", ":focus-visible": "2px solid #FFFFFF" },
     outlineOffset: 2,
   }),
-  wheelCanvas: (width: number, height: number) => ({ display: "block", width, height, pointerEvents: "none" }),
   use: { padding: 0, borderWidth: 0, backgroundColor: "transparent", color: "#FFFFFF", fontFamily: fonts.sans, fontSize: 15, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
 
   result: { paddingTop: 18, paddingInline: 24, gap: 2 },
   name: { margin: 0, fontSize: 28, lineHeight: "34px", fontWeight: 600, letterSpacing: "-0.02em", animationName: riseIn, animationDuration: "350ms", animationTimingFunction: EASE_OUT },
-  nameWaiting: { color: screen.muted, fontWeight: 500 },
   countRow: { display: "flex", alignItems: "flex-end", gap: 12, marginTop: 10, height: 56 },
   count: { fontFamily: fonts.mono, fontSize: 64, lineHeight: "56px", fontWeight: 200, letterSpacing: "-0.04em", fontVariantNumeric: "tabular-nums", animationName: riseIn, animationDuration: "250ms" },
   countText: { display: "flex", flexDirection: "column", gap: 2, paddingBottom: 4 },
@@ -480,7 +511,6 @@ export default function CameraMock() {
     "Camera mockup",
     {
       object: { type: "select", options: OBJECT_NAMES, default: OBJECT_NAMES.includes("bottle") ? "bottle" : OBJECT_NAMES[0] },
-      transition: { type: "select", options: ["sweep", "develop"], default: "sweep" },
       pace: { type: "select", options: ["demo", "real"], default: "demo" },
       replay: { type: "action", label: "Back to camera" },
       jump: { type: "action", label: "Jump to result" },
@@ -496,7 +526,8 @@ export default function CameraMock() {
         sideInset: [16, 0, 40, 2],
         cardRadius: [32, 0, 56, 2],
         barHeight: [120, 44, 280, 2],
-        shutter: [84, 52, 120, 2],
+        // The shutter's face, which is now the whole button (renamed from shutter when the ring around it went).
+        shutterSize: [96, 52, 120, 2],
         // 124 is the room beside a 100 px shutter.
         wheelWidth: [112, 40, 124, 2],
         wheelHeight: [64, 24, 100, 2],
@@ -511,6 +542,8 @@ export default function CameraMock() {
         switchAspect: [1.75, 1.2, 3, 0.05],
         ditherGrain: [1.5, 0.5, 4, 0.5],
         idleDither: [0.6, 0, 1, 0.05],
+        // How tall the raised parts (the switch knob, the shutter) stand; 1 keeps their preset.
+        relief: [1, 0, 2.5, 0.05],
       },
       // A shot sweeps glimm's band up the viewfinder from the shutter, unveiling the next view.
       shot: {
@@ -519,7 +552,15 @@ export default function CameraMock() {
         grain: [1.5, 0.5, 4, 0.5],
         pageEffect: true,
       },
-      scan: {
+      // After the last photo: a ring runs out across the frame turning the photo to grey dither, then fainter rings and
+      // a glow around the frame while Larry works, then the camera lifts away from the model.
+      develop: {
+        from: { type: "select", options: ["shutter", "centre"], default: "shutter" },
+        waveMs: [1600, 600, 4000, 100],
+        pulseMs: [1400, 600, 4000, 100],
+        // The frame's glow while Larry works, from what it shows, like a lit screen (renamed so earlier glows' values drop).
+        screenGlow: [0.8, 0, 1, 0.05],
+        screenGlowBlur: [18, 4, 48, 2],
         method: { type: "select", options: ["bayer", "atkinson", "floyd-steinberg"], default: "bayer" },
       },
       result: {
@@ -530,7 +571,7 @@ export default function CameraMock() {
     { id: "larry-camera-mock", persist: true, onAction: (action) => actions.current?.(action) },
   );
   const dials = controller.values;
-  const { device, camera, top, result, scan, shot } = dials;
+  const { device, camera, top, result, develop, shot } = dials;
 
   const tab = device.shell === "chrome tab";
   const usableTop = STATUS_BAR + (tab ? CHROME_TOOLBAR : 0);
@@ -541,7 +582,7 @@ export default function CameraMock() {
     cardLive: Math.max(160, usableHeight - 2 * camera.barHeight),
     cardResult: result.cardHeight,
     barHeight: camera.barHeight,
-    shutter: camera.shutter,
+    shutter: camera.shutterSize,
     top: {
       height: top.height,
       barWidth: even(top.height * top.barAspect),
@@ -549,9 +590,11 @@ export default function CameraMock() {
       flashWidth: even(top.height * top.switchAspect),
       ditherGrain: top.ditherGrain,
       idleDither: top.idleDither,
+      relief: top.relief,
     },
     wheel: { width: camera.wheelWidth, height: camera.wheelHeight, ridges: camera.wheelRidges, rim: camera.wheelRim },
     shot: { sweepMs: shot.sweepMs, curve: shot.curve, grain: shot.grain, pageEffect: shot.pageEffect },
+    develop: { from: develop.from as "shutter" | "centre", waveMs: develop.waveMs, pulseMs: develop.pulseMs, glow: develop.screenGlow, reach: develop.screenGlowBlur },
   };
 
   const frame = { width: DEVICE.width + 2 * device.bezel, height: DEVICE.height + 2 * device.bezel };
@@ -588,13 +631,12 @@ export default function CameraMock() {
       <div {...stylex.props(s.phoneSlot(frame.width * scale, frame.height * scale))}>
         <div {...stylex.props(s.phone(device.bezel, device.screenRadius + device.bezel, scale))}>
           <Flow
-            key={`${run.id}-${object.name}-${dials.transition}-${dials.pace}`}
+            key={`${run.id}-${object.name}-${dials.pace}`}
             object={object}
-            transition={dials.transition as Transition}
             pace={dials.pace as Pace}
             startAt={run.startAt}
             layout={layout}
-            method={scan.method as DitherMethod}
+            method={develop.method as DitherMethod}
             device={{ tab, usableTop, usableHeight, radius: device.screenRadius, hole: device.cameraHole ? device.holeSize : 0, showUsable: device.usableArea }}
             onLog={(line) => setLog((l) => [...l, line])}
             onRestart={() => restart("live")}
@@ -625,7 +667,6 @@ type DeviceFrame = { tab: boolean; usableTop: number; usableHeight: number; radi
 
 function Flow({
   object,
-  transition,
   pace,
   startAt,
   layout,
@@ -635,7 +676,6 @@ function Flow({
   onRestart,
 }: {
   object: MockObject;
-  transition: Transition;
   pace: Pace;
   startAt: StartAt;
   layout: Layout;
@@ -648,6 +688,9 @@ function Flow({
   const { kit } = object;
   const [phase, setPhase] = useState<Phase>(atEnd ? "done" : "live");
   const [shots, setShots] = useState(atEnd ? 1 : 0);
+  // The photo bar fills when the shot's light reaches the top of the frame, not on the press, so the photo looks
+  // carried up into it.
+  const [filled, setFilled] = useState(atEnd ? 1 : 0);
   const [angle, setAngle] = useState(0);
   const [frozen, setFrozen] = useState(atEnd);
   const [pressed, setPressed] = useState(false);
@@ -693,12 +736,17 @@ function Flow({
     setFrozen(true);
     if (flashOn) setBurst((b) => b + 1);
     setShots(n);
-    // The band climbs from the shutter; the next view is already behind it.
-    unveil.current?.play(last ? undefined : () => setAngle(n));
-    later(last ? 500 : 650, () => {
-      if (last) read();
-      else setFrozen(false);
-    });
+    // The last shot goes straight into the develop wave, which runs out from the shutter. Before it, the band climbs
+    // from the shutter and the next view is already behind it.
+    if (last) {
+      read();
+      return;
+    }
+    unveil.current?.play(
+      () => setAngle(n),
+      () => setFilled(n),
+    );
+    later(650, () => setFrozen(false));
   }
 
   function use() {
@@ -725,100 +773,64 @@ function Flow({
     };
   }, []);
 
-  const lit = phase === "building" || phase === "done";
   const live = phase === "live";
+  const working = phase === "reading" || phase === "building";
+  const done = phase === "done";
+  // The camera is a sheet over the result. Once the model is ready it slides up and away, revealing the result.
+  const [sheet, setSheet] = useState<"up" | "leaving" | "gone">(atEnd ? "gone" : "up");
+  useEffect(() => {
+    if (!done || sheet !== "up") return;
+    // A beat on the finished light before the sheet lifts.
+    const id = window.setTimeout(() => setSheet("leaving"), 450);
+    return () => clearTimeout(id);
+  }, [done, sheet]);
   const box = { width: layout.cardWidth, height: layout.cardLive };
-  // Each new shot fakes a new angle on the same photo. Once sent, the card shows the first, main photo.
-  const angleTransform = !live ? "none" : angle === 1 ? "scaleX(-1)" : angle === 2 ? "scale(1.12) translateY(3%)" : "none";
+  // Each new shot fakes a new angle on the same photo.
+  const angleTransform = angle === 1 ? "scaleX(-1)" : angle === 2 ? "scale(1.12) translateY(3%)" : "none";
+  const develop = useDevelop({
+    active: !live && sheet !== "gone",
+    photo: object.photo,
+    box,
+    radius: layout.cardRadius,
+    zoom,
+    grain: layout.top.ditherGrain,
+    lightGrain: layout.shot.grain,
+    method,
+    origin: layout.develop.from === "shutter" ? [box.width / 2, box.height + layout.barHeight / 2] : [box.width / 2, box.height / 2],
+    look: layout.develop,
+    onTop: () => setFilled(shots),
+  });
 
   return (
-    <div {...stylex.props(s.screen, s.screenRadius(device.radius), lit && light)}>
-      <div {...stylex.props(s.viewport(device.usableTop, device.usableHeight))}>
-        <TopBar
-          phase={phase}
-          shots={shots}
-          parts={parts.length}
-          height={lit ? TOP_BAR : layout.barHeight}
-          sizes={layout.top}
-          flashOn={flashOn}
-          onFlash={setFlashOn}
-          onBack={onRestart}
-        />
-
-        <div {...stylex.props(s.cardWrap)}>
-        <div {...stylex.props(s.card(layout.cardWidth, lit ? layout.cardResult : layout.cardLive, layout.cardRadius))}>
-          <div {...stylex.props(s.feed(box.width, box.height), s.feedDrift, (frozen || !live) && s.feedFrozen, lit && s.feedGone)}>
-            <Unveil ref={unveil} look={layout.shot}>
-              <div {...stylex.props(s.zoom(zoom))}>
-                <Photo src={object.photo} transform={angleTransform} box={box} />
-                {(phase === "reading" || phase === "building") && <ScanLayer photo={object.photo} transition={transition} method={method} box={box} fading={phase === "building"} />}
-              </div>
-            </Unveil>
-          </div>
-          {live && zoom > ZOOM.min + 0.04 && <span {...stylex.props(s.zoomChip)}>{zoom.toFixed(1)}×</span>}
-
-          {lit && (
-            <>
-              <div {...stylex.props(s.viewer)}>
-                <KitViewer parts={parts} spin height={layout.cardResult} look={LOOK} />
-              </div>
-              <div {...stylex.props(s.pip)} title="Your photo">
-                <img src={object.photo} alt="" {...stylex.props(s.photo, s.photoCover)} />
-              </div>
-              <span {...stylex.props(s.turnHint)}>Drag to turn</span>
-            </>
-          )}
-        </div>
-        </div>
-
-        <div {...stylex.props(s.lower)}>
-          {/* Camera controls */}
-          <div {...stylex.props(s.layer, !live && s.layerOut)}>
-            <div {...stylex.props(s.controls((DEVICE.width - layout.cardWidth) / 2))}>
-              <div {...stylex.props(s.slot, s.slotStart)}>
-                <ZoomWheel zoom={zoom} onZoom={setZoom} size={layout.wheel} cell={layout.top.ditherGrain} />
-              </div>
-              <Button
-                aria-label="Take photo"
-                {...stylex.props(s.shutter(layout.shutter))}
-                onPointerDown={() => setPressed(true)}
-                onPointerUp={() => setPressed(false)}
-                onPointerLeave={() => setPressed(false)}
-                onClick={shoot}
-              >
-                <span {...stylex.props(s.shutterFace(layout.shutter - 12), pressed && s.shutterPressed)}>
-                  <DitherDisc size={layout.shutter - 12} cell={layout.top.ditherGrain} strength={layout.top.idleDither} />
-                </span>
-              </Button>
-              <div {...stylex.props(s.slot)}>
-                {shots > 0 && (
-                  <Button {...stylex.props(s.use)} onClick={use}>
-                    Use {shots} →
-                  </Button>
+    <div {...stylex.props(s.screen, s.screenRadius(device.radius), done && light)}>
+      {/* The result, built underneath while Larry works, so it's whole when the camera lifts off it. */}
+      {/* Mounted once the first wave has passed, so mounting it doesn't hold up the wave's first frames. */}
+      {(phase === "building" || done) && (
+        <div {...stylex.props(light, s.page)}>
+          <div {...stylex.props(s.viewport(device.usableTop, device.usableHeight))}>
+            <TopBar result shots={shots} parts={parts.length} height={TOP_BAR} sizes={layout.top} flashOn={false} onFlash={setFlashOn} onBack={onRestart} />
+            <div {...stylex.props(s.cardWrap)}>
+              <div {...stylex.props(s.card(layout.cardWidth, layout.cardResult, layout.cardRadius))}>
+                {parts.length > 0 && (
+                  <div {...stylex.props(s.viewer)}>
+                    <KitViewer parts={parts} spin height={layout.cardResult} look={LOOK} />
+                  </div>
                 )}
+                <div {...stylex.props(s.pip)} title="Your photo">
+                  <img src={object.photo} alt="" {...stylex.props(s.photo, s.photoCover)} />
+                </div>
+                <span {...stylex.props(s.turnHint)}>Drag to turn</span>
               </div>
             </div>
-          </div>
-
-          {/* What Larry found */}
-          <div {...stylex.props(s.layer, s.result, live && s.layerOut)}>
-            <span {...stylex.props(s.label)}>{header ? "Larry found a" : "Larry is looking for"}</span>
-            {header ? (
-              <h2 key="name" {...stylex.props(s.name)}>
-                {header.name}
-              </h2>
-            ) : (
-              <Cycler items={LOOKING_FOR} />
-            )}
-            {lit && (
-              <>
+            <div {...stylex.props(s.lower)}>
+              <div {...stylex.props(s.layer, s.result)}>
+                <span {...stylex.props(s.label)}>Larry found a</span>
+                <h2 {...stylex.props(s.name)}>{header?.name ?? ""}</h2>
                 <div {...stylex.props(s.countRow)}>
-                  <span key={parts.length} {...stylex.props(s.count)}>
-                    {parts.length}
-                  </span>
+                  <span {...stylex.props(s.count)}>{parts.length}</span>
                   <span {...stylex.props(s.countText)}>
                     <span {...stylex.props(s.countWord)}>{parts.length === 1 ? "part" : "parts"}</span>
-                    <span {...stylex.props(s.label)}>{phase === "done" ? "Ready to build" : "Still finding more"}</span>
+                    <span {...stylex.props(s.label)}>{done ? "Ready to build" : "Still finding more"}</span>
                   </span>
                 </div>
                 <div {...stylex.props(s.chips)}>
@@ -829,19 +841,86 @@ function Flow({
                     </span>
                   ))}
                 </div>
-              </>
-            )}
-            <div {...stylex.props(s.footer)}>
-              <Button disabled={phase !== "done"} {...stylex.props(s.primary, phase === "done" && s.primaryReady)}>
-                {phase === "done" ? "Build it" : lit ? "Laying out parts…" : "Taking it apart…"}
-              </Button>
-              <Button {...stylex.props(s.link)} onClick={onRestart}>
-                Scan something else
-              </Button>
+                <div {...stylex.props(s.footer)}>
+                  <Button disabled={!done} {...stylex.props(s.primary, done && s.primaryReady)}>
+                    {done ? "Build it" : "Laying out parts…"}
+                  </Button>
+                  <Button {...stylex.props(s.link)} onClick={onRestart}>
+                    Scan something else
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* The camera. While Larry works its controls dim and the frame glows; when the model is ready it lifts away. */}
+      {sheet !== "gone" && (
+        <div
+          {...stylex.props(dark, s.page, s.sheet(device.radius), sheet === "leaving" && s.sheetUp)}
+          onTransitionEnd={(e) => e.target === e.currentTarget && sheet === "leaving" && setSheet("gone")}
+        >
+          <div {...stylex.props(s.viewport(device.usableTop, device.usableHeight))}>
+            <div {...stylex.props(s.dimmable, !live && s.dimmed)}>
+              <TopBar busy={working} shots={filled} parts={parts.length} height={layout.barHeight} sizes={layout.top} flashOn={flashOn} onFlash={setFlashOn} onBack={onRestart} />
+            </div>
+
+            <div {...stylex.props(s.cardWrap)}>
+              <canvas ref={develop.glow} aria-hidden {...stylex.props(s.glow(box.width, box.height, layout.develop.reach), !live && s.glowOn(layout.develop.glow))} />
+              <div {...stylex.props(s.card(layout.cardWidth, layout.cardLive, layout.cardRadius))}>
+                <div {...stylex.props(s.feed(box.width, box.height), s.feedDrift, (frozen || !live) && s.feedFrozen)}>
+                  <Unveil ref={unveil} look={layout.shot}>
+                    <div {...stylex.props(s.zoom(zoom))}>
+                      <Photo src={object.photo} transform={angleTransform} box={box} />
+                    </div>
+                  </Unveil>
+                  <canvas ref={develop.photo} aria-hidden {...stylex.props(s.overlay, s.pixelated, s.unrevealed)} />
+                  <canvas ref={develop.light} aria-hidden {...stylex.props(s.overlay)} />
+                </div>
+                {live && zoom > ZOOM.min + 0.04 && <span {...stylex.props(s.zoomChip)}>{zoom.toFixed(1)}×</span>}
+              </div>
+            </div>
+
+            <div {...stylex.props(s.lower, s.dimmable, !live && s.dimmed)}>
+              {/* Fills the band below the frame, so the controls are centred in it. */}
+              <div {...stylex.props(s.layer)}>
+                <div {...stylex.props(s.controls((DEVICE.width - layout.cardWidth) / 2))}>
+                  <div {...stylex.props(s.slot, s.slotStart)}>
+                    <ZoomWheel zoom={zoom} onZoom={setZoom} size={layout.wheel} cell={layout.top.ditherGrain} depth={layout.top.relief} drift={layout.top.idleDither} />
+                  </div>
+                  <Button
+                    aria-label="Take photo"
+                    disabled={!live}
+                    {...stylex.props(s.shutter(layout.shutter))}
+                    onPointerDown={() => setPressed(true)}
+                    onPointerUp={() => setPressed(false)}
+                    onPointerLeave={() => setPressed(false)}
+                    onClick={shoot}
+                  >
+                    <span {...stylex.props(s.shutterFace(layout.shutter), pressed && s.shutterPressed)}>
+                      <Surface
+                        shape={circle(layout.shutter)}
+                        relief={pressed ? "dishPressed" : "dish"}
+                        grain={layout.top.ditherGrain}
+                        depth={layout.top.relief}
+                        drift={layout.top.idleDither}
+                      />
+                    </span>
+                  </Button>
+                  <div {...stylex.props(s.slot)}>
+                    {shots > 0 && shots < MAX_PHOTOS && (
+                      <Button {...stylex.props(s.use)} onClick={use}>
+                        Use {shots} →
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SystemBars tab={device.tab} hole={device.hole} />
       {burst > 0 && <div key={`burst-${burst}`} {...stylex.props(s.screenFlash)} />}
@@ -927,124 +1006,10 @@ function Photo({ src, transform, box }: { src: string; transform: string; box: {
   );
 }
 
-/** The photo turning into pixels while Larry reads it. Drawn imperatively so the animation never re-renders React. */
-function ScanLayer({
-  photo,
-  transition,
-  method,
-  box,
-  fading,
-}: {
-  photo: string;
-  transition: Transition;
-  method: DitherMethod;
-  box: { width: number; height: number };
-  fading: boolean;
-}) {
-  const layer = useRef<HTMLDivElement>(null);
-  const pixels = useRef<HTMLCanvasElement>(null);
-  const band = useRef<HTMLCanvasElement>(null);
-  const { width, height } = box;
-
-  useEffect(() => {
-    const layerEl = layer.current;
-    const pixelEl = pixels.current;
-    const bandEl = band.current;
-    if (!layerEl || !pixelEl || !bandEl) return;
-    let raf = 0;
-    let cancelled = false;
-    const timers: number[] = [];
-    const size = { width, height };
-    const image = new Image();
-    image.src = photo;
-
-    const draw = (pixel: number, bias = 0) => {
-      ditherPhoto(pixelEl, image, size, pixel, { method, bias });
-      pixelEl.style.width = `${pixelEl.width * pixel}px`;
-      pixelEl.style.height = `${pixelEl.height * pixel}px`;
-    };
-
-    void image.decode().then(() => {
-      if (cancelled) return;
-      const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-      if (transition === "sweep") {
-        const pixel = 3;
-        draw(pixel);
-        const bandRows = 16;
-        drawScanBand(bandEl, pixelEl.width, bandRows, ACCENT);
-        bandEl.style.width = `${bandEl.width * pixel}px`;
-        bandEl.style.height = `${bandRows * pixel}px`;
-        const bandHeight = bandRows * pixel;
-        const firstPass = 1300;
-        const loop = 1800;
-        const start = performance.now();
-        const frame = (now: number) => {
-          const t = reduced ? firstPass : now - start;
-          const k = t < firstPass ? easeInOut(t / firstPass) : ((t - firstPass) % loop) / loop;
-          const y = k * (size.height + bandHeight);
-          const revealed = t < firstPass ? y : size.height;
-          layerEl.style.clipPath = `inset(0 0 ${Math.max(0, size.height - revealed)}px 0)`;
-          bandEl.style.transform = `translateY(${y - bandHeight}px)`;
-          bandEl.style.opacity = t < firstPass ? "1" : "0.55";
-          if (!reduced) raf = requestAnimationFrame(frame);
-        };
-        raf = requestAnimationFrame(frame);
-      } else {
-        bandEl.style.display = "none";
-        const steps = reduced ? [6] : [2, 3, 4, 6, 8];
-        layerEl.style.opacity = "0";
-        draw(steps[0] ?? 6);
-        requestAnimationFrame(() => (layerEl.style.opacity = "1"));
-        steps.forEach((pixel, i) => timers.push(window.setTimeout(() => !cancelled && draw(pixel), i * 160)));
-        if (!reduced) {
-          // While waiting, nudge the threshold so the pixels shimmer like they are being read.
-          const start = performance.now();
-          timers.push(
-            window.setTimeout(() => {
-              const id = window.setInterval(() => draw(6, 0.08 * Math.sin((performance.now() - start) / 260)), 120);
-              timers.push(id);
-            }, steps.length * 160 + 200),
-          );
-        }
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(raf);
-      for (const id of timers) {
-        clearTimeout(id);
-        clearInterval(id);
-      }
-    };
-  }, [photo, transition, method, width, height]);
-
-  return (
-    <div ref={layer} {...stylex.props(s.scan, fading && s.hidden)}>
-      <canvas ref={pixels} {...stylex.props(s.pixels)} />
-      <canvas ref={band} {...stylex.props(s.band)} />
-    </div>
-  );
-}
-
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
-
-function Cycler({ items }: { items: string[] }) {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setI((n) => (n + 1) % items.length), 1400);
-    return () => clearInterval(id);
-  }, [items.length]);
-  return (
-    <h2 key={i} {...stylex.props(s.name, s.nameWaiting)}>
-      {items[i]}
-    </h2>
-  );
-}
-
+/** The camera's top row (the photo bar and the flash switch), or on the result a back button, a summary and retake. */
 function TopBar({
-  phase,
+  result = false,
+  busy = false,
   shots,
   parts,
   height,
@@ -1053,7 +1018,9 @@ function TopBar({
   onFlash,
   onBack,
 }: {
-  phase: Phase;
+  result?: boolean;
+  /** Larry is working: the photo bar's dither drifts faster, as a loader. */
+  busy?: boolean;
   shots: number;
   parts: number;
   height: number;
@@ -1062,37 +1029,30 @@ function TopBar({
   onFlash: (on: boolean) => void;
   onBack: () => void;
 }) {
-  const label =
-    phase === "live"
-      ? `Photo ${Math.min(shots + 1, MAX_PHOTOS)} of ${MAX_PHOTOS}`
-      : phase === "reading"
-        ? "Reading your photo"
-        : phase === "building"
-          ? `Writing part ${parts}`
-          : `${shots} ${shots === 1 ? "photo" : "photos"} · ${parts} parts`;
-  const lit = phase === "building" || phase === "done";
-  const camera = !lit;
-  const side = camera ? sizes.flashWidth : 36;
+  const side = result ? 36 : sizes.flashWidth;
   return (
     <div {...stylex.props(s.topBar(height))}>
       <div {...stylex.props(s.side(side))}>
-        {lit && (
+        {result && (
           <Button aria-label="Back to camera" {...stylex.props(s.iconButton)} onClick={onBack}>
             <BackIcon />
           </Button>
         )}
       </div>
-      {camera ? (
-        <PhotoBar shots={shots} busy={phase === "reading"} sizes={sizes} />
+      {result ? (
+        <span {...stylex.props(s.topLabel(11, 14))}>
+          {shots} {shots === 1 ? "photo" : "photos"} · {parts} parts
+        </span>
       ) : (
-        <span {...stylex.props(s.topLabel(11, 14))}>{label}</span>
+        <PhotoBar shots={shots} busy={busy} sizes={sizes} />
       )}
       <div {...stylex.props(s.side(side), s.sideEnd)}>
-        {phase === "live" && <FlashToggle on={flashOn} onChange={onFlash} width={sizes.flashWidth} height={sizes.height} cell={sizes.ditherGrain} idle={sizes.idleDither} />}
-        {phase === "done" && (
+        {result ? (
           <Button aria-label="Scan again" {...stylex.props(s.iconButton)} onClick={onBack}>
             <RetakeIcon />
           </Button>
+        ) : (
+          <FlashToggle on={flashOn} onChange={onFlash} width={sizes.flashWidth} height={sizes.height} cell={sizes.ditherGrain} idle={sizes.idleDither} relief={sizes.relief} />
         )}
       </div>
     </div>
@@ -1150,6 +1110,7 @@ function FlashToggle({
   height,
   cell,
   idle,
+  relief,
 }: {
   on: boolean;
   onChange: (on: boolean) => void;
@@ -1157,14 +1118,15 @@ function FlashToggle({
   height: number;
   cell: number;
   idle: number;
+  relief: number;
 }) {
   const knob = height - 6;
   return (
     <Switch checked={on} onCheckedChange={onChange} aria-label="Flash" {...stylex.props(s.flashToggle(width, height))}>
       <DitherBar fill={on ? 1 : 0} reveal="fade" glow={0} width={width} height={height} radius={height / 2} cell={cell} dividers={NO_DIVIDERS} idle={idle} />
       <SwitchThumb {...stylex.props(s.knob(knob, 3), on && s.knobOn(width - height))}>
-        <DitherDisc size={knob} cell={cell} strength={idle} />
-        <span {...stylex.props(s.overDisc)}>
+        <Surface shape={circle(knob)} relief="cap" grain={cell} depth={relief} drift={idle} />
+        <span {...stylex.props(s.overSurface)}>
           <FlashIcon size={even(knob * 0.54)} filled={on} color={on ? ACCENT : "#6B6B6B"} />
         </span>
       </SwitchThumb>
@@ -1173,52 +1135,27 @@ function FlashToggle({
 }
 
 
-/**
- * Redraws a canvas a dozen times a second with the seconds since mount, for dither that drifts slowly.
- * Draws once and stops when the user prefers reduced motion.
- */
-function useSlowDither(draw: (canvas: HTMLCanvasElement, seconds: number) => void, deps: readonly unknown[]) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const latest = useRef(draw);
-  latest.current = draw;
-  useEffect(() => {
-    const el = canvas.current;
-    if (!el) return;
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const start = performance.now();
-    let raf = 0;
-    let last = -Infinity;
-    const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
-      if (now - last < 1000 / 12) return;
-      last = now;
-      latest.current(el, reduced ? 0 : (now - start) / 4000);
-      if (reduced) cancelAnimationFrame(raf);
-    };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, deps);
-  return canvas;
-}
-
-/** A white disc with slight dithered shading (see drawDitherDisc). Fills its positioned parent's top left. */
-function DitherDisc({ size, cell, strength }: { size: number; cell: number; strength: number }) {
-  const canvas = useSlowDither((el, seconds) => drawDitherDisc(el, size, cell, strength, seconds), [size, cell, strength]);
-  return <canvas ref={canvas} aria-hidden {...stylex.props(s.disc(size))} />;
-}
-
 /** The band's colours, synthwave from indigo to gold. The dither brings back its near-black as shade. */
 const UNVEIL_PALETTE = accentChain(["#23005F", "#8700AF", "#FF0087", "#FF5F37", "#FFD700"]);
 /** glimm's scope takes a style object, not a class. */
 const SCOPE_FILL: CSSProperties = { position: "absolute", inset: 0 };
 /**
+ * glimm's band is never shown, only read back each frame and redrawn as dither, and reading a canvas back is slow. So
+ * its canvas is shrunk by this much: glimm sizes it from its on-screen box, transforms included, and renders a
+ * fraction of the pixels. The dither is coarser than that anyway.
+ */
+const BAND_SCALE = 0.25;
+/**
  * glimm fades its band out over the last 24 px at each edge of its canvas, so a sweep inside a card doesn't end on a
  * hard border. Over the viewfinder that fade reads as an empty margin, so its canvas reaches this far past the frame
- * on every side and the fade falls outside it.
+ * on every side and the fade falls outside it. The canvas is shrunk by BAND_SCALE, so its 24 px are this many here.
  */
-const BAND_BLEED = 24;
+const BAND_BLEED = 24 / BAND_SCALE;
+/** The band counts as having reached the top once its edge is this far down the frame, as a share of its height. */
+const TOP_REACHED = 0.03;
 
-type UnveilHandle = { play: (change?: () => void) => void };
+/** `onTop` runs once, when the band has climbed to the top of the frame. */
+type UnveilHandle = { play: (change?: () => void, onTop?: () => void) => void };
 
 /**
  * glimm's sweep, as in its "Generate data" demo: a band rises from the bottom, curved at its ends, and whatever
@@ -1232,6 +1169,7 @@ function Unveil({ ref, look, children }: { ref: Ref<UnveilHandle>; look: ShotLoo
   const band = useRef<HTMLCanvasElement | null>(null);
   const loop = useRef(0);
   const playedAt = useRef(0);
+  const reachedTop = useRef<(() => void) | undefined>(undefined);
   const latest = useRef(look);
   latest.current = look;
 
@@ -1246,6 +1184,8 @@ function Unveil({ ref, look, children }: { ref: Ref<UnveilHandle>; look: ShotLoo
       inset: `${-BAND_BLEED}px`,
       width: `calc(100% + ${2 * BAND_BLEED}px)`,
       height: `calc(100% + ${2 * BAND_BLEED}px)`,
+      transform: `scale(${BAND_SCALE})`,
+      transformOrigin: "0 0",
     });
     band.current = canvas;
   }, []);
@@ -1254,9 +1194,10 @@ function Unveil({ ref, look, children }: { ref: Ref<UnveilHandle>; look: ShotLoo
   useImperativeHandle(
     ref,
     () => ({
-      play(change) {
+      play(change, onTop) {
         scope.current?.play(change ? { change } : {});
         playedAt.current = performance.now();
+        reachedTop.current = onTop;
         if (loop.current) return;
         const scratch = document.createElement("canvas");
         const tick = (now: number) => {
@@ -1267,10 +1208,16 @@ function Unveil({ ref, look, children }: { ref: Ref<UnveilHandle>; look: ShotLoo
             loop.current = 0;
             return;
           }
-          const shown = ditherBand(el, source, box.clientWidth, box.clientHeight, BAND_BLEED, latest.current.grain, scratch);
+          const front = ditherBand(el, source, box.clientWidth, box.clientHeight, BAND_BLEED, latest.current.grain, scratch);
           const since = now - playedAt.current;
+          if (front !== null && front <= TOP_REACHED) {
+            reachedTop.current?.();
+            reachedTop.current = undefined;
+          }
           // Stop once the band has gone, or a beat after the sweep should have ended, whichever is first.
-          if ((!shown && since > 400) || since > latest.current.sweepMs + 1200) {
+          if ((front === null && since > 400) || since > latest.current.sweepMs + 1200) {
+            reachedTop.current?.();
+            reachedTop.current = undefined;
             el.getContext("2d")?.clearRect(0, 0, el.width, el.height);
             loop.current = 0;
             return;
@@ -1313,12 +1260,20 @@ function ZoomWheel({
   onZoom,
   size,
   cell,
+  depth,
+  drift,
 }: {
   zoom: number;
   onZoom: (zoom: number) => void;
   size: { width: number; height: number; ridges: number; rim: number };
   cell: number;
+  depth: number;
+  drift: number;
 }) {
+  const { width, height, ridges, rim } = size;
+  // One groove's turn, baked in WHEEL_FRAMES frames; the drum looks the same every groove, so that is every angle.
+  const pitch = (2 * Math.PI) / ridges;
+  const relief = useMemo(() => (t: number): Relief => [drum({ ridges, rim, turn: t * pitch })], [ridges, rim, pitch]);
   return (
     <Thumbwheel
       aria-label="Zoom"
@@ -1329,42 +1284,34 @@ function ZoomWheel({
       step={0.1}
       valueText={`${zoom.toFixed(1)}× zoom`}
       onValueChange={onZoom}
-      {...stylex.props(s.wheel(size.width, size.height))}
+      {...stylex.props(s.wheel(width, height))}
     >
       {(state) => {
         const pixels = (state.value - ZOOM.min) / ZOOM.perPixel;
-        const radians = pixels / (size.width / 2);
-        // Velocity is value per ms; a frame is about 16 ms.
-        const blur = Math.min(1.4, (Math.abs(state.velocity) / ZOOM.perPixel / (size.width / 2)) * 16);
-        return <WheelCanvas width={size.width} height={size.height} ridges={size.ridges} rim={size.rim} angle={radians} blur={blur} cell={cell} />;
+        const radians = pixels / (width / 2);
+        // Velocity is value per ms; a frame is about 16 ms. A fast spin smears over the frames it turned through.
+        const turned = (Math.abs(state.velocity) / ZOOM.perPixel / (width / 2)) * 16;
+        const smear = Math.min(WHEEL_FRAMES * 0.6, turned / (pitch / WHEEL_FRAMES));
+        return (
+          <Surface
+            shape={rrect(width, height, 10)}
+            relief={relief}
+            bakeKey={`wheel-${ridges}-${rim}`}
+            frames={WHEEL_FRAMES}
+            at={radians / pitch}
+            smear={smear}
+            grain={cell}
+            depth={depth}
+            drift={drift}
+          />
+        );
       }}
     </Thumbwheel>
   );
 }
 
-function WheelCanvas({
-  width,
-  height,
-  ridges,
-  rim,
-  angle,
-  blur,
-  cell,
-}: {
-  width: number;
-  height: number;
-  ridges: number;
-  rim: number;
-  angle: number;
-  blur: number;
-  cell: number;
-}) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (canvas.current) drawThumbwheel(canvas.current, width, height, 10, angle, blur, ridges, rim, cell, 0);
-  }, [width, height, ridges, rim, angle, blur, cell]);
-  return <canvas ref={canvas} aria-hidden {...stylex.props(s.wheelCanvas(width, height))} />;
-}
+/** Frames baked per groove of the zoom wheel. More turns more smoothly, at a bake each. */
+const WHEEL_FRAMES = 18;
 
 /**
  * A dithered bar (see drawDitherBar). With `reveal="sweep"` the fill eases toward `fill`, so each new third sweeps in
