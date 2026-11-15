@@ -6,11 +6,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
-import { startValues, steps } from "../types.ts";
-import type { Values } from "../types.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { ARM, LIFT, LOAD, R_EFF, REACH, rig, settle, TURN_MAX, wheel, winch } from "./wheel.ts";
 
-const game = wheel.game!;
+const game = wheel.game;
 const [radius, turn] = wheel.sliders as [NonNullable<(typeof wheel.sliders)[0]>, NonNullable<(typeof wheel.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const box = (p: Part) => (p.shape.kind === "box" ? p.shape : assert.fail(`${p.id} is not a box`));
@@ -73,7 +72,7 @@ describe("wheel", () => {
         const v = { radius: r, turn: t };
         const parts = wheel.build(v);
         const k = find(parts, "knob");
-        const h = wheel.handle!.at(v);
+        const h = wheel.handle.at(v);
         assert.ok(Math.hypot(k.position.x - h.x, k.position.y - h.y, k.position.z - h.z) < 1e-9);
         assert.ok(Math.abs(Math.hypot(k.position.x, k.position.y - rig.AXLE_Y) - r) < 1e-9, `radius ${r}: the knob is not on the rim`);
       }
@@ -138,7 +137,7 @@ describe("wheel", () => {
 
   it("only turns as far as an arm can turn it: a millimetre or two when the wheel is too small", () => {
     for (const r of steps(radius)) {
-      const [lo, hi] = wheel.handle!.reach!({ radius: r, turn: 0.3 });
+      const [lo, hi] = wheel.handle.reach!({ radius: r, turn: 0.3 });
       assert.equal(lo, 0);
       if ((LOAD * R_EFF) / r > ARM + 1e-9) {
         assert.ok(hi * TAU * r <= 1.5 + 1e-9 && hi > 0, `radius ${r}: reach ${hi}`);
@@ -158,7 +157,7 @@ describe("wheel", () => {
   });
 
   it("drags the knob round to the pointer and back", () => {
-    const h = wheel.handle!;
+    const h = wheel.handle;
     for (const r of [34, 40]) {
       for (const t of [0.05, 0.3, 0.5]) {
         const v: Values = { radius: r, turn: t };

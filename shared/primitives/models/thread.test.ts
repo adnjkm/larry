@@ -6,7 +6,7 @@ import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
 import { steps } from "../types.ts";
 import { FRICTION_DEG, geometry, HAND_R, jack, MEAN_R, PITCH_UNIT, ridgeWire, settle, TARGET, thread } from "./thread.ts";
 
-const game = thread.game!;
+const game = thread.game;
 const pitch = thread.sliders[0]!;
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
@@ -50,7 +50,7 @@ describe("thread", () => {
     for (const t of [0, 0.3, 1.25, 4.9]) {
       const parts = thread.build({ pitch: 4, turns: t });
       const bar = find(parts, "handle").position;
-      const h = thread.handle!.at({ pitch: 4, turns: t });
+      const h = thread.handle.at({ pitch: 4, turns: t });
       assert.ok(Math.hypot(bar.x - h.x, bar.y - h.y, bar.z - h.z) < 1e-9);
       assert.ok(Math.abs(Math.hypot(bar.x, bar.z) - HAND_R) < 1e-9, "the bar goes round on its circle");
       const nut = find(parts, "nut").position;
@@ -62,7 +62,7 @@ describe("thread", () => {
   });
 
   it("solves the drag back to the turn it came from, near the current one", () => {
-    const h = thread.handle!;
+    const h = thread.handle;
     for (const t of [0.4, 1.6, 2.5, 3.1, 5.7]) {
       const v = { pitch: 4, turns: t };
       const solved = h.solve(h.at(v), v);
@@ -138,7 +138,7 @@ describe("thread", () => {
   });
 
   it("only lets the drag go as far as the mark", () => {
-    assert.deepEqual(thread.handle!.reach!({ pitch: 4, turns: 0 }), [0, 4]);
-    assert.deepEqual(thread.handle!.reach!({ pitch: 2, turns: 0 }), [0, 6]);
+    assert.deepEqual(thread.handle.reach!({ pitch: 4, turns: 0 }), [0, 4]);
+    assert.deepEqual(thread.handle.reach!({ pitch: 2, turns: 0 }), [0, 6]);
   });
 });

@@ -8,12 +8,11 @@ import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { look } from "../parts.ts";
 import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
-import { steps } from "../types.ts";
-import type { Values } from "../types.ts";
+import { steps, type Values } from "../types.ts";
 import { DRIVER_TEETH, gear, GHOST, rig, settle, shadow, TOLERANCE } from "./gear.ts";
 
 type Pt = [number, number];
-const game = gear.game!;
+const game = gear.game;
 const ratio = gear.sliders[0]!;
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
@@ -135,9 +134,9 @@ describe("gear", () => {
       const v = { ratio: 1.5, turn };
       const parts = gear.build(v);
       const k = find(parts, "knob").position;
-      const h = gear.handle!.at(v);
+      const h = gear.handle.at(v);
       assert.ok(Math.hypot(k.x - h.x, k.y - h.y, k.z - h.z) < 1e-9);
-      const solved = gear.handle!.solve(h, v);
+      const solved = gear.handle.solve(h, v);
       assert.ok(Math.abs(solved - turn) < 1e-6, `drag solves to ${solved}, not ${turn}`);
     }
   });

@@ -7,7 +7,7 @@ import { startValues, steps } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { AIR, downFor, geometry, HAND, MARK, piston, settle, stop, TOLERANCE } from "./piston.ts";
 
-const game = piston.game!;
+const game = piston.game;
 const [area, force] = piston.sliders as [NonNullable<(typeof piston.sliders)[0]>, NonNullable<(typeof piston.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const dots = (parts: Part[]) => parts.filter((p) => p.id.startsWith("air-"));
@@ -73,7 +73,7 @@ describe("piston", () => {
   });
 
   it("stops a drag where the hand's push balances the air, whatever the area", () => {
-    const h = piston.handle!;
+    const h = piston.handle;
     for (const a of [4, 8, 12]) {
       const v = { area: a, force: 20 };
       assert.deepEqual(h.reach!(v), [0, HAND]);

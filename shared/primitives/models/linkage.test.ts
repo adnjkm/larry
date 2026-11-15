@@ -7,7 +7,7 @@ import { steps } from "../types.ts";
 import { PLATE_TOP, type Pt } from "../parts.ts";
 import { COUPLER, CRANK, FRAME, fourBar, linkage, rig, settle, stallAt, STOP_LO, swingOf, TOLERANCE, wipe } from "./linkage.ts";
 
-const game = linkage.game!;
+const game = linkage.game;
 const [rockerSlider] = linkage.sliders as [NonNullable<(typeof linkage.sliders)[0]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);

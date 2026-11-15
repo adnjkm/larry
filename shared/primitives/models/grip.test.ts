@@ -7,7 +7,7 @@ import { startValues, steps } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { CRACK, geometry, grip, hold, LOAD_END, MU, settle, SLIDE } from "./grip.ts";
 
-const game = grip.game!;
+const game = grip.game;
 const [squeeze, load] = grip.sliders as [NonNullable<(typeof grip.sliders)[0]>, NonNullable<(typeof grip.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const length = (p: Part) => {
@@ -95,7 +95,7 @@ describe("grip", () => {
   it("keeps the handle on the thumb disc and solves back to the squeeze", () => {
     for (const n of steps(squeeze)) {
       const v = { squeeze: n, load: 20 };
-      assert.ok(Math.abs(grip.handle!.solve(grip.handle!.at(v), v) - n) < 1e-9);
+      assert.ok(Math.abs(grip.handle.solve(grip.handle.at(v), v) - n) < 1e-9);
     }
   });
 

@@ -6,11 +6,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
-import { startValues, steps } from "../types.ts";
-import type { Values } from "../types.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { BLOW, BLOWS, ELASTIC, GRIP, gripAt, LENGTH, OPEN, rig, settle, split, wedge } from "./wedge.ts";
 
-const game = wedge.game!;
+const game = wedge.game;
 const [slope, push] = wedge.sliders as [NonNullable<(typeof wedge.sliders)[0]>, NonNullable<(typeof wedge.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const box = (p: Part) => (p.shape.kind === "box" ? p.shape : assert.fail(`${p.id} is not a box`));
@@ -93,7 +92,7 @@ describe("wedge", () => {
       const s = settle({ slope: sl, push: push.max });
       if (s.push > ELASTIC + 1e-9) assert.ok(s.side >= gripAt(s.open) - 1e-6 || s.through, `slope ${sl}: ${s.side} N against a grip of ${gripAt(s.open)} N`);
       if (s.side < GRIP) assert.ok(s.push <= ELASTIC + 1e-9, `slope ${sl}: pushes in against more grip than it makes`);
-      const [lo, hi] = wedge.handle!.reach!({ slope: sl, push: 10 });
+      const [lo, hi] = wedge.handle.reach!({ slope: sl, push: 10 });
       assert.deepEqual([lo, hi], [0, s.limit]);
     }
     assert.ok(settle({ slope: 28, push: 24 }).push < 24, "a fat wedge is held to its stall");
@@ -132,7 +131,7 @@ describe("wedge", () => {
   });
 
   it("drags the tap pad to the pointer and back", () => {
-    const h = wedge.handle!;
+    const h = wedge.handle;
     for (const sl of [10, 14, 17]) {
       for (const p of [0, 4, 9]) {
         const v: Values = { slope: sl, push: p };

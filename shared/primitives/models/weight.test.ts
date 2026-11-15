@@ -7,7 +7,7 @@ import { PLATE_TOP } from "../parts.ts";
 import { startValues, steps, type Values } from "../types.ts";
 import { bobRadius, CONTACT, freed, freedAt, geometry, NEED, OMEGA, PERIOD, QUARTER, SNAP, strike, strikeOf, STRING_MM, weight, X0 } from "./weight.ts";
 
-const game = weight.game!;
+const game = weight.game;
 const [mass, swing] = weight.sliders as [NonNullable<(typeof weight.sliders)[0]>, NonNullable<(typeof weight.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const has = (parts: Part[], id: string) => parts.some((p) => p.id === id);
@@ -154,10 +154,10 @@ describe("weight", () => {
         const parts = weight.build({ mass: m, swing: a });
         const bob = find(parts, "bob");
         assert.ok(bob.position.x + bobRadius(m) < geometry.POST_X - geometry.POST_W / 2 - 1, `m ${m}, a ${a}: bob reaches the post`);
-        const handle = weight.handle!.at({ mass: m, swing: a });
+        const handle = weight.handle.at({ mass: m, swing: a });
         assert.ok(Math.abs(Math.hypot(handle.x - X0, geometry.PIVOT_Y - handle.y) - (STRING_MM - bobRadius(m) - 9 - 6)) < 1e-9, "the bead sits just above the bob");
         assert.ok(Math.abs(Math.atan2(handle.x - X0, geometry.PIVOT_Y - handle.y) * (180 / Math.PI) - a) < 1e-9, "the bead is on the string's line");
-        assert.ok(Math.abs(weight.handle!.solve(handle, { mass: m, swing: a }) - a) < 1e-9, "solve undoes at");
+        assert.ok(Math.abs(weight.handle.solve(handle, { mass: m, swing: a }) - a) < 1e-9, "solve undoes at");
       }
     }
   });

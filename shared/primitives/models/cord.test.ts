@@ -9,7 +9,7 @@ import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
 import { type Values, VIEW, startValues, steps } from "../types.ts";
 import { BREAK, cord, cordPath, LINE, rig, settle, STROKE, yank } from "./cord.ts";
 
-const game = cord.game!;
+const game = cord.game;
 const [tension, pull] = cord.sliders as [NonNullable<(typeof cord.sliders)[0]>, NonNullable<(typeof cord.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const len = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shape.outline.map((q) => q.x)) : 0);
@@ -76,7 +76,7 @@ describe("cord", () => {
       const path = cordPath(s);
       assert.deepEqual(path[0], [-rig.RC, 6 + s.lift + s.edge]);
       assert.deepEqual(path.at(-1), [s.ringX, rig.CORD_Y]);
-      assert.ok(Math.abs(cord.handle!.at({ tension: 25, pull: p }).x - (rig.PX + s.ringX + rig.RING_R)) < 1e-9);
+      assert.ok(Math.abs(cord.handle.at({ tension: 25, pull: p }).x - (rig.PX + s.ringX + rig.RING_R)) < 1e-9);
     }
   });
 
@@ -87,7 +87,7 @@ describe("cord", () => {
   });
 
   it("drags the ring to the pointer and back", () => {
-    const h = cord.handle!;
+    const h = cord.handle;
     for (const p of [-20, -5, 0, 12, 30]) {
       const v: Values = { tension: 25, pull: p };
       assert.ok(Math.abs(h.solve(h.at(v), v) - p) < 1e-9, `pull ${p}`);

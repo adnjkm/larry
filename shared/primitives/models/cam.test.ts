@@ -7,13 +7,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
-import { steps } from "../types.ts";
+import { steps, type Values } from "../types.ts";
 import { COLOR } from "../parts.ts";
-import type { Values } from "../types.ts";
 import { beat, cam, geometry, JAM_RISE, LIMIT, rampAngle, rise, STRIKE } from "./cam.ts";
 
 type Pt = [number, number];
-const game = cam.game!;
+const game = cam.game;
 const lift = cam.sliders[0]!;
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
@@ -95,9 +94,9 @@ describe("cam", () => {
     for (const t of [0, 0.3, 0.8]) {
       const parts = cam.build({ lift: 12, turn: t });
       const k = find(parts, "knob").position;
-      const h = cam.handle!.at({ lift: 12, turn: t });
+      const h = cam.handle.at({ lift: 12, turn: t });
       assert.ok(Math.hypot(k.x - h.x, k.y - h.y, k.z - h.z) < 1e-9);
-      assert.ok(Math.abs(cam.handle!.solve(h, { lift: 12, turn: t }) - t) < 1e-6);
+      assert.ok(Math.abs(cam.handle.solve(h, { lift: 12, turn: t }) - t) < 1e-6);
     }
   });
 
@@ -169,9 +168,9 @@ describe("cam", () => {
       const stop = geometry.firstReach({ lift: l }, JAM_RISE);
       assert.ok(Math.abs(end({ lift: l, turn: 0 }) - stop) < 1e-3, `lift ${l}`);
       assert.ok(stop > 0.05 && stop < 0.2, `lift ${l}: stops at turn ${stop}, after a visible turn and long before one`);
-      assert.deepEqual(cam.handle!.reach!({ lift: l, turn: 0 }), [0, stop]);
+      assert.deepEqual(cam.handle.reach!({ lift: l, turn: 0 }), [0, stop]);
     }
-    assert.deepEqual(cam.handle!.reach!({ lift: 11, turn: 0 }), [0, 1]);
+    assert.deepEqual(cam.handle.reach!({ lift: 11, turn: 0 }), [0, 1]);
   });
 
   it("looks nothing like the handle: the bell is not light, the stand is slim, and the bell hangs on it", () => {

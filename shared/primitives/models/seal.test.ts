@@ -7,7 +7,7 @@ import { startValues, steps } from "../types.ts";
 import { COLOR, PLATE_TOP } from "../parts.ts";
 import { geometry, PRESSURE, seal, settle, SPLIT, T0, WEEP } from "./seal.ts";
 
-const game = seal.game!;
+const game = seal.game;
 const [squeeze] = seal.sliders as [NonNullable<(typeof seal.sliders)[0]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const outerOf = (p: Part) => {
@@ -165,6 +165,6 @@ describe("seal", () => {
   });
 
   it("solves the handle back to the squeeze", () => {
-    for (const s of steps(squeeze)) assert.ok(Math.abs(seal.handle!.solve(seal.handle!.at({ squeeze: s }), { squeeze: s }) - s) < 1e-9);
+    for (const s of steps(squeeze)) assert.ok(Math.abs(seal.handle.solve(seal.handle.at({ squeeze: s }), { squeeze: s }) - s) < 1e-9);
   });
 });

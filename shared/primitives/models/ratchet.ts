@@ -16,6 +16,7 @@ import { clamp, clamp01, fall, shudder, smooth } from "../motion/ease.ts";
 import { frame, HOLD, LEAD, MARK as MARK_ID, phases, say, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, coil, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, pin, pivoted, plate, PLATE_TOP, post, shaped, strand, tick, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { REST_LIFT } from "./ratchetTable.ts";
 import { LIFT_CLEAR, PAWL, PIVOT, ROOT, STUMP, type Stripped, toothHeight, turnAbout, Wheel, restingLift, wheelDeg } from "./ratchetGeometry.ts";
 
 // Layout, mm. W is the wheel's centre; the geometry module works relative to it.
@@ -75,8 +76,18 @@ function strippedBetween(n: number, turn: number, from: number): Stripped {
   return (c) => [c / n, c / n + 1].some((landing) => landing >= turn - 1e-9 && landing <= from + 1e-9);
 }
 
-// Solving the pawl takes a millisecond or two; poses repeat (a held frame, the framing pass, tests), so remember them.
-const solved = new Map<string, number>();
+// An unstripped wheel's resting lift repeats every tooth, so it is read from a baked table (scripts/ratchet-table.ts).
+// Only a run that shears teeth has a wheel of its own, and solves it by hand (a millisecond or two, remembered). Wheels are remembered per tooth count and stripped set.
+export function tabulatedLift(n: number, turn: number): number {
+  const { drop, lift } = REST_LIFT[n]!;
+  const pitches = turn * n + 1e-9;
+  const u = pitches - Math.floor(pitches);
+  if (u >= drop) return 0;
+  const x = (u / drop) * (lift.length - 1);
+  const i = Math.min(lift.length - 2, Math.floor(x));
+  return lift[i]! + (lift[i + 1]! - lift[i]!) * (x - i);
+}
+
 const wheels = new Map<string, Wheel>();
 function wheelFor(n: number, turn: number, from: number): Wheel {
   const strip = strippedBetween(n, turn, from);
@@ -89,14 +100,21 @@ function wheelFor(n: number, turn: number, from: number): Wheel {
   }
   return w;
 }
-function pawlLift(n: number, turn: number, from: number, lift: number): number {
+
+const solved = new Map<string, number>();
+function strippedLift(n: number, turn: number, from: number): number {
   const key = `${n}:${turn.toFixed(10)}:${from.toFixed(10)}`;
   let rest = solved.get(key);
   if (rest === undefined) {
-    if (solved.size > 20000) solved.clear();
+    if (solved.size > 2000) solved.clear();
     rest = restingLift(wheelFor(n, turn, from), turn);
     solved.set(key, rest);
   }
+  return rest;
+}
+
+function pawlLift(n: number, turn: number, from: number, lift: number): number {
+  const rest = from > 0 ? strippedLift(n, turn, from) : tabulatedLift(n, turn);
   // A hand lifting the pawl swings it out toward LIFT_CLEAR, where it clears every tooth.
   return rest + clamp01(lift) * Math.max(0, LIFT_CLEAR - rest);
 }

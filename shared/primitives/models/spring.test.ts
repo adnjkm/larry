@@ -3,12 +3,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { numberSweep, sample } from "../checks.ts";
-import { startValues, steps } from "../types.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
-import type { Values } from "../types.ts";
 import { BIND, geometry, HAND, launch, NEED, settle, spring } from "./spring.ts";
 
-const game = spring.game!;
+const game = spring.game;
 const [stiffness, force] = spring.sliders as [NonNullable<(typeof spring.sliders)[0]>, NonNullable<(typeof spring.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const discBottom = (parts: Part[]) => {
@@ -132,7 +131,7 @@ describe("spring", () => {
   });
 
   it("drags only as far as the push can move the plate", () => {
-    const h = spring.handle!;
+    const h = spring.handle;
     for (const k of [1, 2, 4]) {
       const v: Values = { stiffness: k, force: 20 };
       assert.deepEqual(h.reach!(v), [0, Math.min(50, k * BIND)]);

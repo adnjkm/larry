@@ -7,13 +7,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
-import { startValues, steps } from "../types.ts";
-import type { Values } from "../types.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { catchLatch, GUST, PUSH, rig, settle, shutAndHold, springFor } from "./catch.ts";
 import { CLOSE_GAIN, FLAT_AT, HOLD_GAIN, LIP_AT, liftAt, THROW, TOUCH_AT } from "./catchGeometry.ts";
 
 type Pt = [number, number];
-const game = catchLatch.game!;
+const game = catchLatch.game;
 const [force, door] = catchLatch.sliders as [NonNullable<(typeof catchLatch.sliders)[0]>, NonNullable<(typeof catchLatch.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
