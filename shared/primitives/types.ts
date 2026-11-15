@@ -213,6 +213,11 @@ export type Play = {
    * settles, a lifted load drops. Leave it out for a machine that stays where it is left: a screw, a ratchet, a wheel.
    */
   release?: (v: Values) => Motion;
+  /**
+   * The let-go always plays out whole: a grab while it plays skips to its end instead of stopping it half way. For a
+   * let-go that puts things back (the grip's block carried home), which the hand must not catch mid-air.
+   */
+  whole?: boolean;
 };
 
 /** A scripted motion: the outcome is decided first, then `at` plays the choreography that outcome implies. Closed form, no simulation. */

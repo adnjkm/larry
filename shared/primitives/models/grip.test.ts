@@ -284,9 +284,10 @@ describe("grip", () => {
       const task = play.tasks![0]!;
       const watch = task.drive!;
       /** The hand lifting the plank from flat to `to` degrees in half-degree steps, the motor watching each. */
-      const lift = (mu: number, to: number) => {
+      const lift = (mu: number, to: number, holdMs = 1100) => {
         let v: Values = { ...play.rest, mu };
         for (let t = 0; t <= to + 1e-9; t += 0.5) v = watch({ ...v, tilt: t }, 0, 16);
+        for (let ms = 0; ms < holdMs; ms += 16) v = watch(v, 0, 16);
         return v;
       };
 
@@ -304,7 +305,17 @@ describe("grip", () => {
           assert.equal(task.met(v), slipAngle(m) >= TARGET, `μ ${m}`);
         }
         assert.equal(task.met(lift(0.8, TARGET - 5)), false, "not short of the green");
+        assert.equal(task.met(lift(0.8, TARGET, 300)), false, "not brushed past: held a second");
       });
+
+      it("is undone by lifting on until the block slides", () => {
+        let v = lift(0.8, TARGET);
+        assert.ok(task.met(v));
+        for (let t = TARGET; t <= 45; t += 0.5) v = watch({ ...v, tilt: t }, 0, 16);
+        assert.equal(task.met(v), false);
+      });
+
+      it("finishes the carry home when grabbed during it", () => assert.equal(play.whole, true));
 
       it("stays met once the plank is let down, until the grip is turned down", () => {
         const v = { ...lift(0.8, TARGET), tilt: 0 };
@@ -314,7 +325,7 @@ describe("grip", () => {
 
       it("says the block slid only once it has, and only while the grip is too slick", () => {
         assert.equal(task.hint!({ ...play.rest }), undefined);
-        const slid = lift(0.5, 33);
+        const slid = lift(0.5, 33, 0);
         assert.match(task.hint!(slid)!, /grip/);
         assert.equal(task.hint!({ ...slid, mu: 0.8 }), undefined);
       });

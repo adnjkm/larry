@@ -337,67 +337,118 @@ function water(v: Values, ms: number): Part[] {
 /** Dry and whole: the rubber pushes back at least as hard as the water, and has not been squeezed out past the flange. */
 const holds = (v: Values) => leak(v).rate === 0 && !settle(v).split;
 
-// ---- Free play's goal: pump the pressure up, and keep the joint dry all the way ---------------------------------------
+// ---- Free play's goals: water up a standpipe, held by the squeeze ---------------------------------------------------
 //
-// A pump raises the water's pressure, but only while the joint holds it. Where the water pushes past the rubber, water
-// gets out and takes pressure with it, so the pressure sinks back to what the rubber can hold. Squeezed too hard, the
-// rubber is crushed out past the flange's edge (it has nowhere left to go), tears, and the water blows out: a burst,
-// not a drip, and the pressure is gone at once. So squeeze more to go higher, but not so much that it bursts.
+// A clear standpipe beside the joint shows the water's pressure as a column of water: the higher the column, the harder
+// the water pushes on the rubber. A pump fills it to the green line, but only while the joint holds: where the water
+// pushes harder than the rubber does, it gets out at the joint and the column sinks back to what the rubber can hold.
+// Squeezed too hard, the rubber is crushed out past the flange's edge (it has nowhere left to go), tears, and the water
+// blows out: a burst, and the column falls away. The first line is low and a light squeeze holds it; the second is high,
+// and only a hard squeeze, short of the burst, does.
 
 /** The water's pressure as the pump left it: smooth, where the slider's reading snaps to its 10 kPa steps. */
 const rawPressure = (v: Values) => Math.min(PRESSURE.max, Math.max(PRESSURE.min, v.pressure ?? PRESSURE.initial));
 
-/** How fast the pump raises the pressure while the joint holds, kPa a second: bottom to top in three seconds. */
-const PUMP_KPA_S = 170;
-/** How fast a leak lets the pressure out, kPa a second, at the fastest leak: a slow leak lets out less. */
+/** How fast the pump raises the water while the joint holds, kPa a second. */
+const PUMP_KPA_S = 220;
+/** How fast a leak lets the water out, kPa a second, at the fastest leak: a slow leak lets out less. */
 const LEAK_KPA_S = 600;
-/** How fast a torn seal loses its pressure, kPa a second: a blowout, all of it in about a third of a second. */
+/** How fast a burst seal loses it, kPa a second: all of it in about a third of a second. */
 const TORN_KPA_S = 1600;
+/** The green lines: low, held by a squeeze of 10% and up; high, held only from 25% to the burst at 30%. */
+const LOW_KPA = 200;
+const HIGH_KPA = 500;
+/** How fast the green line moves up to the next goal, kPa a second. */
+const LINE_KPA_S = 500;
+/** Within this of the line counts as at it. */
+const AT_LINE = 5;
 
-/** The pump and the joint, `dtMs` on: the pressure rises while it holds, and leaks or sprays away while it does not. */
+/**
+ * The pump, the joint and the line, `dtMs` on: the line moves to the goal's height, and the water rises toward it while
+ * the joint holds, and leaks or bursts away while it does not.
+ */
 function pump(v: Values, _ms: number, dtMs: number): Values {
+  const s = dtMs / 1000;
+  const target = v.target ?? LOW_KPA;
+  const was = v.line ?? target;
+  const line = was < target ? Math.min(target, was + LINE_KPA_S * s) : Math.max(target, was - LINE_KPA_S * s);
   // The raw value, not the slider's snapped one: the pump moves it a little at a time, far under one 10 kPa step.
   const p = rawPressure(v);
-  const s = dtMs / 1000;
   const rate = leak(v).rate;
-  const next = settle(v).split ? p - TORN_KPA_S * s : rate > 0 ? p - LEAK_KPA_S * rate * s : p + PUMP_KPA_S * s;
-  return { ...v, pressure: Math.min(PRESSURE.max, Math.max(PRESSURE.min, next)) };
+  const next = settle(v).split ? p - TORN_KPA_S * s : rate > 0 ? p - LEAK_KPA_S * rate * s : Math.min(Math.max(p, line), p + PUMP_KPA_S * s);
+  return { ...v, line, pressure: Math.min(PRESSURE.max, Math.max(PRESSURE.min, Math.min(next, Math.max(p, line)))) };
 }
 
-/** The dial on the pipe: its face, a green tick at the top of the scale, and a pink needle on the pressure. */
-const GAUGE_R = 12;
-const GAUGE_Y = PLATE_TOP + PIPE_H / 2 + 2;
-const GAUGE_Z = PIPE_R + 7;
-/** The needle's sweep, degrees from straight up: from the bottom of the scale on the left to the top on the right. */
-const SWEEP = 120;
-const needleAngle = (kPa: number) => SWEEP - (2 * SWEEP * (kPa - PRESSURE.min)) / (PRESSURE.max - PRESSURE.min);
+// The standpipe, mm: in front of the pipe and to its left as the camera sees it, clear of the flange and the joint, as
+// tall as the column at the top of the scale.
+const PIPE_X = -46;
+const PIPE_Z = 24;
+/** The feed's run from the pipe's side out to the standpipe: its direction round the axis, and its ends. */
+const FEED_DEG = (Math.atan2(PIPE_Z, PIPE_X) * 180) / Math.PI;
+const FEED_FROM = PIPE_R - 1;
+const FEED_TO = Math.hypot(PIPE_X, PIPE_Z) - 4;
+const TUBE_W = 14;
+const TUBE_BOTTOM = PLATE_TOP + 4;
+const COLUMN = 76;
+const WATER_W = 11;
+const LINE_RIM = 1.4;
+/** The column's height for a pressure: the scale's bottom at the tube's foot, its top at the tube's top. */
+const columnAt = (kPa: number) => (COLUMN * (kPa - PRESSURE.min)) / (PRESSURE.max - PRESSURE.min);
+const TUBE_LOOK: Look = { color: COLOR.light, finish: "clear" };
 
-function gauge(v: Values): Part[] {
-  const face = cylinder(GAUGE_R, 2);
-  const at = (deg: number, r: number, z: number) => v3(-Math.sin(deg * DEG_TO_RAD) * r, GAUGE_Y + Math.cos(deg * DEG_TO_RAD) * r, z);
-  const a = needleAngle(rawPressure(v));
-  const NEEDLE = GAUGE_R - 2;
+function standpipe(v: Values): Part[] {
+  const water = Math.max(0.6, columnAt(rawPressure(v)));
+  const lineY = TUBE_BOTTOM + columnAt(v.line ?? v.target ?? LOW_KPA);
+  const half = TUBE_W / 2 + LINE_RIM / 2;
+  const rim = (id: string, w: number, d: number, x: number, z: number) =>
+    part(`goal-${id}`, "Goal line", "The height the water has to reach.", box(w, LINE_RIM, d), v3(PIPE_X + x, lineY, PIPE_Z + z), look.goal, on("standpipe", "glue"));
+  const feedMid = (FEED_FROM + FEED_TO) / 2;
   return [
-    part("gauge-stem", "Gauge stem", "Carries the dial off the pipe.", box(3, 3, GAUGE_Z - PIPE_R), v3(0, GAUGE_Y, (PIPE_R + GAUGE_Z) / 2 - 1), look.slate, on("pipe", "screw")),
-    part("gauge", "Pressure gauge", "Shows the water's pressure in the pipe.", face.shape, v3(0, GAUGE_Y, GAUGE_Z), look.light, on("gauge-stem", "screw"), v3(90, 0, 0)),
-    part("gauge-top", "Top of the scale", "Where the pressure has to reach.", box(1.4, 2.4, 1), at(-SWEEP, GAUGE_R - 1.6, GAUGE_Z + 1.2), look.goal, on("gauge", "glue"), v3(0, 0, -SWEEP)),
-    part("gauge-needle", "Needle", "Points at the pressure now.", box(1.8, NEEDLE, 1), at(a, NEEDLE / 2, GAUGE_Z + 1.6), look.focus, on("gauge", "hinge"), v3(0, 0, a)),
+    part(
+      "feed",
+      "Feed",
+      "Joins the standpipe to the pipe, so the water in both is at one pressure.",
+      box(FEED_TO - FEED_FROM, 5, 5),
+      v3(feedMid * Math.cos((FEED_DEG * Math.PI) / 180), TUBE_BOTTOM + 3, feedMid * Math.sin((FEED_DEG * Math.PI) / 180)),
+      look.slate,
+      on("pipe", "weld"),
+      v3(0, -FEED_DEG, 0),
+    ),
+    part("standpipe", "Standpipe", "A clear tube: the water in it stands as high as its pressure.", box(TUBE_W, COLUMN + 4, TUBE_W), v3(PIPE_X, TUBE_BOTTOM + (COLUMN + 4) / 2, PIPE_Z), TUBE_LOOK, on("plate", "weld")),
+    part("column", "Water", "The water in the pipe, shown by how high it stands.", box(WATER_W, water, WATER_W), v3(PIPE_X, TUBE_BOTTOM + water / 2, PIPE_Z), look.accent, on("standpipe", "glue")),
+    rim("front", 2 * half + LINE_RIM, LINE_RIM, 0, half),
+    rim("back", 2 * half + LINE_RIM, LINE_RIM, 0, -half),
+    rim("left", LINE_RIM, 2 * half, -half, 0),
+    rim("right", LINE_RIM, 2 * half, half, 0),
   ];
 }
 
-// One goal: the pump runs, and only the squeeze decides how high the pressure gets.
+/** The water up to the line, and the joint dry and whole. */
+const atLine = (v: Values) => rawPressure(v) >= (v.target ?? LOW_KPA) - AT_LINE && holds(v);
+const hint = (v: Values) =>
+  settle(v).split
+    ? "Crushed too far, the rubber bursts out."
+    : leak(v).rate > 0 && rawPressure(v) > PRESSURE.min + 20
+      ? "It leaks, so the water drops. Squeeze more."
+      : undefined;
+
 const TASKS: Task[] = [
   {
-    goal: "Keep it dry while the pressure climbs.",
+    goal: "Squeeze until the water reaches the green.",
+    // No start values: setting any would stop the rubber springing back from the let-go. The low line is the default.
     sliders: ["squeeze"],
-    scene: gauge,
-    met: (v) => valueOf(PRESSURE, v) >= PRESSURE.max - 1e-6 && holds(v),
-    hint: (v) =>
-      settle(v).split
-        ? "Crushed too far, the rubber bursts out."
-        : leak(v).rate > 0 && valueOf(PRESSURE, v) > PRESSURE.min + 20
-          ? "Leaking lets the pressure out. Squeeze more."
-          : undefined,
+    scene: standpipe,
+    met: atLine,
+    hint,
+    drive: pump,
+  },
+  {
+    goal: "Higher now: squeeze more, but don't burst it.",
+    start: { target: HIGH_KPA },
+    sliders: ["squeeze"],
+    scene: standpipe,
+    met: atLine,
+    hint,
     drive: pump,
   },
 ];

@@ -370,16 +370,23 @@ export const TARGET = 35;
 /** Within this of the green counts as there: half the tilt's step. */
 const NEAR = 0.5;
 
+/** How long the block has to stay put at the green, ms: a held second, not a lift that brushes past. */
+const HOLD_MS = 1000;
+
 /**
- * Watches the hand: `reached` once the plank has been at the green with the block still on its spot, `failed` once the
- * block has slid, for the hint. It only records; the hand and the let-go move the machine.
+ * Watches the hand: `held` counts the time the plank has been at the green with the block still on its spot, and
+ * `reached` is set once that has lasted HOLD_MS. A slide clears both: lifting on past the green until the block goes is
+ * not the goal. `failed` records a slide, for the hint. It only records; the hand and the let-go move the machine.
  */
-function watch(v: Values): Values {
+function watch(v: Values, _ms: number, dtMs: number): Values {
   const r = ramp(v);
-  const out: Values = { ...v };
-  if (r.tilt >= TARGET - NEAR && r.slid === 0 && r.put === 0) out.reached = 1;
-  if (r.slid > 0) out.failed = 1;
-  return out.reached === v.reached && out.failed === v.failed ? v : out;
+  const atGreen = r.tilt >= TARGET - NEAR && r.slid === 0 && r.put === 0;
+  const slid = r.slid > 0;
+  const held = slid ? 0 : atGreen ? (v.held ?? 0) + dtMs : 0;
+  const reached = slid ? 0 : held >= HOLD_MS ? 1 : (v.reached ?? 0);
+  const failed = slid ? 1 : (v.failed ?? 0);
+  if (held === (v.held ?? 0) && reached === (v.reached ?? 0) && failed === (v.failed ?? 0)) return v;
+  return { ...v, held, reached, failed };
 }
 
 /** The ghost plank at the green angle: a see-through sheet the plank's size, with a solid green rim. */
@@ -398,7 +405,7 @@ function ghost(): Part[] {
 
 const TASKS: Task[] = [
   {
-    goal: "Lift it to the green without it slipping.",
+    goal: "Hold it at the green without it slipping.",
     hand: true,
     scene: ghost,
     // Reached by hand, and still a grip that holds there: turned down after, it no longer would.
@@ -454,6 +461,8 @@ export const grip: Primitive = {
     label: "Lift",
     build: rampBuild,
     tasks: TASKS,
+    // A grab while the block is carried home finishes the carry first: the hand lifts the plank with the block on it.
+    whole: true,
     // The plank lying flat with the block at its spot near the free end, on a middling grip.
     rest: { mu: GRIP.initial, tilt: 0 },
     release: letGo,

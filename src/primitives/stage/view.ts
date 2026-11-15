@@ -6,6 +6,7 @@ import { type FigureMode, framePrimitive } from "../../../shared/primitives/fram
 import { clamp } from "../../../shared/primitives/motion/ease.ts";
 import { type Cue, type Handle, type Primitive, type Values, allSliders, motionSlider, playBuild, playHandle, playValues, snap, startValues } from "../../../shared/primitives/types.ts";
 import { Motion } from "./controller.ts";
+import type { Motion as Scripted } from "../../../shared/primitives/types.ts";
 import { LESSON_COLOR, type Palette, looksFor } from "./looks.ts";
 import { type Drawable, hasWebGL, register, renderTo, schedule, stageStats } from "./renderer.ts";
 import { StageScene } from "./scene.ts";
@@ -78,6 +79,8 @@ export class StageView implements Drawable {
   private ambientStart: number | undefined;
   /** When the current task's motor started, for its own clock. */
   private driveStart: number | undefined;
+  /** The let-go now playing, if any: a grab during it may skip to its end (`play.whole`). */
+  private releasing: Scripted | undefined;
   /** Which way the hand last moved the handle's slider before letting go: a task's motor carries on that way. */
   private way: 1 | -1 = 1;
   /** The handle the finger works: free play's own when it has one. */
@@ -412,7 +415,13 @@ export class StageView implements Drawable {
         schedule();
       }
       const at = this.controller.get();
-      if (play?.release) void this.controller.play(play.release(at));
+      if (play?.release) {
+        const motion = play.release(at);
+        this.releasing = motion;
+        void this.controller.play(motion).then(() => {
+          if (this.releasing === motion) this.releasing = undefined;
+        });
+      }
       // After the release has begun, so what the let-go starts (a task's arrival) can take over from it.
       this.way = way;
       if (play) this.callbacks.onLetGo?.(at, way);
@@ -423,7 +432,12 @@ export class StageView implements Drawable {
       e.preventDefault();
       ring.setPointerCapture(e.pointerId);
       ring.focus({ preventScroll: true });
+      // A let-go that has to play out whole (the grip's block carried home) skips to its end, so the hand takes the
+      // machine from rest, never from half way through.
+      const unfinished = this.releasing;
+      this.releasing = undefined;
       this.controller.stop();
+      if (unfinished && play?.whole) this.controller.set(unfinished.at(unfinished.durationMs).values);
       this.stopBand?.();
       const rect = this.element.getBoundingClientRect();
       // Keep the grab point under the finger: the ring does not jump to centre itself on it.

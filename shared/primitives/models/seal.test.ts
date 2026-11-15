@@ -244,58 +244,53 @@ describe("seal", () => {
       }
     });
 
-    describe("its goal: pump the pressure up and keep it dry", () => {
-      const task = play.tasks![0]!;
-      const pump = task.drive!;
+    describe("its goals: water up a standpipe, held by the squeeze", () => {
+      const [low, high] = play.tasks!;
+      const pump = low!.drive!;
       const run = (v: Values, ms: number) => {
         let at = v;
         for (let t = 0; t < ms; t += 16) at = pump(at, t, 16, 1);
         return at;
       };
-      const start = { ...play.rest };
+      const rest = { ...play.rest };
+      const water = (v: Values) => low!.scene(v).find((q) => q.id === "column")!;
+      const line = (v: Values) => low!.scene(v).find((q) => q.id === "goal-front")!;
 
-      it("is one goal, worked with the squeeze slider alone, failing where free play is let go", () => {
-        assert.equal(play.tasks!.length, 1);
-        assert.deepEqual(task.sliders, ["squeeze"]);
-        assert.equal(task.met(start), false);
+      it("is two goals on the squeeze slider alone: a low line, then a high one", () => {
+        assert.equal(play.tasks!.length, 2);
+        for (const t of play.tasks!) assert.deepEqual(t.sliders, ["squeeze"]);
+        assert.equal(low!.start, undefined, "nothing set at the let-go, so the rubber still springs back");
+        assert.ok(high!.start!.target! > 400);
       });
 
-      it("climbs to the top in under four seconds when squeezed enough, and is then met", () => {
-        const end = run({ ...start, squeeze: 0.29 }, 4000);
-        assert.equal(end.pressure, 560);
-        assert.ok(task.met(end));
+      it("fills the column to the low line with a light squeeze, and is met there", () => {
+        const end = run({ ...rest, squeeze: 0.12 }, 3000);
+        assert.ok(low!.met(end));
+        const w = water(end);
+        const top = w.position.y + (w.shape.kind === "box" ? w.shape.height / 2 : 0);
+        assert.ok(Math.abs(top - line(end).position.y) < 1.5, `the water stands at the line: ${top} vs ${line(end).position.y}`);
       });
 
-      it("only climbs as high as the rubber can hold: a leak lets the pressure back out", () => {
-        const end = run({ ...start, squeeze: 0.1 }, 10000);
-        const holds = leak({ squeeze: 0.1, pressure: 0 }).push;
-        assert.ok(Math.abs(end.pressure! - holds) < 10, `settled at ${end.pressure} kPa, the rubber pushes ${holds}`);
-        assert.equal(task.met(end), false);
+      it("holds the column only as high as the rubber pushes: unsqueezed, it drips and stays low", () => {
+        const end = run({ ...rest, squeeze: 0.05 }, 3000);
+        assert.equal(low!.met(end), false);
+        assert.ok(Math.abs(end.pressure! - leak({ squeeze: 0.05, pressure: 0 }).push) < 10);
+        assert.match(low!.hint!({ ...end, pressure: 150 })!, /Squeeze more/);
       });
 
-      it("loses its pressure once squeezed past the split, and says why", () => {
-        const end = run({ ...start, squeeze: 0.29 }, 4000);
-        const torn = run({ ...end, squeeze: 0.35 }, 3000);
-        assert.equal(torn.pressure, 50);
-        assert.equal(task.met(torn), false);
-        assert.match(task.hint!({ ...end, squeeze: 0.35 })!, /bursts/);
+      it("raises the line for the second goal, which only a hard squeeze short of the burst meets", () => {
+        const first = run({ ...rest, squeeze: 0.12 }, 3000);
+        const raised = run({ ...first, ...high!.start }, 4000);
+        assert.equal(raised.line, high!.start!.target);
+        assert.equal(high!.met(raised), false, "the light squeeze no longer holds it");
+        const hard = run({ ...raised, squeeze: 0.27 }, 4000);
+        assert.ok(high!.met(hard));
+        const burst = run({ ...hard, squeeze: 0.34 }, 1500);
+        assert.equal(high!.met(burst), false);
+        assert.match(high!.hint!(burst)!, /bursts/);
       });
 
-      it("holds at the top only in a narrow window of squeeze, between the leak and the tear", () => {
-        const top = steps(squeeze).filter((q) => task.met({ squeeze: q, pressure: 560 }));
-        assert.deepEqual(top, [0.28, 0.29, 0.3]);
-      });
-
-      it("says it leaks only once there is pressure to lose, and nothing while it holds", () => {
-        assert.equal(task.hint!(start), undefined, "not at the very start");
-        assert.match(task.hint!({ squeeze: 0.05, pressure: 300 })!, /Squeeze more/);
-        assert.equal(task.hint!({ squeeze: 0.2, pressure: 300 }), undefined);
-      });
-
-      it("puts a dial on the pipe whose needle follows the pressure", () => {
-        const needle = (kPa: number) => task.scene({ squeeze: 0.2, pressure: kPa }).find((q) => q.id === "gauge-needle")!.rotation.z;
-        assert.ok(needle(100) > 0 && needle(450) < 0 && needle(300) < needle(200));
-      });
+      it("says nothing while it holds", () => assert.equal(low!.hint!({ squeeze: 0.2, pressure: 300 }), undefined));
     });
   });
 
