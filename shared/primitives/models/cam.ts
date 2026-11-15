@@ -79,9 +79,12 @@ function outlineOf(lift: number): Pt[] {
  * pressure angle, the tilt of the push the rod feels away from straight up. It is the biggest at the foot of a ramp, where
  * the rim is closest to the axle, and is read off the drawn outline's edges.
  */
+const rampAngles = new Map<number, number>();
 export function rampAngle(lift: number): number {
+  let worst = rampAngles.get(lift);
+  if (worst !== undefined) return worst;
+  worst = 0;
   const o = outlineOf(lift);
-  let worst = 0;
   for (let i = 0; i < o.length; i++) {
     const [x0, y0] = o[i] as Pt;
     const [x1, y1] = o[(i + 1) % o.length] as Pt;
@@ -89,6 +92,7 @@ export function rampAngle(lift: number): number {
     const along = ((Math.hypot(x0, y0) + Math.hypot(x1, y1)) / 2) * DEG_TO_RAD;
     worst = Math.max(worst, Math.atan2(Math.abs(dr), along) * RAD_TO_DEG);
   }
+  rampAngles.set(lift, worst);
   return worst;
 }
 
@@ -102,23 +106,33 @@ export function rise(v: Values, turn: number): number {
   const s = Math.sin(th);
   const o = outlineOf(valueOf(LIFT, v));
   const W = FOOT_W / 2;
-  const at = (i: number): Pt => {
-    const [x, y] = o[i % o.length] as Pt;
-    return [x * c - y * s, x * s + y * c];
-  };
+  const n = o.length;
   let top = -Infinity;
-  let p = at(0);
-  for (let i = 0; i < o.length; i++) {
-    const q = at(i + 1);
-    if (Math.abs(p[0]) <= W) top = Math.max(top, p[1]);
-    for (const edge of [-W, W]) if ((p[0] - edge) * (q[0] - edge) < 0) top = Math.max(top, p[1] + ((q[1] - p[1]) * (edge - p[0])) / (q[0] - p[0]));
-    p = q;
+  let px = o[0]![0] * c - o[0]![1] * s;
+  let py = o[0]![0] * s + o[0]![1] * c;
+  for (let i = 0; i < n; i++) {
+    const next = o[(i + 1) % n]!;
+    const qx = next[0] * c - next[1] * s;
+    const qy = next[0] * s + next[1] * c;
+    if (Math.abs(px) <= W) top = Math.max(top, py);
+    if ((px + W) * (qx + W) < 0) top = Math.max(top, py + ((qy - py) * (-W - px)) / (qx - px));
+    if ((px - W) * (qx - W) < 0) top = Math.max(top, py + ((qy - py) * (W - px)) / (qx - px));
+    px = qx;
+    py = qy;
   }
   return Math.max(0, top - R0);
 }
 
+const reaches = new Map<string, number>();
 /** The first turn (0..1) at which the follower has risen `height`, or Infinity: where a ramp meets the rod. */
 function firstReach(v: Values, height: number): number {
+  const key = `${valueOf(LIFT, v)}:${height}`;
+  let turn = reaches.get(key);
+  if (turn === undefined) reaches.set(key, (turn = scanReach(v, height)));
+  return turn;
+}
+
+function scanReach(v: Values, height: number): number {
   const N = 720;
   for (let i = 1; i <= N; i++) {
     if (rise(v, i / N) >= height) {
