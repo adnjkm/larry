@@ -12,7 +12,7 @@
 // decides everything: too many teeth and the output falls behind the ghost, too few and it runs ahead.
 import type { Part } from "../../kit.ts";
 import { clamp, smooth } from "../motion/ease.ts";
-import { frame, LEAD, phases, REWIND, say, SCENE } from "../motion/run.ts";
+import { frame, LEAD, phases, REWIND, SCENE } from "../motion/run.ts";
 import { arrow, fmt, gearOutline, knob, look, on, part, pin, pivoted, plate, post, turnMark, v3, DEG, RAD, type Pt, type Vec } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -97,7 +97,7 @@ function build(v: Values): Part[] {
     post("post-2", s.x2, Z0 - 10, AXLE_Y, { name: "Post", role: "Carries the driven gear's axle." }),
     pin("pin-1", v3(s.x1, AXLE_Y, Z0 - 2), 18, { name: "Axle", role: "The driving gear turns on it.", on: on("post-1", "press-fit") }),
     pin("pin-2", v3(s.x2, AXLE_Y, Z0 - 2), 18, { name: "Axle", role: "The driven gear turns on it.", on: on("post-2", "press-fit") }),
-    gearAt("gear-driver", "The gear you turn: 12 teeth.", DRIVER_TEETH, s.x1, s.theta1, "pin-1"),
+    gearAt("gear-driver", "The gear you turn.", DRIVER_TEETH, s.x1, s.theta1, "pin-1"),
     gearAt("gear-driven", "Turned by the teeth of the driving gear; its tooth count sets the speed.", s.z2, s.x2, s.theta2, "pin-2"),
     knob("knob", knobPoint(s.x1, s.theta1), "z", { name: "Knob", role: "Where your hand turns the driving gear.", on: on("gear-driver", "press-fit") }),
     turnMark("mark-driven", v3(s.x2, AXLE_Y, front), s.r2, s.hand, { name: "Turn mark", role: "Shows how far the driven gear has turned.", on: on("gear-driven", "glue") }),
@@ -132,22 +132,21 @@ export function shadow(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = shadow(v);
-  const turn = fmt(Math.abs(r.out), 2);
   switch (r.kind) {
     case "fast":
-      return { pass: false, outcome: "too-fast", headline: "Output too fast", detail: `${DRIVER_TEETH} ÷ ${r.z2} = ${turn} turn, ${fmt(r.err)}° ahead of the ghost's ${GHOST}; ${TOLERANCE}° is allowed.` };
+      return { pass: false, outcome: "too-fast", headline: "Output too fast", detail: "The driven gear has too few teeth, so the output spins past the ghost." };
     case "slow":
-      return { pass: false, outcome: "too-slow", headline: "Output too slow", detail: `${DRIVER_TEETH} ÷ ${r.z2} = ${turn} turn, ${fmt(-r.err)}° behind the ghost's ${GHOST}; ${TOLERANCE}° is allowed.` };
+      return { pass: false, outcome: "too-slow", headline: "Output too slow", detail: "The driven gear has too many teeth, so the output lags behind the ghost." };
     case "pass":
-      return { pass: true, outcome: "on-the-ghost", headline: "Mark on the ghost", detail: `${DRIVER_TEETH} ÷ ${r.z2} = ${turn} turn, ${fmt(Math.abs(r.err))}° off the ghost's ${GHOST}: inside ${TOLERANCE}°.` };
+      return { pass: true, outcome: "on-the-ghost", headline: "Mark on the ghost", detail: "The teeth match the ghost, so the output turns just right." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = shadow(v);
   return [
-    { label: "Ahead", value: Math.min(120, Math.max(0, r.err)), target: TOLERANCE, max: 120, unit: "°", need: "atMost" },
-    { label: "Behind", value: Math.min(120, Math.max(0, -r.err)), target: TOLERANCE, max: 120, unit: "°", need: "atMost" },
+    { label: "Too fast", value: Math.min(120, Math.max(0, r.err)), target: TOLERANCE, max: 120, unit: "°", need: "atMost" },
+    { label: "Too slow", value: Math.min(120, Math.max(0, -r.err)), target: TOLERANCE, max: 120, unit: "°", need: "atMost" },
   ];
 }
 
@@ -162,7 +161,6 @@ function play(v: Values): Run {
   const tl = phases({ rewind: t0 > 1e-9 ? REWIND : 0, lead: LEAD, turn: TURN, hold: HOLD });
   const values = (turn: number): Values => ({ ...v, ratio: v.ratio ?? 1.5, turn: clamp(turn, 0, 1) });
   const cues: Cue[] = [{ ms: tl.end("turn"), kind: r.kind === "pass" ? "click" : "thud" }];
-  const off = (turn: number) => Math.abs(r.err) * turn;
   return {
     verdict,
     durationMs: tl.total,
@@ -176,10 +174,10 @@ function play(v: Values): Run {
           return frame(values(0), "Mark on the ghost");
         case "turn": {
           const turn = smooth(tl.t("turn", ms));
-          return frame(values(turn), `Turn ${say(turn, 2)}, off by ${say(off(turn))}°`);
+          return frame(values(turn), turn < 0.98 ? "Turning" : r.kind === "pass" ? "On the ghost" : "Off the ghost");
         }
         case "hold":
-          return frame(values(1), r.kind === "pass" ? "Mark on the ghost" : `Off by ${say(Math.abs(r.err))}°`);
+          return frame(values(1), r.kind === "pass" ? "Mark on the ghost" : "Off the ghost");
       }
     },
   };
@@ -235,7 +233,7 @@ export const gear: Primitive = {
   game: {
     name: "Shadow the ghost",
     goal: "Turn the driver once and keep the output's mark on the ghost arrow.",
-    rules: `The ghost turns ${GHOST} of a turn for each turn of the driver, the other way round, as one mesh does. The output's mark must end within ${TOLERANCE}° of it.`,
+    rules: "The ghost shows where the output mark should end up. More teeth on the driven gear turn it slower, fewer turn it faster. Without gears, speed could not change.",
     number: "ratio",
     action: "Turn once",
     meters,

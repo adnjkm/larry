@@ -5,6 +5,7 @@
 // Workshop only binds to a kit that has every part it names.
 import type { Joint, Kit, Part, Shape } from "../../shared/kit.ts";
 import { PRIMITIVES, type Primitive, type Readout, type Slider } from "./primitives/library.ts";
+import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
 
 export type Vec = { x: number; y: number; z: number };
 export const vec = (x = 0, y = 0, z = 0): Vec => ({ x, y, z });
@@ -252,6 +253,16 @@ export function primitiveById(id: string): Primitive {
   return p;
 }
 
+/**
+ * A story teaches from the shared library in src/primitives, the figures every photo's lesson draws on. Workshops keep
+ * the frozen copy in ./primitives, since their fault values were tuned on its slider ranges.
+ */
+export function libraryPrimitive(id: string): Primitive {
+  const p = PRIMITIVE_BY_ID.get(id);
+  if (!p) throw new Error(`no primitive ${id} in the library`);
+  return p;
+}
+
 /** On-screen instructions stay this short; the explanation lives behind Why. */
 export const TASK_WORDS = 8;
 const words = (s: string) => s.trim().split(/\s+/).length;
@@ -314,8 +325,8 @@ export function defineStory(spec: StorySpec): Story {
   };
   short("final say", spec.final.say);
   const modules = spec.modules.map((m): StoryModule => {
-    const main = primitiveById(m.primitive);
-    const teach = [...new Set(m.teach ?? [main.id])].map(primitiveById);
+    const main = libraryPrimitive(m.primitive);
+    const teach = [...new Set(m.teach ?? [main.id])].map(libraryPrimitive);
     if (!teach.includes(main)) problems.push(`${m.id}: the main primitive ${main.id} is not taught in this module`);
     for (const p of teach) {
       if (!m.uses[p.id]) problems.push(`${m.id}: no line saying what the ${p.id} does in this object`);

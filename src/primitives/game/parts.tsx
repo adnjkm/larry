@@ -4,20 +4,17 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, memo } from "react";
 import { type } from "../../ui/styles.ts";
 import { colors, fonts } from "../../tokens.stylex.ts";
-import { type Primitive, type Slider, formatSlider } from "../../../shared/primitives/library.ts";
+import type { Primitive, Slider } from "../../../shared/primitives/library.ts";
 import type { Game, Meter, Verdict } from "../../../shared/primitives/types.ts";
-import { headlineText, meterFraction, meterMet, meterText, meterTextWidth, togglesLabel } from "./logic.ts";
+import { headlineText, meterFraction, meterMet, togglesLabel } from "./logic.ts";
 import { type GameStore, useSelect } from "./store.ts";
 
 const styles = stylex.create({
   // One grid per group of rows, so the label, bar and value columns line up from row to row.
-  grid: { display: "grid", gridTemplateColumns: "96px minmax(48px, 1fr) auto", columnGap: 12, rowGap: 10, alignItems: "center" },
+  grid: { display: "grid", gridTemplateColumns: "96px minmax(48px, 1fr)", columnGap: 12, rowGap: 10, alignItems: "center" },
   gridRow: { display: "grid", gridTemplateColumns: "subgrid", gridColumn: "1 / -1", alignItems: "center", minHeight: 20 },
   label: { margin: 0, fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "0.08em", textTransform: "uppercase", color: colors.graphite, overflowWrap: "break-word" },
   labelInk: { color: colors.ink },
-  value: { fontFamily: fonts.mono, fontSize: 13, lineHeight: "16px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: colors.ink },
-  valueWidth: (ch: number) => ({ minWidth: `${ch}ch` }),
-  valueBad: { color: colors.redText },
   bar: { position: "relative", height: 20 },
   barTrack: { position: "absolute", left: 0, right: 0, top: 7, height: 6, borderRadius: 3, backgroundColor: colors.track },
   barFill: (width: string) => ({ position: "absolute", left: 0, top: 7, height: 6, width, borderRadius: 3, backgroundColor: colors.ink }),
@@ -61,7 +58,6 @@ function MeterRow({ meter }: { meter: Meter }) {
         <div {...stylex.props(styles.barFill(`${meterFraction(meter.value, meter.max) * 100}%`), !met && styles.barFillBad)} />
         <div {...stylex.props(styles.tick(`${meterFraction(meter.target, meter.max) * 100}%`))} />
       </div>
-      <span {...stylex.props(styles.value, styles.valueWidth(meterTextWidth(meter)), !met && styles.valueBad)}>{meterText(meter)}</span>
     </div>
   );
 }
@@ -81,7 +77,6 @@ export function Meters({ store, game }: { store: GameStore; game: Game }) {
 /** One slider row: label, pink track, value. Drives the stage controller; shows what the controller says, so a drag of the figure moves it too. */
 export const SliderRow = memo(function SliderRow({ store, slider, ink = false }: { store: GameStore; slider: Slider; ink?: boolean }) {
   const value = useSelect(store, (v) => v[slider.id] ?? slider.initial);
-  const widest = Math.max(formatSlider(slider, slider.max).length, formatSlider(slider, slider.min).length);
   return (
     <label data-slider={slider.id} {...stylex.props(styles.gridRow, styles.sliderRow)}>
       <span {...stylex.props(styles.label, ink && styles.labelInk)}>{slider.label}</span>
@@ -92,11 +87,9 @@ export const SliderRow = memo(function SliderRow({ store, slider, ink = false }:
         step={slider.step}
         value={value}
         aria-label={slider.label}
-        aria-valuetext={formatSlider(slider, value)}
-        onChange={(e) => store.controller?.set({ [slider.id]: Number(e.currentTarget.value) })}
+                onChange={(e) => store.controller?.set({ [slider.id]: Number(e.currentTarget.value) })}
         {...stylex.props(styles.range)}
       />
-      <span {...stylex.props(styles.value, styles.valueWidth(widest))}>{formatSlider(slider, value)}</span>
     </label>
   );
 });

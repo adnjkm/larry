@@ -24,9 +24,8 @@ export const colors = stylex.defineConsts({
   hairline: "#1414140F",
   faint: "#1414140D",
   shadow: "#14141426",
-  /** The game meters' failing bar, its darker text, the empty track and the unlit page dot. */
+  /** The game meters' failing bar, the empty track and the unlit page dot. */
   red: "#E0432B",
-  redText: "#C2331D",
   track: "#EFEFEF",
   dotOff: "#DADADA",
   /** Paper at 85%, for a button over the figure. */

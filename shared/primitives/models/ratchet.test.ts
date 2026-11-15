@@ -215,11 +215,9 @@ describe("ratchet", () => {
     assert.ok(bucket.shape.kind === "box" && tickBox.x0 - (bucket.position.x + bucket.shape.width / 2) > 0.5, "the tick stops short of the bucket's side");
   });
 
-  it("words the tooth strength as this game's wheel, and says in howItWorks that it is a simplification", () => {
-    assert.match(game.rules, /On this wheel a tooth holds about 1100 ÷ teeth N/);
-    assert.doesNotMatch(game.rules, /^A tooth holds/);
+  it("says in words that more teeth are weaker, and in howItWorks that it is a simplification", () => {
+    assert.doesNotMatch(game.rules, /\d/);
     assert.match(ratchet.howItWorks, /simplification/);
-    for (const v of numberSweep(ratchet).filter((q) => (q.teeth ?? 0) > 13)) assert.match(game.judge(v).detail, /On this wheel/);
   });
 
   it("hangs the bucket from the cord, a turn of the hub lifting it 37.7 mm", () => {

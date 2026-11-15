@@ -19,7 +19,7 @@
 // 20 N; a large one turns 15 mm of finger into too little lift.
 import type { Part } from "../../kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
-import { frame, handArrow, HOLD, phases, RESET, say, SCENE } from "../motion/run.ts";
+import { frame, handArrow, HOLD, phases, RESET, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, box, DEG, fmt, look, loadEdge, on, part, PLATE_TOP, plate, post, pushDisc, rotateAbout, tick, v3 } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
@@ -152,11 +152,11 @@ function judge(v: Values): Verdict {
   const r = lift(v);
   switch (r.kind) {
     case "weak":
-      return { pass: false, outcome: "too-heavy", headline: "Too heavy to lift", detail: `Holding ${LOAD} N takes ${LOAD} ÷ ${fmt(r.ratio, 1)} = ${fmt(r.hold, 1)} N at your end; a finger gives ${FINGER} N.` };
+      return { pass: false, outcome: "too-heavy", headline: "Too heavy to lift", detail: "Your arm is too short: without a long arm, one finger cannot push hard enough." };
     case "short":
-      return { pass: false, outcome: "out-of-room", headline: "Not enough travel", detail: `${TRAVEL} mm of finger ÷ ${fmt(r.ratio, 1)} = ${fmt(r.canRise, 1)} mm of lift; the block must rise ${RISE} mm.` };
+      return { pass: false, outcome: "out-of-room", headline: "Not enough travel", detail: "Your arm is too long: the finger runs out of room before the block reaches the line." };
     case "pass":
-      return { pass: true, outcome: "block-lifted", headline: "Block lifted", detail: `${LOAD} ÷ ${fmt(r.ratio, 1)} = ${fmt(r.hold, 1)} N is within ${FINGER} N, and ${TRAVEL} ÷ ${fmt(r.ratio, 1)} = ${fmt(r.canRise, 1)} mm is past ${RISE}.` };
+      return { pass: true, outcome: "block-lifted", headline: "Block lifted", detail: "The lever makes the push easy, and the finger still has room to reach the line." };
   }
 }
 
@@ -164,7 +164,7 @@ function meters(v: Values): [Meter, Meter] {
   const r = lift(v);
   return [
     { label: "Finger push", value: r.hold, target: FINGER, max: LOAD, unit: "N", need: "atMost", digits: 1 },
-    { label: "Can rise", value: r.canRise, target: RISE, max: TRAVEL, unit: "mm", need: "atLeast", digits: 1 },
+    { label: "Lift room", value: r.canRise, target: RISE, max: TRAVEL, unit: "mm", need: "atLeast", digits: 1 },
   ];
 }
 
@@ -186,7 +186,6 @@ function play(v: Values): Run {
   const cues: Cue[] = r.kind === "pass" ? [{ ms: tl.end("press"), kind: "click" }] : r.kind === "weak" ? [{ ms: tl.start("twitch") + 120, kind: "thud" }] : [];
 
   const values = (push: number): Values => ({ ...v, ratio: r.ratio, push });
-  const riseOf = (push: number) => push / r.ratio;
 
   return {
     verdict,
@@ -201,15 +200,15 @@ function play(v: Values): Run {
       }
       if (phase === "twitch") {
         const push = STRAIN * Math.abs(shudder(tl.t("twitch", ms)));
-        return frame(values(push), `${fmt(r.hold, 1)} N needed, ${FINGER} N given`);
+        return frame(values(push), "Too heavy");
       }
       if (phase === "press") {
         const push = home + (pressTo - home) * smooth(tl.t("press", ms));
-        return frame(values(push), `Block up ${say(riseOf(push))} of ${RISE} mm`);
+        return frame(values(push), "Block rising");
       }
       if (phase === "hold") {
         if (r.kind === "weak") return frame(values(0), "Won't budge");
-        return frame(values(pressTo), r.kind === "pass" ? `Block up ${say(riseOf(pressTo))} mm, held` : `Short by ${say(RISE - riseOf(pressTo))} mm`);
+        return frame(values(pressTo), r.kind === "pass" ? "Block lifted" : "Not high enough");
       }
       const t = smooth(tl.t("reset", ms));
       return frame(values(pressTo + (home - pressTo) * t), "Putting it back");
@@ -279,8 +278,8 @@ export const lever: Primitive = {
   },
   game: {
     name: "One finger",
-    goal: `Lift the block ${RISE} mm with one finger.`,
-    rules: `One finger pushes ${FINGER} N and moves ${TRAVEL} mm. The block weighs ${LOAD} N and must rise ${RISE} mm.`,
+    goal: "Lift the block to the line with one finger.",
+    rules: "A longer arm makes your push stronger, but your finger has to travel further. Find the arm that is strong enough and short enough.",
     number: "ratio",
     action: "Hold to press",
     meters,

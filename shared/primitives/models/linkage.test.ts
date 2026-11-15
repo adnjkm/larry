@@ -200,7 +200,7 @@ describe("linkage", () => {
         assert.ok(crank > 20, `rocker ${v.rocker}: the crank ends at ${crank}, not short of a turn`);
         assert.ok(Math.abs(360 - crank - stall) < 1e-6, `rocker ${v.rocker}: the run ends at the stall ${stall}, not ${360 - crank}`);
         assert.ok(Math.abs(settle(last.values).rockerDeg - STOP_LO) < 1e-6, "the rocker rests on the stop");
-        assert.equal(last.live, `Stalled at ${stall.toFixed(stall >= 10 ? 0 : 1)} of 360°`, `caption "${last.live}" says how far it got`);
+        assert.equal(last.live, "Jammed!");
         assert.ok(stall > 200, `rocker ${v.rocker}: it stalls after ${stall}°, a long way round`);
         assert.equal(thuds.length, 1);
         // It shudders: after the thud the crank goes back and forth, and never beyond the stall.

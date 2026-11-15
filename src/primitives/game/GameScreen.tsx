@@ -10,7 +10,7 @@ import { colors, fonts } from "../../tokens.stylex.ts";
 import { FigureStage } from "../stage/FigureStage.tsx";
 import { type Cue, type Primitive, type Values, type Verdict, startValues } from "../../../shared/primitives/types.ts";
 import { controlRows } from "./logic.ts";
-import { Divider, Meters, Readouts, Rows, SliderRow, ToggleRow, VerdictLine } from "./parts.tsx";
+import { Divider, Meters, Rows, SliderRow, ToggleRow, VerdictLine } from "./parts.tsx";
 import { GameStore } from "./store.ts";
 
 const STAGE_HEIGHT = 330;
@@ -232,7 +232,6 @@ export function GameScreen({ primitive, kicker, onBack, children }: { primitive:
           </Rows>
         </section>
       )}
-      <Readouts store={store} primitive={primitive} />
       {children}
     </>
   );

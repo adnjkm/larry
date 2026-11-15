@@ -323,8 +323,8 @@ describe("weight", () => {
     it("is a failure the picture shows: a harder swing does not hit the crate harder", () => {
       // At every snapping setting the freed bob never touches the crate, so its momentum is irrelevant to the crate.
       for (const f of failing) assert.notEqual(freed(f)!.touch, "crate");
-      // And the string's pull is what the verdict quotes.
-      assert.match(game.judge({ ...startValues(weight), mass: 5 }).detail, /67 N/);
+      // And the verdict says the string is what failed.
+      assert.match(game.judge({ ...startValues(weight), mass: 5 }).detail, /string/);
     });
   });
 

@@ -109,7 +109,7 @@ describe("wheel", () => {
       assert.ok((LOAD * R_EFF) / hand <= ARM + 1e-9, `radius ${r}: a pass the hand could not hold`);
     }
     assert.ok((LOAD * R_EFF) / 31 > ARM, "31 is too small to pass");
-    assert.ok(game.judge({ radius: 31, turn: 0 }).detail.includes("÷ 31 ="));
+    assert.equal(game.judge({ radius: 31, turn: 0 }).pass, false);
   });
 
   it("never lets the bucket or its cord overlap the knob in the picture, at any radius or turn the slider reaches", () => {

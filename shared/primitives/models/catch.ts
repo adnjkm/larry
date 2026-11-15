@@ -21,7 +21,7 @@
 // spring and the gust drags the notch's wall up the steep face; too strong and the push stalls on the gentle face.
 import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, shudder, smooth } from "../motion/ease.ts";
-import { frame, handArrow, LEAD as LEAD_MS, MARK, phases, REWIND, say } from "../motion/run.ts";
+import { frame, handArrow, LEAD as LEAD_MS, MARK, phases, REWIND } from "../motion/run.ts";
 import { arrow, arrowLength, coilSpring, fmt, look, on, part, pivoted, plate, PLATE_TOP, pullRing, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import {
@@ -214,22 +214,21 @@ export function shutAndHold(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = shutAndHold(v);
-  const S = fmt(r.full, 2);
   switch (r.kind) {
     case "wont-shut":
-      return { pass: false, outcome: "wont-shut", headline: "Too stiff to shut", detail: `Shutting takes ${S} N × tan ${CLOSE_DEG}° = ${fmt(r.toShut, 1)} N on the gentle face; your push is ${PUSH} N.` };
+      return { pass: false, outcome: "wont-shut", headline: "Too stiff to shut", detail: "Too strong a spring: a gentle push cannot ride the bolt over the ramp." };
     case "gust-opens":
-      return { pass: false, outcome: "gust-opens", headline: "The gust pulled it open", detail: `The steep face holds ${S} N × tan ${HOLD_DEG}° = ${fmt(r.release)} N; the gust pulls ${GUST} N.` };
+      return { pass: false, outcome: "gust-opens", headline: "Gust pulled it open", detail: "Too weak a spring: the steep face lets go and the gust pulls the door open." };
     case "pass":
-      return { pass: true, outcome: "shuts-and-holds", headline: "Shuts and holds", detail: `Shuts on ${S} × tan ${CLOSE_DEG}° = ${fmt(r.toShut, 1)} of ${PUSH} N; holds ${S} × tan ${HOLD_DEG}° = ${fmt(r.release)} N against ${GUST} N.` };
+      return { pass: true, outcome: "shuts-and-holds", headline: "Shuts and holds", detail: "The gentle ramp lets a light push shut it, and the steep face holds against the gust." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = shutAndHold(v);
   return [
-    { label: "To shut", value: r.toShut, target: PUSH, max: 5, unit: "N", need: "atMost", digits: 1 },
-    { label: "Holds", value: r.release, target: GUST, max: 22, unit: "N", need: "atLeast" },
+    { label: "Ease to shut", value: r.toShut, target: PUSH, max: 5, unit: "N", need: "atMost", digits: 1 },
+    { label: "Grip", value: r.release, target: GUST, max: 22, unit: "N", need: "atLeast" },
   ];
 }
 
@@ -278,7 +277,6 @@ function play(v: Values): Run {
   if (shuts && !holds) cues.push({ ms: tl.end("give"), kind: "slip" });
 
   const values = (door: number, hand = 0): Values => ({ ...v, force: v.force ?? 8, door: clamp(door, DOOR_MIN, 0), hand });
-  const up = (door: number) => say(liftAt(door));
   const push = (door: number) => handArrow(v3(doorLeft(door), PUSH_Y, 0), 0, "push", arrowLen(PUSH), "push-arrow");
   const gust = (door: number) => arrow(`${MARK}gust-arrow`, v3(doorLeft(door), GUST_Y, 0), 180, arrowLen(GUST), "pull", { name: "Gust", role: "The gust's pull on the door.", on: on("plate", "glue") });
 
@@ -294,10 +292,10 @@ function play(v: Values): Run {
         case "rewind":
           return frame(values(d0 + (OPEN_DOOR - d0) * smooth(tl.t("rewind", ms)), hand), "Back to the start");
         case "lead":
-          return frame(values(OPEN_DOOR, hand), `Push ${PUSH} N`, push(OPEN_DOOR));
+          return frame(values(OPEN_DOOR, hand), "Pushing", push(OPEN_DOOR));
         case "push": {
           const door = OPEN_DOOR + (pushTo - OPEN_DOOR) * smooth(tl.t("push", ms));
-          return frame(values(door), liftAt(door) > 0.05 ? `Push: bolt up ${up(door)} mm` : `Push ${PUSH} N`, push(door));
+          return frame(values(door), liftAt(door) > 0.05 ? "Bolt riding up" : "Pushing", push(door));
         }
         case "snap": {
           const door = LIP_AT * (1 - easeOut(tl.t("snap", ms)));
@@ -305,7 +303,7 @@ function play(v: Values): Run {
         }
         case "stall": {
           const door = r.pushStall - 0.5 * Math.abs(shudder(tl.t("stall", ms)));
-          return frame(values(door), `Stuck: bolt up ${up(r.pushStall)} mm`, push(door));
+          return frame(values(door), "Stuck", push(door));
         }
         case "back": {
           const door = r.pushStall + (TOUCH_AT - r.pushStall) * easeOut(tl.t("back", ms));
@@ -314,10 +312,10 @@ function play(v: Values): Run {
         case "latched":
           return frame(values(0), "Latched");
         case "gustLead":
-          return frame(values(0), `Gust ${GUST} N`, gust(0));
+          return frame(values(0), "Gust blowing", gust(0));
         case "gustIn": {
           const door = r.gustStall * smooth(tl.t("gustIn", ms));
-          return frame(values(door), `Gust: bolt up ${up(door)} mm`, gust(door));
+          return frame(values(door), "Bolt giving way", gust(door));
         }
         case "gustOut": {
           const door = r.gustStall * (1 - smooth(tl.t("gustOut", ms)));
@@ -325,7 +323,7 @@ function play(v: Values): Run {
         }
         case "give": {
           const door = LIP_AT * smooth(tl.t("give", ms));
-          return frame(values(door), `Gust: bolt up ${up(door)} mm`, gust(door));
+          return frame(values(door), "Bolt giving way", gust(door));
         }
         case "swing": {
           const door = LIP_AT + (OPEN_DOOR - LIP_AT) * easeOut(tl.t("swing", ms));
@@ -366,8 +364,8 @@ export const catchLatch: Primitive = {
   },
   game: {
     name: "Shut and hold",
-    goal: "Make a door that shuts with a gentle push and stays shut in the gust.",
-    rules: `A ${PUSH} N push must shut the door, and a ${GUST} N gust must not pull it open.`,
+    goal: "Shut the door with a light push, and keep it shut in a gust.",
+    rules: "A stronger spring grips the door harder against the gust, but makes it harder to push shut. Find the balance.",
     number: "force",
     action: "Push it shut",
     meters,
