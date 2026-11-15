@@ -6,6 +6,10 @@ import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "./primitives/library.ts";
 import { SYNTHWAVE } from "../../shared/primitives/parts.ts";
 import { DitherRange, TRACK, Wheel } from "./controls.tsx";
+import { CAMERA } from "../../src/camera/look.ts";
+import type { MaterialName } from "../../src/surface/look.ts";
+import { pill } from "../../src/surface/relief.ts";
+import { Surface } from "../../src/surface/Surface.tsx";
 import { Beam } from "./Beam.tsx";
 import { FunkyFrame } from "./FunkyFrame.tsx";
 import { Dither } from "./dither.tsx";
@@ -237,6 +241,9 @@ export function Need({ text, met }: { text: string; met?: boolean }) {
 }
 
 /** Everything explanatory on a screen, behind one button: a centred card that is closed until asked for. */
+/** The finish of the Why and Hint keys: the grey of the model screen's progress keys, secondary to the dark Next. */
+const WHY_MATERIAL: MaterialName = "bone";
+
 /** The label that gets the beam: the reason behind a step, which we want people to open. "Hint" stays plain. */
 const WHY = "Why?";
 
@@ -246,6 +253,7 @@ export function Why({ label = WHY, title, children }: { label?: string; title: s
   const [size, setSize] = useState({ width: 0, height: 0 });
   // Once the sheet has been opened and closed on this screen, the button goes back to plain.
   const [seen, setSeen] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const close = () => sheet.current?.close();
   // The card's size, for its dithered frame. It is 0 while the sheet is shut and measured when it opens.
   const card = useRef<HTMLDivElement>(null);
@@ -277,9 +285,25 @@ export function Why({ label = WHY, title, children }: { label?: string; title: s
           data-why
           data-lit={lit ? "" : undefined}
           aria-haspopup="dialog"
+          onPointerDown={() => setPressed(true)}
+          onPointerUp={() => setPressed(false)}
+          onPointerLeave={() => setPressed(false)}
+          onPointerCancel={() => setPressed(false)}
           onClick={() => sheet.current?.showModal()}
         >
-          {label}
+          {/* A grey keycap, raised and dithered like the model screen's progress keys, pressed down while held. */}
+          {size.width > 0 ? (
+            <Surface
+              shape={pill(size.width, size.height)}
+              relief={pressed ? "keycapDown" : "keycap"}
+              material={WHY_MATERIAL}
+              ground="light"
+              grain={CAMERA.grain}
+              depth={CAMERA.relief}
+              drift={CAMERA.idleDither}
+            />
+          ) : null}
+          <span className="why-label">{label}</span>
         </button>
         {lit ? <Beam width={size.width} height={size.height} /> : null}
       </span>
