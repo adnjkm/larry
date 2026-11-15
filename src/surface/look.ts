@@ -19,7 +19,7 @@ export const LOOK = {
     /** How hard a slope's facing changes its tone. */
     gain: 1.5,
     /** Share of the light that comes from the viewer instead. It shades every slope alike whichever way it faces, so an edge is drawn all the way round a part and not only on its far side. */
-    fill: 0.7,
+    fill: 0.35,
   },
   shadow: {
     /** Cast shadows are stretched this many times past what the light's height gives, so a 3 px lift throws a readable shadow. */
@@ -35,7 +35,7 @@ export const LOOK = {
   edge: { radius: 1.5, ridge: 0.5, crease: 0.7 },
   materials: {
     /** The wheel's greys plus white. The knob, the shutter, the wheel. */
-    bone: { tones: [[26, 26, 26], [84, 84, 84], [168, 168, 168], [240, 240, 240], [255, 255, 255]], flat: 0.97, floor: 0.2 },
+    bone: { tones: [[26, 26, 26], [84, 84, 84], [168, 168, 168], [240, 240, 240], [255, 255, 255]], flat: 0.82, floor: 0.2 },
     /** A dark moulded panel: tracks, slots, wells in the camera body. */
     slate: { tones: [[10, 10, 12], [26, 27, 32], [44, 46, 54], [78, 80, 90]], flat: 0.42, floor: 0 },
     /** The accent, shaded toward ink and paper. */
