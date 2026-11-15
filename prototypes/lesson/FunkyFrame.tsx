@@ -3,6 +3,7 @@
 // the right like a cast shadow. Painted once per size; it never takes the pointer.
 import { useEffect, useRef } from "react";
 import { SYNTHWAVE } from "./primitives/parts.ts";
+import { hexRgb, inset, threshold, valueNoise } from "../../src/surface/dither.ts";
 
 /** CSS px the border reaches past the card on every side. */
 export const FRAME_PAD = 22;
@@ -12,31 +13,14 @@ const CELL = 2;
 const DROP = { x: 9, y: 11 };
 const RADIUS = 20;
 
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 /** Cool to hot: night, indigo, purple, pink, coral, gold. */
-const STOPS = SYNTHWAVE.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number]);
+const STOPS = SYNTHWAVE.map(hexRgb);
 
-function hash(x: number, y: number) {
-  let h = (x * 374761393 + y * 668265263) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
-}
-/** Smooth value noise in 0..1. */
-function noise(x: number, y: number, cell: number) {
-  const gx = x / cell, gy = y / cell;
-  const x0 = Math.floor(gx), y0 = Math.floor(gy);
-  const fx = gx - x0, fy = gy - y0;
-  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-  const a = hash(x0, y0), b = hash(x0 + 1, y0), c = hash(x0, y0 + 1), d = hash(x0 + 1, y0 + 1);
-  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
-}
+/** Smooth value noise in 0..1 on a `cell` px grid. */
+const noise = (x: number, y: number, cell: number) => valueNoise(x / cell, y / cell);
 
 /** Distance from a point to a rounded rectangle's outline: negative inside. */
-function outside(px: number, py: number, x: number, y: number, w: number, h: number, r: number) {
-  const qx = Math.abs(px - (x + w / 2)) - (w / 2 - r);
-  const qy = Math.abs(py - (y + h / 2)) - (h / 2 - r);
-  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
-}
+const outside = (px: number, py: number, x: number, y: number, w: number, h: number, r: number) => -inset(px - x, py - y, w, h, r);
 
 function paint(ctx: CanvasRenderingContext2D, cols: number, rows: number, w: number, h: number) {
   const img = ctx.createImageData(cols, rows);
@@ -52,7 +36,7 @@ function paint(ctx: CanvasRenderingContext2D, cols: number, rows: number, w: num
       const ring = 1 - card / (9 + 9 * n);
       const drop = 1 - Math.max(0, outside(px, py, FRAME_PAD + DROP.x, FRAME_PAD + DROP.y, w, h, RADIUS)) / (3 + 5 * n);
       const cover = Math.max(ring * 0.85, drop);
-      const b = (BAYER[(y % 4) * 4 + (x % 4)]! + 0.5) / 16;
+      const b = threshold(x, y);
       if (cover <= b) continue;
       // Hot at the card's edge and toward its top left, cooling outward and toward the bottom right.
       const diagonal = (px / (w + 2 * FRAME_PAD)) * 0.5 + (py / (h + 2 * FRAME_PAD)) * 0.5;
