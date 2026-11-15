@@ -105,9 +105,6 @@ function readouts(v: Values) {
 
 type Kind = "pass" | "weeps" | "splits";
 
-/** Line pressure, kPa. */
-export const PRESSURE = 300;
-
 /** The outcome, decided once from the squeeze; meters, judge and play all read it. */
 export function test(v: Values) {
   const s = settle(v);

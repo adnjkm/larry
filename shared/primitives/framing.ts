@@ -1,7 +1,7 @@
 import type { Part } from "../kit.ts";
 import baked from "./framing.json" with { type: "json" };
 import { type KitBounds, measurePoses } from "../bounds.ts";
-import { type Primitive, type Values, sliderSamples, startValues } from "./types.ts";
+import { type Primitive, type Values, numberSlider, sliderSamples, startValues } from "./types.ts";
 
 const FRAME_SAMPLES = 5;
 /** mm. A turning part's reach peaks between samples. framing.test.ts checks a finer grid; 5 samples pass it with half this pad. */
@@ -22,7 +22,7 @@ const RUN_FRAMES = 24;
 export function runPoses(p: Primitive): Part[][] {
   const game = p.game;
   const start = startValues(p);
-  const number = [...p.sliders, ...(game.controls ?? [])].find((s) => s.id === game.number)!;
+  const number = numberSlider(p);
   return sliderSamples(number, RUN_NUMBERS).flatMap((n) => {
     const run = game.play({ ...start, [number.id]: n });
     return Array.from({ length: RUN_FRAMES + 1 }, (_, i) => {
@@ -68,14 +68,9 @@ export function computeFraming(p: Primitive, mode: FigureMode): KitBounds {
   return unionBounds(measurePoses([...still, ...game]));
 }
 
-const fresh = new Map<string, KitBounds>();
-
-/** The framing for a primitive and mode, from framing.json; computed (and kept) only for a primitive that is not in it yet. */
+/** The framing for a primitive and mode, from framing.json. Run `node scripts/generate-framing.ts` after adding or changing a primitive. */
 export function framePrimitive(p: Primitive, mode: FigureMode = "still"): KitBounds {
   const known = (baked as Record<string, Record<FigureMode, KitBounds> | undefined>)[p.id]?.[mode];
-  if (known) return known;
-  const key = `${p.id}:${mode}`;
-  let bounds = fresh.get(key);
-  if (!bounds) fresh.set(key, (bounds = computeFraming(p, mode)));
-  return bounds;
+  if (!known) throw new Error(`No ${mode} framing for "${p.id}" in framing.json; run \`node scripts/generate-framing.ts\``);
+  return known;
 }
