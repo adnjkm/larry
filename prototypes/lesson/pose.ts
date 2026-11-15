@@ -215,6 +215,22 @@ export function fitFrame(subject: readonly Part[], view: { elevation: number; az
 
 export const centreOf = ({ min, max }: Extents): Vec => scale(add(min, max), 0.5);
 
+/** A frame as something a camera can be fitted to: a box that is never drawn. */
+export function framePart({ min, max }: Extents): Part {
+  return {
+    id: "frame",
+    name: "frame",
+    role: "",
+    parentId: null,
+    joint: null,
+    shape: { kind: "box", width: max.x - min.x, height: max.y - min.y, depth: max.z - min.z, cornerRadius: 0 },
+    position: centreOf({ min, max }),
+    rotation: vec(),
+    color: "#ffffff",
+    finish: "matte",
+  };
+}
+
 /** Rescales parts about `centre` by `k` and puts that centre at `at`. */
 export function placeParts(parts: readonly Part[], centre: Vec, k: number, at: Vec): Part[] {
   return parts.map((p) => ({ ...p, shape: scaleShape(p.shape, k), position: add(at, scale(add(p.position, neg(centre)), k)) }));

@@ -256,3 +256,11 @@ html, body { height: 100%; }
 
 /* A free-play slider with end words ("Soft", "Stiff") needs no name, so it takes the whole width (as on the primitives bench). */
 .slider.strip[data-ends] { grid-template-columns: minmax(0, 1fr); }
+/* A mechanism lesson's question (Course.tsx): the primitives to pick from, and the line that answers back, which keeps
+   its room so the model above holds still when the words arrive. */
+.choices { grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); }
+.result.answer { min-height: 40px; font-size: 15px; line-height: 20px; color: var(--ink); font-weight: 500; }
+.result.answer:empty { display: block; }
+.question { flex: none; display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.question .mono { color: var(--pink); }
+.choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }

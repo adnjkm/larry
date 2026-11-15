@@ -48,9 +48,9 @@ export const clickLatch: KnownMechanism = {
   ],
   path: ["Hand", "{=button}", "Stepping cam", "{=part}"],
   steps: [
+    { format: "who", sub: "take-turns" },
     { format: "much", sub: "bring-back" },
     { format: "broke", sub: "hold", fault: "little" },
-    { format: "who", sub: "take-turns" },
   ],
   fits: [
     { object: "click pen", words: { part: "the tip", button: "the button" } },

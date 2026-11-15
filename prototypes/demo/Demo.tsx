@@ -6,6 +6,10 @@ import lessonCss from "../lesson/lesson.css?inline";
 import { lessonFor } from "../lesson/lessons/index.ts";
 import { SAMPLES } from "../lesson/samples.ts";
 import { StoryFlow } from "../lesson/Story.tsx";
+import type { Course } from "../lesson/course.ts";
+import { CourseFlow } from "../lesson/Course.tsx";
+import penCourse from "../lesson/lessons/pen-course.ts";
+import { TEMPLATE_CSS } from "../primitives/template.css.ts";
 import CameraMock, { type PhoneScreen } from "../../src/mock/CameraMock.tsx";
 
 // Set by prototypes/demo/vite.config.ts from LARRY_DEMO.
@@ -15,13 +19,16 @@ const SAMPLE = SAMPLES.find((s) => s.id === __DEMO_OBJECT__)!;
 const LESSON = lessonFor(SAMPLE.kit, SAMPLE.id);
 if (LESSON.kind !== "story") throw new Error(`the ${__DEMO_OBJECT__} lesson should be a story`);
 const STORY = LESSON;
+/** An object with a mechanism lesson plays that; the others keep their story. */
+const COURSES: Readonly<Record<string, Course>> = { pen: penCourse };
+const COURSE = COURSES[__DEMO_OBJECT__];
 
 /**
  * The lesson's stylesheets, scoped to the lesson so their element rules (box-sizing, button fonts) never reach the
  * camera. Keyframes stay global, since they're looked up by name; the page rules for html and body are dropped.
  */
 const KEYFRAMES = /@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g;
-const css = baseCss + "\n" + lessonCss;
+const css = baseCss + "\n" + lessonCss + "\n" + TEMPLATE_CSS;
 const LESSON_CSS = `${(css.match(KEYFRAMES) ?? []).join("\n")}
 @scope (.demo-lesson) {
 ${css
@@ -60,7 +67,11 @@ function Lesson({ screen, onCamera }: { screen: PhoneScreen; onCamera: () => voi
   }, [screen.width]);
   return (
     <div className="demo-lesson" ref={box}>
-      <StoryFlow key={run} story={STORY} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} />
+      {COURSE ? (
+        <CourseFlow key={run} course={COURSE} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} />
+      ) : (
+        <StoryFlow key={run} story={STORY} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} />
+      )}
     </div>
   );
 }
@@ -76,7 +87,7 @@ export function Demo() {
     <>
       <style>{LESSON_CSS}</style>
       <style>{DEMO_CSS}</style>
-      <CameraMock object={__DEMO_OBJECT__} after={(props) => <Lesson {...props} />} dials={TUNING} compare={TUNING} />
+      <CameraMock object={__DEMO_OBJECT__} after={(props) => <Lesson {...props} />} dials={TUNING} compare={TUNING} mechanisms={COURSE?.mechanisms.length} kit={COURSE?.story.kit} />
     </>
   );
 }

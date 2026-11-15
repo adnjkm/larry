@@ -1,5 +1,6 @@
-// A hand-made click pen for the pen lesson, drawn retracted and standing on its nose cone, chunky enough that
-// each part reads on a phone. The lesson's ids (barrel, nose, refill, ball, spring, cam, plunger) are the roots of
+// A hand-made click pen for the pen lesson, drawn retracted and standing on its nose cone, in a real pen's proportions
+// (about twelve times as long as it is wide). It is too tall to read whole on a phone, so each screen frames the end it
+// is about. The lesson's ids (barrel, nose, refill, ball, spring, cam, plunger) are the roots of
 // its assemblies; every detail part is fixed to one of them, so it moves, shows and lights up with it.
 // All sizes in mm, y up from the table, round parts on the y axis.
 import { type Kit, parseKit, type Shape } from "../../../shared/kit.ts";
@@ -11,7 +12,6 @@ const NOSE = { color: "#8d9097", finish: "clear" } as const;
 const BRASS = { color: "#c9a24b", finish: "metal" } as const;
 const BALL = { color: "#e2e4e8", finish: "metal" } as const;
 const TUBE = { color: "#d4d6da", finish: "matte" } as const;
-const PLASTIC = { color: "#34363a", finish: "matte" } as const;
 const CAMLOOK = { color: "#2a2c31", finish: "matte" } as const;
 const CLIP = { color: "#26282c", finish: "metal" } as const;
 const RUBBER = { color: "#1c1c1e", finish: "rubber" } as const;
@@ -20,7 +20,7 @@ const RUBBER = { color: "#1c1c1e", finish: "rubber" } as const;
 const BALL_R = 4.4;
 const BALL_BOTTOM = 2;
 const BALL_Y = BALL_BOTTOM + BALL_R;
-const BARREL_TOP = 204;
+const BARREL_TOP = 400;
 export const PEN = {
   /** How far the tip comes out of the nose, and how far the button goes down. */
   TRAVEL: 12,
@@ -29,32 +29,33 @@ export const PEN = {
   /** The lowest point of the ball and of the bare tip, retracted. */
   ballBottom: BALL_BOTTOM,
   tipBottom: 5.2,
-  noseCone: 30,
-  noseTop: 35,
-  barrelBottom: 30,
+  noseCone: 48,
+  noseTop: 56,
+  barrelBottom: 48,
   barrelTop: BARREL_TOP,
   barrelR: 17,
   barrelIn: 15,
-  ledge: 13,
+  ledge: 21,
   /** The spring at full length, from the nose's ledge to the refill's collar; the pose shortens it as the tip comes out. */
-  springBottom: 13,
-  springTop: 35,
+  springBottom: 21,
+  springTop: 56,
   springR: 8.8,
   springTube: 1.3,
-  springTurns: 3,
-  collarBottom: 35,
-  collarTop: 38,
+  springTurns: 5,
+  collarBottom: 56,
+  collarTop: 59,
   refillR: 6,
-  refillBottom: 26,
+  refillBottom: 42,
   refillTop: BARREL_TOP - 12,
   camBottom: BARREL_TOP - 12,
   camTop: BARREL_TOP - 2,
   camR: 9.2,
   stemBottom: BARREL_TOP - 2,
   buttonBottom: BARREL_TOP + 0.6,
-  top: BARREL_TOP + 16,
+  top: BARREL_TOP + 22,
+  buttonR: 8,
   /** The clip's lower end, where its bump touches the barrel. */
-  clipBottom: BARREL_TOP - 66,
+  clipBottom: BARREL_TOP - 118,
   clipTop: BARREL_TOP - 3,
   clipR: 20,
   /** Where the clip faces, in degrees round the axis from +x toward the camera. */
@@ -89,7 +90,7 @@ const band = (inner: number, outer: number, bottom: number, top: number): Pt[] =
 
 /** The rubber sleeve: a few plain ridges round the lower barrel. */
 function gripProfile(): Pt[] {
-  const [bottom, top, ridges] = [44, 96, 5];
+  const [bottom, top, ridges] = [88, 176, 8];
   const [inner, base, crest] = [PEN.barrelR - 0.1, PEN.barrelR + 1, PEN.barrelR + 1.9];
   const pitch = (top - bottom) / ridges;
   const ridge: Pt[] = Array.from({ length: ridges }, (_, k): Pt[] => {
@@ -169,7 +170,7 @@ const parts = [
     "barrel-band",
     "top band",
     "A steel ring that finishes the barrel's top and holds the button in.",
-    band(11.4, PEN.barrelR + 0.5, PEN.barrelTop - 6, PEN.barrelTop),
+    band(PEN.buttonR + 0.8, PEN.barrelR + 0.5, PEN.barrelTop - 6, PEN.barrelTop),
     STEEL,
     on("barrel", "weld"),
   ),
@@ -181,24 +182,24 @@ const parts = [
     "Guides the tip out of the pen and holds the spring in its pocket.",
     [
       [5, 0],
-      [7, 0],
-      [8.8, 3],
-      [11.4, 8],
-      [13.8, 14],
-      [15.8, 22],
+      [6.4, 0],
+      [7.8, 5],
+      [10.2, 14],
+      [12.6, 24],
+      [15, 36],
       [PEN.barrelR, PEN.noseCone],
       [PEN.barrelIn - 0.2, PEN.noseCone],
       [PEN.barrelIn - 0.2, PEN.noseTop],
       [11.6, PEN.noseTop],
       [11.6, PEN.ledge],
       [7, PEN.ledge],
-      [5.6, 6],
+      [5.6, 10],
       [5, 0],
     ],
     NOSE,
     { parentId: "barrel", joint: "thread" },
   ),
-  part("nose-thread", "nose thread", "The spiral ridge that screws the nose into the barrel.", coil(14.2, 0.55, 4, 2), at(32.5), NOSE, on("nose", "molded")),
+  part("nose-thread", "nose thread", "The spiral ridge that screws the nose into the barrel.", coil(14.2, 0.55, 4, 2), at(52), NOSE, on("nose", "molded")),
 
   // Refill: the ink tube, with a brass tip that ends in a socket, and a collar the spring pushes up against.
   turnedPart(
@@ -221,9 +222,9 @@ const parts = [
     [
       [0, PEN.tipBottom],
       [3.9, PEN.tipBottom],
-      [4.4, 10],
-      [5.1, 16],
-      [5.9, 22],
+      [4.4, 16],
+      [5.1, 26],
+      [5.9, 35],
       [PEN.refillR, PEN.refillBottom],
       [0, PEN.refillBottom],
     ],
@@ -275,14 +276,13 @@ const parts = [
       [0, PEN.stemBottom],
       [5, PEN.stemBottom],
       [5, PEN.buttonBottom],
-      [10.4, PEN.buttonBottom],
-      [10.4, PEN.top - 9],
-      [9.8, PEN.top - 6],
-      [8, PEN.top - 3.4],
-      [4.8, PEN.top - 1],
+      [PEN.buttonR, PEN.buttonBottom],
+      [PEN.buttonR, PEN.top - 5],
+      [PEN.buttonR - 0.6, PEN.top - 2.4],
+      [PEN.buttonR - 2.4, PEN.top - 0.8],
       [0, PEN.top],
     ],
-    PLASTIC,
+    STEEL,
     { parentId: "barrel", joint: "slide" },
   ),
 ];

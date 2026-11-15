@@ -6,7 +6,7 @@
 //    number, act once, see what that setting does.
 // The figures, models and games are the library's (shared/primitives), driven through the same stage controller and
 // store as the library page (src/primitives/game).
-import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DitherRange, TRACK } from "../lesson/controls.tsx";
 import { Actions, Need, Say, Shell, type Step } from "../lesson/ui.tsx";
 import { controlRows, headlineText } from "../../src/primitives/game/logic.ts";
@@ -57,15 +57,37 @@ const HOLD_MS = 700;
 const BUZZ: Record<Cue["kind"], number | number[]> = { click: 6, snap: [12, 24, 12], thud: 18, pop: 10, slip: [6, 20, 6], drip: 4, ring: [8, 30, 8] };
 const buzz = (cue: Cue) => navigator.vibrate?.(BUZZ[cue.kind]);
 
-export function PrimitiveScreen({ primitive, onBack, onDone }: { primitive: Primitive; onBack: () => void; onDone: () => void }) {
+/** The mechanism a primitive is being learned for: its name for the bubble, and which header key is its own. */
+export type InMechanism = { name: string; key: number };
+const Lesson = createContext<InMechanism | undefined>(undefined);
+
+export function PrimitiveScreen({
+  primitive,
+  onBack,
+  onDone,
+  mechanism,
+  steps = KEY_STEPS,
+}: {
+  primitive: Primitive;
+  onBack: () => void;
+  onDone: () => void;
+  /** The lesson this screen sits in. Left off on the bench, which shows a placeholder. */
+  mechanism?: InMechanism;
+  /** The lesson's header keys. */
+  steps?: Step[];
+}) {
   // A primitive with goals is played and then set to them, all on one screen; the others keep play, then challenge.
-  if (primitive.play?.tasks?.length)
-    return (
-      <Shell objectName={primitive.name} steps={KEY_STEPS} onHome={onBack}>
-        <TaskPlay primitive={primitive} onDone={onDone} />
-      </Shell>
-    );
-  return <TwoSteps primitive={primitive} onBack={onBack} />;
+  return (
+    <Lesson.Provider value={mechanism}>
+      {primitive.play?.tasks?.length ? (
+        <Shell objectName={primitive.name} steps={steps} onHome={onBack}>
+          <TaskPlay primitive={primitive} onDone={onDone} />
+        </Shell>
+      ) : (
+        <TwoSteps primitive={primitive} steps={steps} onBack={onBack} onDone={onDone} />
+      )}
+    </Lesson.Provider>
+  );
 }
 
 /**
@@ -163,14 +185,17 @@ const TAB_H = 10;
  * requirement row uses (prototypes/lesson/ui.tsx Need), with "Mechanism" for its label. It is a speech bubble: a tab
  * points straight up out of the key, under the header's lit key, as part of the one raised shape.
  */
-function Mechanism() {
+export function Mechanism({ name, step }: { name?: string; step?: number } = {}) {
+  const lesson = useContext(Lesson);
+  const label = name ?? lesson?.name;
+  const keyNumber = (step ?? lesson?.key ?? 0) + 1;
   const box = useRef<HTMLParagraphElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0, tab: 0 });
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
     const read = () => {
-      const key = el.closest(".screen")?.querySelector<HTMLElement>('.top [aria-label^="Step 1 "]');
+      const key = el.closest(".screen")?.querySelector<HTMLElement>(`.top [aria-label^="Step ${keyNumber} "]`);
       const at = el.getBoundingClientRect();
       const lit = key?.getBoundingClientRect();
       // Centred under the first key, kept clear of the rounded corners.
@@ -182,7 +207,7 @@ function Mechanism() {
     const observer = new ResizeObserver(read);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [keyNumber]);
   return (
     <p ref={box} className="need" data-mechanism>
       {size.width > 0 ? (
@@ -196,7 +221,7 @@ function Mechanism() {
           drift={CAMERA.idleDither}
         />
       ) : null}
-      <BubbleLabel>Lorem Ipsum Dolor Sit Amet, Consectetur Elit</BubbleLabel>
+      <BubbleLabel>{label ?? "Lorem Ipsum Dolor Sit Amet, Consectetur Elit"}</BubbleLabel>
     </p>
   );
 }
@@ -240,7 +265,7 @@ function FillPill({ met, label, onGo }: { met: boolean; label: string; onGo: () 
   );
 }
 
-function TwoSteps({ primitive, onBack }: { primitive: Primitive; onBack: () => void }) {
+function TwoSteps({ primitive, steps, onBack, onDone }: { primitive: Primitive; steps: Step[]; onBack: () => void; onDone: () => void }) {
   const [at, setAt] = useState(0);
   const step: PrimitiveStep = PRIMITIVE_STEPS[at]!;
   const next = () => setAt((i) => Math.min(i + 1, PRIMITIVE_STEPS.length - 1));
@@ -250,11 +275,11 @@ function TwoSteps({ primitive, onBack }: { primitive: Primitive; onBack: () => v
   const [tuned, setTuned] = useState(false);
 
   return (
-    <Shell objectName={primitive.name} steps={KEY_STEPS} onHome={at === 0 ? onBack : previous}>
+    <Shell objectName={primitive.name} steps={steps} onHome={at === 0 ? onBack : previous}>
       {step === "play" ? (
         <PlayStep primitive={primitive} moved={moved} tuned={tuned} onMoved={() => setMoved(true)} onTuned={() => setTuned(true)} onNext={next} />
       ) : (
-        <ChallengeStep primitive={primitive} />
+        <ChallengeStep primitive={primitive} onDone={onDone} />
       )}
     </Shell>
   );
@@ -326,12 +351,14 @@ function PlayStep({
 
 type Phase = "ready" | "playing" | "done";
 
-function ChallengeStep({ primitive }: { primitive: Primitive }) {
+function ChallengeStep({ primitive, onDone }: { primitive: Primitive; onDone: () => void }) {
   const game = primitive.game;
   const store = useMemo(() => new GameStore(startValues(primitive)), [primitive]);
   const [phase, setPhaseState] = useState<Phase>("ready");
   // The run's verdict, shown once a run has finished and until anything on the figure changes.
   const [result, setResult] = useState<Verdict>();
+  // Once the goal has been met the way on opens, and stays open while the player goes on trying things.
+  const [passed, setPassed] = useState(false);
   const phaseRef = useRef<Phase>("ready");
   const before = useRef<Values>({});
   const runId = useRef(0);
@@ -379,6 +406,7 @@ function ChallengeStep({ primitive }: { primitive: Primitive }) {
     if (id !== runId.current) return;
     if (!finished) return setPhase("ready");
     setResult(run.verdict);
+    if (run.verdict.pass) setPassed(true);
     setPhase("done");
   };
 
@@ -417,6 +445,9 @@ function ChallengeStep({ primitive }: { primitive: Primitive }) {
             <PillSurface>{label}</PillSurface>
           </button>
         )}
+        <button type="button" className="btn" data-next disabled={!passed} onClick={onDone}>
+          <PillSurface>Continue</PillSurface>
+        </button>
       </Actions>
     </main>
   );

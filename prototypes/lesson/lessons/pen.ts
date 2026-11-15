@@ -12,6 +12,7 @@ import {
   defineStory,
   type ExplodePlan,
   familyOf,
+  type Frame,
   type Mark,
   type Overlay,
   type PartMove,
@@ -58,10 +59,27 @@ const PRESS_ZONES: readonly Zone[] = [
   { id: "clicked", word: "Clicked", until: 1, gain: 0.5 },
 ];
 
+/** How hard the hand presses the tip on the paper: the paper only turns the ball when it grips it. */
+const PRESSURE_ZONES: readonly Zone[] = [
+  { id: "light", word: "Too light", until: 0.35, gain: 1 },
+  { id: "steady", word: "Steady", until: 0.75, gain: 0.45 },
+  { id: "hard", word: "Too hard", until: 1, gain: 0.22 },
+];
+/** How deep the notch is that the latch's tooth drops into. */
+const NOTCH_ZONES: readonly Zone[] = [
+  { id: "shallow", word: "Shallow", until: 0.35, gain: 1 },
+  { id: "right", word: "Holds", until: 0.75, gain: 0.45 },
+  { id: "deep", word: "Too deep", until: 1, gain: 0.22 },
+];
+
 const SQUEEZE = "squeeze";
 const STIFFNESS = "stiffness";
 const PRESS = "press";
-const zoneIn = (zones: readonly Zone[], v: Values, key: string) => zoneAt(zones, v[key] ?? 0).id;
+const PRESSURE = "pressure";
+const NOTCH = "notch";
+/** Where a control sits when no screen has shown it yet: the hand writes steadily, and the notch is cut right. */
+const UNSET = 0.55;
+const zoneIn = (zones: readonly Zone[], v: Values, key: string, unset = 0) => zoneAt(zones, v[key] ?? unset).id;
 
 const squeezePose = (v: Values): Pose => ({ out: T, press: 0, sag: SAG * (1 - clamp01((v[SQUEEZE] ?? 0) / SQUEEZE_ZONES[0]!.until)) });
 /** A spring lets the tip hang out only while it is too soft to push it in; with none, the tip hangs out fully. */
@@ -124,7 +142,7 @@ const seg = (ms: number, from: number, to: number) => smooth(clamp01((ms - from)
 const has = (ctx: Ctx, id: string) => ctx.present.includes(id);
 
 /** The cam holds the tip out only after a full click. */
-const latchedAt = (v: Values, ctx: Ctx) => has(ctx, CAM) && zoneIn(PRESS_ZONES, v, PRESS) === "clicked";
+const latchedAt = (v: Values, ctx: Ctx) => has(ctx, CAM) && zoneIn(PRESS_ZONES, v, PRESS) === "clicked" && zoneIn(NOTCH_ZONES, v, NOTCH, UNSET) !== "shallow";
 
 const shapes = new Map<string, Shape>();
 const cached = (key: string, make: () => Shape): Shape => {
@@ -160,7 +178,9 @@ const { g: G, radius: DROP_R, marks: dropMarks } = dropsAt(0.5);
 const REACH = 40;
 /** The ink lies a little behind the tip so it shows beside the pen's ground shadow, which falls toward the viewer. */
 const INK_Z = -7;
-type Outcome = "inside" | "blot" | "good" | "stuck";
+type Outcome = "inside" | "blot" | "good" | "skip" | "dig";
+/** A skipping line is laid in dashes this long, with gaps as long. */
+const DASH = 5;
 
 const write: Test = {
   id: "write",
@@ -171,11 +191,21 @@ const write: Test = {
     const tipOut = spring ? latchedAt(values, ctx) : true;
     const end: Pose = { out: spring ? (tipOut ? T : 0) : T, press: 0, sag: start.sag };
     const zone = zoneIn(SQUEEZE_ZONES, values, SQUEEZE);
-    const outcome: Outcome = !tipOut ? "inside" : !has(ctx, BALL) || zone === "loose" ? "blot" : zone === "snug" ? "good" : "stuck";
+    const hand = zoneIn(PRESSURE_ZONES, values, PRESSURE, UNSET);
+    const outcome: Outcome = !tipOut
+      ? "inside"
+      : !has(ctx, BALL) || zone === "loose"
+        ? "blot"
+        : zone === "tight" || hand === "light"
+          ? "skip"
+          : hand === "hard"
+            ? "dig"
+            : "good";
     const verdict = {
       inside: { pass: false, line: "The tip is inside. Nothing to write with." },
       blot: { pass: false, line: has(ctx, BALL) ? "Blotchy. The loose ball floods ink." : "No ball. The ink blots and smears." },
-      stuck: { pass: false, line: "No ink. The ball is stuck." },
+      skip: { pass: false, line: zone === "tight" ? "The line skips. The pinched ball barely turns." : "The line skips. The ball slides without turning." },
+      dig: { pass: false, line: "The tip digs into the paper and drags." },
       good: { pass: true, line: "A thin, even line." },
     }[outcome];
 
@@ -184,14 +214,22 @@ const write: Test = {
     const go = release + wet;
     const [forward, hold, back, tail] = [1100, 220, 850, 250];
     return {
-      verdict,
+      verdict: { ...verdict, kind: outcome },
       durationMs: go + forward + hold + back + tail,
       at: (ms) => {
         const along = seg(ms, go, go + forward);
-        const dx = REACH * along * (1 - seg(ms, go + forward + hold, go + forward + hold + back));
-        const laid = Math.round(REACH * along);
+        // A tip that digs in drags, and gets half as far.
+        const reach = outcome === "dig" ? REACH / 2 : REACH;
+        const dx = reach * along * (1 - seg(ms, go + forward + hold, go + forward + hold + back));
+        const laid = Math.round(reach * along);
         const marks: Mark[] = [];
-        if (outcome === "good" && laid > 0) marks.push({ id: "line", shape: stroke(laid, 8), at: vec(laid / 2, 1.5, INK_Z), ride: null });
+        if ((outcome === "good" || outcome === "dig") && laid > 0)
+          marks.push({ id: "line", shape: stroke(laid, outcome === "dig" ? 12 : 8), at: vec(laid / 2, 1.5, INK_Z), ride: null });
+        if (outcome === "skip")
+          for (let from = 0; from < laid; from += 2 * DASH) {
+            const len = Math.min(DASH, laid - from);
+            marks.push({ id: `dash-${from}`, shape: stroke(len, 8), at: vec(from + len / 2, 1.5, INK_Z), ride: null });
+          }
         if (outcome === "blot") {
           const r = Math.round(1 + 5.5 * seg(ms, release, release + wet));
           marks.push({ id: "blot", shape: disc(r), at: vec(0, 0.7, INK_Z), ride: null });
@@ -207,14 +245,18 @@ const write: Test = {
                   ? ms < go
                     ? "Ink pooling…"
                     : "Smearing…"
-                  : outcome === "stuck"
-                    ? "No ink…"
-                    : "Writing…"
+                  : outcome === "skip"
+                    ? "Skipping…"
+                    : outcome === "dig"
+                      ? "Dragging…"
+                      : "Writing…"
                 : outcome === "blot"
                   ? "Blotted"
-                  : outcome === "stuck"
-                    ? "Dry"
-                    : "Thin, even ink";
+                  : outcome === "skip"
+                    ? "A broken line"
+                    : outcome === "dig"
+                      ? "Dug in"
+                      : "Thin, even ink";
         return frame(ctx, mixPose(start, end, seg(ms, 0, release)), live, { dx, dy: 0, angle: 0 }, marks);
       },
     };
@@ -312,11 +354,12 @@ const letgo: Test = {
   run: (values, ctx) => {
     const start = pressPose(values);
     const latched = latchedAt(values, ctx);
+    const shallow = has(ctx, CAM) && zoneIn(NOTCH_ZONES, values, NOTCH, UNSET) === "shallow";
     const verdict = latched
-      ? { pass: true, line: "The tip stays out. The cam caught it." }
+      ? { pass: true, line: "The tip stays out. The latch caught it." }
       : start.press === 0
         ? { pass: false, line: "Nothing is clicked. The tip is inside." }
-        : { pass: false, line: "It popped back in. Nothing holds it." };
+        : { pass: false, line: shallow ? "It popped back in. The tooth slips out of its notch." : "It popped back in. Nothing holds it." };
     const end: Pose = { out: latched ? T : 0, press: 0, sag: 0 };
     const [held, up, tail] = [500, 700, 700];
     return {
@@ -336,10 +379,15 @@ const again: Test = {
   label: "Click again",
   run: (values, ctx) => {
     const held = latchedAt(values, ctx);
-    const verdict = held ? { pass: true, line: "One more click hides the tip." } : { pass: false, line: "It was never clicked out." };
+    const jammed = held && zoneIn(NOTCH_ZONES, values, NOTCH, UNSET) === "deep";
+    const verdict = jammed
+      ? { pass: false, line: "It will not come back in. The tooth is stuck in its notch." }
+      : held
+        ? { pass: true, line: "One more click hides the tip." }
+        : { pass: false, line: "It was never clicked out." };
     const start: Pose = { out: held ? T : 0, press: 0, sag: 0 };
     const pushed: Pose = { out: T, press: T, sag: 0 };
-    const end: Pose = { out: 0, press: 0, sag: 0 };
+    const end: Pose = { out: jammed ? T : 0, press: 0, sag: 0 };
     const [down, hold, up, tail] = [650, 300, 650, 350];
     return {
       verdict,
@@ -347,7 +395,7 @@ const again: Test = {
       at: (ms) => {
         if (ms < down + hold) return frame(ctx, mixPose(start, pushed, seg(ms, 0, down)), "Pressing…");
         const k = seg(ms, down + hold, down + hold + up);
-        return frame(ctx, mixPose(pushed, end, k), k < 1 ? "Letting go…" : held ? "Tip hidden" : "Tip back inside");
+        return frame(ctx, mixPose(pushed, end, k), k < 1 ? "Letting go…" : jammed ? "Tip stuck out" : held ? "Tip hidden" : "Tip back inside");
       },
     };
   },
@@ -367,6 +415,10 @@ const stiffness: Control = {
   zones: () => STIFFNESS_ZONES,
   pose: (v, ctx) => relative(ctx, stiffPose({ [STIFFNESS]: v }, ctx)),
 };
+/** The hand on the paper. Nothing on the pen moves with it: the test shows what the pressure does. */
+const pressure: Control = { key: PRESSURE, verb: "Press down", start: UNSET, zones: () => PRESSURE_ZONES, pose: () => ({ moves: {}, marks: [] }) };
+/** The latch's notch, tried with the button pressed all the way down. */
+const notch: Control = { key: NOTCH, verb: "Notch", start: 0.1, zones: () => NOTCH_ZONES, pose: (_, ctx) => relative(ctx, pressPose({ [PRESS]: 1 })) };
 const pressing: Control = { key: PRESS, verb: "Press", start: 0, zones: () => PRESS_ZONES, pose: (v, ctx) => relative(ctx, pressPose({ [PRESS]: v })) };
 
 /**
@@ -416,8 +468,17 @@ const springCtx = spotCtx(1, [], [SPRING]);
 const camCtx = spotCtx(2, [], [CAM, ...LUGS]);
 /** Where a point at kit height `y` on part `id` is drawn once the pen stands as Find the spot shows it. */
 const drawnY = (ctx: Ctx, id: string, y: number) => y + dyOf(rest(ctx), id);
-const clipAngle = (PEN.clipAngle * Math.PI) / 180;
 const SPRING_MID = (PEN.springBottom + PEN.springTop) / 2;
+
+/** The pen is too tall to read whole, so a screen frames the end it is about: the tip with room to write, the lower end, or the button end. */
+const frameOf = (x0: number, x1: number, y0: number, y1: number): Frame => ({ min: vec(x0, y0, -22), max: vec(x1, y1, 22) });
+const FRAMES = {
+  tip: frameOf(-30, 66, -4, 96),
+  low: frameOf(-42, 42, -4, 156),
+  top: frameOf(-38, 38, PEN.barrelTop - 100, PEN.top + 14),
+  /** Closer in on the button and the latch under it, with the barrel off. */
+  latch: frameOf(-24, 24, PEN.barrelTop - 56, PEN.top + 8),
+} as const;
 const CAM_MID = (PEN.camBottom + PEN.camTop) / 2;
 
 export default defineStory({
@@ -448,14 +509,10 @@ export default defineStory({
             right: true,
             line: "Right there. It rolls where pen meets paper.",
           },
-          { id: "button", at: vec(0, drawnY(ballCtx, PLUNGER, PEN.top) + 0.8 * PEN.ballR, 0), radius: PEN.ballR, line: "That end is for your thumb." },
-          {
-            id: "clip",
-            at: vec(PEN.clipR * Math.cos(clipAngle), drawnY(ballCtx, BARREL, PEN.clipBottom), PEN.clipR * Math.sin(clipAngle)),
-            radius: PEN.ballR,
-            line: "The clip only holds your pocket.",
-          },
+          { id: "cone", at: vec(13 + PEN.ballR, drawnY(ballCtx, NOSE, 30), 0), radius: PEN.ballR, line: "The cone only guides the tip." },
+          { id: "barrel", at: vec(PEN.barrelR + 1 + PEN.ballR, drawnY(ballCtx, BARREL, 70), 0), radius: PEN.ballR, line: "Nothing there touches the paper." },
         ],
+        frame: FRAMES.tip,
       },
       produces: [BALL, NOSE],
       without: { say: "Write with it. Watch the ink.", line: "No ball. The ink blots and smears.", test: write, adds: [NOSE], values: { [SQUEEZE]: 0 } },
@@ -504,9 +561,10 @@ export default defineStory({
             right: true,
             line: "Right there. It pushes the tip back up.",
           },
-          { id: "middle", at: vec(0, drawnY(springCtx, REFILL, 80), 0), radius: PEN.springR, line: "Nothing to push against there." },
-          { id: "top", at: vec(0, drawnY(springCtx, REFILL, 130), 0), radius: PEN.springR, line: "Up there it would push the tip out." },
+          { id: "middle", at: vec(0, drawnY(springCtx, REFILL, 92), 0), radius: PEN.springR, line: "Nothing to push against there." },
+          { id: "top", at: vec(0, drawnY(springCtx, REFILL, 132), 0), radius: PEN.springR, line: "Nothing to push against there either." },
         ],
+        frame: FRAMES.low,
       },
       produces: [SPRING],
       without: { say: "Pick it up. Watch the tip.", line: "Nothing pushes the tip back in.", test: lift, adds: [], values: { [STIFFNESS]: 0 } },
@@ -551,9 +609,10 @@ export default defineStory({
             right: true,
             line: "Right there. The button pushes it each click.",
           },
-          { id: "middle", at: vec(0, drawnY(camCtx, REFILL, 90), 0), radius: PEN.camR, line: "It can't reach the button there." },
-          { id: "tip", at: vec(0, drawnY(camCtx, REFILL, 12), 0), radius: PEN.camR, line: "Ink comes out there. No room." },
+          { id: "middle", at: vec(0, drawnY(camCtx, REFILL, CAM_MID - 40), 0), radius: PEN.camR, line: "It can't reach the button there." },
+          { id: "low", at: vec(0, drawnY(camCtx, REFILL, CAM_MID - 76), 0), radius: PEN.camR, line: "Too far down. The button never touches it." },
         ],
+        frame: FRAMES.top,
       },
       produces: [CAM],
       without: { say: "Click it. Then let go.", line: "It pops straight back in.", test: letgo, adds: [], values: { [PRESS]: 1 } },
@@ -600,3 +659,11 @@ export default defineStory({
     ],
   },
 });
+
+/** The pen's controls and tests by name, for the mechanism lesson (pen-mechanisms.ts), which asks its own questions of the same model. */
+export const PEN_RIG = {
+  keys: { squeeze: SQUEEZE, stiffness: STIFFNESS, press: PRESS, pressure: PRESSURE, notch: NOTCH },
+  controls: { squeeze, stiffness, pressing, pressure, notch },
+  tests: { write, wait, lift, press, letgo, again },
+  frames: FRAMES,
+} as const;

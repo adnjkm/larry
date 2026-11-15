@@ -18,7 +18,7 @@ export const ballTip: KnownMechanism = {
         need: "Fitted closely enough to hold {fluid} back, loosely enough for the ball to turn freely.",
         missing: "{fluid} runs straight out of the open tube and pools on {surface}.",
         little: "{fluid} seeps round the ball and leaves blobs along the line.",
-        much: "The ball is pinched and cannot turn, so nothing comes out.",
+        much: "The ball is pinched and barely turns, so the line skips.",
       },
     },
     {
@@ -36,8 +36,8 @@ export const ballTip: KnownMechanism = {
   ],
   path: ["Hand", "Tip", "Ball", "{=fluid}", "{=surface}"],
   steps: [
-    { format: "who", sub: "close" },
-    { format: "much", sub: "roll" },
+    { format: "who", sub: "roll" },
+    { format: "much", sub: "close" },
     {
       format: "break",
       failure: "Make the line skip",

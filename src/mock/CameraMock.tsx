@@ -101,12 +101,18 @@ export default function CameraMock({
   after,
   dials = !after,
   compare = true,
+  mechanisms,
+  kit,
 }: {
   object?: string;
   after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode;
   dials?: boolean;
   /** The still phone on the left showing the screen before. Off for a demo that is only the one live phone. */
   compare?: boolean;
+  /** How many mechanisms the lesson after has, for the result's progress bar. Defaults to the dials' count. */
+  mechanisms?: number;
+  /** The model the result shows, when the lesson after has its own. Defaults to the object's scanned kit. */
+  kit?: Kit;
 } = {}) {
   const [settings, setSettings] = useState<MockSettings>(() =>
     defaultSettings(initialObject ?? (OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? ""))),
@@ -138,8 +144,9 @@ export default function CameraMock({
   const usableHeight = DEVICE.height - usableTop - GESTURE_BAR;
   const frame = { width: DEVICE.width + 2 * DEVICE.bezel, height: DEVICE.height + 2 * DEVICE.bezel };
   const scale = useFitScale(frame.height + 32);
-  const object = OBJECTS.find((o) => o.name === settings.object) ?? OBJECTS[0];
-  if (!object) return null;
+  const scanned = OBJECTS.find((o) => o.name === settings.object) ?? OBJECTS[0];
+  if (!scanned) return null;
+  const object = kit ? { ...scanned, kit } : scanned;
   // The phone on the left holds still on the screen before this one, to compare against: the camera beside the model,
   // the model beside the lesson. The camera has nothing before it, so the model stands beside it.
   const previous: Screen = current === "model" ? "camera" : "model";
@@ -155,6 +162,7 @@ export default function CameraMock({
               pace={settings.pace}
               startAt={previous === "camera" ? "live" : "done"}
               settings={settings}
+              mechanisms={mechanisms}
               usableTop={usableTop}
               usableHeight={usableHeight}
               onRestart={() => {}}
@@ -182,6 +190,7 @@ export default function CameraMock({
               pace={settings.pace}
               startAt={run.startAt}
               settings={settings}
+              mechanisms={mechanisms}
               usableTop={usableTop}
               usableHeight={usableHeight}
               onRestart={() => restart("live")}
@@ -230,6 +239,7 @@ function Flow({
   onBuild,
   onCamera,
   still = false,
+  mechanisms,
 }: {
   object: MockObject;
   pace: Pace;
@@ -243,13 +253,14 @@ function Flow({
   onCamera?: (up: boolean) => void;
   /** A still copy for comparing against: nothing turns, and the keyboard doesn't work it. */
   still?: boolean;
+  mechanisms?: number;
 }) {
   const atEnd = startAt === "done";
   const { kit } = object;
   const [phase, setPhase] = useState<Phase>(atEnd ? "done" : "live");
   // The lesson, one step per mechanism: the furthest step reached (-1 until Build It), and the step on screen, which
   // can be any step up to the furthest, never past it.
-  const steps = settings.model.steps;
+  const steps = mechanisms ?? settings.model.steps;
   const [reached, setReached] = useState(-1);
   const [step, setStep] = useState(0);
   const finished = reached >= steps;
@@ -265,13 +276,15 @@ function Flow({
   function read() {
     setPhase("reading");
     const pacing = PACES[pace];
+    // A model with many small parts lays them out faster, so the whole build takes no longer than a few big ones.
+    const gap = Math.min(pacing.gap, (pacing.gap * 6) / kit.parts.length);
     kit.parts.forEach((part, i) =>
-      later(pacing.first + i * pacing.gap, () => {
+      later(pacing.first + i * gap, () => {
         if (i === 0) setPhase("building");
         setParts((p) => [...p, part]);
       }),
     );
-    later(pacing.first + (kit.parts.length - 1) * pacing.gap + pacing.tail, () => {
+    later(pacing.first + (kit.parts.length - 1) * gap + pacing.tail, () => {
       setPhase("done");
     });
   }

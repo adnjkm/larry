@@ -2,7 +2,7 @@
 // spots. A wrong spot runs the module's own failure with the piece where it was put (the cap rattles off a neck
 // with no thread on it, a seal round the base lets the cap leak), says why, and crosses the spot out; the right
 // spot seats the piece with a cheer. A tap on a ring puts the piece there too, so it works without dragging.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Kit, Part, Shape } from "../../shared/kit.ts";
 import { play, useAlive } from "./anim.ts";
 import { PillSurface } from "../../src/ui/PillSurface.tsx";
@@ -10,7 +10,7 @@ import { Cheer } from "./Cheer.tsx";
 import { cornersOf, cover, GHOST, MIN_HIT, screenBox } from "./DragBuild.tsx";
 import { lensOf, type Point } from "./lens.ts";
 import { familyOf, type Mark, type Overlay, presentAfter, type Spot, STILL, type Story, vec, type Vec } from "./model.ts";
-import { compose, drawObject, extents, restCentre } from "./pose.ts";
+import { compose, drawObject, extents, framePart, restCentre } from "./pose.ts";
 import { COLOR } from "./primitives/parts.ts";
 import { Actions, Need, Say, Viewer, Why } from "./ui.tsx";
 
@@ -69,9 +69,9 @@ function ringsAt(spot: Spot, span: number, color: string): Part[] {
   }));
 }
 
-type Props = { story: Story; kit: Kit; index: number; next: string; onNext: () => void };
+type Props = { story: Story; kit: Kit; index: number; next: string; onNext: () => void; /** Shown over the instruction in place of the module's requirement. */ header?: ReactNode };
 
-export function Place({ story, kit, index, next, onNext }: Props) {
+export function Place({ story, kit, index, next, onNext, header }: Props) {
   const alive = useAlive();
   const module = story.modules[index]!;
   const place = module.place!;
@@ -105,7 +105,9 @@ export function Place({ story, kit, index, next, onNext }: Props) {
     const still: Overlay = { moves: {}, marks: [], rigid: STILL, live: "" };
     const object = drawOf(atRest)(still);
     const box = extents(object);
-    const tray = vec(box.max.x + (box.max.x - box.min.x) * TRAY_OUT, (box.min.y + box.max.y) / 2, 0);
+    // On an object framed at one end, the piece waits beside that end, not beside the middle of the whole thing.
+    const beside = place.frame ?? box;
+    const tray = vec(box.max.x + (box.max.x - box.min.x) * TRAY_OUT, (beside.min.y + beside.max.y) / 2, 0);
     const at = (spot: Spot) => posed(piece, home, spot.at, spot.radius / own);
     // The piece where a spot puts it, as marks riding the object, so a test that shakes the object shakes it too.
     const marksAt = (spot: Spot): Mark[] =>
@@ -113,7 +115,8 @@ export function Place({ story, kit, index, next, onNext }: Props) {
     const inTray = posed(piece, home, tray, 1);
     const span = extents(posed(piece, home, home, 1)).max.y - extents(posed(piece, home, home, 1)).min.y;
     const spotsDrawn = place.spots.flatMap((s) => at(s));
-    return { piece, home, own, ctx, draw, still, object, tray, at, marksAt, inTray, span, around: [...object, ...inTray, ...spotsDrawn] };
+    const around = place.frame ? [framePart(place.frame), ...inTray] : [...object, ...inTray, ...spotsDrawn];
+    return { piece, home, own, ctx, draw, still, object, tray, at, marksAt, inTray, span, around };
   }, [story, kit, index, module, place]);
 
   const [phase, setPhase] = useState<Phase>({ kind: "loose" });
@@ -149,7 +152,8 @@ export function Place({ story, kit, index, next, onNext }: Props) {
           ),
         );
   const parts = anim ? setup.draw(anim) : [...setup.object, ...rings, ...shownPiece];
-  const subject = useMemo(() => (reach ? [...setup.around, ...reach] : setup.around), [reach, setup]);
+  // A framed object keeps its frame while a wrong spot's failure plays.
+  const subject = useMemo(() => (reach && !place.frame ? [...setup.around, ...reach] : setup.around), [reach, setup]);
 
   const run = async (spot: Spot) => {
     setPhase({ kind: "running", spot: spot.id });
@@ -220,7 +224,7 @@ export function Place({ story, kit, index, next, onNext }: Props) {
 
   return (
     <main className="page" data-stage="place" ref={box}>
-      {module.need ? <Need text={module.need} met={found ? true : undefined} /> : null}
+      {header ?? (module.need ? <Need text={module.need} met={found ? true : undefined} /> : null)}
       <Say
         kicker={`${module.title} · Find the spot`}
         found={found}

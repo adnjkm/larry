@@ -446,6 +446,11 @@ export const grip: Primitive = {
         return r.slid > 0 ? [r.tilt, TILT.max] : [TILT.min, TILT.max];
       },
     },
+    facts: {
+      say: "/grip/",
+      is: "Two surfaces that hold by rubbing, until they slip.",
+      note: "Roughness affects how steep a slope it holds on.",
+    },
     label: "Lift",
     build: rampBuild,
     tasks: TASKS,

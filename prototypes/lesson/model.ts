@@ -49,7 +49,8 @@ export const EMPTY_SCENE: Scene = { moves: {}, marks: [] };
 
 export type Ctx = { kit: Kit; present: readonly string[] };
 export type TestCtx = Ctx & { centre: Vec };
-export type Verdict = { pass: boolean; line: string; nudge?: string };
+/** `kind` names the outcome ("skip", "blot") for a screen that asks for one outcome in particular. */
+export type Verdict = { pass: boolean; line: string; nudge?: string; kind?: string };
 export type Run = { verdict: Verdict; durationMs: number; at: (ms: number) => Overlay };
 export type Test = { id: string; label: string; run: (values: Values, ctx: TestCtx) => Run };
 
@@ -194,6 +195,9 @@ export type Rig = {
  * A module told as a story with no numbers: the object fails without this part, the primitive is
  * played with in words, the part is built, and the player makes it work with a direct control.
  */
+/** A box in the kit's own mm that a screen's camera fits and holds, for an object too tall to read whole: its tip, or its top. */
+export type Frame = { min: Vec; max: Vec };
+
 /** A place on the object the piece can be put in the "Find the spot" game, in the kit's own mm. */
 export type Spot = {
   id: string;
@@ -224,6 +228,8 @@ export type Place = {
   builds?: boolean;
   /** Parts left off while the player looks for the spot because they would cover it (the cap over the seal). */
   hide?: readonly string[];
+  /** The stretch of the object the spots are on, when it is too tall to show whole. The piece waits beside it. */
+  frame?: Frame;
 };
 
 export type StoryModule = Built & {
