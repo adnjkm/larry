@@ -53,6 +53,9 @@ async function* scan(request: StructuredRequest, run: typeof query, abortControl
       // Without this the API holds back a whole top-level value until it is complete, so arrays would arrive in one burst at the end.
       env: { ...process.env, CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING: "1" },
       tools: [],
+      // Without this the SDK connects every connector on the Claude account (hundreds of tools): about 7 s of start-up
+      // and 300,000 tokens of tool definitions on each call.
+      strictMcpConfig: true,
       settingSources: [],
       persistSession: false,
       // The SDK spends a turn on each retry when the output fails the schema.
