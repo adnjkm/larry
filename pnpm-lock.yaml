@@ -29,6 +29,12 @@ importers:
       dialkit:
         specifier: ^2.2.0
         version: 2.2.0(motion@14.14.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      ditherdance:
+        specifier: 0.3.0
+        version: 0.3.0(react@19.3.1)
+      glimm:
+        specifier: 0.4.1
+        version: 0.4.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       hono:
         specifier: ^4.13.18
         version: 4.13.18
@@ -1052,6 +1058,18 @@ packages:
       vue:
         optional: true
 
+  ditherdance@0.3.0:
+    resolution: {integrity: sha512-F4cX6ISE+1bI4s+yNVD/FuCmOdfNwu15fBrAtkCP+cmmxfLB0wMcJkgd54iaff6ejICLTQDIj5m1OXqnPcXviw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      react: '>=18'
+      vue: '>=3.3'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      vue:
+        optional: true
+
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
@@ -1173,6 +1191,21 @@ packages:
   get-proto@1.0.1:
     resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
     engines: {node: '>= 0.4'}
+
+  glimm@0.4.1:
+    resolution: {integrity: sha512-Mi6fIrGR5/sVX0C6aasgjRDZ+/hhZdGMYo4iPV7tMKuQ+dxBm4YbWZVomkyAZoCBBqMxf6KOthP9fyVUgql4aA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      next: '>=14'
+      react: '>=18'
+      react-dom: '>=18'
+    peerDependenciesMeta:
+      next:
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
@@ -2421,6 +2454,10 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
+  ditherdance@0.3.0(react@19.3.1):
+    optionalDependencies:
+      react: 19.3.1
+
   dunder-proto@1.0.1:
     dependencies:
       call-bind-apply-helpers: 1.0.2
@@ -2554,6 +2591,11 @@ snapshots:
     dependencies:
       dunder-proto: 1.0.1
       es-object-atoms: 1.1.2
+
+  glimm@0.4.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+    optionalDependencies:
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
 
   gopd@1.2.0: {}
 

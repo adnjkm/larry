@@ -5,9 +5,8 @@ import type { DevelopLook } from "./look.ts";
 import type { GreyField } from "./photo.ts";
 
 /*
- * The camera's synthwave light, cell by cell: the capture sweep's band and the swell over the grey photo after the
- * last shot. Both work out, for each cell, how strongly the light shows (`a`) and where it sits along the synthwave
- * ramp (`tone`), and `light` dithers that: kept or dropped by its strength against the Bayer threshold, then snapped
+ * The camera's synthwave light over the grey photo after the last shot, cell by cell. For each cell it works out how
+ * strongly the light shows (`a`) and where it sits along the synthwave ramp (`tone`), and `light` dithers that: kept or dropped by its strength against the Bayer threshold, then snapped
  * between the two stops either side of its tone.
  */
 
@@ -21,102 +20,6 @@ function light(px: Uint32Array, i: number, th: number, a: number, tone: number) 
 }
 
 const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
-const smoothstep = (a: number, b: number, t: number) => {
-  const k = clamp01((t - a) / (b - a));
-  return k * k * (3 - 2 * k);
-};
-
-// ---------------------------------------------------------------- the sweep
-
-/*
- * glimm's band, as its "Generate data" demo plays it in a card: a Gaussian across the travel axis whose ends trail its
- * middle on a parabola, a faint wake behind it, and a halo at mid-run. Distances are shares of the frame's height.
- */
-const TIGHT = 28;
-/** The band starts and ends this far past the frame, so it enters and leaves whole. */
-const OVERSCAN = Math.max(0.2, Math.sqrt(4.6 / TIGHT));
-/** Where the band has already reached when a sweep starts. */
-const PEEK = 0.08;
-const RAMP_MS = 140;
-const PEAK = 1.1;
-/** Ahead of this the band is too faint for any cell to light; behind it the wake ends. */
-const AHEAD = 0.4;
-const BEHIND = 0.66;
-
-export type SweepFrame = {
-  /** The band's middle, as a share of the frame's height up from its bottom. Past 1 it has left the top. */
-  front: number;
-  /** 0 to 1, how far through its run. */
-  progress: number;
-  alpha: number;
-  curve: number;
-};
-
-/** The sweep `since` ms after it started, or null once it has finished. */
-export function sweepAt(since: number, ms: number, curve: number): SweepFrame | null {
-  const k = since / ms;
-  if (k >= 1) return null;
-  const progress = PEEK + (1 - PEEK) * (1 - (1 - k) ** 2.4);
-  const entry = 0.2 + 0.8 * 4 * progress * (1 - progress);
-  const alpha = (1 - k) ** 1.2 * smoothstep(0, 1, since / RAMP_MS) * PEAK * entry;
-  return { front: -OVERSCAN + (1 + 2 * OVERSCAN) * progress, progress, alpha, curve };
-}
-
-/** How strongly the band shows `d` ahead of its middle (negative behind). */
-function bandAt(d: number, f: SweepFrame) {
-  const band = Math.exp(-d * d * TIGHT);
-  const behind = d < 0 ? -d : 0;
-  const trail = smoothstep(0, 0.08, behind) * (1 - smoothstep(0.12, 0.65, behind)) * 0.1;
-  const halo = Math.exp(-d * d * 2.5) * 0.05 * 4 * f.progress * (1 - f.progress);
-  return Math.min(1, Math.max(band, trail) + halo * (1 - band)) * f.alpha;
-}
-
-/** Whether any of the band shows in the frame's top `margin` (a share of its height). */
-export const reachedTop = (f: SweepFrame, margin: number) => f.front + AHEAD >= 1 - margin && bandAt(1 - margin - f.front, f) > 1 / 32;
-
-/** The band's strength and tone by distance from its middle, tabulated each frame at this many steps per row. */
-const STEPS_PER_ROW = 2;
-let profileA = new Float32Array(0);
-let profileTone = new Float32Array(0);
-let lag = new Float32Array(0);
-
-/**
- * One frame of the sweep into `r`, which covers the frame one pixel per cell. Gold leads, falling through coral and
- * pink to indigo in its wake. Only the rows the band can light are worked out, and the band's profile is tabulated
- * once per frame rather than worked out per cell.
- */
-export function drawSweep(r: Raster, f: SweepFrame) {
-  const { px, cols, rows } = r;
-  px.fill(0);
-  const d0 = -BEHIND - f.curve;
-  const perD = rows * STEPS_PER_ROW;
-  const n = Math.ceil((AHEAD - d0) * perD) + 2;
-  if (profileA.length < n) {
-    profileA = new Float32Array(n);
-    profileTone = new Float32Array(n);
-  }
-  for (let j = 0; j < n; j++) {
-    const d = d0 + j / perD;
-    profileA[j] = bandAt(d, f);
-    profileTone[j] = clamp01(0.75 + d * 1.5);
-  }
-  if (lag.length < cols) lag = new Float32Array(cols);
-  for (let x = 0; x < cols; x++) {
-    const c = (2 * (x + 0.5)) / cols - 1;
-    lag[x] = f.curve * c * c;
-  }
-  const yTop = Math.max(0, Math.floor((1 - (f.front + AHEAD)) * rows));
-  const yBottom = Math.min(rows, Math.ceil((1 - (f.front - BEHIND - f.curve)) * rows));
-  for (let y = yTop; y < yBottom; y++) {
-    const rowD = 1 - (y + 0.5) / rows - f.front - d0;
-    for (let x = 0; x < cols; x++) {
-      const j = ((rowD + lag[x]!) * perD + 0.5) | 0;
-      if (j < 0 || j >= n) continue;
-      light(px, y * cols + x, threshold(x, y), profileA[j]!, profileTone[j]!);
-    }
-  }
-  r.ctx.putImageData(r.image, 0, 0);
-}
 
 // ---------------------------------------------------------------- the swell
 

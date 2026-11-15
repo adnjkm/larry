@@ -1,10 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import { camera } from "./camera.stylex.ts";
-import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { raster } from "../surface/dither.ts";
+import { type CSSProperties, type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import { accentChain } from "glimm";
+import { GlimmScope, type GlimmScopeHandle } from "glimm/react";
 import { animate } from "../surface/ticker.ts";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
-import { drawSweep, reachedTop, type SweepFrame, sweepAt } from "./light.ts";
+import { ditherBand } from "./band.ts";
 import { CAMERA, type Tuning } from "./look.ts";
 import { angleCss, ANGLES, fitFor, type Framing } from "./photo.ts";
 import { screen } from "./screen.stylex.ts";
@@ -24,9 +25,23 @@ export type ViewfinderHandle = {
   framing: () => Framing;
 };
 
-/** The band counts as having reached the top once it shows in this share of the frame's top. */
-const TOP_MARGIN = 0.03;
+/** The band counts as having reached the top once its top edge is this close to the frame's top (a share of its height). */
+const TOP_REACHED = 0.03;
 const SWEEP_FPS = 60;
+/** glimm's "Generate data" palette, through the synthwave stops; the dither snaps it to SYNTHWAVE anyway. */
+const UNVEIL_PALETTE = accentChain(["#23005F", "#8700AF", "#FF0087", "#FF5F37", "#FFD700"]);
+/** glimm's scope takes a style object, not a class. */
+const SCOPE_FILL: CSSProperties = { position: "absolute", inset: 0 };
+/**
+ * glimm's band is never shown, only read back each frame and redrawn as dither, and reading a canvas back is slow. So
+ * its canvas is shrunk by this much: glimm sizes it from its on-screen box, transforms included.
+ */
+const BAND_SCALE = 0.25;
+/**
+ * glimm fades its band out over the last 24 px at each edge of its canvas, so the canvas reaches this far past the
+ * frame on every side and the fade falls outside it. The canvas is shrunk by BAND_SCALE, so its 24 px are this many here.
+ */
+const BAND_BLEED = 24 / BAND_SCALE;
 /** The swell eases in this far into the sweep that unveils it, so the photo is already moving behind the band. */
 const SETTLE = 0.15;
 
@@ -51,13 +66,17 @@ export function Viewfinder({
   const feed = useRef<HTMLDivElement>(null);
   const old = useRef<HTMLDivElement>(null);
   const band = useRef<HTMLCanvasElement>(null);
+  const scope = useRef<GlimmScopeHandle>(null);
+  const scopeBox = useRef<HTMLDivElement>(null);
+  const glimmCanvas = useRef<HTMLCanvasElement | null>(null);
   const zoom = useRef<number>(CAMERA.zoom.min);
   const [chip, setChip] = useState<number>(CAMERA.zoom.min);
   // The view the band is unveiling the current one over, while it climbs.
   const [from, setFrom] = useState<View | null>(null);
   const shown = useRef(view);
   shown.current = view;
-  const frame = useRef<SweepFrame | null>(null);
+  // The band's top edge as a share of the frame's height up from its bottom, while a sweep runs.
+  const front = useRef<number | null>(null);
   const stopSweep = useRef<() => void>(() => {});
   const latest = useRef(tuning);
   latest.current = tuning;
@@ -69,10 +88,27 @@ export function Viewfinder({
     grain: CAMERA.grain,
     look: tuning.develop,
     settleMs: tuning.sweep.ms * SETTLE,
-    sweep: () => ({ frame: frame.current, band: band.current }),
+    sweep: () => ({ front: front.current, band: band.current }),
   });
 
   useEffect(() => () => stopSweep.current(), []);
+
+  useLayoutEffect(() => {
+    const canvas = scopeBox.current?.querySelector<HTMLCanvasElement>(":scope > div > canvas");
+    if (!canvas) return;
+    // glimm makes its WebGL context on the first play and reuses one that already exists. Making it first, with
+    // preserveDrawingBuffer, keeps each frame readable after it's shown, so the dither can copy it.
+    canvas.getContext("webgl", { alpha: true, antialias: false, premultipliedAlpha: true, preserveDrawingBuffer: true });
+    Object.assign(canvas.style, {
+      opacity: "0",
+      inset: `${-BAND_BLEED}px`,
+      width: `calc(100% + ${2 * BAND_BLEED}px)`,
+      height: `calc(100% + ${2 * BAND_BLEED}px)`,
+      transform: `scale(${BAND_SCALE})`,
+      transformOrigin: "0 0",
+    });
+    glimmCanvas.current = canvas;
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -86,35 +122,28 @@ export function Viewfinder({
         }
         if (old.current) old.current.style.clipPath = "";
         setFrom(shown.current);
-        // Whole device px per cell, so the pixelated cells come out even.
-        const dpr = Math.min(3, window.devicePixelRatio || 1);
-        const cell = Math.max(1, Math.round(latest.current.sweep.grain * dpr));
-        const cols = Math.ceil((box.width * dpr) / cell);
-        const rows = Math.ceil((box.height * dpr) / cell);
-        el.style.width = `${(cols * cell) / dpr}px`;
-        el.style.height = `${(rows * cell) / dpr}px`;
-        const r = raster(el, cols, rows);
-        if (!r) return;
+        scope.current?.play({});
         const start = performance.now();
+        const scratch = document.createElement("canvas");
         let topped = false;
         const finish = () => {
-          frame.current = null;
-          r.px.fill(0);
-          r.ctx.putImageData(r.image, 0, 0);
+          front.current = null;
+          el.getContext("2d")?.clearRect(0, 0, el.width, el.height);
           setFrom(null);
           if (!topped) onTop();
         };
         const stop = animate(SWEEP_FPS, (now) => {
-          const { ms, curve } = latest.current.sweep;
-          const f = sweepAt(now - start, ms, curve);
-          frame.current = f;
-          if (!f) {
+          const source = glimmCanvas.current;
+          const since = now - start;
+          const edge = source ? ditherBand(el, source, box.width, box.height, BAND_BLEED, latest.current.sweep.grain, scratch) : null;
+          front.current = edge === null ? null : 1 - edge;
+          // Stop once the band has gone, or a beat after the sweep should have ended, whichever is first.
+          if ((edge === null && since > 400) || since > latest.current.sweep.ms + 1200) {
             finish();
             return false;
           }
-          drawSweep(r, f);
-          if (old.current) old.current.style.clipPath = `inset(0 0 ${(Math.min(1, Math.max(0, f.front)) * 100).toFixed(2)}% 0)`;
-          if (!topped && reachedTop(f, TOP_MARGIN)) {
+          if (old.current && edge !== null) old.current.style.clipPath = `inset(0 0 ${((1 - edge) * 100).toFixed(2)}% 0)`;
+          if (!topped && edge !== null && edge <= TOP_REACHED) {
             topped = true;
             onTop();
           }
@@ -145,13 +174,26 @@ export function Viewfinder({
       />
       <div {...stylex.props(s.card(box.width, box.height))}>
         <div ref={feed} {...stylex.props(s.feed, s.drift, (frozen || !live) && s.frozen)}>
-          <Scene photo={photo} box={box} view={view} grey={develop.grey} />
-          {from && (
-            <div ref={old} {...stylex.props(s.fill)}>
-              <Scene photo={photo} box={box} view={from} />
-            </div>
-          )}
-          <canvas ref={band} aria-hidden {...stylex.props(s.cells)} />
+          <div ref={scopeBox} {...stylex.props(s.fill)}>
+            <GlimmScope
+              ref={scope}
+              palette={UNVEIL_PALETTE}
+              direction="btt"
+              origin={[0.5, 1]}
+              curve={tuning.sweep.curve}
+              span={1}
+              sweepMs={tuning.sweep.ms}
+              style={SCOPE_FILL}
+            >
+              <Scene photo={photo} box={box} view={view} grey={develop.grey} />
+              {from && (
+                <div ref={old} {...stylex.props(s.fill)}>
+                  <Scene photo={photo} box={box} view={from} />
+                </div>
+              )}
+            </GlimmScope>
+          </div>
+          <canvas ref={band} aria-hidden {...stylex.props(s.overlay)} />
         </div>
         {live && chip > CAMERA.zoom.min + 0.04 && <span {...stylex.props(s.chip)}>{chip.toFixed(1)}×</span>}
       </div>
@@ -225,6 +267,7 @@ const s = stylex.create({
   // Sized to whole cells, so they can run a little past the frame's edge.
   cells: { position: "absolute", top: 0, left: 0, pointerEvents: "none", imageRendering: "pixelated" },
   hidden: { visibility: "hidden" },
+  overlay: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" },
   // While Larry works the frame glows like a lit screen (see useDevelop).
   glow: (width: number, height: number, pad: number) => ({
     position: "absolute",

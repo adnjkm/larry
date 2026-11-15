@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { raster } from "../surface/dither.ts";
 import { animate } from "../surface/ticker.ts";
-import { drawSwell, type SweepFrame, type Swell, swellFor } from "./light.ts";
+import { drawSwell, type Swell, swellFor } from "./light.ts";
 import type { DevelopLook } from "./look.ts";
 import { drawPhoto, type Framing, greyField } from "./photo.ts";
 import { reducedMotion } from "../motion.ts";
 
 /** The sweep as it stands this frame, for the glow: the band and where it is, or null between sweeps. */
-type SweepNow = { frame: SweepFrame | null; band: HTMLCanvasElement | null };
+type SweepNow = { front: number | null; band: HTMLCanvasElement | null };
 
 type DevelopOptions = {
   /** How the viewfinder framed the photo at the last shot; null until then. The swell draws while it is set. */
@@ -135,10 +135,10 @@ function drawGlow(
   // The grey canvas runs a little past the frame, a whole number of cells.
   const k = (greyWidth / width) * gw;
   const ky = (k / greyEl.width) * greyEl.height;
-  const { frame, band } = o.sweep();
-  if (frame) {
+  const { front, band } = o.sweep();
+  if (front !== null) {
     drawPhoto(s, img, gw, gh, framing, 2);
-    const top = Math.max(0, Math.min(1, 1 - frame.front)) * gh;
+    const top = Math.max(0, Math.min(1, 1 - front)) * gh;
     s.save();
     s.beginPath();
     s.rect(0, top, gw, gh - top);
