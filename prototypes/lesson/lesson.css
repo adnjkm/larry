@@ -43,6 +43,13 @@ html, body { height: 100%; }
 .viewer { flex: 1 1 0; min-height: 150px; position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #fff; }
 .viewer::after { content: ""; position: absolute; inset: 0; border-radius: 16px; box-shadow: 0 0 0 1px var(--rule) inset; pointer-events: none; }
 .viewer > [data-kit-viewer] { position: absolute; inset: 0; }
+/* A mechanism's demo: its frame takes the camera card's corners (camera.cardRadius), and over it a raised pink card
+   lists what the mechanism has to do. */
+.page[data-step="demo"] > .viewer,
+.page[data-step="demo"] > .viewer::after { border-radius: 32px; }
+.needs { position: relative; flex: none; margin: 0; padding: 12px 16px 14px; list-style: none; display: flex; flex-direction: column; gap: 4px; border-radius: 16px; }
+.needs > li { position: relative; z-index: 1; padding-left: 16px; color: #fff; font-size: 16px; line-height: 22px; font-weight: 600; text-wrap: pretty; }
+.needs > li::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
 .live { position: absolute; left: 10px; top: 10px; padding: 5px 9px; border-radius: 8px; background: var(--ink); color: #fff; font-family: "Geist Mono", monospace; font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; }
 .play { position: absolute; left: 8px; bottom: 8px; min-height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px var(--ink) inset; font-size: 13px; font-weight: 600; cursor: pointer; }
 

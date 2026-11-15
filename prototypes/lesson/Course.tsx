@@ -1,6 +1,6 @@
 // A mechanism lesson, played: see course.ts for the shape. One screen at a time, in order; the header has a key per
 // mechanism, and the bubble under it names the one in hand.
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import { PRIMITIVES } from "../../shared/primitives/library.ts";
 import { type Course, FORMAT, type Screen } from "./course.ts";
@@ -10,6 +10,9 @@ import { Rig } from "./Rig.tsx";
 import { Actions, Plain, Say, Shell, type Step } from "./ui.tsx";
 import { Mechanism, PrimitiveScreen } from "../primitives/PrimitiveScreen.tsx";
 import { PillSurface } from "../../src/ui/PillSurface.tsx";
+import { CAMERA } from "../../src/camera/look.ts";
+import { rrect } from "../../src/surface/relief.ts";
+import { Surface } from "../../src/surface/Surface.tsx";
 
 const primitive = (id: string) => {
   const found = PRIMITIVES.find((p) => p.id === id);
@@ -132,20 +135,29 @@ function Page({
   next = "Continue",
   onNext,
   children,
-}: PageProps & { kind: keyof typeof FORMAT; say: string; note?: boolean; done: boolean; line?: string; bad?: boolean; next?: string; children: ReactNode }) {
+}: PageProps & { kind: keyof typeof FORMAT | "demo"; say: string; note?: boolean; done: boolean; line?: string; bad?: boolean; next?: string; children: ReactNode }) {
   return (
     <main className="page step-in" data-step={kind} data-done={done ? "" : undefined}>
-      <Mechanism name={name} step={step} />
-      <div className="question">
-        <span className="mono">{FORMAT[kind]}</span>
-        <Say kicker={FORMAT[kind]} note={note}>
-          {say}
-        </Say>
-      </div>
+      {/* A demo asks nothing: its line is what the mechanism is, so the bubble that names the mechanism holds it. */}
+      {kind === "demo" ? (
+        <Mechanism name={name} step={step} about={say} />
+      ) : (
+        <>
+          <Mechanism name={name} step={step} />
+          <div className="question">
+            <span className="mono">{FORMAT[kind]}</span>
+            <Say kicker={FORMAT[kind]} note={note}>
+              {say}
+            </Say>
+          </div>
+        </>
+      )}
       {children}
-      <p className="result answer" data-bad={bad ? "" : undefined} data-found={done ? "" : undefined} aria-live="polite">
-        {line}
-      </p>
+      {kind === "demo" ? null : (
+        <p className="result answer" data-bad={bad ? "" : undefined} data-found={done ? "" : undefined} aria-live="polite">
+          {line}
+        </p>
+      )}
       <Actions>
         <button type="button" className="btn" data-next disabled={!done} onClick={onNext}>
           <PillSurface>{next}</PillSurface>
@@ -172,8 +184,39 @@ function Demo({ story, kit, screen, ...page }: Bench & PageProps & { screen: Of<
   const waiting = useContext(Waiting);
   return (
     <Page kind="demo" {...page} say={screen.does} done next="Start Building">
+      <Needs lines={screen.needs} />
       <Rig story={story} kit={kit} present={present} pink={coloured} frame={screen.frame} values={screen.values} tests={NO_TESTS} loop={waiting ? undefined : loop} />
     </Page>
+  );
+}
+
+const NEEDS_RADIUS = 16;
+
+/** What the mechanism has to do, one line each, on a raised pink card between the bubble that names it and its demo: the jobs the lesson then builds. */
+function Needs({ lines }: { lines: readonly string[] }) {
+  const box = useRef<HTMLUListElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const read = () => {
+      const [w, h] = [Math.round(el.offsetWidth), Math.round(el.offsetHeight)];
+      setSize((s) => (s && s.w === w && s.h === h ? s : w > 0 && h > 0 ? { w, h } : null));
+    };
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <ul ref={box} className="needs">
+      {size ? (
+        <Surface shape={rrect(size.w, size.h, NEEDS_RADIUS)} relief="keycap" material="pink" ground="light" grain={CAMERA.grain} depth={CAMERA.relief} drift={CAMERA.idleDither} />
+      ) : null}
+      {lines.map((line) => (
+        <li key={line}>{line}</li>
+      ))}
+    </ul>
   );
 }
 

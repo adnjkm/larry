@@ -28,7 +28,7 @@ export type RigProps = {
   locked?: boolean;
   /** The stretch of the object this question is about. The camera fits it and never moves; left off, it fits the whole object. */
   frame?: Frame;
-  /** A run played over and over with a pause between, nothing to press: a demo of the thing working. Give it a `frame`. */
+  /** A run played over and over with a pause between, nothing to press and no status line: a demo of the thing working. Give it a `frame`. */
   loop?: { test: Test; values: Values; pauseMs?: number };
   /** Runs this test once on arrival, so a question about a behaviour opens with the behaviour. */
   opening?: Test;
@@ -131,7 +131,7 @@ export function Rig({ story, kit, present, pink = [], controls = [], values, onV
 
   return (
     <>
-      <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live || undefined} />
+      <Viewer parts={parts} subject={subject} view={story.view} live={loop ? undefined : anim?.live || undefined} />
       {controls.map((c) => {
         const zones = c.zones(world.ctx);
         return (

@@ -24,7 +24,13 @@ type Facts = { does: string; primitive: string; why: string; need: string };
 type Bound = { screen: Screen; place?: number };
 
 /** One library entry as a run of screens: the gap, its primitives in the order its steps meet them, then its questions. */
-function mechanismOf(entry: KnownMechanism, name: string, bind: (step: Step, facts: (sub: string) => Facts) => Bound, opening: readonly Screen[]): Mechanism {
+function mechanismOf(
+  entry: KnownMechanism,
+  name: string,
+  bind: (step: Step, facts: (sub: string) => Facts) => Bound,
+  /** The screens before the primitives, given the mechanism's sub-functions as the library words them. */
+  opening: (needs: readonly string[]) => readonly Screen[],
+): Mechanism {
   const words = wordsFor(entry, []);
   const lesson = lessonOf(entry, entry.id, words);
   const subs = subfunctionsOf(entry, entry.id, words);
@@ -42,7 +48,7 @@ function mechanismOf(entry: KnownMechanism, name: string, bind: (step: Step, fac
     return [{ kind: "place", module: place }, screen];
   });
   const primitives = [...new Set(subs.map((s) => s.primitive))];
-  return { id: entry.id, name, screens: [...opening, ...primitives.map((id): Screen => ({ kind: "primitive", id })), ...questions] };
+  return { id: entry.id, name, screens: [...opening(subs.map((s) => s.does)), ...primitives.map((id): Screen => ({ kind: "primitive", id })), ...questions] };
 }
 
 const unbound = (step: Step): never => {
@@ -61,12 +67,13 @@ const tip = mechanismOf(ballTip, "Ball tip", (step, facts) => {
   if (step.format === "break")
     return { place: BALL, screen: { kind: "break", after: BALL, frame: frames.tip, failure: step.failure, outcome: "skip", controls: [controls.squeeze, controls.pressure], test: tests.write, set: { [keys.squeeze]: SNUG } } };
   return unbound(step);
-}, [
+}, (needs): Screen[] => [
   {
     kind: "demo",
     after: BALL,
     frame: frames.ball,
     does: "A ball that rolls a thin, even line of ink.",
+    needs,
     run: demos.writing,
     values: { [keys.squeeze]: SNUG },
   },
@@ -106,7 +113,7 @@ const click = mechanismOf(
     }
     return unbound(step);
   },
-  [
+  (needs): Screen[] => [
     {
       kind: "gap",
       after: BALL,
@@ -120,7 +127,8 @@ const click = mechanismOf(
       kind: "demo",
       after: LATCH,
       frame: frames.click,
-      does: "A click that sends the tip out, and another that tucks it away.",
+      does: "Each click sends the tip out or tucks it away.",
+      needs,
       run: demos.clicking,
       values: {},
       pink: ["spring"],

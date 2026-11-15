@@ -152,7 +152,9 @@ const cached = (key: string, make: () => Shape): Shape => {
   shapes.set(key, made);
   return made;
 };
-const stroke = (len: number, depth: number) => cached(`stroke ${len} ${depth}`, () => ({ kind: "box", width: len, height: 3, depth, cornerRadius: 0.8 }));
+/** How thick a line of ink lies on the paper: enough to see from the side, well under the ball. */
+const INK_H = 1.2;
+const stroke = (len: number, depth: number) => cached(`stroke ${len} ${depth}`, () => ({ kind: "box", width: len, height: INK_H, depth, cornerRadius: 0.5 }));
 const disc = (r: number) =>
   cached(`disc ${r}`, () => ({
     kind: "lathe",
@@ -176,8 +178,10 @@ const bead = (r: number) =>
 const { g: G, radius: DROP_R, marks: dropMarks } = dropsAt(0.5);
 
 const REACH = 40;
-/** The ink lies a little behind the tip so it shows beside the pen's ground shadow, which falls toward the viewer. */
-const INK_Z = -7;
+/** The ink is laid where the ball touches the paper, so the line runs out from under the ball. */
+const INK_Z = 0;
+/** How wide each kind of line is. A good one is well under the ball's own width, so it reads as coming off the ball. */
+const LINE = { thin: 3.4, dug: 6, smear: 8 } as const;
 type Outcome = "inside" | "blot" | "good" | "skip" | "dig";
 /** A skipping line is laid in dashes this long, with gaps as long. */
 const DASH = 5;
@@ -224,16 +228,16 @@ const write: Test = {
         const laid = Math.round(reach * along);
         const marks: Mark[] = [];
         if ((outcome === "good" || outcome === "dig") && laid > 0)
-          marks.push({ id: "line", shape: stroke(laid, outcome === "dig" ? 12 : 8), at: vec(laid / 2, 1.5, INK_Z), ride: null });
+          marks.push({ id: "line", shape: stroke(laid, outcome === "dig" ? LINE.dug : LINE.thin), at: vec(laid / 2, INK_H / 2, INK_Z), ride: null });
         if (outcome === "skip")
           for (let from = 0; from < laid; from += 2 * DASH) {
             const len = Math.min(DASH, laid - from);
-            marks.push({ id: `dash-${from}`, shape: stroke(len, 8), at: vec(from + len / 2, 1.5, INK_Z), ride: null });
+            marks.push({ id: `dash-${from}`, shape: stroke(len, LINE.thin), at: vec(from + len / 2, INK_H / 2, INK_Z), ride: null });
           }
         if (outcome === "blot") {
           const r = Math.round(1 + 5.5 * seg(ms, release, release + wet));
           marks.push({ id: "blot", shape: disc(r), at: vec(0, 0.7, INK_Z), ride: null });
-          if (laid > 0) marks.push({ id: "smear", shape: stroke(laid, 11), at: vec(laid / 2, 1.5, INK_Z), ride: null });
+          if (laid > 0) marks.push({ id: "smear", shape: stroke(laid, LINE.smear), at: vec(laid / 2, INK_H / 2, INK_Z), ride: null });
         }
         const live =
           outcome === "inside"

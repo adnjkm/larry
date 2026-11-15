@@ -15,7 +15,7 @@ import { GameStore, useSelect } from "../../src/primitives/game/store.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
 import { PillLabel, PillSurface } from "../../src/ui/PillSurface.tsx";
 import { CAMERA } from "../../src/camera/look.ts";
-import { BubbleLabel } from "../../src/ui/BubbleLabel.tsx";
+import { BubbleLabel, BubbleTerm } from "../../src/ui/BubbleLabel.tsx";
 import { Term } from "../../src/ui/Term.tsx";
 import { StepCard } from "../../src/ui/StepCard.tsx";
 import { bubble, circle } from "../../src/surface/relief.ts";
@@ -183,9 +183,10 @@ const TAB_H = 10;
 /**
  * The row under the header naming the mechanism this lesson is about, on the grey dithered keycap the lesson's
  * requirement row uses (prototypes/lesson/ui.tsx Need), with "Mechanism" for its label. It is a speech bubble: a tab
- * points straight up out of the key, under the header's lit key, as part of the one raised shape.
+ * points straight up out of the key, under the header's lit key, as part of the one raised shape. It reads "Ball Tip
+ * (MECHANISM)"; given `about`, the bubble grows to explain the mechanism, with that one line under the name.
  */
-export function Mechanism({ name, step }: { name?: string; step?: number } = {}) {
+export function Mechanism({ name, step, about }: { name?: string; step?: number; about?: string } = {}) {
   const lesson = useContext(Lesson);
   const label = name ?? lesson?.name;
   const keyNumber = (step ?? lesson?.key ?? 0) + 1;
@@ -221,7 +222,13 @@ export function Mechanism({ name, step }: { name?: string; step?: number } = {})
           drift={CAMERA.idleDither}
         />
       ) : null}
-      <BubbleLabel>{label ?? "Lorem Ipsum Dolor Sit Amet, Consectetur Elit"}</BubbleLabel>
+      {label ? (
+        <BubbleTerm name={label} kind="mechanism">
+          {about}
+        </BubbleTerm>
+      ) : (
+        <BubbleLabel>Lorem Ipsum Dolor Sit Amet, Consectetur Elit</BubbleLabel>
+      )}
     </p>
   );
 }

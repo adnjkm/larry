@@ -14,7 +14,30 @@ export function BubbleLabel({ children }: { children: ReactNode }) {
   return <span {...stylex.props(s.label)}>{text}</span>;
 }
 
+/**
+ * A speech bubble that says what kind of thing it names: the name in Open Runde with its kind after it in Paper Mono
+ * capitals, centred ("Ball Tip (MECHANISM)"). Given a line of text, it grows to explain the thing too: that line sits
+ * under the name, and both are set at 16.
+ */
+export function BubbleTerm({ name, kind, children }: { name: string; kind: string; children?: string }) {
+  return (
+    <span {...stylex.props(s.term)}>
+      <span {...stylex.props(s.head)}>
+        <span {...stylex.props(s.name, children !== undefined && s.nameLarge)}>{titleCase(name)}</span>
+        <span {...stylex.props(s.kind)}>({kind})</span>
+      </span>
+      {children === undefined ? null : <span {...stylex.props(s.does)}>{children}</span>}
+    </span>
+  );
+}
+
 const s = stylex.create({
+  term: { position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, color: colors.ink, fontFamily: fonts.sans, textAlign: "center" },
+  head: { display: "flex", alignItems: "baseline", justifyContent: "center", gap: 8 },
+  name: { fontSize: 15, lineHeight: "20px", fontWeight: 600, letterSpacing: "-0.01em" },
+  nameLarge: { fontSize: 16, lineHeight: "22px", fontWeight: 700 },
+  kind: { fontFamily: fonts.mono, fontSize: 12, lineHeight: "16px", letterSpacing: "0.04em", textTransform: "uppercase", color: colors.graphite },
+  does: { fontSize: 16, lineHeight: "22px", fontWeight: 500 },
   label: {
     position: "relative",
     flex: 1,
