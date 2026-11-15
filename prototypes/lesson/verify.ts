@@ -406,12 +406,12 @@ class Run {
     await this.page.waitForSelector('[data-stage="assemble"] [data-next]:not([disabled])', { timeout: 10_000 });
   }
 
-  /** Twists the play grip in short drags, one way, until it reads `word`. */
+  /** Moves the play grip in small steps, one way, until it reads `word`. */
   async twistTo(word: string, dir: 1 | -1) {
     const grip = "[data-strip] .grip";
     for (let i = 0; i < 120; i++) {
-      if ((await this.page.getAttribute(grip, "aria-valuetext")) === word) return this.check(`the grip reads ${word} after ${i} drags`, true);
-      await this.drag(grip, 20 * dir);
+      if ((await this.page.getAttribute(grip, "aria-valuetext")) === word) return this.check(`the grip reads ${word} after ${i} steps`, true);
+      await this.setRange(grip, Number(await this.page.inputValue(grip)) + 20 * dir);
     }
     this.check(`the grip reaches ${word}`, false, (await this.page.getAttribute(grip, "aria-valuetext")) ?? "");
   }
@@ -859,10 +859,10 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
       r.check(`${tag} each failed run reveals a hint`, hints === Math.min(fails, m.hints.length), `${hints} hints after ${fails} failures`);
       await r.shot(`${tag}-hint`);
     });
-    const end = await r.page.getAttribute("[data-strip] .grip", "aria-valuemax");
+    const end = await r.page.getAttribute("[data-strip] .grip", "max");
     if (want.over) {
       await r.twistTo(want.over, 1);
-      await r.drag("[data-strip] .grip", 400);
+      await r.setRange("[data-strip] .grip", 1000);
       await r.shot(`${tag}-over`);
       const tight = await r.runTests(ids, `${tag}-over`, true, LATER_MS);
       r.check(`${tag} ${want.over} fails differently from ${want.start}`, ids.some((id) => tight[id] === "fail") && ids.some((id) => tight[id] !== loose[id]), `${JSON.stringify(loose)} | ${JSON.stringify(tight)} (grip ends at ${end})`);

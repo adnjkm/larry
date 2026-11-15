@@ -80,72 +80,76 @@ export function ExplodeSlider({ value, onChange, disabled }: { value: number; on
   );
 }
 
-/** Pixels of drag that carry a strip through its whole travel where it moves freely. */
-const STRIP_PX = 300;
-const KEY_PX = 12;
+/** Steps along the track. Fine enough that the grip moves smoothly; nothing shows the number. */
+const TRACK_STEPS = 1000;
 
 /**
- * A grip you drag sideways to do something to the object by hand (twist a cap on). Its ridges move
- * with the finger, slower where `zones` make it stiff, and the word for the current zone sits beside
- * it. No numbers: how far it has gone shows as a faint fill.
+ * Where along the track (0 to 1) each value sits. A stiff zone (gain under 1) takes more of the track
+ * than its share of the value, so it still takes more thumb to get through it.
+ */
+function trackOf(min: number, max: number, zones: readonly Zone[] | undefined) {
+  const span = max - min || 1;
+  const cuts: { from: number; to: number; weight: number }[] = [];
+  let from = min;
+  for (const z of zones ?? []) {
+    const to = Math.min(max, z.until);
+    if (to > from) cuts.push({ from, to, weight: (to - from) / (z.gain ?? 1) });
+    from = Math.max(from, to);
+  }
+  if (from < max) cuts.push({ from, to: max, weight: max - from });
+  const total = cuts.reduce((a, c) => a + c.weight, 0) || span;
+  const toTrack = (v: number) => {
+    let at = 0;
+    for (const c of cuts) {
+      if (v <= c.to) return (at + ((Math.max(v, c.from) - c.from) / (c.to - c.from || 1)) * c.weight) / total;
+      at += c.weight;
+    }
+    return 1;
+  };
+  const toValue = (t: number) => {
+    let left = t * total;
+    for (const c of cuts) {
+      if (left <= c.weight) return c.from + (left / (c.weight || 1)) * (c.to - c.from);
+      left -= c.weight;
+    }
+    return max;
+  };
+  return { toTrack, toValue };
+}
+
+/**
+ * The control for doing something to the object by hand (twist a cap on), drawn as the library's
+ * slider row: a label and a pink track. It is stiffer where `zones` make it stiff, ticks on the phone
+ * when it crosses into a new zone, and the word for the current zone sits beside it. No numbers.
  */
 export function Strip(props: { id: string; label: string; value: number; min: number; max: number; zones?: readonly Zone[]; disabled?: boolean; onChange: (v: number) => void }) {
   const { min, max, zones } = props;
-  const now = useRef(props.value);
-  now.current = props.value;
-  const last = useRef<number | null>(null);
+  const track = useMemo(() => trackOf(min, max, zones), [min, max, zones]);
   const zoneAt = (v: number) => (zones ? zoneOf(zones, v) : undefined);
   const zone = zoneAt(props.value);
-  const step = (px: number) => {
-    if (props.disabled || px === 0) return;
-    const from = now.current;
-    const next = Math.min(max, Math.max(min, from + (px / STRIP_PX) * (max - min) * (zoneAt(from)?.gain ?? 1)));
-    if (next === from) return;
-    if (zoneAt(next)?.id !== zoneAt(from)?.id) navigator.vibrate?.(12);
-    now.current = next;
+  const change = (position: number) => {
+    const next = Math.min(max, Math.max(min, track.toValue(position / TRACK_STEPS)));
+    if (next === props.value) return;
+    if (zoneAt(next)?.id !== zone?.id) navigator.vibrate?.(12);
     props.onChange(next);
   };
-  const share = (props.value - min) / (max - min || 1);
   return (
-    <div className="strip" data-strip={props.id} data-free={zones ? undefined : ""}>
+    <label className="slider strip" data-strip={props.id} data-free={zones ? undefined : ""}>
       <span className="mono">{props.label}</span>
-      <span
+      <input
+        type="range"
         className="grip"
-        role="slider"
-        tabIndex={props.disabled ? -1 : 0}
+        min={0}
+        max={TRACK_STEPS}
+        step={1}
+        value={Math.round(track.toTrack(props.value) * TRACK_STEPS)}
+        disabled={props.disabled}
         aria-label={props.label}
-        aria-valuemin={min}
-        aria-valuemax={max}
-        aria-valuenow={props.value}
         aria-valuetext={zone?.word ?? props.label}
-        aria-disabled={props.disabled || undefined}
-        style={{ backgroundPositionX: `${share * STRIP_PX}px` }}
-        onPointerDown={(e) => {
-          if (props.disabled) return;
-          // A drag must turn the cap, not start selecting the words around the grip.
-          e.preventDefault();
-          e.currentTarget.focus();
-          e.currentTarget.setPointerCapture(e.pointerId);
-          last.current = e.clientX;
-        }}
-        onPointerMove={(e) => {
-          if (last.current === null) return;
-          step(e.clientX - last.current);
-          last.current = e.clientX;
-        }}
-        onPointerUp={() => (last.current = null)}
-        onPointerCancel={() => (last.current = null)}
-        onKeyDown={(e) => {
-          const dir = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
-          if (!dir) return;
-          e.preventDefault();
-          step(dir * KEY_PX);
-        }}
-      >
-        <span className="amount" style={{ width: `${share * 100}%` }} />
-      </span>
+        onChange={(e) => change(Number(e.target.value))}
+      />
       {zone ? <span className="zone" data-zone={zone.id}>{zone.word}</span> : null}
-    </div>
+    </label>
   );
 }
 
