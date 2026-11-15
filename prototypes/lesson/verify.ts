@@ -813,11 +813,17 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
 
     await r.stage("learn");
     await r.noDigits(`${tag} learn`);
-    const grip = '[data-stage="learn"] [data-strip] .grip';
-    const before = await r.page.getAttribute(grip, "aria-valuenow");
-    await r.drag(grip, 120);
-    const after = await r.page.getAttribute(grip, "aria-valuenow");
-    r.check(`${tag} learn grip "${(await r.page.textContent('[data-stage="learn"] [data-strip] .mono')) ?? ""}" moves the rig`, before !== after, `${before} → ${after}`);
+    // Learn shows the library's figure: dragging its handle moves the part, and the slider row follows it.
+    const row = '[data-stage="learn"] [data-rig] [data-slider] input';
+    const before = await r.page.inputValue(row);
+    const ring = await r.centreOf('[data-stage="learn"] [data-handle]');
+    await r.page.mouse.move(ring.x, ring.y);
+    await r.page.mouse.down();
+    await r.page.mouse.move(ring.x - 40, ring.y + 10, { steps: 6 });
+    await r.page.mouse.up();
+    await r.page.waitForTimeout(200);
+    const after = await r.page.inputValue(row);
+    r.check(`${tag} learn: the library figure's handle "${(await r.page.textContent('[data-stage="learn"] [data-handle]')) ?? ""}" moves its slider`, before !== after, `${before} → ${after}`);
     await r.noDigits(`${tag} learn after a drag`);
     await r.shot(`${tag}-learn`);
     await r.inSheet(async () => {
