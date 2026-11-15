@@ -240,7 +240,10 @@ export function compose(a: Scene, b: Scene): Scene {
   const moves: Record<string, PartMove> = { ...a.moves };
   for (const [id, m] of Object.entries(b.moves)) {
     const under = moves[id];
-    moves[id] = under ? { offset: add(under.offset ?? vec(), m.offset ?? vec()), turns: [...(under.turns ?? []), ...(m.turns ?? [])] } : m;
+    const shape = m.shape ?? under?.shape;
+    moves[id] = under
+      ? { offset: add(under.offset ?? vec(), m.offset ?? vec()), turns: [...(under.turns ?? []), ...(m.turns ?? [])], ...(shape && { shape }) }
+      : m;
   }
   return { moves, marks: [...a.marks, ...b.marks] };
 }
@@ -299,7 +302,9 @@ export function drawObject({ kit, present, scene, explode, plan, pink, centre, r
   const whole = rigidMatrix(centre, rigid);
   const lift = plan ? plannedLift(kit, plan, explode) : spreadLift(kit, shown, typeof explode === "number" ? explode : 0, apart);
   const parts = shown.map((p) => {
-    const out = withMatrix(p, whole.clone().multiply(lift(p.id)).multiply(moveMatrix(scene.moves[p.id])).multiply(matrixOf(p)));
+    const move = scene.moves[p.id];
+    const placed = withMatrix(p, whole.clone().multiply(lift(p.id)).multiply(moveMatrix(move)).multiply(matrixOf(p)));
+    const out = move?.shape ? { ...placed, shape: move.shape } : placed;
     return pink.has(p.id) ? pinkOf(out) : { ...out, color: greyOf(out.color) };
   });
   const marks = scene.marks.flatMap((k): Part[] => {
