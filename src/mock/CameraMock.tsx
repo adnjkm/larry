@@ -126,6 +126,7 @@ export default function CameraMock({
   mechanisms,
   kit,
   photo,
+  pending = false,
 }: {
   object?: string;
   /** `shown` is false while the lesson waits, built but unseen, under the result, and true from the moment Build It hands over. */
@@ -139,6 +140,8 @@ export default function CameraMock({
   kit?: Kit;
   /** The photo the camera takes, when the lesson's model follows another one than the sample's. */
   photo?: string;
+  /** The model is still being made: a photo taken now keeps reading until `kit` arrives, then builds that one. */
+  pending?: boolean;
 } = {}) {
   const [settings, setSettings] = useState<MockSettings>(() =>
     defaultSettings(initialObject ?? (OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? ""))),
@@ -229,6 +232,7 @@ export default function CameraMock({
               onBuild={after && build}
               onCamera={setOnCamera}
               leaving={handing}
+              pending={pending}
             />
           )}
           {/* The lesson, drawn as soon as the result is up so its 3D is ready, and unseen until Build It. */}
@@ -290,6 +294,7 @@ function Flow({
   still = false,
   mechanisms,
   leaving = false,
+  pending = false,
 }: {
   object: MockObject;
   pace: Pace;
@@ -306,6 +311,8 @@ function Flow({
   mechanisms?: number;
   /** Build It was pressed: the model swipes off to the left and the rest fades, while the lesson arrives over it. */
   leaving?: boolean;
+  /** The model is still being made: reading goes on until it is here. */
+  pending?: boolean;
 }) {
   const atEnd = startAt === "done";
   const { kit } = object;
@@ -325,8 +332,20 @@ function Flow({
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   const later = (ms: number, run: () => void) => void timers.current.push(window.setTimeout(run, ms));
 
+  // The photo is taken, and the model is laid out once it exists: at once for a model already here, and for one still
+  // being made, when it lands. Until then the camera keeps reading.
+  const [asked, setAsked] = useState(false);
   function read() {
     setPhase("reading");
+    setAsked(true);
+  }
+  useEffect(() => {
+    if (!asked || pending) return;
+    setAsked(false);
+    lay();
+  }, [asked, pending]);
+
+  function lay() {
     const pacing = PACES[pace];
     // A model with many small parts lays them out faster, so the whole build takes no longer than a few big ones.
     const gap = Math.min(pacing.gap, (pacing.gap * 6) / kit.parts.length);

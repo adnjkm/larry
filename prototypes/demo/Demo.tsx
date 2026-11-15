@@ -199,6 +199,7 @@ export function Demo() {
         compare={TUNING}
         mechanisms={course?.mechanisms.length}
         kit={course?.reveal ?? course?.story.kit}
+        pending={pending}
         photo={course === COURSE ? PHOTOS[__DEMO_OBJECT__] : undefined}
       />
     </>
