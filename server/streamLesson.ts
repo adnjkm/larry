@@ -83,7 +83,7 @@ export type LessonStats = { ms: number; firstChapterMs: number | undefined; cost
  * Puts the title, hook and chapters the reader has already been shown back in front of a rewrite, so
  * the finished lesson never changes what they have played. The rewrite supplies the rest.
  */
-export function keepShown(rewrite: Lesson, header: LessonHeader | undefined, shown: Chapter[]): Lesson {
+function keepShown(rewrite: Lesson, header: LessonHeader | undefined, shown: Chapter[]): Lesson {
   return { ...rewrite, ...header, chapters: [...shown, ...rewrite.chapters.slice(shown.length)] };
 }
 
