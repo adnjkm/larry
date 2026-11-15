@@ -90,6 +90,8 @@ export const RELIEF = {
   key: [feature.raise(2, 3)],
   /** A sculpted keyboard key: a crisp, gently dished top face on a sloping skirt, the skirt deepest at the bottom. */
   keycap: [feature.keycap(2.4, 5, 6, 0.6)],
+  /** The keycap held down: it stands lower. A button's press, not a state that stays. */
+  keycapDown: [feature.keycap(1, 5, 6, 0.4)],
   /** A dish, like a 3DS circle pad: a rim round a bowl. The shutter. */
   dish: [feature.raise(3, 4), feature.bowl(9, 6)],
   dishPressed: [feature.raise(1.5, 4), feature.bowl(9, 3.5)],
