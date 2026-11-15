@@ -61,6 +61,24 @@ html, body { height: 100%; }
 .strip { user-select: none; -webkit-user-select: none; }
 .strip[data-free] { grid-template-columns: 96px minmax(0, 1fr); }
 .strip .mono { color: var(--ink); }
+
+/* The pink dithered bar (controls.tsx): the canvas is the look, a baked cap is the thumb, and an invisible
+   native range on top does the work. Its thumb is the cap's width, so the cap sits under the finger. */
+.dither-range { position: relative; height: 44px; min-width: 0; }
+.dither-bar { position: absolute; left: 0; top: 15px; display: block; image-rendering: pixelated; pointer-events: none; }
+.dither-thumb { position: absolute; left: 0; top: 9px; width: 26px; height: 26px; pointer-events: none; will-change: transform; }
+.dither-range input { position: absolute; inset: 0; width: 100%; height: 44px; margin: 0; opacity: 0; cursor: pointer; -webkit-appearance: none; appearance: none; background: none; touch-action: pan-y; }
+.dither-range input::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 44px; }
+.dither-range input::-moz-range-thumb { width: 26px; height: 44px; border: 0; }
+.dither-range:has(input:focus-visible) .dither-thumb { outline: 2px solid var(--pink); outline-offset: 2px; border-radius: 999px; }
+.dither-range[data-disabled] { opacity: 0.35; }
+
+/* The notched wheel (controls.tsx): spin it sideways. */
+.wheel-box { height: 44px; min-width: 0; }
+.wheel { position: relative; border-radius: 10px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.wheel[data-dragging] { cursor: grabbing; }
+.wheel:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
+.wheel-box[data-disabled] { opacity: 0.35; pointer-events: none; }
 .zone { font-size: 15px; font-weight: 600; text-align: right; }
 .zone[data-zone="loose"] { color: var(--graphite); font-weight: 500; }
 [data-why-text] { display: flex; flex-direction: column; gap: 8px; }

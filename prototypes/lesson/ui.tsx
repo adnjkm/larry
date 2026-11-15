@@ -4,6 +4,7 @@ import { type KitBounds, measureParts } from "../../src/kit3d/buildKit.ts";
 import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
 import { type Slider, formatSlider } from "./primitives/library.ts";
 import { SYNTHWAVE } from "./primitives/parts.ts";
+import { DitherRange, TRACK, Wheel } from "./controls.tsx";
 import { Dither } from "./dither.tsx";
 import { DEFAULT_VIEW, type View, type Zone, zoneAt as zoneOf } from "./model.ts";
 import { fitFrame, reuseParts } from "./pose.ts";
@@ -70,18 +71,13 @@ export const Plain = createContext(false);
 export function ExplodeSlider({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) {
   const plain = useContext(Plain);
   return (
-    <label className="slider" data-explode data-plain={plain ? "" : undefined}>
+    <div className="slider" data-explode data-plain={plain ? "" : undefined}>
       <span className="mono">Explode</span>
-      <span className="track">
-        <input type="range" min={0} max={1} step={0.01} value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} />
-      </span>
+      <DitherRange label="Explode" position={Math.round(value * TRACK)} valueText="Explode" disabled={disabled} onPosition={(n) => onChange(n / TRACK)} />
       {plain ? null : <span className="val">{Math.round(value * 100)}%</span>}
-    </label>
+    </div>
   );
 }
-
-/** Steps along the track. Fine enough that the grip moves smoothly; nothing shows the number. */
-const TRACK_STEPS = 1000;
 
 /**
  * Where along the track (0 to 1) each value sits. A stiff zone (gain under 1) takes more of the track
@@ -118,40 +114,33 @@ function trackOf(min: number, max: number, zones: readonly Zone[] | undefined) {
 }
 
 /**
- * The control for doing something to the object by hand (twist a cap on), drawn as the library's
- * slider row: a label and a pink track. It is stiffer where `zones` make it stiff, ticks on the phone
- * when it crosses into a new zone, and the word for the current zone sits beside it. No numbers.
+ * The control for doing something to the object by hand: a notched wheel when it turns something (`wheel`), else a
+ * pink dithered bar. It is stiffer where `zones` make it stiff, ticks on the phone when it crosses into a new zone,
+ * and the word for the current zone sits beside it. No numbers.
  */
-export function Strip(props: { id: string; label: string; value: number; min: number; max: number; zones?: readonly Zone[]; disabled?: boolean; onChange: (v: number) => void }) {
+export function Strip(props: { id: string; label: string; value: number; min: number; max: number; zones?: readonly Zone[]; wheel?: boolean; disabled?: boolean; onChange: (v: number) => void }) {
   const { min, max, zones } = props;
   const track = useMemo(() => trackOf(min, max, zones), [min, max, zones]);
   const zoneAt = (v: number) => (zones ? zoneOf(zones, v) : undefined);
   const zone = zoneAt(props.value);
   const change = (position: number) => {
-    const next = Math.min(max, Math.max(min, track.toValue(position / TRACK_STEPS)));
+    const next = Math.min(max, Math.max(min, track.toValue(position / TRACK)));
     if (next === props.value) return;
     if (zoneAt(next)?.id !== zone?.id) navigator.vibrate?.(12);
     props.onChange(next);
   };
+  const Control = props.wheel ? Wheel : DitherRange;
   return (
-    <label className="slider strip" data-strip={props.id} data-free={zones ? undefined : ""}>
+    <div className="slider strip" data-strip={props.id} data-free={zones ? undefined : ""}>
       <span className="mono">{props.label}</span>
-      <input
-        type="range"
-        className="grip"
-        min={0}
-        max={TRACK_STEPS}
-        step={1}
-        value={Math.round(track.toTrack(props.value) * TRACK_STEPS)}
-        disabled={props.disabled}
-        aria-label={props.label}
-        aria-valuetext={zone?.word ?? props.label}
-        onChange={(e) => change(Number(e.target.value))}
-      />
+      <Control label={props.label} position={Math.round(track.toTrack(props.value) * TRACK)} valueText={zone?.word ?? props.label} disabled={props.disabled} onPosition={change} />
       {zone ? <span className="zone" data-zone={zone.id}>{zone.word}</span> : null}
-    </label>
+    </div>
   );
 }
+
+/** Verbs that turn something, so their control is a wheel. */
+export const TURNS = /^(twist|turn|screw|wind)/i;
 
 export function SliderRow(props: { slider: Slider; value: number; onChange: (v: number) => void; disabled?: boolean; band?: readonly [number, number] }) {
   const { slider: s, value, band } = props;

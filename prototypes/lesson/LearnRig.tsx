@@ -2,16 +2,15 @@
 // its drag handle on the part and its slider rows under it, as on the library's game page. The words, the Why sheet
 // and "in this object" are the story's own; the figure, the handle and the sliders are the library's.
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Rows, SliderRow } from "../../src/primitives/game/parts.tsx";
-import { GameStore } from "../../src/primitives/game/store.ts";
+import { GameStore, useSelect } from "../../src/primitives/game/store.ts";
 import { PRIMITIVE_BY_ID } from "../../src/primitives/catalog.ts";
-import type { Primitive } from "../../src/primitives/library.ts";
+import type { Primitive, Slider } from "../../src/primitives/library.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
 import { startValues } from "../../src/primitives/stage/view.ts";
 import { framingParts, type InObject } from "./Learn.tsx";
 import type { StoryModule, View } from "./model.ts";
 import { initialValues, PRIMITIVES as FIRST_PASS, type Values } from "./primitives/library.ts";
-import { Actions, Inset, Say, Strip, Viewer, Why } from "./ui.tsx";
+import { Actions, Inset, Say, Strip, TURNS, Viewer, Why } from "./ui.tsx";
 
 /**
  * Primitives Learn still draws from the first-pass copy in ./primitives: the seal's old rig (a ring squeezed between
@@ -51,6 +50,12 @@ function useHeight() {
   return [box, height] as const;
 }
 
+/** One slider of a library figure, following the figure's store so a drag of the handle moves it too: a wheel for a turn, else a dithered bar. */
+function StoreRow({ store, slider }: { store: GameStore; slider: Slider }) {
+  const value = useSelect(store, (v) => v[slider.id] ?? slider.initial);
+  return <Strip id={slider.id} label={slider.label} wheel={TURNS.test(slider.label)} value={value} min={slider.min} max={slider.max} onChange={(n) => store.controller?.set({ [slider.id]: n })} />;
+}
+
 /** One primitive's figure, then `children`, then the sliders its rig names. Figure and rows share one store, so the handle and the rows move together. */
 function Rig({ primitive, controls, children }: { primitive: Primitive; controls: Readonly<Record<string, string>>; children: ReactNode }) {
   const figure = figureOf(primitive);
@@ -77,9 +82,7 @@ function Rig({ primitive, controls, children }: { primitive: Primitive; controls
       </div>
       {children}
       <div className="rig-rows" data-rig={primitive.id}>
-        <Rows>
-          {shown.map((s) => <SliderRow key={s.id} store={store} slider={s} ink />)}
-        </Rows>
+        {shown.map((s) => <StoreRow key={s.id} store={store} slider={s} />)}
       </div>
     </>
   );
@@ -118,7 +121,7 @@ function FirstPassRig({ id, controls, children }: { id: string; controls: Readon
       {children}
       <div className="rig-rows" data-rig={id}>
         {shown.map((s) => (
-          <Strip key={s.id} id={s.id} label={controls[s.id]!} value={values[s.id] ?? s.initial} min={s.min} max={s.max} onChange={(n) => { setPlaying(false); setValues((v) => ({ ...v, [s.id]: n })); }} />
+          <Strip key={s.id} id={s.id} label={controls[s.id]!} wheel={TURNS.test(controls[s.id]!)} value={values[s.id] ?? s.initial} min={s.min} max={s.max} onChange={(n) => { setPlaying(false); setValues((v) => ({ ...v, [s.id]: n })); }} />
         ))}
       </div>
     </>

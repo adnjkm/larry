@@ -5,7 +5,7 @@ import { useExplode } from "./useExplode.ts";
 import { type Overlay, presentAfter, type Run, type Shares, STILL, type Story, type Test, type Values, type Verdict } from "./model.ts";
 import { compose, drawObject, restCentre } from "./pose.ts";
 import { Cheer } from "./Cheer.tsx";
-import { Actions, ExplodeSlider, Say, Strip, Viewer, Why } from "./ui.tsx";
+import { Actions, ExplodeSlider, Say, Strip, TURNS, Viewer, Why } from "./ui.tsx";
 
 const FRAME_SAMPLES = 48;
 const CAMERA_MS = 300;
@@ -161,7 +161,7 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
       <Cheer text={cheer} show={cheers} />
       <ExplodeSlider value={explode.target} disabled={running !== null} onChange={(v) => { token.current++; explode.set(v); }} />
       {mode.kind === "problem" ? null : (
-        <Strip id={control.key} label={control.verb} value={value} min={0} max={world.zones[world.zones.length - 1]!.until} zones={world.zones} disabled={running !== null || done} onChange={turn} />
+        <Strip id={control.key} label={control.verb} wheel={TURNS.test(control.verb)} value={value} min={0} max={world.zones[world.zones.length - 1]!.until} zones={world.zones} disabled={running !== null || done} onChange={turn} />
       )}
       <div className="tests">
         {tests.map((t) => (
