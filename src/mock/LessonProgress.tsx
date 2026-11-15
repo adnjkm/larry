@@ -13,8 +13,8 @@ const RADIUS = 10;
 
 /**
  * The lesson's progress, one key per mechanism across `width`, under a count. Each key is a sculpted keycap (see
- * feature.keycap). Before the lesson starts every key is grey. Once it starts, the steps reached so far are pink and
- * the step on screen sits pressed down. Any step reached can be opened again; the ones ahead can't, as their parts
+ * feature.keycap). Before the lesson starts every key is grey. Once it starts, the steps reached so far are pink. Any
+ * step reached can be opened again; the ones ahead can't, as their parts
  * aren't built yet and each step builds on the last. It's a segmented control, so it's one tab stop and the arrow keys
  * move along the steps that can be opened.
  */
@@ -50,12 +50,11 @@ export function LessonProgress({
       >
         {Array.from({ length: count }, (_, i) => {
           const open = started && i <= reached;
-          const here = started && i === step && reached < count;
           return (
             <SegmentedControlItem key={i} value={String(i)} disabled={!open} aria-label={`Step ${i + 1} of ${count}`} {...stylex.props(s.step(key, height))}>
               <Surface
                 shape={rrect(key, height, RADIUS)}
-                relief={here ? "keycapDown" : "keycap"}
+                relief="keycap"
                 material={open ? "pink" : "bone"}
                 ground="light"
                 grain={CAMERA.grain}
