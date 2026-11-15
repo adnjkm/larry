@@ -129,10 +129,22 @@ function PlayRig({ primitive, onReady, children }: { primitive: Primitive; onRea
   const ready = moved && (tuned || tuning.length === 0);
   useEffect(() => onReady(ready), [ready]);
   const [box, height] = useHeight();
+  const [sweeping, setSweeping] = useState(false);
+  useEffect(() => store.subscribe(() => setSweeping(store.controller?.state() === "sweeping")), [store]);
+  const toggle = () => {
+    const c = store.controller;
+    if (!c) return;
+    if (c.state() === "sweeping") c.stop();
+    else c.sweep();
+    setSweeping(c.state() === "sweeping");
+  };
   return (
     <>
       <div className="viewer" data-figure={primitive.id} data-moved={moved ? "" : undefined} ref={box}>
         {height > 0 ? <FigureStage primitive={primitive} mode="play" palette="library" height={height} controllerRef={store.attach} /> : null}
+        <button type="button" className="play" data-play aria-pressed={sweeping} onClick={toggle}>
+          {sweeping ? "Stop" : "Play"}
+        </button>
       </div>
       {children}
       {/* Laid out from the start but hidden, so the figure keeps its size when they rise in. */}
