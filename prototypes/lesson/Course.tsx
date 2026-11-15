@@ -126,8 +126,11 @@ export function CourseFlow({
     </Suspense>
   ) : null;
 
+  // What each mechanism gave the object, in its preview's own line: the end screen's card.
+  const built = course.mechanisms.flatMap((m) => m.screens.flatMap((s) => (s.kind === "demo" ? [s.does] : [])).slice(0, 1));
+
   let body: ReactNode;
-  if (!screen) body = <End key="end" kit={course.reveal ?? kit} mechanisms={course.mechanisms.map((m) => m.name)} next="Start Over" onNext={onRestart} />;
+  if (!screen) body = <End key="end" kit={course.reveal ?? kit} mechanisms={course.mechanisms.map((m) => m.name)} next="Start Over" onNext={onRestart} card={<Needs lines={built} />} cheer="Built!" onHome={onHome} />;
   else if (screen.kind === "primitive")
     return (
       <Plain.Provider value>
