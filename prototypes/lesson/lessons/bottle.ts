@@ -385,6 +385,7 @@ export default defineStory({
     {
       id: "closed",
       title: "Keep it closed",
+      need: "Water must not slosh out.",
       primitive: "thread",
       produces: [CAP],
       without: { say: "Shake it. Watch the cap.", line: "A cap that just sits there falls off.", test: shake, adds: [CAP], values: { [TWIST]: 0 } },
@@ -426,11 +427,12 @@ export default defineStory({
     {
       id: "dry",
       title: "Keep it dry",
+      need: "Water must not leak.",
       primitive: "seal",
       produces: [RING, "ring-tab"],
       without: { say: "Flip it. Any drips?", line: "Metal on metal leaves tiny gaps. Water finds them.", test: flip, adds: [], values: { [TWIST]: STOP_BARE } },
       learn: {
-        say: "Squeeze it. The rubber fills the gaps.",
+        say: "Squeeze it until it stops leaking.",
         rigs: {
           seal: {
             controls: { squeeze: "Squeeze" },
@@ -439,6 +441,17 @@ export default defineStory({
               "Pressed between two hard faces, it spreads into every tiny gap.",
               "That closes the path water would take.",
             ],
+            // The first-pass seal's own limits: under 0.15 the gaps stay open, over 0.3 the rubber is crushed.
+            goal: {
+              slider: "squeeze",
+              start: 0.04,
+              meets: "sealed",
+              zones: [
+                { id: "loose", word: "Leaks", until: 0.15, gain: 1 },
+                { id: "sealed", word: "Sealed", until: 0.31, gain: 0.7 },
+                { id: "crushed", word: "Crushed", until: 0.4, gain: 1 },
+              ],
+            },
           },
         },
       },

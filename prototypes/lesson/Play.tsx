@@ -5,7 +5,7 @@ import { useExplode } from "./useExplode.ts";
 import { type Overlay, presentAfter, type Run, type Shares, STILL, type Story, type Test, type Values, type Verdict } from "./model.ts";
 import { compose, drawObject, restCentre } from "./pose.ts";
 import { Cheer } from "./Cheer.tsx";
-import { Actions, ExplodeSlider, Say, Strip, TURNS, Viewer, Why } from "./ui.tsx";
+import { Actions, ExplodeSlider, Need, Say, Strip, TURNS, Viewer, Why } from "./ui.tsx";
 
 const FRAME_SAMPLES = 48;
 const CAMERA_MS = 300;
@@ -199,6 +199,7 @@ export function Play({ story, kit, mode, values, onValues, onDone, onNext, onHom
       <Say kicker={kicker} why={sheet} found={done && mode.kind !== "problem"} note={mode.kind === "problem" && done}>
         {say}
       </Say>
+      {mode.kind === "problem" && module!.need ? <Need text={module!.need} /> : null}
       <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live || (arming ? "Closing up…" : undefined)} />
       <Cheer text={cheer} show={cheers} />
       <ExplodeSlider

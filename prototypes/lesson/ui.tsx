@@ -218,7 +218,25 @@ export function Say({ kicker, children, why, note, found }: { kicker: string; ch
   );
 }
 
-/** Everything explanatory on a screen, behind one button: a bottom sheet that is closed until asked for. */
+/**
+ * The module's requirement, as a plain rule under the header: what the object must do. `met` adds whether it is met
+ * now, where the screen lets you tune something to meet it; left off, the rule is only stated.
+ */
+export function Need({ text, met }: { text: string; met?: boolean }) {
+  return (
+    <p className="need" data-need data-met={met === undefined ? undefined : met ? "yes" : "no"}>
+      <span className="mono">Requirement</span>
+      <span className="need-text">{text}</span>
+      {met === undefined ? null : (
+        <span className="need-state" aria-live="polite">
+          {met ? "Met" : "Not yet"}
+        </span>
+      )}
+    </p>
+  );
+}
+
+/** Everything explanatory on a screen, behind one button: a centred card that is closed until asked for. */
 /** The label that gets the beam: the reason behind a step, which we want people to open. "Hint" stays plain. */
 const WHY = "Why?";
 

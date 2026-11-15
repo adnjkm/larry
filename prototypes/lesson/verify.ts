@@ -1003,6 +1003,7 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
       `${tag} opens on "${m.without.say}" with Next locked`,
       (await said()) === m.without.say && (await r.page.locator("[data-next]:disabled").count()) === 1,
     );
+    if (m.need) r.check(`${tag} problem states the requirement "${m.need}"`, ((await r.page.textContent("[data-need] .need-text")) ?? "").trim() === m.need);
     const opener = await r.runTests([m.without.test.id], `${tag}-without`, true, LATER_MS);
     r.check(
       `${tag} without the part, ${m.without.test.id} fails and says why`,
@@ -1038,6 +1039,18 @@ async function playStory(r: Run, written: Story, sample: string, url: string, qu
       before !== after,
       `${before} → ${after}`,
     );
+    // Where the primitive can be tuned to meet the requirement, sliding up from the bottom gets there.
+    if ((await r.page.locator('[data-stage="learn"] [data-need][data-met]').count()) > 0) {
+      const met = async () => (await r.page.getAttribute('[data-stage="learn"] [data-need]', "data-met")) === "yes";
+      await r.setRange(row, 0);
+      const startsUnmet = !(await met());
+      for (let v = 0; v <= TRACK && !(await met()); v += 25) await r.setRange(row, v);
+      r.check(
+        `${tag} learn: starts short of the requirement, and tuning it meets it`,
+        startsUnmet && (await met()),
+        `reads ${await r.page.textContent('[data-stage="learn"] [data-strip] .zone')}`,
+      );
+    }
     await r.noDigits(`${tag} learn after a drag`);
     await r.shot(`${tag}-learn`);
     await r.inSheet(async () => {

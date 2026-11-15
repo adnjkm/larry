@@ -26,6 +26,13 @@ html, body { height: 100%; }
 .do .prompt { quotes: "“" "”"; }
 .why { flex: none; min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--soft); font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 150ms ease-out; }
 .why:active { transform: scale(0.96); }
+/* The requirement: a plain rule under the header, with whether it is met when the screen can meet it. */
+.need { flex: none; margin: 0; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--soft); box-shadow: 0 0 0 1px var(--rule) inset; }
+.need .mono { flex: none; }
+.need-text { flex: 1; min-width: 0; font-size: 15px; line-height: 20px; font-weight: 600; }
+.need-state { flex: none; font-size: 13px; font-weight: 600; color: var(--graphite); }
+.need[data-met="yes"] { box-shadow: 0 0 0 1.5px var(--pink) inset; }
+.need[data-met="yes"] .need-state { color: var(--pink); }
 /* A dithered border beam rides round an unopened Why (Beam.tsx), on its edge; taps go through it to the button. */
 .why-wrap { position: relative; flex: none; display: inline-flex; }
 .beam { position: absolute; z-index: 1; image-rendering: pixelated; pointer-events: none; }

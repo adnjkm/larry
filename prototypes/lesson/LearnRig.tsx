@@ -8,9 +8,9 @@ import type { Primitive, Slider } from "../../shared/primitives/types.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
 import { startValues } from "../../shared/primitives/types.ts";
 import { framingParts, type InObject } from "./Learn.tsx";
-import type { StoryModule, View } from "./model.ts";
+import { type Rig as RigSpec, type StoryModule, type View, zoneAt } from "./model.ts";
 import { initialValues, PRIMITIVES as FIRST_PASS, type Values } from "./primitives/library.ts";
-import { Actions, Inset, Say, Strip, TURNS, Viewer, Why } from "./ui.tsx";
+import { Actions, Inset, Need, Say, Strip, TURNS, Viewer, Why } from "./ui.tsx";
 
 /**
  * Primitives Learn still draws from the first-pass copy in ./primitives: the seal's old rig (a ring squeezed between
@@ -105,9 +105,26 @@ function Rig({ primitive, controls, children }: { primitive: Primitive; controls
 const SWEEP_SECONDS = 4;
 
 /** A first-pass figure in the lesson's own viewer, with its rig's controls as the same slider rows, and the Play sweep. */
-function FirstPassRig({ id, controls, children }: { id: string; controls: Readonly<Record<string, string>>; children: ReactNode }) {
+function FirstPassRig({
+  id,
+  controls,
+  goal,
+  onMet,
+  children,
+}: {
+  id: string;
+  controls: Readonly<Record<string, string>>;
+  goal?: RigSpec["goal"];
+  onMet?: (met: boolean) => void;
+  children: ReactNode;
+}) {
   const primitive = FIRST_PASS.find((q) => q.id === id)!;
-  const [values, setValues] = useState<Values>(() => initialValues(primitive));
+  const [values, setValues] = useState<Values>(() => (goal ? { ...initialValues(primitive), [goal.slider]: goal.start } : initialValues(primitive)));
+  // With a goal, whether the slider sits in the zone that meets the module's requirement.
+  const met = goal ? zoneAt(goal.zones, values[goal.slider] ?? goal.start).id === goal.meets : undefined;
+  useEffect(() => {
+    if (met !== undefined) onMet?.(met);
+  }, [met]);
   const [playing, setPlaying] = useState(false);
   const frame = useMemo(() => framingParts(primitive), [primitive]);
   const parts = useMemo(() => primitive.build(values), [primitive, values]);
@@ -142,6 +159,7 @@ function FirstPassRig({ id, controls, children }: { id: string; controls: Readon
             id={s.id}
             label={controls[s.id]!}
             wheel={TURNS.test(controls[s.id]!)}
+            zones={goal?.slider === s.id ? goal.zones : undefined}
             value={values[s.id] ?? s.initial}
             min={s.min}
             max={s.max}
@@ -173,6 +191,7 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
   const rig = module.learn.rigs[p.id]!;
   // LearnRig is keyed per module, so `inObject` answers the same for a primitive for as long as this screen lives.
   const here = useMemo(() => inObject(p), [p]);
+  const [met, setMet] = useState(false);
 
   const use = (
     <section className="use" data-use={p.id}>
@@ -199,6 +218,7 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
       >
         {module.learn.say}
       </Say>
+      {module.need ? <Need text={module.need} met={rig.goal ? met : undefined} /> : null}
       {taught.length > 1 ? (
         <div className="tabs" role="tablist">
           {taught.map((q, i) => (
@@ -209,7 +229,7 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
         </div>
       ) : null}
       {FIRST_PASS_FIGURE.has(p.id) ? (
-        <FirstPassRig key={p.id} id={p.id} controls={rig.controls}>
+        <FirstPassRig key={p.id} id={p.id} controls={rig.controls} goal={rig.goal} onMet={setMet}>
           {use}
         </FirstPassRig>
       ) : (
@@ -218,7 +238,8 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
         </Rig>
       )}
       <Actions>
-        <button type="button" className="btn" data-next onClick={onNext}>
+        {/* Where the primitive can be tuned to meet the requirement, it has to be met before moving on. */}
+        <button type="button" className="btn" data-next disabled={rig.goal !== undefined && !met} onClick={onNext}>
           {next}
         </button>
       </Actions>

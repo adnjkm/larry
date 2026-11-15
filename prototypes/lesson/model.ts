@@ -173,13 +173,24 @@ export type Control = {
 export const zoneAt = (zones: readonly Zone[], value: number): Zone => zones.find((z) => value < z.until - 1e-9) ?? zones[zones.length - 1]!;
 
 /** Word-only controls for one taught primitive in Learn: the sliders to show, by id, with their labels, and why it matters in this object. */
-export type Rig = { controls: Readonly<Record<string, string>>; why: readonly string[] };
+export type Rig = {
+  controls: Readonly<Record<string, string>>;
+  why: readonly string[];
+  /**
+   * Set when the primitive can be tuned to meet the module's requirement in a way that reads at a glance: the slider
+   * starts at `start`, each zone says in a word how it does ("Leaks", "Sealed", "Crushed"), and `meets` is the zone
+   * that meets the requirement. Left off where tuning would not be intuitive (the thread: the next page's grip does it).
+   */
+  goal?: { slider: string; start: number; zones: readonly Zone[]; meets: string };
+};
 
 /**
  * A module told as a story with no numbers: the object fails without this part, the primitive is
  * played with in words, the part is built, and the player makes it work with a direct control.
  */
 export type StoryModule = Built & {
+  /** The requirement this module meets, as a plain rule shown under the header: "Water must not leak." */
+  need?: string;
   /** One sentence per taught primitive, keyed by its id: what it does in this object. */
   uses: Readonly<Record<string, string>>;
   /**
@@ -354,6 +365,8 @@ export function defineStory(spec: StorySpec): Story {
       if (!rig) problems.push(`${m.id}: no word-only rig for the ${p.id}`);
       for (const id of Object.keys(rig?.controls ?? {})) if (!p.sliders.some((s) => s.id === id)) problems.push(`${m.id}: the ${p.id} has no slider ${id}`);
       if (rig && Object.keys(rig.controls).length === 0) problems.push(`${m.id}: the ${p.id} rig shows no control`);
+      if (rig?.goal && !rig.controls[rig.goal.slider]) problems.push(`${m.id}: the ${p.id} goal tunes ${rig.goal.slider}, which the rig does not show`);
+      if (rig?.goal && !rig.goal.zones.some((z) => z.id === rig.goal!.meets)) problems.push(`${m.id}: the ${p.id} goal has no zone ${rig.goal.meets}`);
     }
     if (m.play.tests.length === 0) problems.push(`${m.id}: no tests`);
     for (const [where, s] of [
@@ -364,6 +377,7 @@ export function defineStory(spec: StorySpec): Story {
       ["cheer", m.cheer],
     ] as const)
       short(`${m.id}: ${where}`, s);
+    if (m.need !== undefined) short(`${m.id}: need`, m.need);
     copy.push(
       [`${m.id} title`, m.title],
       [`${m.id} without`, m.without.say],
@@ -376,8 +390,9 @@ export function defineStory(spec: StorySpec): Story {
       ...Object.values(m.uses).map((s): [string, string] => [`${m.id} uses`, s]),
       ...[...m.hints, ...m.why].map((s): [string, string] => [`${m.id} sheet`, s]),
       ...Object.values(m.learn.rigs)
-        .flatMap((r) => [...Object.values(r.controls), ...r.why])
+        .flatMap((r) => [...Object.values(r.controls), ...r.why, ...(r.goal?.zones.map((z) => z.word) ?? [])])
         .map((s): [string, string] => [`${m.id} rig`, s]),
+      ...(m.need === undefined ? [] : [[`${m.id} need`, m.need] as [string, string]]),
     );
     return { ...m, teach, main, enter: m.enter ?? vec(0, 50, 0) };
   });
