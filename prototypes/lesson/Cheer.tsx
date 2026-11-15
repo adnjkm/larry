@@ -3,7 +3,7 @@
 // The splat is painted frame by frame: a ragged front sweeps it in pixel by pixel, the card and its
 // letters ride in behind the front, and on the way out the dither thins it back to scattered dots.
 import { useEffect, useRef, useState } from "react";
-import { SYNTHWAVE } from "../../src/primitives/parts.ts";
+import { SYNTHWAVE } from "./primitives/parts.ts";
 
 /** Whole life of one pop, in ms. Keep in step with the `cheer-*` timings in lesson.css. */
 export const CHEER_MS = 1700;

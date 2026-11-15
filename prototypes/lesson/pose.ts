@@ -2,7 +2,7 @@
 // explode amount into the Part list the viewer draws. Everything here is a pure function of its inputs.
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import type { Kit, Part, Shape } from "../../shared/kit.ts";
-import { COLOR } from "../../src/primitives/parts.ts";
+import { COLOR } from "./primitives/parts.ts";
 import { DEFAULT_VIEW, type ExplodePlan, familyOf, type Leave, type PartMove, type Rigid, type Scene, type Shares, STILL, type Vec, vec, type View } from "./model.ts";
 
 const DEG = Math.PI / 180;

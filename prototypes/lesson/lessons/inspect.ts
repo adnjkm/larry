@@ -1,7 +1,7 @@
 // The lesson for any object without hand-written rules: teach the library primitives its joints
 // really are, then take it apart and name each part's job using only the kit's own role text.
 import type { Joint, Kit, Part } from "../../../shared/kit.ts";
-import type { Primitive } from "../../../src/primitives/library.ts";
+import type { Primitive } from "../primitives/library.ts";
 import { type Inspect, primitiveById } from "../model.ts";
 import { facingView } from "../pose.ts";
 import { readPart } from "../templates/evidence.ts";

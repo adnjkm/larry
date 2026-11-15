@@ -14,7 +14,7 @@
 // object. Its handle is a part named handle, or whose role says you lift or carry by it.
 import type { Kit, Part } from "../../../shared/kit.ts";
 import { clamp01, easeOut, smooth } from "../ease.ts";
-import type { Slider } from "../../../src/primitives/library.ts";
+import type { Slider } from "../primitives/library.ts";
 import { type Mark, type ModuleSpec, type PartMove, type Run, type TestCtx, type Values, type Vec, vec, type Window } from "../model.ts";
 import { centreOf, extents } from "../pose.ts";
 import { add, arrowMark, cross, dot, latheAxis, overlay, rotate, scale, sub, tenth } from "./pair.ts";

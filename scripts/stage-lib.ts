@@ -1,0 +1,44 @@
+// Shared setup for the stage scripts: a Vite server and Chromium (SwiftShader by default, the Mac's GPU with --gpu).
+import { existsSync, readdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+import { type Browser, chromium } from "playwright-core";
+import { type ViteDevServer, createServer } from "vite";
+
+export const root = resolve(import.meta.dirname, "..");
+
+function findChromium(): string {
+  const cache = join(homedir(), "Library", "Caches", "ms-playwright");
+  for (const { dir, executable } of [
+    { dir: "chromium_headless_shell", executable: "chrome-headless-shell-mac-arm64/chrome-headless-shell" },
+    { dir: "chromium", executable: "chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium" },
+  ]) {
+    const revisions = readdirSync(cache)
+      .filter((n) => n.startsWith(`${dir}-`))
+      .sort((a, b) => Number(b.split("-").pop()) - Number(a.split("-").pop()));
+    for (const r of revisions) {
+      const p = join(cache, r, executable);
+      if (existsSync(p)) return p;
+    }
+  }
+  throw new Error(`No chromium in ${cache}`);
+}
+
+export async function launch(gpu = false): Promise<{ url: string; browser: Browser; server: ViteDevServer; close: () => Promise<void> }> {
+  const server = await createServer({ root, logLevel: "warn", server: { port: 0, host: "127.0.0.1" } });
+  await server.listen();
+  const url = server.resolvedUrls!.local[0]!;
+  const browser = await chromium.launch({
+    executablePath: findChromium(),
+    args: gpu ? ["--use-angle=metal", "--ignore-gpu-blocklist", "--enable-gpu"] : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-webgl"],
+  });
+  return {
+    url,
+    browser,
+    server,
+    close: async () => {
+      await browser.close();
+      await server.close();
+    },
+  };
+}

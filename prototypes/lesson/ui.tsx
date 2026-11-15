@@ -2,8 +2,8 @@ import { createContext, type ReactNode, useContext, useLayoutEffect, useMemo, us
 import type { Part } from "../../shared/kit.ts";
 import { type KitBounds, measureParts } from "../../src/kit3d/buildKit.ts";
 import { KitViewer } from "../../src/kit3d/KitViewer.tsx";
-import { type Slider, formatSlider } from "../../src/primitives/library.ts";
-import { SYNTHWAVE } from "../../src/primitives/parts.ts";
+import { type Slider, formatSlider } from "./primitives/library.ts";
+import { SYNTHWAVE } from "./primitives/parts.ts";
 import { Dither } from "./dither.tsx";
 import { DEFAULT_VIEW, type View, type Zone, zoneAt as zoneOf } from "./model.ts";
 import { fitFrame, reuseParts } from "./pose.ts";
