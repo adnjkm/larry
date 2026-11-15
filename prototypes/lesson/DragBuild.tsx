@@ -57,10 +57,17 @@ function screenBox(lens: Lens, points: readonly Vec[]) {
 }
 
 /** Puts an overlay on a screen box, at least `min` pixels each way, in the viewer's own coordinates. */
-function cover(el: HTMLElement, viewer: DOMRect, b: ReturnType<typeof screenBox>, min: number) {
-  const w = Math.max(min, b.x1 - b.x0);
-  const h = Math.max(min, b.y1 - b.y0);
-  Object.assign(el.style, { left: `${(b.x0 + b.x1) / 2 - w / 2 - viewer.left}px`, top: `${(b.y0 + b.y1) / 2 - h / 2 - viewer.top}px`, width: `${w}px`, height: `${h}px`, visibility: "visible" });
+/**
+ * Places `el` over the screen box `b`. The box is in viewport px; `el`'s styles are in the viewer's own px, which
+ * differ when an ancestor is scaled (the demo shrinks its phone to fit a short window), so the box is divided by
+ * `scale`. `min` is in the viewer's px, so a touch target keeps its size.
+ */
+function cover(el: HTMLElement, viewer: DOMRect, scale: number, b: ReturnType<typeof screenBox>, min: number) {
+  const w = Math.max(min, (b.x1 - b.x0) / scale);
+  const h = Math.max(min, (b.y1 - b.y0) / scale);
+  const cx = ((b.x0 + b.x1) / 2 - viewer.left) / scale;
+  const cy = ((b.y0 + b.y1) / 2 - viewer.top) / scale;
+  Object.assign(el.style, { left: `${cx - w / 2}px`, top: `${cy - h / 2}px`, width: `${w}px`, height: `${h}px`, visibility: "visible" });
 }
 
 /**
@@ -183,8 +190,10 @@ export function DragBuild({ lesson, kit, index, next, onNext }: { lesson: Builds
       const lens = viewer ? lensOf(viewer) : null;
       if (viewer && lens && handle.current && spot.current) {
         const rect = viewer.getBoundingClientRect();
-        cover(handle.current, rect, screenBox(lens, live.current.piece), MIN_HIT);
-        if (live.current.ghost.length > 0) cover(spot.current, rect, screenBox(lens, live.current.ghost), 0);
+        // Screen px per viewer px: 1 unless an ancestor is scaled.
+        const scale = viewer.offsetWidth > 0 ? rect.width / viewer.offsetWidth : 1;
+        cover(handle.current, rect, scale, screenBox(lens, live.current.piece), MIN_HIT);
+        if (live.current.ghost.length > 0) cover(spot.current, rect, scale, screenBox(lens, live.current.ghost), 0);
       }
       frame = requestAnimationFrame(tick);
     });
