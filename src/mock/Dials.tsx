@@ -2,7 +2,7 @@ import { DialRoot, useDialKitController } from "dialkit";
 import "dialkit/styles.css";
 import { useEffect, useRef } from "react";
 import { TUNING } from "../camera/look.ts";
-import { type MockSettings, type Pace } from "./settings.ts";
+import { MODEL, type MockSettings, type Pace, type StartScreen } from "./settings.ts";
 
 /** The DialKit panel for the mockup: which object and pace, the phone's shell, and the parts of the look still being tuned. Dev only. */
 export default function Dials({
@@ -14,7 +14,7 @@ export default function Dials({
   objects: string[];
   initial: MockSettings;
   onChange: (settings: MockSettings) => void;
-  onAction: (action: "replay" | "jump") => void;
+  onAction: (action: "replay") => void;
 }) {
   const reset = useRef<() => void>(undefined);
   const controller = useDialKitController(
@@ -22,8 +22,8 @@ export default function Dials({
     {
       object: { type: "select", options: objects, default: initial.object },
       pace: { type: "select", options: ["demo", "real"], default: initial.pace },
-      replay: { type: "action", label: "Back to camera" },
-      jump: { type: "action", label: "Jump to result" },
+      screen: { type: "select", options: ["camera", "model"], default: initial.screen },
+      replay: { type: "action", label: "Replay" },
       shell: { type: "select", options: ["installed app", "chrome tab"], default: "installed app" },
       usableArea: initial.showUsable,
       sweep: {
@@ -37,6 +37,12 @@ export default function Dials({
         glow: [TUNING.develop.glow, 0, 1, 0.05],
         glowBlur: [TUNING.develop.reach, 4, 48, 2],
       },
+      model: {
+        height: [MODEL.height, 320, 720, 4],
+        tilt: [MODEL.tilt, -30, 30, 1],
+        steps: [MODEL.steps, 1, 9, 1],
+        keyHeight: [MODEL.keyHeight, 16, 64, 2],
+      },
       reset: { type: "action", label: "Reset dials" },
     },
     {
@@ -44,12 +50,12 @@ export default function Dials({
       persist: true,
       onAction: (action) => {
         if (action === "reset") reset.current?.();
-        else if (action === "replay" || action === "jump") onAction(action);
+        else if (action === "replay") onAction(action);
       },
     },
   );
   reset.current = () => controller.resetValues();
-  const { object, pace, shell, usableArea, sweep, develop } = controller.values;
+  const { object, pace, screen, shell, usableArea, sweep, develop, model } = controller.values;
 
   const changed = useRef(onChange);
   changed.current = onChange;
@@ -57,14 +63,33 @@ export default function Dials({
     changed.current({
       object,
       pace: pace as Pace,
+      screen: screen as StartScreen,
       tab: shell === "chrome tab",
       showUsable: usableArea,
       tuning: {
         sweep: { ...TUNING.sweep, ms: sweep.ms, curve: sweep.curve },
         develop: { wave: develop.sway, light: develop.glimmer, speed: develop.speed, glow: develop.glow, reach: develop.glowBlur },
       },
+      model: { height: model.height, tilt: model.tilt, steps: model.steps, keyHeight: model.keyHeight },
     });
-  }, [object, pace, shell, usableArea, sweep.ms, sweep.curve, develop.sway, develop.glimmer, develop.speed, develop.glow, develop.glowBlur]);
+  }, [
+    object,
+    pace,
+    shell,
+    usableArea,
+    sweep.ms,
+    sweep.curve,
+    develop.sway,
+    develop.glimmer,
+    develop.speed,
+    develop.glow,
+    develop.glowBlur,
+    screen,
+    model.height,
+    model.tilt,
+    model.steps,
+    model.keyHeight,
+  ]);
 
   return <DialRoot defaultOpen position="top-right" />;
 }

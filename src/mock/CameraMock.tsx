@@ -8,8 +8,11 @@ import { ACCENT, CAMERA } from "../camera/look.ts";
 import { screen } from "../camera/screen.stylex.ts";
 import { DEFAULT_LOOK, type DitherLook } from "../kit3d/ditherLook.ts";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
+import { pill } from "../surface/relief.ts";
+import { Surface } from "../surface/Surface.tsx";
 import { colors, fonts, radii } from "../tokens.stylex.ts";
-import { defaultSettings, type MockSettings, type Pace } from "./settings.ts";
+import { LessonProgress } from "./LessonProgress.tsx";
+import { defaultSettings, type MockSettings, type Pace, type StartScreen } from "./settings.ts";
 
 /*
  * Mockup of the camera and the move from photo to model, in a phone frame. Nothing here talks to the server: the
@@ -47,12 +50,17 @@ const GESTURE_BAR = 24;
 const CHROME_TOOLBAR = 56;
 const HANDLE = { x: 152, y: 900.5, width: 108, height: 3.5 };
 
-const RESULT = { top: 44, cardHeight: 392 };
+/**
+ * The model screen: the progress bar, the model and the pill are one group, spaced `gap` apart and lifted `lift` off
+ * the bottom; the pill is `pill` tall with the link `link` under it.
+ */
+const MODEL_SCREEN = { gap: 24, lift: 48, pill: 56, link: 16, count: 16 };
 /** The model's dithered shadow in the accent too. */
 const LOOK: DitherLook = { ...DEFAULT_LOOK, colors: { ...DEFAULT_LOOK.colors, accent: ACCENT.toLowerCase() } };
 
 type Phase = "live" | "reading" | "building" | "done";
 type StartAt = "live" | "done";
+const startFor = (screen: StartScreen): StartAt => (screen === "model" ? "done" : "live");
 
 /** Milliseconds after the photos are sent. "real" follows a low-effort run: header at 5 s, first part at 6.7 s, done at about 12 s. */
 const PACES: Record<Pace, { started: number; first: number; gap: number; tail: number }> = {
@@ -60,8 +68,6 @@ const PACES: Record<Pace, { started: number; first: number; gap: number; tail: n
   real: { started: 5000, first: 6700, gap: 1300, tail: 900 },
 };
 
-const popIn = stylex.keyframes({ "0%": { opacity: 0, transform: "scale(0.5)" }, "100%": { opacity: 1, transform: "scale(1)" } });
-const riseIn = stylex.keyframes({ "0%": { opacity: 0, transform: "translateY(6px)" }, "100%": { opacity: 1, transform: "translateY(0)" } });
 const fadeIn = stylex.keyframes({ "0%": { opacity: 0 }, "100%": { opacity: 1 } });
 
 const light = stylex.createTheme(screen, {
@@ -69,7 +75,6 @@ const light = stylex.createTheme(screen, {
   fg: colors.ink,
   muted: colors.graphite,
   chrome: "rgba(20, 20, 20, 0.06)",
-  card: colors.paper,
 });
 
 /** The screen's defaults, set again on the camera so it stays dark while the screen under it turns light. */
@@ -104,10 +109,9 @@ export default function CameraMock({
   intro = MOCK_INTRO,
   after,
 }: { object?: string; intro?: Intro; after?: (props: { screen: PhoneScreen; onCamera: () => void }) => ReactNode } = {}) {
-  const [settings, setSettings] = useState<MockSettings>(() => ({
-    ...defaultSettings(initialObject ?? (OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? ""))),
-    showUsable: !after,
-  }));
+  const [settings, setSettings] = useState<MockSettings>(() =>
+    defaultSettings(initialObject ?? (OBJECT_NAMES.includes("bottle") ? "bottle" : (OBJECT_NAMES[0] ?? ""))),
+  );
   const [run, setRun] = useState<{ id: number; startAt: StartAt }>({ id: 0, startAt: "live" });
   const [built, setBuilt] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -116,6 +120,11 @@ export default function CameraMock({
     setBuilt(false);
     setRun((r) => ({ id: r.id + 1, startAt }));
   };
+
+  // Picking a screen starts a run there, and so does opening the page with it picked.
+  useEffect(() => {
+    if (!after) restart(startFor(settings.screen));
+  }, [settings.screen]);
 
   const usableTop = STATUS_BAR + (settings.tab ? CHROME_TOOLBAR : 0);
   const usableHeight = DEVICE.height - usableTop - GESTURE_BAR;
@@ -178,7 +187,7 @@ export default function CameraMock({
       </div>
       {Dials && !after && (
         <Suspense>
-          <Dials objects={OBJECT_NAMES} initial={settings} onChange={setSettings} onAction={(action) => restart(action === "jump" ? "done" : "live")} />
+          <Dials objects={OBJECT_NAMES} initial={settings} onChange={setSettings} onAction={() => restart(startFor(settings.screen))} />
         </Suspense>
       )}
     </div>
@@ -196,8 +205,6 @@ function useFitScale(height: number) {
   }, [height]);
   return scale;
 }
-
-type Header = { name: string; summary: string };
 
 function Flow({
   object,
@@ -223,8 +230,12 @@ function Flow({
   const atEnd = startAt === "done";
   const { kit } = object;
   const [phase, setPhase] = useState<Phase>(atEnd ? "done" : "live");
-  const [shots, setShots] = useState(atEnd ? 1 : 0);
-  const [header, setHeader] = useState<Header | undefined>(atEnd ? kit : undefined);
+  // The lesson, one step per mechanism: the furthest step reached (-1 until Build It), and the step on screen, which
+  // can be any step up to the furthest, never past it.
+  const steps = settings.model.steps;
+  const [reached, setReached] = useState(-1);
+  const [step, setStep] = useState(0);
+  const finished = reached >= steps;
   const [parts, setParts] = useState<Part[]>(atEnd ? kit.parts : []);
   // The camera is a sheet over the result. Once the model is ready it slides up and away, revealing the result.
   const [sheet, setSheet] = useState<"up" | "leaving" | "gone">(atEnd ? "gone" : "up");
@@ -233,17 +244,13 @@ function Flow({
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   const later = (ms: number, run: () => void) => void timers.current.push(window.setTimeout(run, ms));
 
-  function read(n: number) {
-    setShots(n);
+  function read() {
     setPhase("reading");
     const pacing = PACES[pace];
     const t0 = performance.now();
     const stamp = (what: string) => onLog(`${((performance.now() - t0) / 1000).toFixed(1).padStart(4)} s  ${what}`);
     stamp("photos sent");
-    later(pacing.started, () => {
-      setHeader(kit);
-      stamp(`found ${kit.name}`);
-    });
+    later(pacing.started, () => stamp(`found ${kit.name}`));
     kit.parts.forEach((part, i) =>
       later(pacing.first + i * pacing.gap, () => {
         if (i === 0) setPhase("building");
@@ -265,6 +272,22 @@ function Flow({
     return () => clearTimeout(id);
   }, [done, sheet]);
   const cardWidth = DEVICE.width - 2 * CAMERA.sideInset;
+  const { model } = settings;
+  // The model takes what's left once the progress bar, the pill and link, the gaps and the lift are placed.
+  const actions = MODEL_SCREEN.pill + 16 + MODEL_SCREEN.link;
+  const modelHeight = Math.min(
+    model.height,
+    usableHeight - (MODEL_SCREEN.count + 12 + model.keyHeight) - actions - 2 * MODEL_SCREEN.gap - MODEL_SCREEN.lift - 24,
+  );
+  // In the demo, Build It hands the phone to the lesson. On its own, the mockup has no lesson yet, so the pill stands in
+  // for finishing a step: it starts the lesson, then moves it on.
+  const build = () => {
+    if (onBuild) return onBuild();
+    const next = Math.min(steps, reached + 1);
+    setReached(next);
+    setStep(Math.min(steps - 1, next));
+  };
+  const label = !done ? "Laying out parts…" : onBuild || reached < 0 ? "Build It" : finished ? "Built" : reached === steps - 1 ? "Finish" : "Next Step";
 
   return (
     <div {...stylex.props(s.screen, done && light)}>
@@ -272,48 +295,34 @@ function Flow({
       {(phase === "building" || done) && (
         <div {...stylex.props(light, s.page)}>
           <div {...stylex.props(s.viewport(usableTop, usableHeight))}>
-            <ResultHeader shots={shots} parts={parts.length} onBack={onRestart} />
-            <div {...stylex.props(s.cardWrap)}>
-              <div {...stylex.props(s.card(cardWidth, RESULT.cardHeight))}>
+            {/* The progress bar, the model and the pill are one group, evenly spaced, so the bar sits as far above the
+                model as the pill sits below it. Nothing else: no header, counts or parts list. */}
+            <div {...stylex.props(s.reveal)}>
+              <LessonProgress count={steps} reached={reached} step={step} onStep={setStep} width={cardWidth} height={model.keyHeight} />
+              <div {...stylex.props(s.stage)}>
                 {parts.length > 0 && (
-                  <div {...stylex.props(s.viewer)}>
+                  <div {...stylex.props(s.model)}>
                     {/* Covered by the camera until it lifts, so it holds still until then. */}
-                    <KitViewer parts={parts} spin={sheet !== "up"} height={RESULT.cardHeight} look={LOOK} />
+                    <KitViewer parts={parts} spin={sheet !== "up"} roll={model.tilt} height={modelHeight} look={LOOK} />
                   </div>
                 )}
-                <div {...stylex.props(s.pip)} title="Your photo">
-                  <img src={object.photo} alt="" {...stylex.props(s.pipPhoto)} />
-                </div>
-                <span {...stylex.props(s.turnHint)}>Drag to turn</span>
               </div>
-            </div>
-            <div {...stylex.props(s.lower)}>
-              <div {...stylex.props(s.result)}>
-                <span {...stylex.props(s.label)}>Larry found a</span>
-                <h2 {...stylex.props(s.name)}>{header?.name ?? ""}</h2>
-                <div {...stylex.props(s.countRow)}>
-                  <span {...stylex.props(s.count)}>{parts.length}</span>
-                  <span {...stylex.props(s.countText)}>
-                    <span {...stylex.props(s.countWord)}>{parts.length === 1 ? "part" : "parts"}</span>
-                    <span {...stylex.props(s.label)}>{done ? "Ready to build" : "Still finding more"}</span>
-                  </span>
-                </div>
-                <div {...stylex.props(s.chips)}>
-                  {parts.map((part) => (
-                    <span key={part.id} {...stylex.props(s.chip)}>
-                      <span {...stylex.props(s.swatch(part.color))} />
-                      {part.name}
-                    </span>
-                  ))}
-                </div>
-                <div {...stylex.props(s.footer)}>
-                  <Button disabled={!done} data-build onClick={onBuild} {...stylex.props(s.primary, done && s.primaryReady)}>
-                    {done ? "Build it" : "Laying out parts…"}
-                  </Button>
-                  <Button {...stylex.props(s.link)} onClick={onRestart}>
-                    Scan something else
-                  </Button>
-                </div>
+              <div {...stylex.props(s.actions(cardWidth))}>
+                <Button disabled={!done || finished} data-build onClick={build} {...stylex.props(s.build)}>
+                  <Surface
+                    shape={pill(cardWidth, MODEL_SCREEN.pill)}
+                    relief="cap"
+                    material="slate"
+                    ground="light"
+                    grain={CAMERA.grain}
+                    depth={CAMERA.relief}
+                    drift={CAMERA.idleDither}
+                  />
+                  <span {...stylex.props(s.buildLabel)}>{label}</span>
+                </Button>
+                <Button {...stylex.props(s.link)} onClick={onRestart}>
+                  Scan something else
+                </Button>
               </div>
             </div>
           </div>
@@ -346,27 +355,6 @@ function Flow({
           </span>
         </div>
       )}
-    </div>
-  );
-}
-
-/** The result's top row: back, a summary, and scan again. */
-function ResultHeader({ shots, parts, onBack }: { shots: number; parts: number; onBack: () => void }) {
-  return (
-    <div {...stylex.props(s.header)}>
-      <Button aria-label="Back to camera" {...stylex.props(s.iconButton)} onClick={onBack}>
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-          <path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </Button>
-      <span {...stylex.props(s.summary)}>
-        {shots} {shots === 1 ? "photo" : "photos"} · {parts} parts
-      </span>
-      <Button aria-label="Scan again" {...stylex.props(s.iconButton)} onClick={onBack}>
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-          <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </Button>
     </div>
   );
 }
@@ -546,24 +534,6 @@ const s = stylex.create({
   },
   sheetUp: { transform: `translateY(${-DEVICE.height}px)`, boxShadow: "0 24px 48px rgba(0, 0, 0, 0.3)" },
 
-  header: { height: RESULT.top, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", paddingInline: 20 },
-  iconButton: {
-    width: 36,
-    height: 36,
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 0,
-    borderRadius: radii.pill,
-    padding: 0,
-    backgroundColor: screen.chrome,
-    color: screen.fg,
-    cursor: "pointer",
-    transition: colorFade,
-  },
-  summary: { fontFamily: fonts.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" },
-  cardWrap: { position: "relative", alignSelf: "center", flexShrink: 0 },
   card: (width: number, height: number) => ({
     position: "relative",
     width,
@@ -573,115 +543,58 @@ const s = stylex.create({
     backgroundColor: screen.card,
     transition: `height 700ms ${camera.easeOut}, background-color 600ms ease`,
   }),
-  viewer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    animationName: fadeIn,
-    animationDuration: "500ms",
-    animationDelay: "150ms",
-    animationFillMode: "both",
-  },
-  pip: {
-    position: "absolute",
-    left: 14,
-    bottom: 14,
-    width: 40,
-    height: 52,
-    borderRadius: 10,
-    overflow: "hidden",
-    boxShadow: `0 0 0 2px ${colors.paper}, 0 4px 12px rgba(0, 0, 0, 0.18)`,
-    animationName: popIn,
-    animationDuration: "400ms",
-    animationTimingFunction: camera.easeOut,
-    animationDelay: "300ms",
-    animationFillMode: "both",
-  },
-  pipPhoto: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" },
-  turnHint: {
-    position: "absolute",
-    right: 16,
-    bottom: 16,
-    fontFamily: fonts.mono,
-    fontSize: 11,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    color: screen.muted,
-  },
 
-  lower: { position: "relative", flexGrow: 1 },
-  result: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", paddingTop: 18, paddingInline: 24, gap: 2 },
-  label: {
-    fontFamily: fonts.mono,
-    fontSize: 11,
-    lineHeight: "14px",
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    color: screen.muted,
-    transition: colorFade,
+  // The model screen: the lesson's progress, the model large, and the one thing to do and a way out, as one evenly
+  // spaced group, centred and lifted a little above the middle.
+  reveal: {
+    flexGrow: 1,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: MODEL_SCREEN.gap,
+    paddingBottom: MODEL_SCREEN.lift,
   },
-  name: {
-    margin: 0,
-    fontSize: 28,
-    lineHeight: "34px",
-    fontWeight: 600,
-    letterSpacing: "-0.02em",
-    animationName: riseIn,
-    animationDuration: "350ms",
-    animationTimingFunction: camera.easeOut,
-  },
-  countRow: { display: "flex", alignItems: "flex-end", gap: 12, marginTop: 10, height: 56 },
-  count: {
-    fontFamily: fonts.mono,
-    fontSize: 64,
-    lineHeight: "56px",
-    fontWeight: 200,
-    letterSpacing: "-0.04em",
-    fontVariantNumeric: "tabular-nums",
-    animationName: riseIn,
-    animationDuration: "250ms",
-  },
-  countText: { display: "flex", flexDirection: "column", gap: 2, paddingBottom: 4 },
-  countWord: { fontSize: 18, lineHeight: "22px", fontWeight: 500 },
-  chips: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 14 },
-  chip: {
-    height: 28,
+  stage: { alignSelf: "stretch", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" },
+  model: { width: "100%", animationName: fadeIn, animationDuration: "600ms", animationDelay: "200ms", animationFillMode: "both" },
+  actions: (width: number) => ({ width, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }),
+  // The pill is a raised dark key: its look is the Surface under the label. Pressing sinks it a touch.
+  build: {
+    position: "relative",
+    width: "100%",
+    height: MODEL_SCREEN.pill,
+    padding: 0,
+    borderWidth: 0,
+    backgroundColor: "transparent",
     display: "flex",
     alignItems: "center",
-    gap: 6,
-    paddingInline: 10,
-    borderRadius: radii.pill,
-    backgroundColor: screen.chrome,
-    fontSize: 13,
-    fontWeight: 500,
-    animationName: riseIn,
-    animationDuration: "300ms",
-    animationTimingFunction: camera.easeOut,
+    justifyContent: "center",
+    cursor: { default: "pointer", ":disabled": "default" },
+    opacity: { default: 1, ":disabled": 0.5 },
+    transform: { default: "none", ":active:not(:disabled)": "scale(0.98)" },
+    transition: `transform 160ms ${camera.easeOut}, opacity 300ms ease`,
   },
-  swatch: (color: string) => ({ width: 8, height: 8, flexShrink: 0, backgroundColor: color, boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.12)" }),
-  footer: { marginTop: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingBottom: 16 },
-  primary: {
-    width: "100%",
-    height: 52,
-    borderWidth: 0,
-    borderRadius: radii.pill,
-    backgroundColor: screen.chrome,
-    color: screen.muted,
+  // Above the Surface's canvas, which is positioned.
+  buildLabel: {
+    position: "relative",
+    color: colors.paper,
     fontFamily: fonts.sans,
     fontSize: 17,
+    lineHeight: "22px",
     fontWeight: 600,
-    transition: "background-color 300ms ease, color 300ms ease",
+    letterSpacing: "-0.01em",
   },
-  primaryReady: { backgroundColor: screen.fg, color: screen.bg, cursor: "pointer" },
   link: {
     padding: 0,
     borderWidth: 0,
     backgroundColor: "transparent",
     color: screen.muted,
-    fontFamily: fonts.sans,
-    fontSize: 15,
-    fontWeight: 500,
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    lineHeight: "16px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
     cursor: "pointer",
   },
 });

@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as stylex from "@stylexjs/stylex";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { type BufferGeometry, type Group, type Mesh, type OrthographicCamera, PlaneGeometry, Vector3 } from "three";
+import { type BufferGeometry, Euler, type Group, Matrix4, type Mesh, type OrthographicCamera, PlaneGeometry, Quaternion, Vector3 } from "three";
 import { type KitBounds, measureParts } from "../../shared/bounds.ts";
 import type { Part } from "../../shared/kit.ts";
 import { reducedMotion, velocityTracker } from "../motion.ts";
@@ -29,6 +29,8 @@ type KitViewerProps = {
   elevation?: number;
   /** Degrees around y, 0 looks along -z. */
   azimuth?: number;
+  /** Degrees the view is turned about its own axis, for a model shown at a slight lean. Positive leans it right. */
+  roll?: number;
   /** CSS height in px. */
   height?: number;
   /** Bounds to fit the camera to instead of the parts' own, so the view holds still while the parts move or arrive. */
@@ -84,13 +86,48 @@ const cameraTarget = new Vector3();
 const cameraOffset = new Vector3();
 const FIT_KEYS = ["zoom", "targetY", "distance"] as const;
 
-function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimuth: number) {
+/**
+ * The height to aim the camera at so the model's outline, not its bounding box, sits in the middle of the view, at
+ * every angle the spin turns it to. Seen from above, a point at height y and distance r from the spin axis lands on
+ * screen at y * cos(elevation) plus at most r * sin(elevation), so a bottle with a wide base and a narrow cap reaches
+ * further down the screen than up it and sits low if the box's middle is aimed at. The roll leans that into the
+ * sideways reach. Returns null for a model with no vertices.
+ */
+function outlineMiddle(parts: Part[], shapes: BufferGeometry[], bounds: KitBounds, elevation: number, roll: number): number | null {
+  const el = elevation * DEG_TO_RAD;
+  const ro = roll * DEG_TO_RAD;
+  const up = Math.cos(el) * Math.cos(ro);
+  const reach = Math.hypot(Math.sin(el) * Math.cos(ro), Math.sin(ro));
+  if (up < 1e-6) return null;
+  let top = -Infinity;
+  let bottom = Infinity;
+  const v = new Vector3();
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const one = new Vector3(1, 1, 1);
+  parts.forEach((part, i) => {
+    const position = shapes[i]?.getAttribute("position");
+    if (!position) return;
+    const { x, y, z } = part.rotation;
+    m.compose(new Vector3(part.position.x, part.position.y, part.position.z), q.setFromEuler(new Euler(x * DEG_TO_RAD, y * DEG_TO_RAD, z * DEG_TO_RAD)), one);
+    for (let k = 0; k < position.count; k++) {
+      v.fromBufferAttribute(position, k).applyMatrix4(m);
+      const r = Math.hypot(v.x - bounds.centerX, v.z - bounds.centerZ) * reach;
+      top = Math.max(top, v.y * up + r);
+      bottom = Math.min(bottom, v.y * up - r);
+    }
+  });
+  return Number.isFinite(top) ? (top + bottom) / 2 / up : null;
+}
+
+function placeCamera(cam: OrthographicCamera, fit: Fit, elevation: number, azimuth: number, roll = 0) {
   const el = elevation * DEG_TO_RAD;
   const az = azimuth * DEG_TO_RAD;
   cameraTarget.set(0, fit.targetY, 0);
   cameraOffset.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(fit.distance);
   cam.position.copy(cameraTarget).add(cameraOffset);
   cam.lookAt(cameraTarget);
+  cam.rotateZ(roll * DEG_TO_RAD);
   cam.near = 0.1;
   cam.far = fit.distance * 2;
   cam.zoom = fit.zoom;
@@ -102,6 +139,7 @@ export const KitViewer = memo(function KitViewer({
   spin: wantsSpin = false,
   elevation = 20,
   azimuth = 30,
+  roll = 0,
   height = 360,
   frame,
   pixelScale,
@@ -132,7 +170,7 @@ export const KitViewer = memo(function KitViewer({
         }}
       >
         <color attach="background" args={[look.colors.paper]} />
-        <Scene parts={parts} spin={spin} elevation={elevation} azimuth={azimuth} frame={frame} look={look} />
+        <Scene parts={parts} spin={spin} elevation={elevation} azimuth={azimuth} roll={roll} frame={frame} look={look} />
       </Canvas>
     </div>
   );
@@ -143,6 +181,7 @@ function Scene({
   spin,
   elevation,
   azimuth,
+  roll,
   frame,
   look,
 }: {
@@ -150,6 +189,7 @@ function Scene({
   spin: boolean;
   elevation: number;
   azimuth: number;
+  roll: number;
   frame: KitBounds | undefined;
   look: DitherLook;
 }) {
@@ -187,14 +227,15 @@ function Scene({
     const halfTall = (height / 2) * Math.cos(el) + bounds.radius * Math.sin(el);
     fitGoal.current = {
       zoom: Math.min(size.width / (2 * halfWide * MARGIN), size.height / (2 * halfTall * MARGIN)),
-      targetY: (bounds.minY + bounds.maxY) / 2,
+      // A fixed frame keeps its own middle, so a model's poses don't shift against each other.
+      targetY: (!frame && outlineMiddle(parts, shapes, bounds, elevation, roll)) || (bounds.minY + bounds.maxY) / 2,
       distance: 2 * (bounds.radius + height) + 100,
     };
     // The first fit snaps so a static viewer is right on its first frame. Later fits are eased in useFrame.
     fit.current ??= { ...fitGoal.current };
-    placeCamera(camera as OrthographicCamera, fit.current, elevation, azimuth);
+    placeCamera(camera as OrthographicCamera, fit.current, elevation, azimuth, roll);
     invalidate();
-  }, [camera, size, bounds, shadowReach, elevation, azimuth, invalidate]);
+  }, [camera, size, bounds, parts, shapes, frame, shadowReach, elevation, azimuth, roll, invalidate]);
 
   useEffect(() => {
     const canvas = gl.domElement;
@@ -254,7 +295,7 @@ function Scene({
         }
       }
       if (moving) {
-        placeCamera(camera as OrthographicCamera, current, elevation, azimuth);
+        placeCamera(camera as OrthographicCamera, current, elevation, azimuth, roll);
         invalidate();
       }
     }

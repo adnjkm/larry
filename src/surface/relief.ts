@@ -1,3 +1,4 @@
+import { inset } from "./dither.ts";
 import type { MaterialName } from "./look.ts";
 
 /**
@@ -48,6 +49,28 @@ export const feature = {
     (rise: number): Feature =>
     ({ q }) =>
       rise * Math.max(0, 1 - q),
+  /**
+   * A sculpted keycap, as on a phone's 3D keyboard: a top face, a rounded rectangle with radius `face`, standing
+   * `lift` px, and round it a straight skirt sloping down to the part's edge. The skirt is `side` px wide at the sides,
+   * thinner at the top and thicker at the bottom, as a key seen from a little in front. The face dips `dip` px toward
+   * its middle row, with a crisp edge where it meets the skirt.
+   */
+  keycap:
+    (lift: number, side: number, face: number, dip = 0): Feature =>
+    ({ d, x, y, w, h }) => {
+      const top = side * 0.6;
+      const bottom = side * 1.5;
+      const f = inset(x - side, y - top, w - 2 * side, h - top - bottom, face);
+      // The skirt rounds a little: steep at its foot and easing toward the face, so its shade graduates instead of
+      // sitting at one flat tone, but it still meets the face at an angle, for a crisp edge.
+      if (f < 0) {
+        const t = Math.max(0, Math.min(1, d / Math.max(1e-6, d - f)));
+        return lift * t * (1.6 - 0.6 * t);
+      }
+      const k = Math.min(1, f / 1.5);
+      const v = Math.min(1, Math.abs(y - (top + (h - top - bottom) / 2)) / Math.max(1, (h - top - bottom) / 2));
+      return lift - dip * k * (1 - v * v);
+    },
   /** A bowl starting `rim` px in from the edge and `depth` px deep at the middle. Steepest at its lip. */
   bowl:
     (rim: number, depth: number): Feature =>
@@ -65,6 +88,10 @@ export const RELIEF = {
   capPressed: [feature.raise(1.2, 5), feature.crown(0.2)],
   /** A flat key with a tight edge. */
   key: [feature.raise(2, 3)],
+  /** A sculpted keyboard key: a crisp, gently dished top face on a sloping skirt, the skirt deepest at the bottom. */
+  keycap: [feature.keycap(2.4, 5, 6, 0.6)],
+  /** The keycap held down: it stands lower. */
+  keycapDown: [feature.keycap(1, 5, 6, 0.4)],
   /** A dish, like a 3DS circle pad: a rim round a bowl. The shutter. */
   dish: [feature.raise(3, 4), feature.bowl(9, 6)],
   dishPressed: [feature.raise(1.5, 4), feature.bowl(9, 3.5)],

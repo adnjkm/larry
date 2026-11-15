@@ -6,7 +6,7 @@ export const CAMERA = {
   sideInset: 16,
   /** The band above the frame and the band below it are this tall, so the frame sits centred. */
   barHeight: 120,
-  shutter: 96,
+  shutter: 88,
   wheel: { width: 112, height: 64, ridges: 19, rim: 3 },
   zoom: { min: 1, max: 5, perPixel: 0.02 },
   top: {

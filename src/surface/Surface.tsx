@@ -39,6 +39,8 @@ export type SurfaceProps = {
   drift?: number;
   /** CSS px of room round the part for its cast shadow. */
   pad?: number;
+  /** What the part sits on, for its cast shadow's colour: near-black on dark, a soft grey on light. */
+  ground?: "dark" | "light";
   /** Scales how tall the relief stands, so one dial can soften or deepen every part. 1 keeps it as made. */
   depth?: number;
   /** What identifies a function or array relief in the cache. Required for those, since a function has no name. */
@@ -79,7 +81,7 @@ function stripFor({ shape, relief, frames = 1, material = "bone", pad = 6, depth
 }
 
 export function Surface(props: SurfaceProps) {
-  const { at = 0, smear = 0, grain, drift = 0, pad = 6 } = props;
+  const { at = 0, smear = 0, grain, drift = 0, pad = 6, ground = "dark" } = props;
   const dpr = Math.min(3, typeof window === "undefined" ? 1 : window.devicePixelRatio || 1);
   const deviceCell = Math.max(1, Math.round(grain * LOOK.fine * dpr));
   const cellCss = deviceCell / dpr;
@@ -102,7 +104,7 @@ export function Surface(props: SurfaceProps) {
     const el = canvas.current;
     const r = el && raster(el, cols, rows);
     if (!r) return;
-    paintField(shown, r.image, { origin: origin.current, drift, seconds: clock.current });
+    paintField(shown, r.image, { origin: origin.current, drift, seconds: clock.current, ground });
     r.ctx.putImageData(r.image, 0, 0);
   };
 
@@ -128,7 +130,7 @@ export function Surface(props: SurfaceProps) {
     return () => cancel(handle);
   }, [strip]);
 
-  useEffect(() => paint.current(), [shown, drift, cols, rows]);
+  useEffect(() => paint.current(), [shown, drift, cols, rows, ground]);
 
   // Drift: a dozen repaints a second, while the part is on screen. None under reduced motion, or with no drift.
   useEffect(() => {

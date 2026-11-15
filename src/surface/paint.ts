@@ -7,14 +7,18 @@ import type { Field } from "./relief.ts";
  * (for a turning wheel, a drifting grain), so it allocates nothing but a view and does no per-cell calls beyond the noise.
  */
 
-type Palette = { tones: Uint32Array[]; ink: number };
+type Palette = { tones: Uint32Array[]; ink: number; inkOnLight: number };
 const palettes = new WeakMap<Look, Palette>();
 
 /** A look's colours packed once, so the per-cell loop never touches an array of arrays. */
 function paletteOf(look: Look): Palette {
   let p = palettes.get(look);
   if (!p) {
-    p = { tones: MATERIAL_NAMES.map((name) => ramp(look.materials[name]?.tones ?? [[0, 0, 0]])), ink: ramp([look.ink])[0]! };
+    p = {
+      tones: MATERIAL_NAMES.map((name) => ramp(look.materials[name]?.tones ?? [[0, 0, 0]])),
+      ink: ramp([look.ink])[0]!,
+      inkOnLight: ramp([look.inkOnLight])[0]!,
+    };
     palettes.set(look, p);
   }
   return p;
@@ -43,7 +47,7 @@ function hashRow(into: number, yi: number, xi0: number, width: number) {
 export function paintField(
   fields: readonly Field[],
   out: ImageData,
-  opts: { origin: readonly [number, number]; drift: number; seconds: number },
+  opts: { origin: readonly [number, number]; drift: number; seconds: number; ground?: "dark" | "light" },
   look: Look = LOOK,
 ): void {
   const first = fields[0];
@@ -51,7 +55,8 @@ export function paintField(
   const { cols, rows } = first;
   const count = cols * rows;
   const px = new Uint32Array(out.data.buffer, out.data.byteOffset, count);
-  const { tones, ink } = paletteOf(look);
+  const { tones, ink: darkInk, inkOnLight } = paletteOf(look);
+  const ink = opts.ground === "light" ? inkOnLight : darkInk;
   const { owner } = first;
   const [ox, oy] = opts.origin;
   const n = fields.length;

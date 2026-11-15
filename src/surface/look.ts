@@ -74,6 +74,8 @@ export const LOOK = {
   },
   /** The colour of a cast shadow falling on empty ground. */
   ink: [10, 10, 12],
+  /** The same on a light ground, where near-black dots read as marks, not shade. */
+  inkOnLight: [178, 180, 188],
 } satisfies Look;
 
 export type Material = {
@@ -94,6 +96,7 @@ export type Look = {
   edge: { radius: number; ridge: number; crease: number };
   materials: Record<string, Material>;
   ink: Rgb;
+  inkOnLight: Rgb;
 };
 
 export type MaterialName = keyof typeof LOOK.materials;
