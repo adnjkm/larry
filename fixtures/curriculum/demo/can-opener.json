@@ -1,0 +1,41 @@
+{
+  "name": "Can opener",
+  "summary": "Squeezing the handles pushes a sharp wheel through the lid of a can, and turning the key rolls the can round so the wheel cuts all the way.",
+  "parts": [
+    {
+      "id": "handle-a",
+      "name": "Upper handle",
+      "role": "One of two long handles squeezed together.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "handle-b",
+      "name": "Lower handle",
+      "role": "The second handle, hinged to the first.",
+      "parentId": "handle-a",
+      "joint": "hinge"
+    },
+    {
+      "id": "cutter",
+      "name": "Cutting wheel",
+      "role": "A small sharp disc that pierces and slices the lid.",
+      "parentId": "handle-a",
+      "joint": "axle"
+    },
+    {
+      "id": "feed",
+      "name": "Toothed wheel",
+      "role": "A ridged wheel that grips under the can's rim and drives it round.",
+      "parentId": "handle-b",
+      "joint": "axle"
+    },
+    {
+      "id": "key",
+      "name": "Turning key",
+      "role": "The butterfly knob you turn by hand.",
+      "parentId": "feed",
+      "joint": "fixed"
+    }
+  ]
+}

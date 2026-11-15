@@ -1,0 +1,34 @@
+{
+  "name": "Soap pump bottle",
+  "summary": "Pressing the pump head down squirts liquid soap out of the spout, and the head rises again ready for the next press.",
+  "parts": [
+    {
+      "id": "bottle",
+      "name": "Bottle",
+      "role": "Holds the liquid soap.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "collar",
+      "name": "Collar",
+      "role": "The ring that screws the pump onto the bottle.",
+      "parentId": "bottle",
+      "joint": "screw"
+    },
+    {
+      "id": "head",
+      "name": "Pump head",
+      "role": "The top you press down, with the spout the soap comes out of.",
+      "parentId": "collar",
+      "joint": "slide"
+    },
+    {
+      "id": "dip-tube",
+      "name": "Dip tube",
+      "role": "A thin tube reaching down to the bottom of the soap.",
+      "parentId": "collar",
+      "joint": "press-fit"
+    }
+  ]
+}

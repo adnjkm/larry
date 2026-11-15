@@ -1,0 +1,27 @@
+{
+  "name": "Zip pencil case",
+  "summary": "A fabric pouch closed by a zip: pulling the slider one way joins the two rows of teeth and pulling it back opens them.",
+  "parts": [
+    {
+      "id": "pouch",
+      "name": "Pouch",
+      "role": "The fabric bag that holds pens.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "zip",
+      "name": "Zip teeth",
+      "role": "Two rows of small plastic teeth along the opening.",
+      "parentId": "pouch",
+      "joint": "sewn"
+    },
+    {
+      "id": "slider",
+      "name": "Slider",
+      "role": "The metal piece that rides along the teeth, with a pull tab.",
+      "parentId": "zip",
+      "joint": "slide"
+    }
+  ]
+}

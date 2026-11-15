@@ -16,6 +16,7 @@ import { PLAN_SYSTEM, planRequest } from "../server/planPrompt.ts";
 import { lessonsJsonSchema, planJsonSchema } from "../server/schemas.ts";
 import { type Brief, Lessons, type MechanismLesson, Plan, briefOf, lessonMechanisms, lessonProblems, planProblems } from "../shared/curriculum.ts";
 import { parseKit } from "../shared/kit.ts";
+import { completePlan } from "../shared/mechanisms/plan.ts";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 
 const { values, positionals } = parseArgs({
@@ -49,7 +50,11 @@ async function briefs(): Promise<Map<string, Brief>> {
   const all = new Map<string, Brief>();
   for (const name of await names("fixtures/kits/")) all.set(name, briefOf(parseKit(await json(new URL(`fixtures/kits/${name}.json`, root)))));
   for (const name of await names("fixtures/curriculum/objects/")) all.set(name, await json<Brief>(new URL(`fixtures/curriculum/objects/${name}.json`, root)));
-  const wanted = values.objects === "all" ? [...all.keys()] : (values.objects?.split(",") ?? PRACTICE);
+  // Likely demo objects with no reference answer: for checking what the planner recognises, not for judging.
+  const demo = await names("fixtures/curriculum/demo/");
+  const judged = [...all.keys()];
+  for (const name of demo) all.set(name, await json<Brief>(new URL(`fixtures/curriculum/demo/${name}.json`, root)));
+  const wanted = values.objects === "all" ? judged : values.objects === "demo" ? demo : (values.objects?.split(",") ?? PRACTICE);
   return new Map(wanted.map((name) => [name, all.get(name) ?? fail(`no object ${name}`)]));
 }
 const fail = (message: string): never => {
@@ -140,7 +145,7 @@ export const renderLessons = (lessons: MechanismLesson[]): string =>
 /** What a plan decided, in one line, so two runs of the same object can be compared at a glance. */
 const signature = (plan: Plan): string =>
   lessonMechanisms(plan)
-    .map((m) => `${m.name}(${m.subfunctions.map((s) => s.primitive).join("+")})`)
+    .map((m) => `${m.name}(${m.known ?? `custom: ${m.subfunctions.map((s) => s.primitive).join("+")}`})`)
     .join(" | ") || "no lessons";
 
 async function runPlans() {
@@ -148,13 +153,15 @@ async function runPlans() {
     Array.from({ length: samples }, (_, sample) => async (): Promise<PlanRun> => {
       const r = await ask(PLAN_SYSTEM, planJsonSchema, planRequest(brief), "mechanisms");
       const parsed = Plan.safeParse(r.output);
+      // Checked as the server uses it: completed from the library first.
+      const whole = parsed.success ? completePlan(parsed.data) : null;
       const run: PlanRun = {
         object,
         sample,
         ms: r.ms,
         costUsd: r.costUsd,
-        plan: parsed.success ? parsed.data : null,
-        problems: parsed.success ? planProblems(parsed.data, brief, PRIMITIVE_IDS) : [`schema: ${parsed.error.message}`],
+        plan: whole,
+        problems: whole ? planProblems(whole, brief, PRIMITIVE_IDS) : [`schema: ${parsed.error?.message}`],
       };
       await save("plan", `${object}.${sample}`, run);
       return run;

@@ -1,0 +1,20 @@
+{
+  "name": "Carabiner",
+  "summary": "A metal loop with a sprung gate that pushes inward to hook onto a strap, then snaps shut by itself.",
+  "parts": [
+    {
+      "id": "frame",
+      "name": "Frame",
+      "role": "The C-shaped aluminium loop that carries the load.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "gate",
+      "name": "Gate",
+      "role": "The sprung bar that swings inward and closes the loop.",
+      "parentId": "frame",
+      "joint": "hinge"
+    }
+  ]
+}

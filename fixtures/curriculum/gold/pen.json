@@ -23,9 +23,11 @@
           "refill"
         ],
         "needs": [],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       },
       {
         "id": "ballpoint",
@@ -37,18 +39,20 @@
         "needs": [
           "ink-tube"
         ],
-        "lesson": true,
-        "gap": {
-          "try": "Hold the open tube tip down over paper.",
-          "fails": "The ink runs out in a blob instead of a line."
-        },
+        "known": null,
+        "words": [],
         "subfunctions": [
           {
             "id": "meter-ink",
             "does": "Let ink out only while the tip rolls",
             "primitive": "valve"
           }
-        ]
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Hold the open tube tip down over paper.",
+          "fails": "The ink runs out in a blob instead of a line."
+        }
       },
       {
         "id": "barrel",
@@ -61,9 +65,11 @@
         "needs": [
           "ink-tube"
         ],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       },
       {
         "id": "retraction",
@@ -78,11 +84,8 @@
           "ballpoint",
           "barrel"
         ],
-        "lesson": true,
-        "gap": {
-          "try": "Drop the pen in a shirt pocket.",
-          "fails": "The wet tip is always out and marks the cloth."
-        },
+        "known": null,
+        "words": [],
         "subfunctions": [
           {
             "id": "return-tip",
@@ -99,7 +102,12 @@
             "does": "Make the same press latch and release",
             "primitive": "cam"
           }
-        ]
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Drop the pen in a shirt pocket.",
+          "fails": "The wet tip is always out and marks the cloth."
+        }
       },
       {
         "id": "clip",
@@ -111,9 +119,11 @@
         "needs": [
           "barrel"
         ],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       }
     ]
   }

@@ -1,0 +1,34 @@
+{
+  "name": "Mechanical pencil",
+  "summary": "Each press of the end button pushes a thin lead a little further out of the tip, and the lead stays put while you write.",
+  "parts": [
+    {
+      "id": "barrel",
+      "name": "Barrel",
+      "role": "The plastic tube you hold, with the lead and the works inside.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "tip",
+      "name": "Metal tip",
+      "role": "The narrow cone the lead comes out of.",
+      "parentId": "barrel",
+      "joint": "screw"
+    },
+    {
+      "id": "button",
+      "name": "End button",
+      "role": "The cap you press, with an eraser under it.",
+      "parentId": "barrel",
+      "joint": "slide"
+    },
+    {
+      "id": "clip",
+      "name": "Pocket clip",
+      "role": "A springy metal strip on the side.",
+      "parentId": "barrel",
+      "joint": "clamp"
+    }
+  ]
+}

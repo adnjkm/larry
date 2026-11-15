@@ -56,10 +56,14 @@ export const Mechanism = z.object({
   does: z.string().describe(`The job, as a user would name it without opening the object. About ${LIMITS.words.does.aim} words.`),
   parts: z.array(z.string()).describe("Ids of the scanned parts it is made of, works through or is hidden inside. Never empty."),
   needs: z.array(z.string()).describe("Ids of earlier mechanisms that must exist before this one can be built or used."),
+  known: z.string().nullable().describe("The library id, when the job is done the way that entry describes. null otherwise."),
+  words: z
+    .array(z.object({ slot: z.string(), phrase: z.string().describe('What this object calls it: singular, "the" and one or two words.') }))
+    .describe("For a known mechanism, one per slot of its entry. Empty otherwise."),
   subfunctions: z
     .array(Subfunction)
-    .describe(`The job's 1 to ${LIMITS.subfunctions} steps in the order a builder meets them, one effect each. Empty for a given.`),
-  lesson: z.boolean().describe("True when the sub-functions do the job."),
+    .describe(`The job's 1 to ${LIMITS.subfunctions} steps in the order a builder meets them, one effect each. Empty for a given and for a known mechanism.`),
+  lesson: z.boolean().describe("True when a known mechanism or the sub-functions do the job and it is worth teaching here."),
   gap: Gap.nullable().describe("null for a given and for the first mechanism."),
 });
 export type Mechanism = z.infer<typeof Mechanism>;

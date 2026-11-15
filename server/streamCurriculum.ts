@@ -10,6 +10,7 @@ import {
   lessonProblems,
   planProblems,
 } from "../shared/curriculum.ts";
+import { completePlan, libraryLessons, withoutKnownLessons } from "../shared/mechanisms/plan.ts";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { type Brain, streamStructured } from "./claude.ts";
 import { LESSONS_SYSTEM, lessonsRequest } from "./lessonsPrompt.ts";
@@ -46,7 +47,8 @@ const feedback = (problems: string[], previous: unknown): string =>
  * Slips that change nothing a reader would see are fixed here instead of costing a rewrite, which would double the wait:
  * parts that were never scanned are dropped, and a given, or the first mechanism, loses a gap it should not have.
  */
-function repairPlan(plan: Plan, brief: Brief): Plan {
+function repairPlan(written: Plan, brief: Brief): Plan {
+  const plan = completePlan(written);
   const known = new Set(brief.parts.map((p) => p.id));
   return {
     ...plan,
@@ -221,9 +223,14 @@ export async function* streamCurriculum(
   const plan = await writePlan(brief, { brain: brains.plan, ask, signal, onStats: (s) => (planStats = s) });
   yield { type: "plan", plan };
 
-  const lessons: MechanismLesson[] = [];
+  // Lessons for mechanisms the library knows are already written: they go out with no wait and no model call.
+  const lessons: MechanismLesson[] = libraryLessons(plan);
+  for (const lesson of lessons) {
+    firstLessonMs ??= Date.now() - started;
+    yield { type: "lesson", lesson };
+  }
   const lessonOptions = { brain: brains.lessons, review: brains.review, ask, signal, onStats: (s: CallStats) => (lessonStats = s), onFlag };
-  for await (const lesson of writeLessons(plan, lessonOptions)) {
+  for await (const lesson of writeLessons(withoutKnownLessons(plan), lessonOptions)) {
     firstLessonMs ??= Date.now() - started;
     lessons.push(lesson);
     yield { type: "lesson", lesson };

@@ -25,9 +25,11 @@
           "rubber-pad"
         ],
         "needs": [],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       },
       {
         "id": "channel",
@@ -39,9 +41,11 @@
         "needs": [
           "base"
         ],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       },
       {
         "id": "drive",
@@ -57,11 +61,8 @@
           "base",
           "channel"
         ],
-        "lesson": true,
-        "gap": {
-          "try": "Push a staple through a stack of paper with your thumb.",
-          "fails": "The legs buckle and nothing holds the sheets together."
-        },
+        "known": null,
+        "words": [],
         "subfunctions": [
           {
             "id": "press-hard",
@@ -78,7 +79,12 @@
             "does": "Lift the arm back up for the next press",
             "primitive": "spring"
           }
-        ]
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Push a staple through a stack of paper with your thumb.",
+          "fails": "The legs buckle and nothing holds the sheets together."
+        }
       },
       {
         "id": "feed",
@@ -91,18 +97,20 @@
           "channel",
           "drive"
         ],
-        "lesson": true,
-        "gap": {
-          "try": "Press the arm a second time.",
-          "fails": "Nothing comes out, because no staple is under the blade."
-        },
+        "known": null,
+        "words": [],
         "subfunctions": [
           {
             "id": "push-strip",
             "does": "Push the strip forward as each staple leaves",
             "primitive": "spring"
           }
-        ]
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Press the arm a second time.",
+          "fails": "Nothing comes out, because no staple is under the blade."
+        }
       },
       {
         "id": "opening-top",
@@ -115,9 +123,11 @@
         "needs": [
           "channel"
         ],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       }
     ]
   }

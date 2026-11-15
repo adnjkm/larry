@@ -22,9 +22,11 @@
           "upper-arm"
         ],
         "needs": [],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       },
       {
         "id": "clamp",
@@ -39,11 +41,8 @@
         "needs": [
           "arms"
         ],
-        "lesson": true,
-        "gap": {
-          "try": "Hang a wet towel between the two loose arms.",
-          "fails": "The arms fall apart and the towel drops."
-        },
+        "known": null,
+        "words": [],
         "subfunctions": [
           {
             "id": "squeeze-shut",
@@ -55,7 +54,12 @@
             "does": "Open the jaws with a light pinch",
             "primitive": "lever"
           }
-        ]
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Hang a wet towel between the two loose arms.",
+          "fails": "The arms fall apart and the towel drops."
+        }
       }
     ]
   }

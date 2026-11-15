@@ -1,0 +1,34 @@
+{
+  "name": "Over-ear headphones",
+  "summary": "Two padded cups on a sprung band that slides longer or shorter on each side to fit, and folds flat.",
+  "parts": [
+    {
+      "id": "band",
+      "name": "Headband",
+      "role": "The springy padded band over the head.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "slider",
+      "name": "Size slider",
+      "role": "A steel strip on each side that pulls out of the band and stays where it is left.",
+      "parentId": "band",
+      "joint": "slide"
+    },
+    {
+      "id": "cup",
+      "name": "Ear cup",
+      "role": "The padded cup with the speaker inside.",
+      "parentId": "slider",
+      "joint": "hinge"
+    },
+    {
+      "id": "cable",
+      "name": "Cable",
+      "role": "Carries the sound in.",
+      "parentId": "cup",
+      "joint": "plug"
+    }
+  ]
+}

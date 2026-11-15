@@ -1,0 +1,41 @@
+{
+  "name": "Push-button water bottle",
+  "summary": "Pressing a button on the front pops the lid open for drinking, the lid clicks shut again, and the whole top unscrews to refill.",
+  "parts": [
+    {
+      "id": "body",
+      "name": "Bottle body",
+      "role": "The clear plastic bottle that holds the drink.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "top",
+      "name": "Screw top",
+      "role": "The collar with the drinking spout that screws onto the body.",
+      "parentId": "body",
+      "joint": "screw"
+    },
+    {
+      "id": "lid",
+      "name": "Flip lid",
+      "role": "The hinged cover over the spout that springs open.",
+      "parentId": "top",
+      "joint": "hinge"
+    },
+    {
+      "id": "button",
+      "name": "Release button",
+      "role": "The button on the front that lets the lid go.",
+      "parentId": "top",
+      "joint": "slide"
+    },
+    {
+      "id": "gasket",
+      "name": "Gasket",
+      "role": "A soft ring inside the top.",
+      "parentId": "top",
+      "joint": "press-fit"
+    }
+  ]
+}

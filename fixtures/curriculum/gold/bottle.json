@@ -23,9 +23,11 @@
           "body"
         ],
         "needs": [],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       },
       {
         "id": "double-wall",
@@ -37,9 +39,11 @@
         "needs": [
           "body"
         ],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       },
       {
         "id": "screw-cap",
@@ -52,18 +56,20 @@
         "needs": [
           "body"
         ],
-        "lesson": true,
-        "gap": {
-          "try": "Put the open bottle in a bag and walk.",
-          "fails": "The drink slops out of the mouth."
-        },
+        "known": null,
+        "words": [],
         "subfunctions": [
           {
             "id": "hold-cap",
             "does": "Hold the cap down on the neck",
             "primitive": "thread"
           }
-        ]
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Put the open bottle in a bag and walk.",
+          "fails": "The drink slops out of the mouth."
+        }
       },
       {
         "id": "leakproof-seal",
@@ -76,18 +82,20 @@
         "needs": [
           "screw-cap"
         ],
-        "lesson": true,
-        "gap": {
-          "try": "Screw the cap on and lay the bottle on its side.",
-          "fails": "Water creeps out along the thread."
-        },
+        "known": null,
+        "words": [],
         "subfunctions": [
           {
             "id": "close-gap",
             "does": "Fill the gap between cap and neck",
             "primitive": "seal"
           }
-        ]
+        ],
+        "lesson": true,
+        "gap": {
+          "try": "Screw the cap on and lay the bottle on its side.",
+          "fails": "Water creeps out along the thread."
+        }
       }
     ]
   }

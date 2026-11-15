@@ -26,8 +26,8 @@
           "grip-bottom"
         ],
         "needs": [],
-        "lesson": true,
-        "gap": null,
+        "known": null,
+        "words": [],
         "subfunctions": [
           {
             "id": "thin-edge",
@@ -39,7 +39,9 @@
             "does": "Squeeze harder than fingers can alone",
             "primitive": "lever"
           }
-        ]
+        ],
+        "lesson": true,
+        "gap": null
       },
       {
         "id": "loops",
@@ -54,9 +56,11 @@
         "needs": [
           "shear"
         ],
+        "known": null,
+        "words": [],
+        "subfunctions": [],
         "lesson": false,
-        "gap": null,
-        "subfunctions": []
+        "gap": null
       }
     ]
   }

@@ -1,0 +1,34 @@
+{
+  "name": "Snap-lid food container",
+  "summary": "A plastic box whose lid is held down by four hinged flaps that snap over the rim, with a soft ring in the lid to keep soup in.",
+  "parts": [
+    {
+      "id": "box",
+      "name": "Box",
+      "role": "The clear box that holds the food.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "lid",
+      "name": "Lid",
+      "role": "Covers the box.",
+      "parentId": "box",
+      "joint": "rest"
+    },
+    {
+      "id": "flap",
+      "name": "Locking flap",
+      "role": "One of four hinged flaps on the lid that snap over the rim of the box.",
+      "parentId": "lid",
+      "joint": "hinge"
+    },
+    {
+      "id": "ring",
+      "name": "Soft ring",
+      "role": "A rubber ring in a groove under the lid.",
+      "parentId": "lid",
+      "joint": "press-fit"
+    }
+  ]
+}

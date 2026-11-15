@@ -1,0 +1,20 @@
+{
+  "name": "Bottle opener",
+  "summary": "A flat steel bar with a shaped hole: the lip hooks under a bottle cap and lifting the handle bends the cap off.",
+  "parts": [
+    {
+      "id": "bar",
+      "name": "Steel bar",
+      "role": "The flat handle you lift.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "head",
+      "name": "Opener head",
+      "role": "The shaped hole at the end, with a lip that hooks under the cap and an edge that rests on top of it.",
+      "parentId": "bar",
+      "joint": "fixed"
+    }
+  ]
+}

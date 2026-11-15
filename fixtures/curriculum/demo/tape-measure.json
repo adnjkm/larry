@@ -1,0 +1,41 @@
+{
+  "name": "Tape measure",
+  "summary": "A steel tape pulls out of the case to measure, a thumb slide holds it out, and it winds itself back in when released.",
+  "parts": [
+    {
+      "id": "case",
+      "name": "Case",
+      "role": "The plastic shell you hold, with the coiled tape inside.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "tape",
+      "name": "Tape",
+      "role": "The curved steel blade marked with lengths.",
+      "parentId": "case",
+      "joint": "slide"
+    },
+    {
+      "id": "hook",
+      "name": "End hook",
+      "role": "The metal tab on the end that catches on an edge.",
+      "parentId": "tape",
+      "joint": "rivet"
+    },
+    {
+      "id": "lock",
+      "name": "Thumb lock",
+      "role": "A slide on the front that holds the tape where it is.",
+      "parentId": "case",
+      "joint": "slide"
+    },
+    {
+      "id": "belt-clip",
+      "name": "Belt clip",
+      "role": "A steel clip on the back.",
+      "parentId": "case",
+      "joint": "screw"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "Glue stick",
+  "summary": "Twisting the knob at the bottom raises a stick of glue out of the tube, and a cap pushes on to keep it from drying.",
+  "parts": [
+    {
+      "id": "tube",
+      "name": "Tube",
+      "role": "The plastic tube that holds the stick of glue.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "knob",
+      "name": "Bottom knob",
+      "role": "The ridged wheel you twist to raise or lower the glue.",
+      "parentId": "tube",
+      "joint": "rotate"
+    },
+    {
+      "id": "glue",
+      "name": "Glue stick",
+      "role": "The solid stick of glue that rises out of the top.",
+      "parentId": "tube",
+      "joint": "slide"
+    },
+    {
+      "id": "cap",
+      "name": "Cap",
+      "role": "Pushes on over the top with a click.",
+      "parentId": "tube",
+      "joint": "snap"
+    }
+  ]
+}

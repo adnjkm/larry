@@ -1,0 +1,27 @@
+{
+  "name": "Binder clip",
+  "summary": "A folded strip of springy steel clamps a thick stack of paper, and two wire handles flip back to pry it open.",
+  "parts": [
+    {
+      "id": "body",
+      "name": "Steel body",
+      "role": "A triangle of springy black steel whose two edges press together.",
+      "parentId": null,
+      "joint": null
+    },
+    {
+      "id": "handle-a",
+      "name": "Wire handle",
+      "role": "A wire loop that swings out to lever one edge open.",
+      "parentId": "body",
+      "joint": "hinge"
+    },
+    {
+      "id": "handle-b",
+      "name": "Wire handle",
+      "role": "The second wire loop, on the other edge.",
+      "parentId": "body",
+      "joint": "hinge"
+    }
+  ]
+}
