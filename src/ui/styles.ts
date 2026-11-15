@@ -74,7 +74,7 @@ export const bars = stylex.create({
     marginInline: -20,
     marginBottom: "calc(-20px - env(safe-area-inset-bottom, 0px))",
     padding: "12px 20px calc(12px + env(safe-area-inset-bottom, 0px))",
-    backgroundColor: { default: "rgba(255, 255, 255, 0.82)", "@media (prefers-reduced-transparency: reduce)": colors.paper },
+    backgroundColor: { default: colors.paperBar, "@media (prefers-reduced-transparency: reduce)": colors.paper },
     backdropFilter: { default: "blur(8px) saturate(180%)", "@media (prefers-reduced-transparency: reduce)": "none" },
   },
   /** The row above the content: a way out on the left, then the screen's place in the flow. */

@@ -7,7 +7,7 @@ import { CapturePicker } from "./capture/CapturePicker.tsx";
 import { preparePhoto } from "./capture/preparePhoto.ts";
 import { Chevron } from "./ui/Chevron.tsx";
 import { Dots } from "./ui/Dots.tsx";
-import { KitViewer, LessonPlayer, prefetchKitViewer, prefetchLessonPlayer } from "./lazy.ts";
+import { KitViewer, LessonPlayer, prefetchKitViewer, prefetchLessonPlayer, prefetchStage } from "./lazy.ts";
 import { requestLesson } from "./lesson/api.ts";
 import { type FailedLoad, type LessonLoad, addLessonEvent, arrivedOf, hookOf, planning, shownOf } from "./lesson/load.ts";
 import { NorthStarPanel } from "./lesson/NorthStarPanel.tsx";
@@ -95,7 +95,7 @@ export function App() {
 
   function showKit(kit: Kit, lesson?: Lesson) {
     prefetchLessonPlayer();
-    void import("./primitives/stage/looks.ts").then(({ warmUpStage }) => warmUpStage());
+    prefetchStage();
     setState({ phase: "viewing", kit, lesson: lesson ? { status: "complete", lesson } : planning() });
     if (!lesson) void planLesson(kit);
   }

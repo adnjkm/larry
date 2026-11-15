@@ -64,9 +64,6 @@ export function createLookUniforms(look: DitherLook = DEFAULT_LOOK): LookUniform
   return Object.fromEntries(Object.entries(lookValues(look)).map(([name, value]) => [name, { value }])) as LookUniforms;
 }
 
-export function applyLook(uniforms: LookUniforms, look: DitherLook): void {
-  for (const [name, value] of Object.entries(lookValues(look))) (uniforms as Record<string, { value: unknown }>)[name]!.value = value;
-}
 
 // The shaders build no local arrays: Mali GPUs (Pixel phones) refuse to compile array constructors ("no default precision
 // defined for variable 'vec3[5]'"), and indexing a local array by a computed index is slow on mobile GPUs anyway.
@@ -222,4 +219,33 @@ export function createShadowMaterial(look: LookUniforms, stops?: readonly string
     fragmentShader: gradientShadowFragmentShader,
     uniforms: { ...look, uStops: { value: colours }, uCount: { value: Math.min(stops.length, 6) } },
   });
+}
+
+type LookMaterials = { uniforms: LookUniforms; part: (color: string, finish: Finish) => ShaderMaterial; shadow: () => ShaderMaterial };
+
+const materialsByLook = new WeakMap<DitherLook, LookMaterials>();
+
+/**
+ * The materials for one look, shared by every viewer that draws with it and never disposed, so a viewer that mounts again
+ * (a new lesson step) compiles nothing. A look is a value: a changed look is a new object, so it gets its own set.
+ */
+export function materialsFor(look: DitherLook): LookMaterials {
+  let set = materialsByLook.get(look);
+  if (set === undefined) {
+    const uniforms = createLookUniforms(look);
+    const parts = new Map<string, ShaderMaterial>();
+    let shadow: ShaderMaterial | undefined;
+    set = {
+      uniforms,
+      part(color, finish) {
+        const key = `${color} ${finish}`;
+        let material = parts.get(key);
+        if (material === undefined) parts.set(key, (material = createDitherMaterial(color, finish, uniforms)));
+        return material;
+      },
+      shadow: () => (shadow ??= createShadowMaterial(uniforms, look.shadow.stops)),
+    };
+    materialsByLook.set(look, set);
+  }
+  return set;
 }

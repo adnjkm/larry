@@ -3,7 +3,9 @@
 // its middle and fading at both ends, made of a stroke on the edge, a faint glow just inside it and a bloom outside.
 // Its light runs night → indigo → purple → pink → coral → gold, so the hot middle of the beam is gold.
 import { useEffect, useRef } from "react";
-import { SYNTHWAVE } from "./primitives/parts.ts";
+import { SYNTHWAVE } from "../../shared/primitives/parts.ts";
+import { type Raster, raster, ramp, threshold } from "../../src/surface/dither.ts";
+import { animate } from "../../src/surface/ticker.ts";
 
 /** CSS px the bloom may reach past the button on every side. */
 export const BEAM_PAD = 10;
@@ -18,9 +20,8 @@ const STROKE = 1.4;
 const INNER = 4;
 const BLOOM = 8;
 
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 /** Dark to hot: night, indigo, purple, pink, coral, gold. */
-const STOPS = SYNTHWAVE.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number]);
+const STOPS = ramp(SYNTHWAVE);
 
 /** For each cell: its turn round the button's centre (0 to 1, clockwise from up) and its distance outside the pill's outline. */
 function fieldOf(cols: number, rows: number, w: number, h: number) {
@@ -43,13 +44,12 @@ function fieldOf(cols: number, rows: number, w: number, h: number) {
   return { turn, out };
 }
 
-/** Paints the beam at time `t` ms into `img`. */
-function paint(img: ImageData, cols: number, rows: number, f: ReturnType<typeof fieldOf>, t: number) {
+/** Paints the beam at time `t` ms. */
+function paint({ cols, rows, px, ctx, image }: Raster, f: ReturnType<typeof fieldOf>, t: number) {
   const { turn, out } = f;
   const head = (t / TURN_MS) % 1;
   const last = STOPS.length - 1;
-  const d = img.data;
-  d.fill(0);
+  px.fill(0);
   for (let y = 0; y < rows; y++)
     for (let x = 0; x < cols; x++) {
       const i = y * cols + x;
@@ -64,17 +64,13 @@ function paint(img: ImageData, cols: number, rows: number, f: ReturnType<typeof 
       // The stroke on the edge, then the glow fading inward and the bloom fading outward.
       const layer = Math.abs(o) <= STROKE ? 1 : o < 0 ? 0.45 * (1 + o / INNER) : 0.6 * (1 - (o - STROKE) / (BLOOM - STROKE)) ** 1.6;
       const light = peak * layer;
-      const b = (BAYER[(y % 4) * 4 + (x % 4)]! + 0.5) / 16;
+      const b = threshold(x, y);
       if (light <= b * 0.85) continue;
       const g = Math.min(0.999, 0.15 + 0.85 * light) * last;
       const lo = Math.floor(g);
-      const [r, gr, bl] = STOPS[Math.min(last, g - lo > b ? lo + 1 : lo)]!;
-      const k = i * 4;
-      d[k] = r;
-      d[k + 1] = gr;
-      d[k + 2] = bl;
-      d[k + 3] = 255;
+      px[i] = STOPS[Math.min(last, g - lo > b ? lo + 1 : lo)]!;
     }
+  ctx.putImageData(image, 0, 0);
 }
 
 /** The beam round a `width` x `height` pill. Takes no pointer, so the button under it works as before. */
@@ -85,30 +81,16 @@ export function Beam({ width, height }: { width: number; height: number }) {
   useEffect(() => {
     const el = canvas.current;
     if (!el || width === 0 || height === 0) return;
-    el.width = cols;
-    el.height = rows;
-    const ctx = el.getContext("2d");
-    if (!ctx) return;
+    const target = raster(el, cols, rows);
+    if (!target) return;
     const field = fieldOf(cols, rows, width, height);
-    const img = ctx.createImageData(cols, rows);
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      paint(img, cols, rows, field, TURN_MS * 0.15);
-      ctx.putImageData(img, 0, 0);
+      paint(target, field, TURN_MS * 0.15);
       return;
     }
     const start = performance.now();
-    let raf = 0;
-    let last = -Infinity;
-    const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
-      // Thirty frames a second is plenty for a dithered beam.
-      if (now - last < 1000 / 30) return;
-      last = now;
-      paint(img, cols, rows, field, now - start);
-      ctx.putImageData(img, 0, 0);
-    };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    // Thirty frames a second is plenty for a dithered beam, and it sleeps while off screen.
+    return animate(30, (now) => paint(target, field, now - start), el);
   }, [width, height, cols, rows]);
   return <canvas ref={canvas} className="beam" data-beam aria-hidden style={{ left: -BEAM_PAD, top: -BEAM_PAD, width: cols * CELL, height: rows * CELL }} />;
 }

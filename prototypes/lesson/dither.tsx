@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { threshold } from "../../src/surface/dither.ts";
 
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const TONES = [[20, 20, 20], [107, 107, 107], [201, 201, 201], [255, 255, 255]] as const;
 
 /**
@@ -42,7 +42,7 @@ export function Dither({ src, aspect, className }: { src: string; aspect?: numbe
         for (let x = 0; x < width; x++) {
           const i = (y * width + x) * 4;
           const lum = (0.2126 * data.data[i]! + 0.7152 * data.data[i + 1]! + 0.0722 * data.data[i + 2]!) / 255;
-          const t = (BAYER[(y % 4) * 4 + (x % 4)]! + 0.5) / 16;
+          const t = threshold(x, y);
           const [r, g, b] = TONES[Math.min(3, Math.floor(lum * 3 + t))]!;
           data.data[i] = r;
           data.data[i + 1] = g;

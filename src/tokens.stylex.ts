@@ -30,6 +30,10 @@ export const colors = stylex.defineConsts({
   dotOff: "#DADADA",
   /** Paper at 85%, for a button over the figure. */
   paperGlass: "#FFFFFFD9",
+  /** Paper at 82%, for the action bar that content scrolls under. */
+  paperBar: "#FFFFFFD1",
+  /** The not-yet-earned parts of the build, drawn as see-through ghosts. */
+  ghost: "#D9D9D9",
 });
 
 /** Open Runde for text, Paper Mono for labels and numbers. Loaded in public/fonts/fonts.css. `pnpm lint` rejects font families written anywhere else. */

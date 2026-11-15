@@ -49,16 +49,16 @@ export function looksFor(palette: Palette): Looks {
 }
 
 /**
- * Creates the shared renderer and compiles the figures' shaders once the browser is idle, so the first figure on screen
+ * Creates the shared renderer and compiles the lesson's shaders once the browser is idle, so the first figure on screen
  * draws without a pause for shader compilation. Every part material is one program, so one of them stands for all.
- * Call it early (the app does so on load); `palettes` are the ones the page will show.
+ * Call it early (the app does so on load).
  */
-export function warmUpStage(palettes: readonly Palette[] = ["lesson"]): void {
+export function warmUpStage(): void {
   const compile = () => {
     const scene = new Scene();
     const plane = new PlaneGeometry(1, 1);
-    const looks = palettes.map(looksFor);
-    for (const material of [looks[0]!.part(colors.ink, "matte"), ...looks.map((l) => l.shadow())]) scene.add(new Mesh(plane, material));
+    const lesson = looksFor("lesson");
+    for (const material of [lesson.part(colors.ink, "matte"), lesson.shadow()]) scene.add(new Mesh(plane, material));
     void precompile(scene, new OrthographicCamera()).finally(() => plane.dispose());
   };
   if (typeof requestIdleCallback === "function") requestIdleCallback(compile);
