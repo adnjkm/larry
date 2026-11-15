@@ -20,14 +20,15 @@ import { colors, fonts } from "../../tokens.stylex.ts";
 import { type Cue, type Primitive, type Values, motionSlider } from "../../../shared/primitives/types.ts";
 import type { StageController } from "./controller.ts";
 import { type Palette, RING_COLOR } from "./looks.ts";
-import { type Mode, StageView } from "./view.ts";
+import { StageView } from "./view.ts";
+import type { FigureMode } from "../../../shared/primitives/framing.ts";
 import { viewerProps } from "../../viewport.ts";
 
 export type { StageController } from "./controller.ts";
 
 type FigureStageProps = {
   primitive: Primitive;
-  mode?: Mode;
+  mode?: FigureMode;
   palette?: Palette;
   values?: Values;
   height?: number;

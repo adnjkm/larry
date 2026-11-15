@@ -51,7 +51,8 @@ function unionBounds(all: KitBounds[]): KitBounds {
   };
 }
 
-type Mode = "still" | "game";
+/** What a figure shows: the primitive alone, or with its game scene and runs. */
+export type FigureMode = "still" | "game";
 
 /**
  * Bounds that hold every pose the figure can show, so the camera holds still while a slider moves the parts or a run
@@ -59,7 +60,7 @@ type Mode = "still" | "game";
  * every frame of its runs with their marks. This is the sampling itself; `framePrimitive` reads its result from
  * framing.json, which scripts/generate-framing.ts writes.
  */
-export function computeFraming(p: Primitive, mode: Mode): KitBounds {
+export function computeFraming(p: Primitive, mode: FigureMode): KitBounds {
   const grid = poses(p, FRAME_SAMPLES);
   const still = grid.map(p.build);
   const scene = p.game?.scene;
@@ -70,8 +71,8 @@ export function computeFraming(p: Primitive, mode: Mode): KitBounds {
 const fresh = new Map<string, KitBounds>();
 
 /** The framing for a primitive and mode, from framing.json; computed (and kept) only for a primitive that is not in it yet. */
-export function framePrimitive(p: Primitive, mode: Mode = "still"): KitBounds {
-  const known = (baked as Record<string, Record<Mode, KitBounds> | undefined>)[p.id]?.[mode];
+export function framePrimitive(p: Primitive, mode: FigureMode = "still"): KitBounds {
+  const known = (baked as Record<string, Record<FigureMode, KitBounds> | undefined>)[p.id]?.[mode];
   if (known) return known;
   const key = `${p.id}:${mode}`;
   let bounds = fresh.get(key);

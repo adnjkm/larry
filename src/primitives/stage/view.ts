@@ -2,7 +2,7 @@
 // game mode's drag handle. React only mounts the elements (FigureStage.tsx); everything per frame happens here.
 import type { Part } from "../../../shared/kit.ts";
 import { reducedMotion, rubberBand, spring, velocityTracker } from "../../motion.ts";
-import { framePrimitive } from "../../../shared/primitives/framing.ts";
+import { type FigureMode, framePrimitive } from "../../../shared/primitives/framing.ts";
 import { clamp } from "../../../shared/primitives/motion/ease.ts";
 import { type Cue, type Primitive, type Values, allSliders, motionSlider, snap, startValues } from "../../../shared/primitives/types.ts";
 import { Motion } from "./controller.ts";
@@ -21,7 +21,6 @@ const DRAG_RADIANS_PER_PIXEL = 0.012;
 /** Seconds for a flick's extra spin to fade to a third, as in KitViewer. */
 const FLING_SECONDS = 0.5;
 
-export type Mode = "still" | "game";
 
 type StageCallbacks = {
   onLive?: (text: string) => void;
@@ -65,10 +64,10 @@ export class StageView implements Drawable {
   private ariaValue: string | undefined;
 
   readonly primitive: Primitive;
-  readonly mode: Mode;
+  readonly mode: FigureMode;
   private readonly callbacks: StageCallbacks;
 
-  constructor(els: StageElements, primitive: Primitive, mode: Mode, palette: Palette, values: Values, callbacks: StageCallbacks) {
+  constructor(els: StageElements, primitive: Primitive, mode: FigureMode, palette: Palette, values: Values, callbacks: StageCallbacks) {
     this.primitive = primitive;
     this.mode = mode;
     this.callbacks = callbacks;
