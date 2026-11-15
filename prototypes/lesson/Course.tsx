@@ -349,8 +349,8 @@ function Chip({ id, slotted = false }: { id: string; slotted?: boolean }) {
 /** A preview's picture in the tray is this many px square. */
 const CHIP = 84;
 /** The well a preview drops into is this many px square: two lines of the job beside it (lesson.css .match-does). */
-const SLOT = 60;
-const WELL_RADIUS = 16;
+const SLOT = 52;
+const WELL_RADIUS = 14;
 /** Deeper than the camera's slots, so an empty well reads from across the screen. */
 const WELL: Relief = [feature.sink(4, 5)];
 
@@ -363,7 +363,26 @@ function Well() {
   );
 }
 
-type Drag = { id: string; x: number; y: number; scale: number; dx: number; dy: number };
+type Drag = { id: string; x: number; y: number; scale: number; dx: number; dy: number; over: number | null };
+
+/**
+ * The row a dragged preview is over, judged by where its picture is, not the pointer: anywhere on a row counts, and
+ * failing that the nearest slot within reach, so a drop never has to be exact.
+ */
+function rowUnder(chip: HTMLElement): number | null {
+  const picture = (chip.querySelector(".chip-figure") ?? chip).getBoundingClientRect();
+  const [x, y] = [picture.left + picture.width / 2, picture.top + picture.height / 2];
+  let nearest: { row: number; d: number } | null = null;
+  for (const slot of document.querySelectorAll<HTMLElement>(".demo-lesson [data-slot], [data-slot]")) {
+    const row = Number(slot.dataset.slot);
+    const band = (slot.closest(".match-row") ?? slot).getBoundingClientRect();
+    if (x >= band.left && x <= band.right && y >= band.top && y <= band.bottom) return row;
+    const s = slot.getBoundingClientRect();
+    const d = Math.hypot(x - (s.left + s.width / 2), y - (s.top + s.height / 2));
+    if (d < s.width * 1.4 && (!nearest || d < nearest.d)) nearest = { row, d };
+  }
+  return nearest?.row ?? null;
+}
 
 /**
  * The connecting problem: the mechanism's sub-functions, each with an empty slot, and the primitives just learned
@@ -382,11 +401,8 @@ function Match({ screen, jobs, ...page }: PageProps & { screen: Of<"match">; job
   const done = screen.rows.every((_, i) => placed[i] !== undefined);
   const used = new Set(Object.values(placed));
 
-  const drop = (id: string, x: number, y: number) => {
-    const slot = document.elementsFromPoint(x, y).find((el) => el instanceof HTMLElement && el.dataset.slot !== undefined) as HTMLElement | undefined;
-    if (!slot) return;
-    const row = Number(slot.dataset.slot);
-    if (placed[row] !== undefined) return;
+  const drop = (id: string, row: number | null) => {
+    if (row === null || placed[row] !== undefined) return;
     if (screen.rows[row]!.primitive !== id) {
       setWhy(undefined);
       setMiss(`Not the ${lower(primitive(id).name)}. It ${jobs[id] ?? "does another job"}.`);
@@ -401,7 +417,7 @@ function Match({ screen, jobs, ...page }: PageProps & { screen: Of<"match">; job
     <Page kind="match" {...page} say="Drag each one to the job it does." done={done} line={miss ?? why} bad={miss !== undefined}>
       <ul className="match-rows">
         {screen.rows.map((row, i) => (
-          <MatchRow key={row.does} index={i} does={row.does} filled={placed[i] !== undefined} slot={placed[i] ? <Chip id={placed[i]} slotted /> : <Well />} />
+          <MatchRow key={row.does} index={i} does={row.does} filled={placed[i] !== undefined} over={drag?.over === i && placed[i] === undefined} slot={placed[i] ? <Chip id={placed[i]} slotted /> : <Well />} />
         ))}
       </ul>
       <div className="match-tray">
@@ -415,16 +431,19 @@ function Match({ screen, jobs, ...page }: PageProps & { screen: Of<"match">; job
               className="match-chip"
               data-chip={id}
               data-dragging={drag?.id === id ? "" : undefined}
-              style={drag?.id === id ? { transform: `translate(${drag.dx}px, ${drag.dy}px) scale(1.06)` } : undefined}
+              style={drag?.id === id ? { transform: `translate(${drag.dx}px, ${drag.dy}px)` } : undefined}
               onPointerDown={(e) => {
                 const el = e.currentTarget;
                 el.setPointerCapture(e.pointerId);
                 // The phone is drawn scaled, so a screen pixel is not a lesson pixel.
-                setDrag({ id, x: e.clientX, y: e.clientY, scale: el.getBoundingClientRect().width / el.offsetWidth || 1, dx: 0, dy: 0 });
+                setDrag({ id, x: e.clientX, y: e.clientY, scale: el.getBoundingClientRect().width / el.offsetWidth || 1, dx: 0, dy: 0, over: null });
               }}
-              onPointerMove={(e) => setDrag((d) => (d && d.id === id ? { ...d, dx: (e.clientX - d.x) / d.scale, dy: (e.clientY - d.y) / d.scale } : d))}
+              onPointerMove={(e) => {
+                const over = rowUnder(e.currentTarget);
+                setDrag((d) => (d && d.id === id ? { ...d, dx: (e.clientX - d.x) / d.scale, dy: (e.clientY - d.y) / d.scale, over } : d));
+              }}
               onPointerUp={(e) => {
-                if (drag?.id === id) drop(id, e.clientX, e.clientY);
+                if (drag?.id === id) drop(id, rowUnder(e.currentTarget));
                 setDrag(null);
               }}
               onPointerCancel={() => setDrag(null)}

@@ -6,9 +6,9 @@ import { CAMERA } from "../../src/camera/look.ts";
 import { rrect } from "../../src/surface/relief.ts";
 import { Surface } from "../../src/surface/Surface.tsx";
 
-const BAND_RADIUS = 16;
+const BAND_RADIUS = 14;
 
-export function MatchRow({ index, does, filled, slot }: { index: number; does: string; filled: boolean; slot: ReactNode }) {
+export function MatchRow({ index, does, filled, over = false, slot }: { index: number; does: string; filled: boolean; /** A preview is being held over this row. */ over?: boolean; slot: ReactNode }) {
   const box = useRef<HTMLLIElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   useLayoutEffect(() => {
@@ -26,7 +26,7 @@ export function MatchRow({ index, does, filled, slot }: { index: number; does: s
   // The ripple starts at the slot's centre and must reach the row's far corner (plus the Surface's shadow pad).
   const style = size ? ({ "--reach": `${Math.ceil(Math.hypot(size.w, size.h)) + 8}px` } as CSSProperties) : undefined;
   return (
-    <li ref={box} className="match-row" data-filled={filled ? "" : undefined} style={style}>
+    <li ref={box} className="match-row" data-filled={filled ? "" : undefined} data-over={over ? "" : undefined} style={style}>
       {size ? (
         <span className="match-band" aria-hidden>
           <span className="match-lead" />

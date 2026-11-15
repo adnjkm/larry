@@ -56,11 +56,14 @@ html, body { height: 100%; }
 .page[data-step="match"] > .question { margin-top: auto; }
 .match-rows { flex: none; margin: 0 -8px auto; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
 /* A row is one band: a 60px slot and its job set on two lines of 30px, the same height. */
-.match-row { position: relative; display: flex; align-items: center; gap: 16px; padding: 8px 12px 8px 8px; border-radius: 16px; }
-.match-does { flex: 1; min-width: 0; font-size: 22px; line-height: 30px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
-.match-slot { position: relative; z-index: 2; flex: none; width: 60px; height: 60px; display: grid; place-items: center; }
-.match-slot .well { position: relative; display: block; width: 60px; height: 60px; pointer-events: none; }
-.match-slot .chip-figure { width: 60px; height: 60px; border-radius: 16px; }
+.match-row { position: relative; display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 8px; border-radius: 14px; }
+/* The job is set like the lines on the preview's pink card (16/22, 600), held to two lines so it stands level with the slot. */
+.match-does { flex: 1; min-width: 0; max-width: 204px; font-size: 16px; line-height: 22px; font-weight: 600; text-wrap: balance; }
+.match-slot { position: relative; z-index: 2; flex: none; width: 52px; height: 52px; display: grid; place-items: center; }
+.match-slot .well { position: relative; display: block; width: 52px; height: 52px; border-radius: 14px; pointer-events: none; transition: box-shadow 150ms ease-out; }
+/* The row a held preview would land in says so. */
+.match-row[data-over] .match-slot .well { box-shadow: 0 0 0 2px var(--pink); }
+.match-slot .chip-figure { width: 52px; height: 52px; border-radius: 14px; }
 .match-row[data-filled] .match-slot > .chip-figure { animation: pop 300ms var(--ease-out); }
 /* The preview is drawn on paper; multiplied, the paper takes the band's pink and the figure stands bare on it. */
 .match-row[data-filled] .match-slot { mix-blend-mode: multiply; }
@@ -68,21 +71,25 @@ html, body { height: 100%; }
    dithered ring runs just ahead of it and fades as it reaches the row's ends. The band carries the words in white;
    the ink words under it go once it has passed. */
 .match-band { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
-.match-fill { position: absolute; inset: 0; display: flex; align-items: center; gap: 16px; padding: 8px 12px 8px 8px; clip-path: circle(0px at 38px 50%); transition: clip-path 520ms var(--ease-out); }
-.match-fill > .match-gap { flex: none; width: 60px; height: 60px; }
+.match-fill { position: absolute; inset: 0; display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 8px; clip-path: circle(0px at 34px 50%); transition: clip-path 520ms var(--ease-out); }
+.match-fill > .match-gap { flex: none; width: 52px; height: 52px; }
 .match-fill > .match-does { position: relative; color: #fff; }
-.match-row[data-filled] .match-fill { clip-path: circle(var(--reach, 480px) at 38px 50%); }
-.match-lead { position: absolute; inset: 0; border-radius: 16px; opacity: 0; background-image: conic-gradient(var(--pink) 25%, transparent 0 50%, var(--pink) 0 75%, transparent 0); background-size: 3px 3px; }
+.match-row[data-filled] .match-fill { clip-path: circle(var(--reach, 480px) at 34px 50%); }
+.match-lead { position: absolute; inset: 0; border-radius: 14px; opacity: 0; background-image: conic-gradient(var(--pink) 25%, transparent 0 50%, var(--pink) 0 75%, transparent 0); background-size: 3px 3px; }
 .match-row[data-filled] .match-lead { animation: match-lead 520ms var(--ease-out) both; }
 @keyframes match-lead {
-  from { clip-path: circle(18px at 38px 50%); opacity: 1; }
+  from { clip-path: circle(18px at 34px 50%); opacity: 1; }
   60% { opacity: 1; }
-  to { clip-path: circle(calc(var(--reach, 480px) + 18px) at 38px 50%); opacity: 0; }
+  to { clip-path: circle(calc(var(--reach, 480px) + 18px) at 34px 50%); opacity: 0; }
 }
 .match-row[data-filled] > .match-does { opacity: 0; transition: opacity 0s 520ms; }
 .match-tray { flex: none; display: flex; align-items: flex-end; justify-content: center; gap: 20px; padding-bottom: 4px; }
 .match-chip { flex: none; width: 84px; padding: 0; border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; transition: transform 220ms var(--ease-out); }
 .match-chip[data-dragging] { transition: none; position: relative; z-index: 5; cursor: grabbing; }
+/* Picked up, the picture takes the slot's size and shape and gets a border, so it is plain what fits where. */
+.chip-figure { transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), border-radius 160ms var(--ease-out); }
+.match-chip[data-dragging] .chip-figure { transform: scale(0.62); border-radius: 23px; box-shadow: 0 0 0 3px var(--ink); }
+.match-chip[data-dragging] .chip-name { opacity: 0; }
 .match-chip[data-gone] { visibility: hidden; height: 104px; }
 .chip-figure { display: block; width: 84px; height: 84px; overflow: hidden; border-radius: 18px; pointer-events: none; }
 .chip-figure > * { pointer-events: none; }
