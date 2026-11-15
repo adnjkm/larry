@@ -19,6 +19,8 @@ const SPRING = 1;
 const LATCH = 2;
 /** The socket as "How much?" leaves it, for a break that starts from a working tip. */
 const SNUG = 0.55;
+/** Retraction is built before the ball tip, so the ball is not on the pen yet. */
+const NO_BALL = ["ball"] as const;
 
 type Facts = { does: string; primitive: string; why: string };
 
@@ -47,13 +49,13 @@ function mechanismOf(entry: KnownMechanism, name: string, build: (parts: { facts
 }
 
 const tip = mechanismOf(ballTip, "Ball tip", ({ facts, needs, match, primitives }): Screen[] => [
-  { kind: "demo", after: BALL, frame: frames.ball, does: "A ball that rolls a thin, even line of ink.", needs, run: demos.writing, values: { [keys.squeeze]: SNUG } },
+  { kind: "demo", after: LATCH, frame: frames.ball, does: "A ball that rolls a thin, even line of ink.", needs, run: demos.writing, values: { [keys.squeeze]: SNUG, [keys.press]: 1 }, pink: ["ball"] },
   ...primitives,
   match,
-  { kind: "place", module: BALL },
+  { kind: "place", module: BALL, does: facts("roll").does, say: "Drag the ball where it belongs.", trial: { test: tests.write, fail: { [keys.squeeze]: 0 }, pass: { [keys.squeeze]: SNUG } } },
   {
     kind: "works",
-    after: BALL,
+    after: LATCH,
     frame: frames.tip,
     say: "Set the seal and the grip so both hold.",
     goals: [
@@ -64,21 +66,23 @@ const tip = mechanismOf(ballTip, "Ball tip", ({ facts, needs, match, primitives 
       { primitive: "seal", control: controls.squeeze },
       { primitive: "grip", control: controls.pressure },
     ],
-    set: { [keys.squeeze]: 0.1, [keys.pressure]: 0.1 },
+    set: { [keys.squeeze]: 0.1, [keys.pressure]: 0.1, [keys.press]: 1 },
     success: "A thin, even line, and not a drop when it rests.",
+    last: true,
   },
 ]);
 
 const click = mechanismOf(clickLatch, "Retraction", ({ facts, needs, match, primitives }): Screen[] => [
-  { kind: "demo", after: LATCH, frame: frames.click, does: "Each click sends the tip out or tucks it away.", needs, run: demos.clicking, values: {}, pink: ["spring"] },
+  { kind: "demo", after: LATCH, frame: frames.click, hide: NO_BALL, does: "Each click sends the tip out or tucks it away.", needs, run: demos.clicking, values: {} },
   ...primitives,
   match,
-  { kind: "place", module: SPRING },
-  { kind: "place", module: LATCH },
+  { kind: "place", module: SPRING, does: facts("bring-back").does, say: "Drag the spring where it belongs.", trial: { test: tests.push, fail: {}, pass: { [keys.stiffness]: SNUG } }, absent: NO_BALL },
+  { kind: "place", module: LATCH, does: facts("hold").does, say: "Drag the cam where it belongs.", trial: { test: tests.letgo, fail: { [keys.press]: 1 }, pass: { [keys.press]: 1 } }, absent: NO_BALL },
   {
     kind: "works",
     after: LATCH,
     frame: frames.click,
+    hide: NO_BALL,
     say: "Set the spring and the catch so all three hold.",
     goals: [
       { does: facts("bring-back").does, test: tests.lift },
@@ -91,14 +95,14 @@ const click = mechanismOf(clickLatch, "Retraction", ({ facts, needs, match, prim
     ],
     set: { [keys.stiffness]: 0.1, [keys.notch]: 0.9 },
     success: "Out on one click, away on the next, and hidden when you pocket it.",
-    last: true,
   },
 ]);
 
 export default {
   story: pen,
   reveal: PEN_SHELL,
-  mechanisms: [tip, click],
+  // Retraction first: the pen clicks, and then it turns out it cannot write, which is what the ball tip is for.
+  mechanisms: [click, tip],
   jobs: {
     seal: "closes a gap so nothing leaks",
     grip: "holds by rubbing, until it slips",

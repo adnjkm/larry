@@ -89,6 +89,12 @@ export function CourseFlow({
   // Everything learned so far, in the order it was met: what a "Who does this?" picks from.
   const learned = [...new Set(screens.slice(0, at).flatMap((s) => (s.screen.kind === "primitive" ? [s.screen.id] : [])))];
   const bench = { story, kit };
+  // A preview shows the object as it is in the hand, nothing see-through: what is inside is what the lesson is about
+  // to teach, and seeing it first would give that away.
+  const sealed = useMemo(() => {
+    const outside = new Map((course.reveal?.parts ?? []).map((p) => [p.id, p]));
+    return { ...kit, parts: kit.parts.map((p) => (p.finish === "clear" ? { ...p, color: outside.get(p.id)?.color ?? p.color, finish: outside.get(p.id)?.finish ?? ("glossy" as const) } : p)) };
+  }, [kit, course]);
 
   let body: ReactNode;
   if (screen.kind === "primitive")
@@ -98,10 +104,28 @@ export function CourseFlow({
       </Plain.Provider>
     );
   if (screen.kind === "place")
-    body = <Place key={at} story={story} kit={kit} index={screen.module} next="Continue" onNext={next} header={<Mechanism name={name} step={mechanism} />} />;
+    body = (
+      <Place
+        key={at}
+        story={story}
+        kit={kit}
+        index={screen.module}
+        next="Continue"
+        onNext={next}
+        instruction={screen.say}
+        trial={screen.trial}
+        absent={screen.absent}
+        header={
+          <>
+            <Mechanism name={name} step={mechanism} />
+            {screen.does ? <Needs lines={[screen.does]} /> : null}
+          </>
+        }
+      />
+    );
   else {
     const page = { name, step: mechanism, onNext: next };
-    if (screen.kind === "demo") body = <Demo key={at} {...bench} {...page} screen={screen} />;
+    if (screen.kind === "demo") body = <Demo key={at} story={story} kit={sealed} {...page} screen={screen} />;
     else if (screen.kind === "match") body = <Match key={at} {...page} screen={screen} jobs={course.jobs} />;
     else if (screen.kind === "works") body = <Works key={at} {...bench} {...page} screen={screen} values={values} onValues={setValues} onNext={screen.last ? onRestart : next} />;
     else if (screen.kind === "gap") body = <Gap key={at} {...bench} {...page} screen={screen} />;
@@ -275,10 +299,10 @@ function useParts(story: Story, kit: Kit, after: number, adds: readonly string[]
 
 /** The mechanism working, over and over, before any of it is built: the thing to aim for. */
 function Demo({ story, kit, screen, ...page }: Bench & PageProps & { screen: Of<"demo"> }) {
-  const { present, pink } = useParts(story, kit, screen.after);
+  const { present } = useParts(story, kit, screen.after, NONE, screen.hide);
   const loop = useMemo(() => ({ test: screen.run, values: screen.values }), [screen]);
-  // A screen's own pink list names parts as the lesson does; the kit may hold each as several pieces.
-  const coloured = useMemo(() => screen.pink?.flatMap((id) => familyOf(kit, id)) ?? pink, [screen, kit, pink]);
+  // Only what the screen names is pink, and it names parts as the lesson does; the kit may hold each as several pieces.
+  const coloured = useMemo(() => screen.pink?.flatMap((id) => familyOf(kit, id)) ?? NONE, [screen, kit]);
   const waiting = useContext(Waiting);
   return (
     <Page kind="demo" {...page} say={screen.does} done next="Continue to Mechanism">
@@ -459,7 +483,7 @@ function Match({ screen, jobs, ...page }: PageProps & { screen: Of<"match">; job
 
 /** The hard problem: every dial at once, set wrong and saying nothing, and a test for each sub-function. All must pass at one setting. */
 function Works({ story, kit, screen, values, onValues, ...page }: Bench & PageProps & Tuned & { screen: Of<"works"> }) {
-  const { present, pink } = useParts(story, kit, screen.after);
+  const { present, pink } = useParts(story, kit, screen.after, NONE, screen.hide);
   // Each dial carries its primitive's name, not what it does: knowing which one to reach for is the question.
   const controls = useMemo(() => screen.dials.map((d) => ({ ...d.control, verb: primitive(d.primitive).name })), [screen]);
   const tests = useMemo(() => screen.goals.map((g) => g.test), [screen]);

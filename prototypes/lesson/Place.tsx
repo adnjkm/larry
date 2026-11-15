@@ -9,7 +9,7 @@ import { PillSurface } from "../../src/ui/PillSurface.tsx";
 import { Cheer } from "./Cheer.tsx";
 import { cornersOf, cover, GHOST, MIN_HIT, screenBox } from "./DragBuild.tsx";
 import { lensOf, type Point } from "./lens.ts";
-import { familyOf, type Mark, type Overlay, presentAfter, type Spot, STILL, type Story, vec, type Vec } from "./model.ts";
+import { familyOf, type Mark, type Overlay, presentAfter, type Spot, STILL, type Story, type Test, type Values, vec, type Vec } from "./model.ts";
 import { compose, drawObject, extents, framePart, restCentre } from "./pose.ts";
 import { COLOR } from "./primitives/parts.ts";
 import { Actions, Need, Say, Viewer, Why } from "./ui.tsx";
@@ -69,9 +69,29 @@ function ringsAt(spot: Spot, span: number, color: string): Part[] {
   }));
 }
 
-type Props = { story: Story; kit: Kit; index: number; next: string; onNext: () => void; /** Shown over the instruction in place of the module's requirement. */ header?: ReactNode };
+/**
+ * The test that answers every drop, so placing a piece has a feedback loop: it plays once on arrival with the piece
+ * still in the hand, again after each wrong spot with the piece where it was put, and once more at the right spot,
+ * this time with the piece working. `fail` and `pass` are the settings it runs at without and with the piece.
+ */
+export type Trial = { test: Test; fail: Values; pass: Values };
 
-export function Place({ story, kit, index, next, onNext, header }: Props) {
+type Props = {
+  story: Story;
+  kit: Kit;
+  index: number;
+  next: string;
+  onNext: () => void;
+  /** Shown over the instruction in place of the module's requirement. */
+  header?: ReactNode;
+  /** One line telling the player what to do, in place of the module's own question and its Why button. */
+  instruction?: string;
+  trial?: Trial;
+  /** Parts not on the object yet, though an earlier module of the story makes them. */
+  absent?: readonly string[];
+};
+
+export function Place({ story, kit, index, next, onNext, header, instruction, trial, absent }: Props) {
   const alive = useAlive();
   const module = story.modules[index]!;
   const place = module.place!;
@@ -83,25 +103,33 @@ export function Place({ story, kit, index, next, onNext, header }: Props) {
     const own = reachOf(piece[0]!.shape) || 1;
     // The object as the problem showed it (the part not yet doing its job), without the piece the player holds. At
     // rest it also leaves off what only the failure needs (a cap resting on the neck) and anything covering the spots.
-    const present = [...presentAfter(story, kit, index - 1), ...module.without.adds].filter((id) => !pieceIds.has(id));
+    const missing = new Set((absent ?? []).flatMap((id) => familyOf(kit, id)));
+    const present = [...presentAfter(story, kit, index - 1), ...module.without.adds].filter((id) => !pieceIds.has(id) && !missing.has(id));
     const hidden = new Set([...module.without.adds, ...(place.hide ?? [])].flatMap((id) => familyOf(kit, id)));
     const atRest = present.filter((id) => !hidden.has(id));
     const rest = story.rest({ kit, present });
     const centre = restCentre(kit, present, rest);
     const ctx = { kit, present, centre };
-    const drawOf = (shown: string[]) => (overlay: Overlay) =>
-      drawObject({
-        kit,
-        present: shown,
-        scene: compose(rest, overlay),
-        rigid: overlay.rigid,
-        explode: 0,
-        plan: story.explode,
-        pink: new Set(),
-        centre,
-        apart: story.apart,
-      }).map((p) => (p.id.startsWith("place-") ? { ...p, color: COLOR.focus } : p));
+    const drawOf =
+      (shown: string[], at = rest, pink: ReadonlySet<string> = new Set()) =>
+      (overlay: Overlay) =>
+        drawObject({
+          kit,
+          present: shown,
+          scene: compose(at, overlay),
+          rigid: overlay.rigid,
+          explode: 0,
+          plan: story.explode,
+          pink: new Set(pink),
+          centre,
+          apart: story.apart,
+        }).map((p) => (p.id.startsWith("place-") ? { ...p, color: COLOR.focus } : p));
     const draw = drawOf(present);
+    // The object with the piece fitted and working, for the test at the right spot and for how it stands afterwards.
+    const whole = [...present, ...place.piece];
+    const wholeCtx = { kit, present: whole, centre };
+    const fitted = new Set(place.piece.flatMap((id) => familyOf(kit, id)));
+    const drawWhole = drawOf(whole, story.rest({ kit, present: whole }), fitted);
     const still: Overlay = { moves: {}, marks: [], rigid: STILL, live: "" };
     const object = drawOf(atRest)(still);
     const box = extents(object);
@@ -116,13 +144,15 @@ export function Place({ story, kit, index, next, onNext, header }: Props) {
     const span = extents(posed(piece, home, home, 1)).max.y - extents(posed(piece, home, home, 1)).min.y;
     const spotsDrawn = place.spots.flatMap((s) => at(s));
     const around = place.frame ? [framePart(place.frame), ...inTray] : [...object, ...inTray, ...spotsDrawn];
-    return { piece, home, own, ctx, draw, still, object, tray, at, marksAt, inTray, span, around };
-  }, [story, kit, index, module, place]);
+    return { piece, home, own, ctx, draw, still, object, tray, at, marksAt, inTray, span, around, wholeCtx, drawWhole };
+  }, [story, kit, index, module, place, absent]);
 
   const [phase, setPhase] = useState<Phase>({ kind: "loose" });
   const [tried, setTried] = useState<ReadonlySet<string>>(new Set());
   const [line, setLine] = useState<{ text: string; bad: boolean } | null>(null);
   const [anim, setAnim] = useState<Overlay | null>(null);
+  /** The running test, or the finished object, is drawn with the piece fitted. */
+  const [fitted, setFitted] = useState(false);
   const [reach, setReach] = useState<Part[] | null>(null);
   const [cheers, setCheers] = useState(0);
   const live = useRef({ phase, piece: [] as Vec[] });
@@ -131,7 +161,7 @@ export function Place({ story, kit, index, next, onNext, header }: Props) {
   const right = place.spots.find((s) => s.right)!;
 
   const pieceNow = (): Part[] => {
-    if (phase.kind === "found") return setup.at(right);
+    if (phase.kind === "found") return trial ? [] : setup.at(right);
     if (phase.kind === "held") return phase.near ? setup.at(spotById(phase.near)) : posed(setup.piece, setup.home, phase.at, 1);
     if (phase.kind === "running") return [];
     return setup.inTray;
@@ -151,19 +181,28 @@ export function Place({ story, kit, index, next, onNext, header }: Props) {
             tried.has(s.id) ? TRIED : phase.kind === "held" && phase.near === s.id ? GHOST.lit : phase.kind === "held" ? GHOST.held : GHOST.idle,
           ),
         );
-  const parts = anim ? setup.draw(anim) : [...setup.object, ...rings, ...shownPiece];
+  const parts = anim ? (fitted ? setup.drawWhole(anim) : setup.draw(anim)) : fitted ? setup.drawWhole(setup.still) : [...setup.object, ...rings, ...shownPiece];
   // A framed object keeps its frame while a wrong spot's failure plays.
   const subject = useMemo(() => (reach && !place.frame ? [...setup.around, ...reach] : setup.around), [reach, setup]);
 
   const run = async (spot: Spot) => {
     setPhase({ kind: "running", spot: spot.id });
     if (spot.right) {
+      if (trial) {
+        // The same test, now with the piece doing its job.
+        const works = trial.test.run({ ...trial.pass }, setup.wholeCtx);
+        setLine(null);
+        setFitted(true);
+        await play(works.durationMs, (ms) => setAnim(works.at(ms)), alive);
+        if (!alive()) return;
+        setAnim(null);
+      }
       setPhase({ kind: "found" });
       setLine({ text: spot.line, bad: false });
       setCheers((n) => n + 1);
       return;
     }
-    const test = module.without.test.run({ ...module.without.values }, setup.ctx);
+    const test = trial ? trial.test.run({ ...trial.fail }, setup.ctx) : module.without.test.run({ ...module.without.values }, setup.ctx);
     const withPiece = (o: Overlay): Overlay => ({ ...o, marks: [...o.marks, ...setup.marksAt(spot)] });
     setReach(Array.from({ length: FRAME_SAMPLES + 1 }, (_, i) => setup.draw(withPiece(test.at((test.durationMs * i) / FRAME_SAMPLES)))).flat());
     setLine(null);
@@ -175,6 +214,24 @@ export function Place({ story, kit, index, next, onNext, header }: Props) {
     setLine({ text: spot.line, bad: true });
     setPhase({ kind: "loose" });
   };
+
+  // On arrival the test plays once with the piece still in the hand, so what the piece is for is seen before it is placed.
+  const opening = useRef<() => void>(undefined);
+  opening.current = () => {
+    if (!trial || phase.kind !== "loose") return;
+    const test = trial.test.run({ ...trial.fail }, setup.ctx);
+    setPhase({ kind: "running", spot: "" });
+    void play(test.durationMs, (ms) => setAnim(test.at(ms)), alive).then(() => {
+      if (!alive()) return;
+      setAnim(null);
+      setLine({ text: test.verdict.line, bad: true });
+      setPhase({ kind: "loose" });
+    });
+  };
+  useEffect(() => {
+    const id = window.setTimeout(() => opening.current?.(), 700);
+    return () => clearTimeout(id);
+  }, []);
 
   // The grip over the piece and a tap target over every spot follow them on screen every frame.
   const box = useRef<HTMLDivElement>(null);
@@ -228,7 +285,7 @@ export function Place({ story, kit, index, next, onNext, header }: Props) {
       <Say
         kicker={`${module.title} · Find the spot`}
         found={found}
-        why={
+        why={instruction ? undefined : (
           <Why title={module.title}>
             <div data-why-text>
               {module.why.map((l, i) => (
@@ -238,9 +295,9 @@ export function Place({ story, kit, index, next, onNext, header }: Props) {
               ))}
             </div>
           </Why>
-        }
+        )}
       >
-        {say}
+        {instruction && !found ? instruction : say}
       </Say>
       <Viewer parts={parts} subject={subject} view={story.view} live={anim?.live}>
         {found ? null : (

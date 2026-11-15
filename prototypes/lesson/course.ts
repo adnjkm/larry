@@ -5,6 +5,7 @@
 // question to the object's 3D model.
 import type { Kit } from "../../shared/kit.ts";
 import type { Control, Frame, Story, Test, Values } from "./model.ts";
+import type { Trial } from "./Place.tsx";
 
 /**
  * A bench screen shows the object with every part built up to and including story module `after` (-1: none yet),
@@ -12,11 +13,12 @@ import type { Control, Frame, Story, Test, Values } from "./model.ts";
  */
 export type Screen =
   /**
-   * The mechanism working, on a loop, before anything is built: what this stretch of the lesson is for. `does` says
+   * The mechanism working, on a loop, before anything is built: what this stretch of the lesson is for. The object is
+   * drawn as it is in the hand, with nothing see-through, so the preview never shows the works the lesson is about to teach. `does` says
    * what the mechanism is, in one line short enough to fit the bubble under the header (about 45 characters); `needs`
    * lists what it has to do to manage that, one line each, which the lesson then builds one at a time.
    */
-  | { kind: "demo"; after: number; frame?: Frame; does: string; needs: readonly string[]; run: Test; values: Values; pink?: readonly string[] }
+  | { kind: "demo"; after: number; frame?: Frame; hide?: readonly string[]; does: string; needs: readonly string[]; run: Test; values: Values; pink?: readonly string[] }
   /** What the build so far cannot do: `try` is done on the bench, and `fails` is what is seen. */
   | { kind: "gap"; after: number; frame?: Frame; test: Test; values: Values; try: string; fails: string }
   /**
@@ -29,13 +31,17 @@ export type Screen =
    * with no word for where it stands. Each sub-function has a test, and it is done when every test passes at one
    * setting: the player has to work out which primitive each failure belongs to, and how much of it is right.
    */
-  | { kind: "works"; after: number; frame?: Frame; say: string; goals: readonly { does: string; test: Test }[]; dials: readonly { primitive: string; control: Control }[]; set: Values; success: string; last?: boolean }
+  | { kind: "works"; after: number; frame?: Frame; hide?: readonly string[]; say: string; goals: readonly { does: string; test: Test }[]; dials: readonly { primitive: string; control: Control }[]; set: Values; success: string; last?: boolean }
   /** One primitive, on the primitive template, by library id. */
   | { kind: "primitive"; id: string }
   /** Who does this? A sub-function is stated; pick the primitive from everything learned so far. */
   | { kind: "who"; after: number; frame?: Frame; does: string; answer: string; why: string }
   /** Drag the piece of story module `module` onto the object. */
-  | { kind: "place"; module: number }
+  /**
+   * A piece dragged onto the object. With `does` it is shown as answering that sub-function: the sub-function sits in
+   * the pink card, `say` tells the player what to drag, and `trial` plays after every drop to show whether it now holds.
+   */
+  | { kind: "place"; module: number; does?: string; say?: string; trial?: Trial; /** Parts not on the object yet, though an earlier module of the story makes them. */ absent?: readonly string[] }
   /** How much? Set the primitive's number so the sub-function is met: every test passes. */
   | { kind: "much"; after: number; frame?: Frame; does: string; need: string; control: Control; tests: readonly Test[]; set?: Values }
   /** What broke? A behaviour plays at `fault`; pick the primitive responsible, then fix it with `control`. */

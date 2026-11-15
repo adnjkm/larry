@@ -405,6 +405,31 @@ const again: Test = {
   },
 };
 
+/** Push the button down and let go: the question a spring answers. With no spring in its pocket, what goes down stays down. */
+const push: Test = {
+  id: "push",
+  label: "Push",
+  run: (_, ctx) => {
+    const sprung = has(ctx, SPRING);
+    const from = restPose(ctx);
+    const up: Pose = { out: 0, press: 0, sag: 0 };
+    const down: Pose = { out: T, press: T, sag: 0 };
+    const verdict = sprung ? { pass: true, line: "Pushed down, it comes straight back up." } : { pass: false, line: "Pushed down, it stays down. Nothing pushes it back." };
+    // A tip already hanging out is first lifted back to where a push starts.
+    const [ready, d, hold, u, tail] = [from.out === 0 ? 0 : 450, 650, 450, 650, 600];
+    return {
+      verdict,
+      durationMs: ready + d + hold + u + tail,
+      at: (ms) => {
+        if (ms < ready) return frame(ctx, mixPose(from, up, seg(ms, 0, ready)), "Ready…");
+        if (ms < ready + d + hold) return frame(ctx, mixPose(up, down, seg(ms, ready, ready + d)), "Pushing down…");
+        const k = seg(ms, ready + d + hold, ready + d + hold + u);
+        return frame(ctx, sprung ? mixPose(down, up, k) : down, sprung ? (k < 1 ? "Letting go…" : "Back up") : "Stays down");
+      },
+    };
+  },
+};
+
 /** What the spring and the notch make of one full click. A weak spring cannot seat the tooth; a stiff one cannot be pressed. */
 const clickState = (values: Values) => {
   const spring = zoneIn(STIFFNESS_ZONES, values, STIFFNESS);
@@ -666,7 +691,8 @@ export default defineStory({
         piece: [SPRING],
         ride: REFILL,
         builds: true,
-        hide: [BARREL, NOSE, PLUNGER],
+        // The spring is found with the pen in its case: the case is see-through, and the push is what is being tested.
+        hide: [],
         spots: [
           {
             id: "tip-end",
@@ -778,7 +804,7 @@ export default defineStory({
 export const PEN_RIG = {
   keys: { squeeze: SQUEEZE, stiffness: STIFFNESS, press: PRESS, pressure: PRESSURE, notch: NOTCH },
   controls: { squeeze, stiffness, pressing, pressure, notch },
-  tests: { write, wait, lift, press, letgo, again, clickOut, clickIn },
+  tests: { write, wait, lift, press, letgo, again, clickOut, clickIn, push },
   /** Each mechanism working, to watch before building it. */
   demos: { writing: write, clicking },
   frames: FRAMES,
