@@ -70,6 +70,20 @@ export function inset(x: number, y: number, w: number, h: number, r: number) {
   return -(outside + Math.min(Math.max(qx, qy), 0) - r);
 }
 
+/**
+ * Distance in from the edge of a speech bubble's tab, positive inside: a triangle pointing straight up from a part's
+ * top edge, its tip at (`tab.x`, 0) and its base `tab.w` wide at y = `tab.h`. It runs on down to `below` so it meets
+ * the body under it without a seam.
+ */
+export function tabInset(x: number, y: number, tab: { x: number; w: number; h: number }, below: number) {
+  const hw = tab.w / 2;
+  const len = Math.hypot(hw, tab.h);
+  const dx = x - tab.x;
+  const left = (dx * tab.h + y * hw) / len;
+  const right = (-dx * tab.h + y * hw) / len;
+  return Math.min(left, right, below - y);
+}
+
 /** A canvas's pixels as one reused ImageData and a Uint32Array view of it. */
 export type Raster = { cols: number; rows: number; image: ImageData; px: Uint32Array; ctx: CanvasRenderingContext2D };
 

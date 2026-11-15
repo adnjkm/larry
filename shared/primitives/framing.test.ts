@@ -10,8 +10,11 @@ describe("figure framing", () => {
       for (const mode of ["still", "play", "game"] as const) {
         const baked = framePrimitive(p, mode);
         const fresh = computeFraming(p, mode);
-        for (const key of Object.keys(fresh) as (keyof typeof fresh)[])
-          assert.ok(Math.abs(baked[key] - fresh[key]) < 1e-6, `${mode} ${key}: ${baked[key]} in framing.json, ${fresh[key]} now`);
+        const { seen: bakedSeen, ...bakedBox } = baked;
+        const { seen: freshSeen, ...freshBox } = fresh;
+        for (const key of Object.keys(freshBox) as (keyof typeof freshBox)[])
+          assert.ok(Math.abs(bakedBox[key] - freshBox[key]) < 1e-6, `${mode} ${key}: ${bakedBox[key]} in framing.json, ${freshBox[key]} now`);
+        assert.deepEqual(bakedSeen, freshSeen, `${mode} seen: out of date in framing.json`);
       }
     });
 

@@ -6,7 +6,8 @@
   "rules": {
     "larry/grid": "error",
     "larry/font-tokens": "error",
-    "larry/ui-sdk": "error"
+    "larry/ui-sdk": "error",
+    "larry/title-case": "error"
   },
   "overrides": [
     {

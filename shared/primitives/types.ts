@@ -100,8 +100,31 @@ export type Plot = {
   dot?: readonly [number, number];
   /** Height of a faint zero line, 0 to 1. */
   zero?: number;
+  /**
+   * A window the line must pass through, as a short upright bracket at `x` from `low` to `high`: what a choice of the
+   * number has to meet. `met` when the line passes through it; `labels` name its bottom and top in a word each.
+   */
+  gate?: { x: number; low: number; high: number; met: boolean; labels?: readonly [string, string] };
   /** Two or three words under the line, when the line needs them: "pull at the rim". */
   caption?: string;
+};
+
+/**
+ * One goal in free play, after the first touch: something the primitive must do, set by its slider alone. A line to
+ * sink below, a mark to reach. The figure shows it (`scene`); the screen says it (`goal`) and fills a Continue pill
+ * while it is `met`.
+ */
+export type Task = {
+  /** One sentence: "Make it soft enough to sink the weight below the line." */
+  goal: string;
+  /** Values set when the task begins: a weight put on, the slider moved somewhere that fails. */
+  start?: Values;
+  /** What the task adds to the figure: the weight. Ids never clash with the figure's. */
+  scene: (v: Values) => Part[];
+  /** Whether the goal is met at these values. */
+  met: (v: Values) => boolean;
+  /** What happens as the task begins, from `start`: the weight dropping on. Not framed: it may come in from outside. */
+  arrive?: (v: Values) => Motion;
 };
 
 /** A scripted motion with no outcome to report: what a machine does on its own, such as when the hand lets go of it. */
@@ -122,6 +145,10 @@ export type Play = {
    * here, two pads in the game). With them, `handle` and `build` must read them. Defaults to the primitive's sliders.
    */
   sliders?: Slider[];
+  /** Values free play holds that no control shows (a weight resting on the spring, how far it has still to fall). */
+  poses?: Slider[];
+  /** Goals that follow the first touch, one after another. */
+  tasks?: Task[];
   /** Free play's handle, when its rig is its own. Defaults to the primitive's. */
   handle?: Handle;
   /** What the hand is doing, drawn only while the finger holds the handle: a force arrow, sized by the push. */
@@ -144,6 +171,12 @@ export type Play = {
    * length, a weight hanging straight down, a lever with its load sitting on the plate.
    */
   rest: Values;
+  /**
+   * The words under the header: the primitive's pronunciation, as a dictionary gives it ("/spriNG/"), its definition,
+   * and a note on what its slider changes, as a bullet under them. The note names what changes, not which way: the user
+   * finds the spectrum by moving it.
+   */
+  facts?: { say: string; is: string; note: string };
   /** The handle's verb in free play, when the game's does not fit a bare hand on the part: "Press" for a spring the game pulls down. */
   label?: string;
   /** How far the handle moves it, when that is less than its slider's range. Real stops only: coils touching, a thread's end. */
@@ -261,7 +294,13 @@ export type Primitive = {
 };
 
 /** Every slider the figure's values can hold: the primitive's, its free play's own, its game's controls and its run-only poses. */
-export const allSliders = (p: Primitive): Slider[] => [...p.sliders, ...(p.play?.sliders ?? []), ...(p.game.controls ?? []), ...(p.game.poses ?? [])];
+export const allSliders = (p: Primitive): Slider[] => [
+  ...p.sliders,
+  ...(p.play?.sliders ?? []),
+  ...(p.play?.poses ?? []),
+  ...(p.game.controls ?? []),
+  ...(p.game.poses ?? []),
+];
 
 /** The slider the handle and the play sweep move: the handle's, else the last slider (the first is the number). */
 export const motionSlider = (p: Primitive): Slider => allSliders(p).find((s) => s.id === p.handle.slider) ?? p.sliders.at(-1)!;

@@ -1,4 +1,4 @@
-import { inset } from "./dither.ts";
+import { inset, tabInset } from "./dither.ts";
 import type { MaterialName } from "./look.ts";
 
 /**
@@ -19,16 +19,23 @@ export type At = {
   y: number;
   w: number;
   h: number;
+  /** The part's tab, if it is a speech bubble. Its body starts `tab.h` px down. */
+  tab?: Tab;
 };
 
 /** Height in CSS px at a point on a part. */
 export type Feature = (at: At) => number;
 export type Relief = readonly Feature[];
 
-export type Shape = { w: number; h: number; r: number };
+/** A speech bubble's tab: a triangle pointing straight up from the top edge, centred `x` px in, `w` wide, `h` tall. */
+export type Tab = { x: number; w: number; h: number };
+/** A rounded rectangle, `w` x `h` with `r` corners; with a tab, the body is the part below it and `h` counts the tab. */
+export type Shape = { w: number; h: number; r: number; tab?: Tab };
 export const circle = (d: number): Shape => ({ w: d, h: d, r: d / 2 });
 export const pill = (w: number, h: number): Shape => ({ w, h, r: Math.min(w, h) / 2 });
 export const rrect = (w: number, h: number, r: number): Shape => ({ w, h, r });
+/** A rounded rectangle with a tab pointing up out of its top, the whole `h` tall including the tab. */
+export const bubble = (w: number, h: number, r: number, tab: Tab): Shape => ({ w, h, r, tab });
 
 /** A quarter round: 0 at the edge, 1 once `b` px in. */
 const round = (e: number, b: number) => Math.sqrt(1 - (1 - Math.min(1, Math.max(0, e / b))) ** 2);
@@ -57,10 +64,15 @@ export const feature = {
    */
   keycap:
     (lift: number, side: number, face: number, dip = 0): Feature =>
-    ({ d, x, y, w, h }) => {
+    ({ d, x, y: py, w, h: ph, tab }) => {
       const top = side * 0.6;
       const bottom = side * 1.5;
-      const f = inset(x - side, y - top, w - 2 * side, h - top - bottom, face);
+      // A bubble's face runs on up into its tab, so the tab is the same raised key, not a ramp off it.
+      const lip = tab?.h ?? 0;
+      const y = py - lip;
+      const h = ph - lip;
+      let f = inset(x - side, y - top, w - 2 * side, h - top - bottom, face);
+      if (tab) f = Math.max(f, tabInset(x, py, tab, lip + top + face) - top);
       // The skirt rounds a little: steep at its foot and easing toward the face, so its shade graduates instead of
       // sitting at one flat tone, but it still meets the face at an angle, for a crisp edge.
       if (f < 0) {

@@ -1,5 +1,6 @@
 import { LOOK, MATERIAL_NAMES, type Look } from "./look.ts";
 import type { At, Feature, Field, Scene, ScenePart } from "./relief.ts";
+import { inset, tabInset } from "./dither.ts";
 
 /**
  * Bakes a scene to per-cell shading data: parts become one height field, which is lit, shadowed and occluded at
@@ -234,7 +235,9 @@ function rasterise(Z: Float32Array, mat: Int8Array, PW: number, pad: number, W: 
   const r = Math.min(part.r, half);
   const hw = part.w / 2;
   const hh = part.h / 2;
+  const tab = part.tab;
   at.half = half;
+  at.tab = part.tab;
   at.w = part.w;
   at.h = part.h;
   // A sample is on the part when its centre is; find the columns and rows that holds for with the same test.
@@ -272,7 +275,7 @@ function rasterise(Z: Float32Array, mat: Int8Array, PW: number, pad: number, W: 
     at.y = y;
     for (let c = 0; c < n; c++) {
       const qx = qxs[c]!;
-      const d = r - Math.sqrt(qxOut2[c]! + qyOut2) - Math.min(Math.max(qx, qy), 0);
+      const d = tab ? Math.max(inset(xs[c]!, y - tab.h, part.w, part.h - tab.h, r), tabInset(xs[c]!, y, tab, tab.h + r)) : r - Math.sqrt(qxOut2[c]! + qyOut2) - Math.min(Math.max(qx, qy), 0);
       if (d <= 0) continue;
       at.d = d;
       at.q = qCol[c]! + qRow;

@@ -525,11 +525,13 @@ const OPEN: Slider = { id: "open", label: "Opening pressure", min: 20, max: 160,
 /**
  * The spring's push down on the ball, to the pump arrow's scale: its preload, plus its rate times the lift. While the
  * ball is shut it is more than the pump's push and the seat takes the difference; once the ball is up the two are equal,
- * which is where the ball floats. It stands on the ball's top, inside the coil that makes it.
+ * which is where the ball floats. It stands just in front of the coil, which would hide it, and points at the ball's
+ * upper half: there is room for it under a solid coil.
  */
+const SPRING_ARROW_Z = COIL_R + 4.5;
 function springArrow(v: Values): Part[] {
   const s = settle(v);
-  return arrow("spring-arrow", v3(VX, s.ballY + BALL_R, 0), -90, s.rate * (PRELOAD_MM + s.lift) * MM_PER_N, "push", {
+  return arrow("spring-arrow", v3(VX, s.ballY, SPRING_ARROW_Z), -90, s.rate * (PRELOAD_MM + s.lift) * MM_PER_N, "push", {
     name: "Spring's push",
     role: "The spring pressing the ball down onto its seat.",
     on: on("ball", "glue"),

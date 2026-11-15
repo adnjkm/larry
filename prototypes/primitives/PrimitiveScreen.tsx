@@ -15,7 +15,10 @@ import { GameStore, useSelect } from "../../src/primitives/game/store.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
 import { PillLabel, PillSurface } from "../../src/ui/PillSurface.tsx";
 import { CAMERA } from "../../src/camera/look.ts";
-import { circle } from "../../src/surface/relief.ts";
+import { BubbleLabel } from "../../src/ui/BubbleLabel.tsx";
+import { Term } from "../../src/ui/Term.tsx";
+import { StepCard } from "../../src/ui/StepCard.tsx";
+import { bubble, circle } from "../../src/surface/relief.ts";
 import { Surface } from "../../src/surface/Surface.tsx";
 import type { FigureMode } from "../../shared/primitives/framing.ts";
 import {
@@ -53,7 +56,192 @@ const HOLD_MS = 700;
 const BUZZ: Record<Cue["kind"], number | number[]> = { click: 6, snap: [12, 24, 12], thud: 18, pop: 10, slip: [6, 20, 6], drip: 4, ring: [8, 30, 8] };
 const buzz = (cue: Cue) => navigator.vibrate?.(BUZZ[cue.kind]);
 
-export function PrimitiveScreen({ primitive, onBack }: { primitive: Primitive; onBack: () => void }) {
+export function PrimitiveScreen({ primitive, onBack, onDone }: { primitive: Primitive; onBack: () => void; onDone: () => void }) {
+  // A primitive with goals is played and then set to them, all on one screen; the others keep play, then challenge.
+  if (primitive.play?.tasks?.length)
+    return (
+      <Shell objectName={primitive.name} steps={KEY_STEPS} onHome={onBack}>
+        <TaskPlay primitive={primitive} onDone={onDone} />
+      </Shell>
+    );
+  return <TwoSteps primitive={primitive} onBack={onBack} />;
+}
+
+/**
+ * Free play, then its goals, on one screen. First the bare machine and the finger. Once it has been worked and let go,
+ * the first goal arrives: its scene drops into the figure (a weight, a line), the goal takes the heading and the slider
+ * rises in. While the goal is met, the Continue pill fills from a ghost to solid; full, it opens the next goal, or, after
+ * the last, moves on.
+ */
+function TaskPlay({ primitive, onDone }: { primitive: Primitive; onDone: () => void }) {
+  const tasks = primitive.play!.tasks!;
+  const store = useMemo(() => new GameStore(playValues(primitive)), [primitive]);
+  const motion = playMotion(primitive);
+  const tuning = playTuning(primitive);
+  const [task, setTask] = useState<number>();
+  const current = task === undefined ? undefined : tasks[task];
+
+  /**
+   * Begins goal `i`. `from` is where the hand left the machine, for a goal that arrives the moment it is let go: its
+   * `arrive` carries on from that let-go (the spring still springing back as the weight falls) rather than from rest.
+   */
+  const begin = (i: number, from?: number) => {
+    const c = store.controller;
+    const t = tasks[i];
+    if (!c || !t) return;
+    setTask(i);
+    if (t.start) c.set(t.start);
+    if (t.arrive) void c.play(t.arrive(from === undefined ? c.get() : { ...c.get(), [motion.id]: from }));
+  };
+
+  // The first goal begins the moment the hand first lets go: the let-go puts the handle's slider back at rest at once
+  // (the machine's own motion carries on in the other values), so that is the moment to catch.
+  const pressed = useRef<number>(undefined);
+  const started = useRef(false);
+  const rest = useRef(playValues(primitive)[motion.id]);
+  useEffect(
+    () =>
+      store.subscribe(() => {
+        if (started.current) return;
+        const now = store.snapshot()[motion.id]!;
+        if (now !== rest.current) {
+          pressed.current = now;
+          return;
+        }
+        const from = pressed.current;
+        if (from === undefined) return;
+        started.current = true;
+        // After this change has been handed out, not in the middle of it.
+        queueMicrotask(() => begin(0, from));
+      }),
+    [store],
+  );
+
+  const met = useSelect(store, (v) => (current ? current.met(v) : false));
+  const last = task === tasks.length - 1;
+
+  return (
+    <main className="page step-in" data-step="tasks" data-primitive={primitive.id} data-task={task}>
+      <Mechanism />
+      <div className="notes">
+        {primitive.play?.facts ? (
+          <Term word={primitive.name} say={primitive.play.facts.say} points={[primitive.play.facts.note]}>
+            {primitive.play.facts.is}
+          </Term>
+        ) : null}
+      </div>
+      <Figure primitive={primitive} mode="play" store={store} task={task} />
+      {/* What to do now, just over the sliders it is done with. */}
+      {/* The challenge, only once there is one. Laid out from the start (holding the first goal's words), so the figure
+          keeps its size and the camera holds still when it rises in. */}
+      <div className="reveal" data-shown={current ? "" : undefined} aria-hidden={!current}>
+        {/* Keyed by the goal, so each new one flashes in. */}
+        <StepCard key={task ?? -1} text={(current ?? tasks[0]!).goal} />
+      </div>
+      <div className="tuning" data-shown={current ? "" : undefined} inert={!current}>
+        {tuning.map((s) => (
+          <TuneRow key={s.id} store={store} slider={s} />
+        ))}
+      </div>
+      <div className="reveal" data-shown={current ? "" : undefined} inert={!current}>
+        <Actions>
+          {/* Keyed by the goal, so each one starts from a ghost. */}
+          <FillPill key={task} met={met} label="Continue" onGo={() => (last ? onDone() : begin((task ?? -1) + 1))} />
+        </Actions>
+      </div>
+    </main>
+  );
+}
+
+/** The keycap row's corner radius, as on the progress keys and the lesson's requirement. */
+const MECHANISM_RADIUS = 12;
+/** The bubble's tab: how wide its base is and how far it reaches up toward the lit key. */
+const TAB_W = 22;
+const TAB_H = 10;
+
+/**
+ * The row under the header naming the mechanism this lesson is about, on the grey dithered keycap the lesson's
+ * requirement row uses (prototypes/lesson/ui.tsx Need), with "Mechanism" for its label. It is a speech bubble: a tab
+ * points straight up out of the key, under the header's lit key, as part of the one raised shape.
+ */
+function Mechanism() {
+  const box = useRef<HTMLParagraphElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0, tab: 0 });
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const read = () => {
+      const key = el.closest(".screen")?.querySelector<HTMLElement>('.top [aria-label^="Step 1 "]');
+      const at = el.getBoundingClientRect();
+      const lit = key?.getBoundingClientRect();
+      // Centred under the first key, kept clear of the rounded corners.
+      const centre = lit ? lit.left + lit.width / 2 - at.left : at.width / 4;
+      const tab = Math.round(Math.min(Math.max(centre, MECHANISM_RADIUS + TAB_W / 2), at.width - MECHANISM_RADIUS - TAB_W / 2));
+      setSize({ width: el.offsetWidth, height: el.offsetHeight, tab });
+    };
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <p ref={box} className="need" data-mechanism>
+      {size.width > 0 ? (
+        <Surface
+          shape={bubble(size.width, size.height, MECHANISM_RADIUS, { x: size.tab, w: TAB_W, h: TAB_H })}
+          relief="keycap"
+          material="bone"
+          ground="light"
+          grain={CAMERA.grain}
+          depth={CAMERA.relief}
+          drift={CAMERA.idleDither}
+        />
+      ) : null}
+      <BubbleLabel>Lorem Ipsum Dolor Sit Amet, Consectetur Elit</BubbleLabel>
+    </p>
+  );
+}
+
+/** How long a met goal takes to fill the pill. */
+const FILL_MS = 1200;
+
+/**
+ * The Continue pill, a ghost until the goal is met: then the dark pill fills in from the left over FILL_MS, and only
+ * once it is full can it be pressed. Unmet on the way, it drains back.
+ */
+function FillPill({ met, label, onGo }: { met: boolean; label: string; onGo: () => void }) {
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    if (!met) {
+      setFull(false);
+      return;
+    }
+    const done = setTimeout(() => setFull(true), FILL_MS);
+    return () => clearTimeout(done);
+  }, [met]);
+  return (
+    <button
+      type="button"
+      className="btn fill-pill"
+      data-next
+      data-met={met ? "" : undefined}
+      data-full={full ? "" : undefined}
+      aria-disabled={!full}
+      onClick={() => full && onGo()}
+      style={{ "--fill-ms": `${FILL_MS}ms` } as CSSProperties}
+    >
+      {/* The label twice: ink on the ghost, and white inside the dark fill, which reveals it as it grows, so each letter
+          turns white the moment the fill reaches it. Its own labels, not PillLabel, whose colour can't be changed. */}
+      <span className="fill-label">{label}</span>
+      <span className="fill-solid" aria-hidden>
+        <PillSurface />
+        <span className="fill-label fill-label-on">{label}</span>
+      </span>
+    </button>
+  );
+}
+
+function TwoSteps({ primitive, onBack }: { primitive: Primitive; onBack: () => void }) {
   const [at, setAt] = useState(0);
   const step: PrimitiveStep = PRIMITIVE_STEPS[at]!;
   const next = () => setAt((i) => Math.min(i + 1, PRIMITIVE_STEPS.length - 1));
@@ -110,7 +298,14 @@ function PlayStep({
 
   return (
     <main className="page step-in" data-step="play" data-primitive={primitive.id} data-moved={moved ? "" : undefined}>
-      <Say kicker={primitive.level}>{primitive.name}</Say>
+      <Mechanism />
+      <div className="notes">
+        {primitive.play?.facts ? (
+          <Term word={primitive.name} say={primitive.play.facts.say} points={[primitive.play.facts.note]}>
+            {primitive.play.facts.is}
+          </Term>
+        ) : null}
+      </div>
       <Figure primitive={primitive} mode="play" store={store} />
       {/* Laid out from the start but hidden, so the figure keeps its size and the camera holds still when they arrive. */}
       <div className="tuning" data-shown={moved ? "" : undefined} inert={!moved}>
@@ -229,7 +424,7 @@ function ChallengeStep({ primitive }: { primitive: Primitive }) {
 }
 
 /** The figure on the screen itself, no frame, as tall as the screen leaves it. */
-function Figure({ primitive, mode, store }: { primitive: Primitive; mode: FigureMode; store: GameStore }) {
+function Figure({ primitive, mode, store, task }: { primitive: Primitive; mode: FigureMode; store: GameStore; task?: number }) {
   const box = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
   useLayoutEffect(() => {
@@ -243,14 +438,16 @@ function Figure({ primitive, mode, store }: { primitive: Primitive; mode: Figure
   }, []);
   return (
     <div className="figure" ref={box}>
-      {height > 0 ? <FigureStage primitive={primitive} mode={mode} palette="library" height={height} controllerRef={store.attach} onCue={buzz} /> : null}
+      {height > 0 ? (
+        <FigureStage primitive={primitive} mode={mode} palette="library" height={height} controllerRef={store.attach} onCue={buzz} task={task} />
+      ) : null}
     </div>
   );
 }
 
 /**
  * A slider as the lesson's pink dithered bar. No number on it: the figure shows what it does. Its two end words, when
- * it has them ("Soft", "Stiff"), sit under the bar's ends so the direction means something.
+ * it has them ("Soft", "Stiff"), sit under the bar's ends and stand in for its name.
  */
 export function TuneRow({ store, slider }: { store: GameStore; slider: Slider }) {
   const value = useSelect(store, (v) => v[slider.id] ?? slider.initial);
@@ -259,7 +456,8 @@ export function TuneRow({ store, slider }: { store: GameStore; slider: Slider })
   const word = slider.ends ? slider.ends[fraction < 0.5 ? 0 : 1] : slider.label;
   return (
     <div className="slider strip" data-free data-slider={slider.id} data-ends={slider.ends ? "" : undefined}>
-      <span className="mono">{slider.label}</span>
+      {/* With end words the bar needs no name: "Soft" and "Stiff" say what it is. It takes the whole width instead. */}
+      {slider.ends ? null : <span className="mono">{slider.label}</span>}
       <div className="track-ends">
         <DitherRange
           label={slider.label}
@@ -281,7 +479,7 @@ export function TuneRow({ store, slider }: { store: GameStore; slider: Slider })
 const PLOT_W = 380;
 /** The plot's ball, CSS px across. */
 const BALL = 14;
-const PLOT_H = 72;
+const PLOT_H = 120;
 
 /** The primitive's law as one line, reshaped live as the sliders move, with the dot where the machine is now. */
 export function LawPlot({ store, plot }: { store: GameStore; plot: NonNullable<NonNullable<Primitive["play"]>["plot"]> }) {
@@ -289,7 +487,7 @@ export function LawPlot({ store, plot }: { store: GameStore; plot: NonNullable<N
     const out = plot(v);
     return JSON.stringify(out);
   });
-  const { line, dot, zero, caption } = JSON.parse(p) as ReturnType<typeof plot>;
+  const { line, dot, zero, caption, gate } = JSON.parse(p) as ReturnType<typeof plot>;
   const x = (u: number) => (u * PLOT_W).toFixed(1);
   const y = (u: number) => ((1 - u) * (PLOT_H - 4) + 2).toFixed(1);
   const d = line.map(([u, w], i) => `${i === 0 ? "M" : "L"}${x(u)} ${y(w)}`).join(" ");
@@ -298,8 +496,25 @@ export function LawPlot({ store, plot }: { store: GameStore; plot: NonNullable<N
       <div className="plot-area">
         <svg viewBox={`0 0 ${PLOT_W} ${PLOT_H}`} preserveAspectRatio="none" aria-hidden>
           {zero !== undefined ? <line x1="0" x2={PLOT_W} y1={y(zero)} y2={y(zero)} className="plot-zero" /> : null}
+          {gate ? (
+            <g className="plot-gate" data-met={gate.met ? "" : undefined}>
+              <line x1={x(gate.x)} x2={x(gate.x)} y1={y(gate.low)} y2={y(gate.high)} />
+              <line x1={Number(x(gate.x)) - 5} x2={Number(x(gate.x)) + 5} y1={y(gate.low)} y2={y(gate.low)} />
+              <line x1={Number(x(gate.x)) - 5} x2={Number(x(gate.x)) + 5} y1={y(gate.high)} y2={y(gate.high)} />
+            </g>
+          ) : null}
           <path d={d} className="plot-line" />
         </svg>
+        {gate?.labels ? (
+          <>
+            <span className="plot-gate-label" style={{ left: `${gate.x * 100}%`, top: `${(((1 - gate.low) * (PLOT_H - 4) + 2) / PLOT_H) * 100}%` }}>
+              {gate.labels[0]}
+            </span>
+            <span className="plot-gate-label" style={{ left: `${gate.x * 100}%`, top: `${(((1 - gate.high) * (PLOT_H - 4) + 2) / PLOT_H) * 100}%` }}>
+              {gate.labels[1]}
+            </span>
+          </>
+        ) : null}
         {dot ? (
           <span className="plot-dot" style={{ left: `${dot[0] * 100}%`, top: `${(((1 - dot[1]) * (PLOT_H - 4) + 2) / PLOT_H) * 100}%` }}>
             {/* A pink ball, raised and dithered like the progress keys. */}

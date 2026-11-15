@@ -223,8 +223,8 @@ const HINGE_R = 3;
 const HINGE_LEN = PLANK_Z + 8;
 /** The knob's centre is this far past the plank's end, so the knob's side meets the end face. Also the knob's radius. */
 const LIFT_OUT = 5.5;
-/** A block that has slid off stands this far clear of the hinge pin. */
-const LAND_GAP = 1;
+/** A block that has slid off lands this far clear of the hinge pin. */
+const LAND_GAP = 6;
 /** From the landed block's far face to the knob's far side: the rig's width, centred on the plate. */
 const RIG_W = BLOCK + LAND_GAP + HINGE_R + PLANK_L + 2 * LIFT_OUT;
 const HINGE: Vec = v3(-RIG_W / 2 + BLOCK + LAND_GAP + HINGE_R, PLATE_TOP + PLANK_T / 2, 0);
@@ -233,8 +233,13 @@ const BLOCK_HOME = PLANK_L - BLOCK / 2 - 6;
 const BLOCK_END = BLOCK / 2;
 /** The block's centre once it has slid off and landed on the plate, beyond the hinge. */
 const LANDED = v3(HINGE.x - HINGE_R - LAND_GAP - BLOCK / 2, PLATE_TOP + BLOCK / 2, 0);
-/** The share of `slid` spent going down the plank; the rest is the drop onto the plate. */
+/** The share of `slid` spent going down the plank; the rest is the tumble off its end onto the plate. */
 const ALONG = 0.75;
+/**
+ * How high the block's centre arcs above the straight line from the plank's end to where it lands. A block leaving
+ * the end tips over the edge and the pin; this is the least arc that keeps it clear of both at every tilt.
+ */
+const HOP = 7;
 /**
  * Past the friction angle, the drag alone shows the block going: it runs down the plank, faster and faster, over this
  * many more degrees of tilt, then is off. The stage moves a held figure only with the finger, so this stands in for the
@@ -273,11 +278,10 @@ export function blockPose(r: ReturnType<typeof ramp>): Pose {
   let pose: Pose;
   if (r.slid <= ALONG) pose = onPlank(lerp(BLOCK_HOME, BLOCK_END, r.slid / ALONG), r.tilt);
   else {
-    // Off the low end and onto the plate: it keeps on down the slope while it levels out, so its trailing edge clears
-    // the plank's corner before it is flat.
+    // Off the low end and onto the plate, levelling out as it goes.
     const k = (r.slid - ALONG) / (1 - ALONG);
     const from = onPlank(BLOCK_END, r.tilt).centre;
-    pose = { centre: v3(lerp(from.x, LANDED.x, k), lerp(from.y, LANDED.y, k)), angle: r.tilt * (1 - k) ** 2 };
+    pose = { centre: v3(lerp(from.x, LANDED.x, k), lerp(from.y, LANDED.y, k) + HOP * Math.sin(Math.PI * k)), angle: r.tilt * (1 - k) };
   }
   if (r.put === 0) return pose;
   // Carried back in a low arc over the hinge to its spot, so it can slide again.

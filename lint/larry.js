@@ -2,7 +2,10 @@
 //   larry/grid: spacing and sizing sit on a 4px grid, with 2px half steps.
 //   larry/font-tokens: font families come from the tokens, never a string.
 //   larry/ui-sdk: interactive controls come from UI SDK (@ui-sdk/react), never raw HTML.
+//   larry/title-case: words on a pill or in a speech bubble (PillLabel, BubbleLabel) are written in title case.
 //   larry/shared-pure: shared/ and server/ run in Node, so they never import the client (src/, React, StyleX, UI SDK).
+
+import { titleCase } from "../src/ui/titleCase.ts";
 
 const GRID = 2;
 const SIZED =
@@ -123,6 +126,33 @@ const uiSdk = {
   },
 };
 
+/** Components whose text is shown in title case. They case it themselves too; the rule keeps the source honest. */
+const TITLED = new Set(["PillLabel", "BubbleLabel"]);
+
+const titleCaseRule = {
+  meta: { type: "problem", docs: { description: "Text on a pill or in a speech bubble is written in title case (src/ui/titleCase.ts)." } },
+  create(context) {
+    const check = (node, text) => {
+      const want = titleCase(text);
+      if (text.trim() && want !== text) context.report({ node, message: `Title case: write "${want.trim()}".` });
+    };
+    return {
+      JSXElement(node) {
+        const name = node.openingElement.name;
+        if (name.type !== "JSXIdentifier" || !TITLED.has(name.name)) return;
+        for (const child of node.children) {
+          if (child.type === "JSXText") check(child, child.value);
+          else if (child.type === "JSXExpressionContainer") {
+            const e = child.expression;
+            if (e.type === "Literal" && typeof e.value === "string") check(e, e.value);
+            else if (e.type === "TemplateLiteral" && e.expressions.length === 0) check(e, e.quasis[0].value.cooked);
+          }
+        }
+      },
+    };
+  },
+};
+
 /** Imports that only work in the browser app. */
 const CLIENT_ONLY = /^(react|react-dom|@react-three\/|@stylexjs\/|@ui-sdk\/|dialkit)|\/src\/|^\.\.?\/(\.\.\/)*src\/|\.stylex(\.ts)?$/;
 
@@ -144,4 +174,4 @@ const sharedPure = {
   },
 };
 
-export default { meta: { name: "larry" }, rules: { grid, "font-tokens": fontTokens, "ui-sdk": uiSdk, "shared-pure": sharedPure } };
+export default { meta: { name: "larry" }, rules: { grid, "font-tokens": fontTokens, "ui-sdk": uiSdk, "shared-pure": sharedPure, "title-case": titleCaseRule } };

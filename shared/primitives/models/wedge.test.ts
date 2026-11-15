@@ -33,6 +33,22 @@ const openIn = (live: string) => {
   return m ? Number(m[1]) : undefined;
 };
 
+/** How far a point is from a free-play plot's line, in the plot's unit square. */
+function offLine(line: readonly (readonly [number, number])[], [x, y]: readonly [number, number]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1]!;
+    const [bx, by] = line[i]!;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+  }
+  return best;
+}
+/** Every point of a plot's line inside its unit square. */
+const inSquare = (line: readonly (readonly [number, number])[]) => line.every(([x, y]) => x >= -1e-9 && x <= 1 + 1e-9 && y >= -1e-9 && y <= 1 + 1e-9);
+
 describe("wedge", () => {
   it("rides each log half's top inner corner on its own face, at every reachable pose", () => {
     for (const sl of steps(slope)) {
@@ -309,5 +325,32 @@ describe("wedge", () => {
   it("passes the generic game and design checks", () => {
     checkGame(wedge);
     checkDesign(wedge);
+  });
+
+  it("plots the log's opening for depth in free play: the dot on the line, and a blunter wedge tilts it steeper", () => {
+    const plot = wedge.play!.plot!;
+    for (const sl of [8, 15, 25, 35]) {
+      for (const p of [0, 6, 14, 32]) {
+        const out = plot({ slope: sl, push: p });
+        assert.ok(inSquare(out.line) && out.dot && offLine(out.line, out.dot) < 1e-9, `slope ${sl}, push ${p}: the dot is off the line`);
+      }
+    }
+    const slopeOf = (sl: number) => {
+      const [a, b] = plot({ slope: sl, push: 0 }).line as [readonly [number, number], readonly [number, number]];
+      return (b[1] - a[1]) / (b[0] - a[0]);
+    };
+    assert.ok(slopeOf(35) > 4 * slopeOf(8), `35° slope ${slopeOf(35)}, 8° slope ${slopeOf(8)}`);
+  });
+
+  it("draws the hand's holding push and the push out on each half while the hand is on: smaller in than out on a sharp wedge, bigger on a blunt one", () => {
+    const hand = wedge.play!.hand!;
+    assert.deepEqual(hand({ slope: 15, push: 0 }), []);
+    const arrows = (sl: number) => {
+      const parts = hand({ slope: sl, push: settle({ slope: sl, push: 32 }).stop });
+      return { push: len(find(parts, "push-arrow")), out: len(find(parts, "out-arrow-right")) };
+    };
+    assert.ok(arrows(8).push < arrows(8).out, "the sharp wedge's push is not smaller than its push out");
+    assert.ok(arrows(35).push > arrows(35).out, "the blunt wedge's push is not bigger than its push out");
+    assert.ok(arrows(35).push >= 40 && arrows(8).out >= 20, "an arrow at one end is a stub");
   });
 });

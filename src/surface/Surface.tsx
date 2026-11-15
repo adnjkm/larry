@@ -60,7 +60,7 @@ function stripFor({ shape, relief, frames = 1, material = "bone", pad = 6, depth
   const named = typeof relief === "string";
   if (!named && !bakeKey) throw new Error("Surface: bakeKey is required when relief is an array or a function");
   const count = typeof relief === "function" ? Math.max(1, Math.round(frames)) : 1;
-  const key = [named ? relief : bakeKey, shape.w, shape.h, shape.r, material, cellCss, count, pad, depth].join("|");
+  const key = [named ? relief : bakeKey, shape.w, shape.h, shape.r, shape.tab ? `${shape.tab.x},${shape.tab.w},${shape.tab.h}` : "", material, cellCss, count, pad, depth].join("|");
   let strip = strips.get(key);
   if (!strip) {
     const fields: (Field | undefined)[] = Array.from({ length: count });
@@ -68,7 +68,7 @@ function stripFor({ shape, relief, frames = 1, material = "bone", pad = 6, depth
     const scene = (part: Relief): Scene => ({
       width: shape.w + 2 * pad,
       height: shape.h + 2 * pad,
-      parts: [{ x: pad, y: pad, w: shape.w, h: shape.h, r: shape.r, relief: scaled(part), material }],
+      parts: [{ x: pad, y: pad, w: shape.w, h: shape.h, r: shape.r, tab: shape.tab, relief: scaled(part), material }],
     });
     strip = {
       count,

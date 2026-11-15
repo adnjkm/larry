@@ -1,6 +1,6 @@
 import type { Part } from "../kit.ts";
 import baked from "./framing.json" with { type: "json" };
-import { type KitBounds, measurePoses } from "../bounds.ts";
+import { type KitBounds, measurePoses, measureSeen, type Seen } from "../bounds.ts";
 import { type Primitive, type Slider, type Values, numberSlider, playBuild, playHandle, playMotion, playTuning, playValues, sliderSamples, startValues } from "./types.ts";
 
 const FRAME_SAMPLES = 5;
@@ -64,6 +64,14 @@ export function playFrames(p: Primitive, v: Values): Part[][] {
   if (p.play?.hand) out.push([...bare, ...p.play.hand(v)]);
   const ambient = p.play?.ambient;
   if (ambient) for (let i = 0; i < AMBIENT_SAMPLES; i++) out.push([...bare, ...ambient(v, (i / AMBIENT_SAMPLES) * AMBIENT_SPAN_MS)]);
+  // Each task at this setting of the sliders, with what it puts on the figure once it has arrived. The arrival itself
+  // is not framed: a weight dropping in falls from above the frame, through the room the figure box leaves over it.
+  const shown = [...playTuning(p), playMotion(p)].map((s) => s.id);
+  for (const task of p.play?.tasks ?? []) {
+    const start: Values = { ...v, ...task.start, ...Object.fromEntries(shown.map((id) => [id, v[id]!])) };
+    const at = task.arrive ? task.arrive(start).at(task.arrive(start).durationMs).values : start;
+    out.push([...playBuild(p)(at), ...task.scene(at)]);
+  }
   return out;
 }
 
@@ -122,11 +130,29 @@ export type FigureMode = "still" | "play" | "game";
  */
 export function computeFraming(p: Primitive, mode: FigureMode): KitBounds {
   const settings = poses(p, FRAME_SAMPLES);
-  if (mode === "play") return unionBounds(measurePoses([...playPoses(p, FRAME_SAMPLES).flatMap((v) => playFrames(p, v)), ...releasePoses(p)]));
+  if (mode === "play") return withSeen(p, [...playPoses(p, FRAME_SAMPLES).flatMap((v) => playFrames(p, v)), ...releasePoses(p)], true);
   const still = settings.map(p.build);
+  if (mode === "still") return unionBounds(measurePoses(still));
   const scene = p.game?.scene;
-  const game = mode === "game" ? [...(scene ? settings.map((v) => [...p.build(v), ...scene(v)]) : []), ...runPoses(p)] : [];
-  return unionBounds(measurePoses([...still, ...game]));
+  return withSeen(p, [...still, ...(scene ? settings.map((v) => [...p.build(v), ...scene(v)]) : []), ...runPoses(p)], false);
+}
+
+/** Turns of the model sampled for a figure the finger can spin. */
+const TURN_SAMPLES = 24;
+
+/**
+ * The bounds of `all`, with how far the parts reach on the view plane, for the fixed camera of play and game. When the
+ * finger can turn the model (`turns`, free play), every turn is measured too. The spinning camera of "still" turns
+ * through every angle at once, so the box is all it can use.
+ */
+function withSeen(p: Primitive, all: readonly (readonly Part[])[], turns: boolean): KitBounds {
+  const bounds = unionBounds(measurePoses(all));
+  const seen: Seen = { minA: Infinity, maxA: -Infinity, minB: Infinity, maxB: -Infinity };
+  // Turning the model by `yaw` is seen as the camera turning the other way.
+  const views = turns ? Array.from({ length: TURN_SAMPLES }, (_, i) => ({ ...p.view, azimuth: p.view.azimuth - (360 * i) / TURN_SAMPLES })) : [p.view];
+  for (const parts of all) for (const view of views) measureSeen(parts, view, bounds.centerX, bounds.centerZ, seen);
+  const round = (x: number) => Number(x.toFixed(3));
+  return { ...bounds, seen: { minA: round(seen.minA - FRAME_PAD), maxA: round(seen.maxA + FRAME_PAD), minB: round(seen.minB - FRAME_PAD), maxB: round(seen.maxB + FRAME_PAD) } };
 }
 
 /** The framing for a primitive and mode, from framing.json. Run `node scripts/generate-framing.ts` after adding or changing a primitive. */

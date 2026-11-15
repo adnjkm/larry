@@ -2,13 +2,32 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, find, sample } from "../checks.ts";
-import { startValues, steps } from "../types.ts";
-import { PLATE_TOP } from "../parts.ts";
-import { CRACK, geometry, grip, hold, LOAD_END, MU, settle, SLIDE } from "./grip.ts";
+import { DEG_TO_RAD } from "../../angles.ts";
+import { checkDesign, checkGame, contact, find, sample } from "../checks.ts";
+import { type Pt, PLATE_TOP } from "../parts.ts";
+import { playBuild, playHandle, playMotion, playTuning, playValues, startValues, steps } from "../types.ts";
+import { blockPose, CRACK, geometry, grip, hold, LOAD_END, MU, ramp, settle, SLIDE, slipAngle } from "./grip.ts";
 
 const game = grip.game;
 const [squeeze, load] = grip.sliders as [NonNullable<(typeof grip.sliders)[0]>, NonNullable<(typeof grip.sliders)[1]>];
+/** A box part's outline in world x-y: its four corners, turned about z. */
+const corners = (p: Part): Pt[] => {
+  assert.ok(p.shape.kind === "box");
+  const { width: w, height: h } = p.shape;
+  const a = p.rotation.z * DEG_TO_RAD;
+  return [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ].map(([x, y]): Pt => [
+    p.position.x + (x! * w * Math.cos(a)) / 2 - (y! * h * Math.sin(a)) / 2,
+    p.position.y + (x! * w * Math.sin(a)) / 2 + (y! * h * Math.cos(a)) / 2,
+  ]);
+};
+/** The hinge pin's outline in world x-y: radius 3 about its centre. */
+const circle = (p: Part): Pt[] =>
+  Array.from({ length: 48 }, (_, i): Pt => [p.position.x + 3 * Math.cos((i * Math.PI) / 24), p.position.y + 3 * Math.sin((i * Math.PI) / 24)]);
 const length = (p: Part) => {
   assert.ok(p.shape.kind === "extrusion");
   return Math.max(...p.shape.outline.map((o) => o.x));
@@ -117,5 +136,162 @@ describe("grip", () => {
         assert.ok(settle(frame.values).bottom >= PLATE_TOP - 1e-9 && SLIDE === 30);
       }
     }
+  });
+
+  describe("free play: a block on a plank", () => {
+    const play = grip.play!;
+    const build = playBuild(grip);
+    const handle = playHandle(grip);
+    const [mu, tilt] = play.sliders! as [NonNullable<(typeof grip.sliders)[0]>, NonNullable<(typeof grip.sliders)[1]>];
+    const at = (m: number, t: number) => ({ ...playValues(grip), mu: m, tilt: t });
+
+    it("is its own rig: the grip slider shows, the handle lifts the plank, and no id clashes with the game's", () => {
+      assert.deepEqual(
+        playTuning(grip).map((s) => s.id),
+        ["mu"],
+      );
+      assert.equal(playMotion(grip).id, "tilt");
+      assert.deepEqual(mu.ends, ["Ice", "Rubber"]);
+      assert.equal(play.label, "Lift");
+      const game = new Set([...grip.sliders, ...(grip.game.poses ?? [])].map((s) => s.id));
+      for (const id of ["mu", "tilt", "slid", "put"]) assert.ok(!game.has(id), id);
+      assert.deepEqual(
+        build(playValues(grip))
+          .map((p) => p.id)
+          .sort(),
+        ["block", "handle", "hinge", "plank", "plate"],
+      );
+    });
+
+    it("rests flat, with the block at its spot near the plank's free end", () => {
+      const r = ramp(playValues(grip));
+      assert.equal(r.tilt, 0);
+      assert.equal(r.slid, 0);
+      const plank = find(build(playValues(grip)), "plank");
+      assert.ok(Math.abs(Math.min(...corners(plank).map((q) => q[1])) - PLATE_TOP) < 1e-9, "the flat plank lies on the plate");
+    });
+
+    it("holds the block still at every tilt up to the friction angle, and has it off on the plate just past it", () => {
+      for (const m of steps(mu)) {
+        const angle = slipAngle(m);
+        assert.ok(Math.abs(Math.tan(angle * DEG_TO_RAD) - m) < 1e-12);
+        const home = blockPose(ramp(at(m, 0)));
+        for (const t of steps(tilt).filter((x) => x <= angle)) {
+          const r = ramp(at(m, t));
+          assert.equal(r.slid, 0, `μ ${m}, ${t}°`);
+          assert.equal(r.slips, false);
+          // Held, the block turns with the plank about the hinge and stays the same distance from it.
+          const b = blockPose(r);
+          assert.equal(b.angle, t);
+          const hinge = find(build(at(m, t)), "hinge").position;
+          assert.ok(Math.abs(Math.hypot(b.centre.x - hinge.x, b.centre.y - hinge.y) - Math.hypot(home.centre.x - hinge.x, home.centre.y - hinge.y)) < 1e-9);
+        }
+        const past = steps(tilt).find((x) => x > angle)!;
+        assert.ok(ramp(at(m, past)).slid > 0, `μ ${m}: moving at ${past}°, the first step past ${angle.toFixed(1)}°`);
+        const gone = steps(tilt).find((x) => x >= angle + 2)!;
+        const r = ramp(at(m, gone));
+        assert.equal(r.slid, 1, `μ ${m}: off by ${gone}°`);
+        const block = find(build(at(m, gone)), "block");
+        assert.ok(Math.abs(Math.min(...corners(block).map((q) => q[1])) - PLATE_TOP) < 1e-9, "landed flat on the plate");
+        assert.equal(block.parentId, "plate");
+      }
+    });
+
+    it("rests the block's underside on the plank's top while it is on it, never in it", () => {
+      for (const m of [0.1, 0.5, 1]) {
+        for (const t of steps(tilt).filter((_, i) => i % 4 === 0)) {
+          const parts = build(at(m, t));
+          const r = ramp(at(m, t));
+          if (!r.onPlank) continue;
+          const block = corners(find(parts, "block"));
+          const plank = corners(find(parts, "plank"));
+          const { depth, gap } = contact(block, plank, 0.5);
+          assert.ok(depth < 1e-6 && gap < 1e-6, `μ ${m}, ${t}°: depth ${depth}, gap ${gap}`);
+          // Underside on the top face: both lower corners on the line through the plank's top corners.
+          const [a, b] = [plank[3]!, plank[2]!];
+          for (const q of [block[0]!, block[1]!]) {
+            const cross = (b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0]);
+            assert.ok(Math.abs(cross / Math.hypot(b[0] - a[0], b[1] - a[1])) < 1e-9, `μ ${m}, ${t}°: corner off the plank's top`);
+          }
+        }
+      }
+    });
+
+    it("keeps the block clear of the plank, the hinge and the plate all the way off and back", () => {
+      for (const t of steps(tilt).filter((_, i) => i % 4 === 0)) {
+        for (let k = 0; k <= 40; k++) {
+          for (const put of [0, 0.25, 0.5, 0.75]) {
+            const parts = build({ ...at(0.5, t), slid: k / 40, put });
+            const block = corners(find(parts, "block"));
+            const where = `${t}°, slid ${k / 40}, put ${put}`;
+            assert.ok(contact(block, corners(find(parts, "plank")), 0.5).depth < 1e-6, `${where}: into the plank`);
+            assert.ok(contact(block, circle(find(parts, "hinge")), 0.5).depth < 1e-6, `${where}: into the hinge`);
+            assert.ok(Math.min(...block.map((q) => q[1])) >= PLATE_TOP - 1e-9, `${where}: into the plate`);
+          }
+        }
+      }
+    });
+
+    it("keeps the knob on the plank's end and solves the finger back to the tilt", () => {
+      for (const t of steps(tilt)) {
+        const v = at(0.5, t);
+        assert.ok(Math.abs(handle.solve(handle.at(v), v) - t) < 1e-9, `${t}°`);
+        const knob = find(build(v), "handle").position;
+        const h = handle.at(v);
+        assert.ok(Math.hypot(knob.x - h.x, knob.y - h.y, knob.z - h.z) < 1e-9);
+      }
+    });
+
+    it("lets the hand only lift further once the block has started down", () => {
+      const reach = handle.reach!;
+      const angle = slipAngle(0.5);
+      assert.deepEqual(reach(at(0.5, 10)), [0, 60]);
+      assert.deepEqual(reach(at(0.5, angle + 0.5)), [angle + 0.5, 60]);
+    });
+
+    it("lets go: a held block rides the plank down flat; a slipped one finishes, lands, and is put back on its spot", () => {
+      const rest = blockPose(ramp(playValues(grip)));
+      for (const v of [at(0.5, 20), at(0.5, 26.6), at(0.5, 27), at(0.5, 40), at(0.1, 60), { ...at(0.5, 30), slid: 1, put: 0.4 }]) {
+        const run = play.release!(v);
+        const end = run.at(run.durationMs).values;
+        assert.equal(end.tilt, 0);
+        assert.equal(ramp(end).slid, 0);
+        const b = blockPose(ramp(end));
+        assert.ok(Math.hypot(b.centre.x - rest.centre.x, b.centre.y - rest.centre.y) < 1e-9, `ends at the block's spot from ${JSON.stringify(v)}`);
+        assert.ok(run.durationMs <= 2000);
+        let last = ramp(run.at(0).values);
+        for (let ms = 16; ms <= run.durationMs; ms += 16) {
+          const r = ramp(run.at(ms).values);
+          assert.ok(r.tilt <= last.tilt + 1e-9, "the plank only falls");
+          assert.ok(
+            Math.abs(r.tilt - last.tilt) <= 0.2 * 60 && Math.abs(r.slid - last.slid) <= 0.2 && Math.abs(r.put - last.put) <= 0.2,
+            `no jump at ${ms} ms`,
+          );
+          last = r;
+        }
+      }
+      // Held below the friction angle, the block never moves on the plank as it falls.
+      const held = play.release!(at(0.5, 20));
+      for (let ms = 0; ms <= held.durationMs; ms += 16) assert.equal(ramp(held.at(ms).values).slid, 0);
+      // Past it, the block reaches the plate before it is carried back.
+      const slipped = play.release!(at(0.5, 27));
+      assert.ok(Array.from({ length: 100 }, (_, i) => ramp(slipped.at((i / 99) * slipped.durationMs).values)).some((r) => r.slid === 1 && r.put === 0));
+    });
+
+    it("plots the friction rising with the slope to a peak at the friction angle, then falling as it slides", () => {
+      for (const m of [0.1, 0.5, 1]) {
+        const p = play.plot!(at(m, 10));
+        const peak = p.line.reduce((a, b) => (b[1] > a[1] ? b : a));
+        assert.ok(Math.abs(peak[0] * 60 - slipAngle(m)) < 1e-9, `μ ${m}: the peak is at the friction angle`);
+        assert.ok(p.line.every(([x, y]) => x >= 0 && x <= 1 && y >= 0 && y <= 1));
+        assert.equal(p.caption, "grip as you lift");
+      }
+      assert.ok(
+        play.plot!(at(1, 10)).line.some(([, y]) => y > 0.9),
+        "rubber's peak nears the top",
+      );
+      assert.deepEqual(play.plot!(at(0.5, 10)).dot, [10 / 60, Math.sin(10 * DEG_TO_RAD) / 0.75]);
+      assert.equal(play.plot!(at(0.5, 40)).dot, undefined, "no dot once the block is off the plank");
+    });
   });
 });

@@ -80,6 +80,25 @@ const boxPoly = (b: { x0: number; x1: number; y0: number; y1: number }): Pt[] =>
   [b.x0, b.y1],
 ];
 
+/** How far a point is from a free-play plot's line, in the plot's unit square. */
+function offLine(line: readonly (readonly [number, number])[], [x, y]: readonly [number, number]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1]!;
+    const [bx, by] = line[i]!;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+  }
+  return best;
+}
+/** Every point of a plot's line inside its unit square. */
+const inSquare = (line: readonly (readonly [number, number])[]) => line.every(([x, y]) => x >= -1e-9 && x <= 1 + 1e-9 && y >= -1e-9 && y <= 1 + 1e-9);
+/** A motion's frames' values, at 41 moments. */
+const moments = (m: { durationMs: number; at: (ms: number) => { values: Values } }) =>
+  Array.from({ length: 41 }, (_, i) => m.at((i / 40) * m.durationMs).values);
+
 describe("weight", () => {
   it("passes the generic game checks", () => checkGame(weight));
   it("follows the design language", () => checkDesign(weight));
@@ -368,5 +387,26 @@ describe("weight", () => {
       assert.match(r[0]!.value, new RegExp((m * 9.8).toFixed(1).replace(".", "\\.")));
       assert.match(r[1]!.value, new RegExp((m * 9.8 * Math.sin((28 * Math.PI) / 180)).toFixed(1).replace(".", "\\.")));
     }
+  });
+
+  it("plots the pull that holds the bob out for each angle in free play: the dot on the line, and a heavier bob raises it", () => {
+    const plot = weight.play!.plot!;
+    for (const m of [1, 2.5, 5]) {
+      for (const a of [-40, -12, 0, 7, 40]) {
+        const out = plot({ mass: m, swing: a });
+        assert.ok(inSquare(out.line) && out.dot && offLine(out.line, out.dot) < 1e-4, `mass ${m}, swing ${a}: the dot is off the line`);
+      }
+      for (const v of moments(weight.play!.release!({ mass: m, swing: -30 }))) assert.ok(offLine(plot(v).line, plot(v).dot!) < 1e-4);
+    }
+    const reach = (m: number) => plot({ mass: m, swing: 0 }).line.at(-1)![1] - 0.5;
+    assert.ok(Math.abs(reach(5) - 5 * reach(1)) < 1e-9, "the hold does not grow with the mass");
+  });
+
+  it("draws the hand's hold while it is on, growing with the mass, and nothing for a bob hanging straight down", () => {
+    const hand = weight.play!.hand!;
+    assert.deepEqual(hand({ mass: 3, swing: 0 }), []);
+    const len = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shape.outline.map((q) => q.x)) : 0);
+    const hold = (m: number) => len(find(hand({ mass: m, swing: -30 }), "hold-arrow"));
+    assert.ok(hold(5) > 2 * hold(2) - 1e-9 && hold(2) > 12, `2 kg ${hold(2)}, 5 kg ${hold(5)}`);
   });
 });

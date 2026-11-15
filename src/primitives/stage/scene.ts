@@ -1,6 +1,6 @@
 // One figure's three.js scene: a mesh per part id, posed by diffing each new part list against the last.
 // No DOM and no WebGL here, so it runs (and is measured) under node --test.
-import { type BufferGeometry, Group, type Material, Mesh, OrthographicCamera, PlaneGeometry, Scene, Vector3 } from "three";
+import { type BufferGeometry, Group, type Material, Mesh, OrthographicCamera, PlaneGeometry, Raycaster, Scene, Vector2, Vector3 } from "three";
 import type { Finish, Part, Shape } from "../../../shared/kit.ts";
 import type { KitBounds } from "../../../shared/bounds.ts";
 import type { Point } from "../../../shared/primitives/types.ts";
@@ -9,6 +9,7 @@ import { DEG_TO_RAD } from "../../../shared/angles.ts";
 
 /** Fit margin around the framed bounds, as in KitViewer. */
 const MARGIN = 1.12;
+const FIXED_MARGIN = 1.04;
 
 /** Where the scene gets its materials. The page passes the dither shaders; tests pass plain ones. Materials are shared, never disposed here. */
 export type Looks = { part: (color: string, finish: Finish) => Material; shadow: () => Material };
@@ -183,7 +184,15 @@ export class StageScene {
         minB = Math.min(minB, b);
         maxB = Math.max(maxB, b);
       };
-      for (const x of [-bounds.halfX, bounds.halfX]) for (const y of [bounds.minY, bounds.maxY]) for (const z of [-bounds.halfZ, bounds.halfZ]) see(x, y, z);
+      // The parts' own reach on the view plane when the framing has it; otherwise the box's corners, which stand out
+      // past a narrow top (a spring's coil on its wide plate) and leave room over the figure that nothing fills.
+      const seen = bounds.seen;
+      if (seen) {
+        minA = seen.minA;
+        maxA = seen.maxA;
+        minB = seen.minB;
+        maxB = seen.maxB;
+      } else for (const x of [-bounds.halfX, bounds.halfX]) for (const y of [bounds.minY, bounds.maxY]) for (const z of [-bounds.halfZ, bounds.halfZ]) see(x, y, z);
       const sh = this.shadow;
       for (let k = 0; k < 16; k++) {
         const t = (k / 16) * 2 * Math.PI;
@@ -202,7 +211,9 @@ export class StageScene {
     camera.right = camera.left + viewW;
     camera.top = boxH / 2;
     camera.bottom = camera.top - viewH;
-    camera.zoom = Math.min(boxW / (2 * halfWide * MARGIN), boxH / (2 * halfTall * MARGIN));
+    // A fixed camera fits the bounds' own projected corners, so it needs only a sliver of room; a spin, its full margin.
+    const margin = this.fit === "fixed" ? FIXED_MARGIN : MARGIN;
+    camera.zoom = Math.min(boxW / (2 * halfWide * margin), boxH / (2 * halfTall * margin));
     camera.near = 0.1;
     camera.far = distance * 2;
     camera.position.set(tx + Math.sin(az) * Math.cos(el) * distance, ty + Math.sin(el) * distance, tz + Math.cos(az) * Math.cos(el) * distance);
@@ -210,6 +221,25 @@ export class StageScene {
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
   }
+
+  /** The id of the part drawn nearest the camera under CSS px (x, y) of the box, if any. */
+  pick(x: number, y: number): string | undefined {
+    const ids = new Map<Mesh, string>();
+    for (const [id, slot] of this.slots) {
+      if (!slot.mesh.visible) continue;
+      ids.set(slot.mesh, id);
+      // A stretched coil or box keeps its first bounds unless told; the ray tests against them first.
+      slot.mesh.geometry.computeBoundingSphere();
+      slot.mesh.geometry.computeBoundingBox();
+    }
+    this.pivot.updateMatrixWorld(true);
+    this.ray.setFromCamera(this.pointer.set((x / this.size.viewW) * 2 - 1, 1 - (y / this.size.viewH) * 2), this.camera);
+    const hit = this.ray.intersectObjects([...ids.keys()], false)[0];
+    return hit ? ids.get(hit.object as Mesh) : undefined;
+  }
+
+  private readonly ray = new Raycaster();
+  private readonly pointer = new Vector2();
 
   /** Where a point of the figure's own space shows, in CSS px from the box's top-left corner. */
   project(p: Point, out: { x: number; y: number }): { x: number; y: number } {

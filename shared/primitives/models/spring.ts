@@ -12,8 +12,8 @@
 import type { Part } from "../../kit.ts";
 import { clamp, fall, ring, rockBack, smooth } from "../motion/ease.ts";
 import { frame, HOLD, MARK, phases, RESET, SCENE, whenReaches } from "../motion/run.ts";
-import { arrow, arrowLength, coil, cylinder, fmt, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { arrow, arrowLength, box, coil, cylinder, fmt, lathe, loadEdge, look, on, part, plate, PLATE_MARGIN, PLATE_TOP, pushDisc, v3 } from "../parts.ts";
+import { type Cue, type Meter, type Motion, type Primitive, type Run, type Slider, type Task, type Values, type Verdict, VIEW, valueOf } from "../types.ts";
 
 // Geometry, millimetres.
 /** Coil length with no push. */
@@ -22,6 +22,14 @@ const FREE = 53;
 const SOLID = 28;
 /** The furthest the plate can go down: 25 mm. */
 export const BIND = FREE - SOLID;
+/**
+ * Free play's spring is taller, so a weight's sink reads at a glance: the same coil, going solid at the same length,
+ * with twice the travel. `tall` (a free-play pose, 1 there and 0 in the game) picks it.
+ */
+const FREE_TALL = 80;
+const BIND_TALL = FREE_TALL - SOLID;
+/** The free length and the travel for these values. */
+const free = (v: Values) => ((v.tall ?? 0) >= 0.5 ? FREE_TALL : FREE);
 /** Coil radius to the middle of the wire. */
 const COIL_R = 11;
 /** Wire diameter of the softest (1 N/mm) spring. */
@@ -41,6 +49,8 @@ const BELL_POST_X = CX + 22;
 /** How long a 2 N/mm spring takes to settle after it is let go, and how many times it swings. */
 const RELEASE_MS = 1100;
 const RELEASE_CYCLES = 3;
+/** Free play's longest push arrow, at 50 N. */
+const PLAY_ARROW_LONG = 20;
 /** The longest push arrow, at 50 N. */
 const ARROW_LONG = 36;
 const FORCE_MAX = 50;
@@ -71,19 +81,27 @@ function wireFor(k: number): number {
   return (lo + hi) / 2;
 }
 
-/** Everything a pose needs, from the two sliders and the run-only bounce. `build`, `readouts` and the game all read this. */
+/**
+ * Everything a pose needs, from the two sliders, the run-only bounce, and free play's weight (`load`, resting on the
+ * plate once it has finished falling, `drop` 0). `build`, `readouts` and the game all read this; the game never sets a
+ * load, so for it the push is the hand's alone.
+ */
 export function settle(v: Values) {
   const k = valueOf(STIFFNESS, v);
   const force = v.force ?? 30;
   const wire = wireFor(k);
+  /** The weight's push, once it is down on the plate. */
+  const load = (v.drop ?? 0) > 0 ? 0 : (v.load ?? 0);
   /** What Hooke's law asks for, before the coils stop it. */
-  const wanted = force / k;
-  const bound = wanted > BIND;
-  const squeeze = Math.min(wanted, BIND);
+  const wanted = (force + load) / k;
+  const top = free(v);
+  const travel = top - SOLID;
+  const bound = wanted > travel;
+  const squeeze = Math.min(wanted, travel);
   /** A run only: the plate ringing above (+) or below (-) where the force puts it, after the hand lets go. */
   const bounce = v.bounce ?? 0;
-  const length = clamp(FREE - squeeze + bounce, SOLID, FREE + BIND);
-  return { k, force, wire, turns: SOLID / wire - 1, wanted, bound, squeeze, length, energy: (0.5 * k * squeeze * squeeze) / 1000 };
+  const length = clamp(top - squeeze + bounce, SOLID, top + travel);
+  return { k, force, load, free: top, travel, wire, turns: SOLID / wire - 1, wanted, bound, squeeze, length, energy: (0.5 * k * squeeze * squeeze) / 1000 };
 }
 
 const discCentreY = (length: number) => PLATE_TOP + length + DISC_T / 2;
@@ -140,42 +158,152 @@ function build(v: Values): Part[] {
   return [plate(48, 30), ...rig(v), freeMark(), ...pushArrow(v)];
 }
 
-/** The push on the plate, to scale: the game draws it always, free play only while a finger is on the plate. */
-function pushArrow(v: Values): Part[] {
+/**
+ * The push on the plate, to scale: the game draws it always, in front of the coil and clear of its puck; free play only
+ * while a finger is on the plate, at `z` 0, the coil's axis.
+ */
+function pushArrow(v: Values, z = ARROW_Z, longest = ARROW_LONG): Part[] {
   const s = settle(v);
-  return arrow("push-arrow", v3(CX, discTop(s.length), ARROW_Z), -90, arrowLength(s.force, FORCE_MAX, ARROW_LONG), "push", {
+  // With free play's weight on the plate, the hand presses on the weight.
+  const top = discTop(s.length) + ((v.load ?? 0) > 0 ? WEIGHT_EDGE : 0);
+  return arrow("push-arrow", v3(CX, top, z), -90, arrowLength(s.force, FORCE_MAX, longest), "push", {
     name: "Push arrow",
     role: "The push on the plate, to scale.",
     on: on("disc", "glue"),
   });
 }
 
-/** The plot's time axis: long enough for the softest spring to settle. */
-const PLOT_MS = 1600;
-const PLOT_POINTS = 160;
+const releaseMs = (k: number) => Math.round(RELEASE_MS / Math.sqrt(k / 2));
 
 /**
- * The plate after a press is let go, over a fixed time: the curve a motion library draws for its springs, from the
- * bottom of the press (0) through free length (0.5) and back. It is the release itself, so the line and the figure
- * agree: a stiffer spring rings faster, so its line wiggles more tightly and flattens sooner.
- *
- * The dot is the plate. Pressing sinks it down the start of the line, as far as the press goes; let go, it runs along
- * the line in time with the plate's ringing (the release's clock, `since`) and comes to rest at the end.
+ * Free play's ringing, 1 at t = 0 dying to 0 at t = 1: the same RELEASE_CYCLES swings as the game's `ring`, damped
+ * harder so the first overshoot is about a third of the press, not two thirds. The tall spring's full press is 52 mm;
+ * this keeps its first leap past free length near 16 mm, so the figure needn't be framed small for it.
  */
-function response(v: Values) {
-  const k = valueOf(STIFFNESS, v);
-  const ms = releaseMs(k);
-  const height = (t: number) => (t < ms ? 0.5 - 0.5 * ring(t / ms, RELEASE_CYCLES) : 0.5);
-  const line = Array.from({ length: PLOT_POINTS + 1 }, (_, i): [number, number] => [i / PLOT_POINTS, height((i / PLOT_POINTS) * PLOT_MS)]);
-  const since = v.since ?? 0;
+const damped = (t: number) => Math.cos(2 * Math.PI * RELEASE_CYCLES * t) * Math.exp(-DAMPING * t) * (1 - t);
+const DAMPING = 7;
+
+// ---- Free play's goals: a weight and a line -----------------------------------------------------------------------
+
+/** The weight that drops onto the plate once the spring has been pressed by hand. */
+const WEIGHT = 40;
+const WEIGHT_EDGE = loadEdge(WEIGHT);
+/**
+ * How far above the free-length top the weight starts, and how long it takes to land. Just over the top of the frame
+ * and quick, so it is on the plate a moment after the hand lets go.
+ */
+const DROP_H = 45;
+const DROP_MS = 240;
+/**
+ * Where each goal's level sits, as the squeeze that puts the plate's top level with it. Far apart: the first only the
+ * softest springs reach (k under about 1.1 N/mm), the second only the stiffest stay above (k over about 3.3).
+ */
+const SINK = 36;
+const HOLD_UP = 12;
+/** How long the level takes to move from the first goal's height to the second's. */
+const LEVEL_MS = 600;
+/** The stiffness each goal starts from: one that fails it. */
+const START_STIFF = 3.5;
+
+/** The weight resting on the plate, or `drop` mm above it on its way down, on free play's centred figure. */
+function weightPart(v: Values): Part {
   const s = settle(v);
-  const deepest = Math.min(BIND, FORCE_MAX / k);
-  const dot: [number, number] =
-    since > 0 ? [Math.min(1, since / PLOT_MS), height(since)] : s.force > 0 ? [0, 0.5 - (0.5 * s.squeeze) / deepest] : [1, 0.5];
-  return { line, zero: 0.5, dot };
+  const bottom = discTop(s.length) + (v.drop ?? 0);
+  return part("weight", "Weight", "Rests on the push plate and squeezes the spring.", box(WEIGHT_EDGE, WEIGHT_EDGE, WEIGHT_EDGE, 1.5), v3(0, bottom + WEIGHT_EDGE / 2, 0), look.stone, on("disc", "press-fit"));
 }
 
-const releaseMs = (k: number) => Math.round(RELEASE_MS / Math.sqrt(k / 2));
+
+/** The goal square's half-size: the plate the spring stands on. */
+const GUIDE_HALF = COIL_R + 2 + PLATE_MARGIN;
+/** The goal square's edge bars: thin, but at least a dither pixel or two at phone size. */
+const GUIDE_BAR = 1.6;
+
+/**
+ * The goal as a thin green square in the figure itself, the size of the plate: a see-through sheet (every other dither
+ * cell) with a solid green edge. It is part of the 3D scene, so the weight and the coil pass in front of it and behind
+ * it as they should, and you can see the weight stick up through it or sink under it.
+ */
+function goalPlane(y: number): Part[] {
+  const h = GUIDE_HALF;
+  const bar = (id: string, w: number, d: number, x: number, z: number) =>
+    part(`goal-${id}`, "Goal edge", "The edge of the level the weight must pass.", box(w, GUIDE_BAR, d), v3(x, y, z), look.goal, on("plate", "glue"));
+  return [
+    part("goal-sheet", "Goal", "The level the weight must pass.", box(2 * h, GUIDE_BAR / 2, 2 * h), v3(0, y, 0), look.goalClear, on("plate", "glue")),
+    bar("back", 2 * h, GUIDE_BAR, 0, -h),
+    bar("front", 2 * h, GUIDE_BAR, 0, h),
+    bar("left", GUIDE_BAR, 2 * h, -h, 0),
+    bar("right", GUIDE_BAR, 2 * h, h, 0),
+  ];
+}
+
+
+
+/**
+ * How far past its rest the plate may fly up as it rings, in mm. A hard press would send it 15 mm up; easing it into
+ * this keeps the bounce lively while the camera frames the spring close instead of saving room over it.
+ */
+const OVERSHOOT_MAX = 5;
+const overshoot = (bounce: number) => (bounce > 0 ? OVERSHOOT_MAX * Math.tanh(bounce / OVERSHOOT_MAX) : bounce);
+
+/**
+ * The level's height for each goal: under the first, the weight's top must sink below it; under the second, the
+ * weight's bottom (the plate's top) must stay above it. The `level` pose carries it, so it can move between them.
+ */
+const LEVEL_SINK = discTop(FREE_TALL - SINK) + WEIGHT_EDGE;
+const LEVEL_HOLD = discTop(FREE_TALL - HOLD_UP);
+const levelOf = (v: Values) => v.level ?? LEVEL_SINK;
+
+/** The level rising from the first goal's height to the second's, eased, the machine otherwise left as it is. */
+const raiseLevel = (v: Values): Motion => ({
+  durationMs: LEVEL_MS,
+  at: (t) => frame({ ...v, level: LEVEL_SINK + (LEVEL_HOLD - LEVEL_SINK) * smooth(clamp(t / LEVEL_MS, 0, 1)) }, ""),
+});
+
+/** Where the weight puts the plate's top, left alone: the squeeze its weight alone makes, before any hand. */
+const restingSqueeze = (v: Values) => settle({ ...v, force: 0, bounce: 0, drop: 0 }).squeeze;
+
+/**
+ * The weight falling onto the plate, then the plate ringing about where the weight holds it. It begins the moment the
+ * hand lets go, so while the weight falls the plate is still springing back from that press (`v.force` is the push the
+ * hand let go of). The weight falls from a fixed height, from above the figure's frame, and lands on whatever the plate
+ * is doing: `drop` is its gap over the plate at each moment.
+ */
+function dropOn(v: Values): Motion {
+  const ring_ms = releaseMs(valueOf(STIFFNESS, v));
+  const letGo = settle({ ...v, drop: DROP_H, bounce: 0 }).squeeze;
+  const squeeze = restingSqueeze(v);
+  const freeTop = discTop(settle({ ...v, force: 0, drop: DROP_H, bounce: 0 }).length);
+  const startY = freeTop + DROP_H;
+  return {
+    durationMs: DROP_MS + ring_ms,
+    at: (t) => {
+      if (t >= DROP_MS) return frame({ ...v, force: 0, drop: 0, bounce: squeeze * damped(clamp((t - DROP_MS) / ring_ms, 0, 1)) }, "");
+      const bounce = -letGo * damped(clamp(t / ring_ms, 0, 1));
+      const plateTop = discTop(settle({ ...v, force: 0, drop: DROP_H, bounce }).length);
+      const y = startY - (startY - freeTop) * fall(t / DROP_MS);
+      return frame({ ...v, force: 0, drop: Math.max(0.1, y - plateTop), bounce }, "");
+    },
+    cues: [{ ms: DROP_MS, kind: "thud" }],
+  };
+}
+
+const TASKS: Task[] = [
+  {
+    goal: "Soften it so the weight sits below the green.",
+    start: { stiffness: START_STIFF, load: WEIGHT, drop: DROP_H, level: LEVEL_SINK },
+    scene: (v) => [weightPart(v), ...goalPlane(levelOf(v))],
+    met: (v) => (v.drop ?? 0) === 0 && restingSqueeze(v) > SINK,
+    arrive: dropOn,
+  },
+  {
+    goal: "Stiffen it so the weight sits above the green.",
+    // The weight is already on from the first goal; said here too so the framing poses it loaded.
+    start: { load: WEIGHT, drop: 0 },
+    scene: (v) => [weightPart(v), ...goalPlane(levelOf(v))],
+    met: (v) => (v.drop ?? 0) === 0 && restingSqueeze(v) < HOLD_UP,
+    arrive: raiseLevel,
+  },
+];
 
 /**
  * The spring alone, as a finger meets it: the coil and the push plate on a plate just big enough to stand on, centred
@@ -407,9 +535,9 @@ const handle: Primitive["handle"] = {
   label: "Pull down",
   at: (v) => v3(CX, discCentreY(settle(v).length), 0),
   // The plate goes down F ÷ k for a push F, so a plate dragged to height y asks for k times the squeeze that puts it there.
-  solve: (point, v) => valueOf(STIFFNESS, v) * (discCentreY(FREE) - point.y),
+  solve: (point, v) => valueOf(STIFFNESS, v) * (discCentreY(free(v)) - point.y),
   // Past the coils touching, more push moves nothing.
-  reach: (v) => [0, Math.min(FORCE_MAX, valueOf(STIFFNESS, v) * BIND)],
+  reach: (v) => [0, Math.min(FORCE_MAX, valueOf(STIFFNESS, v) * settle(v).travel)],
 
 };
 
@@ -439,22 +567,34 @@ export const spring: Primitive = {
       },
       solve: (point, v) => handle.solve({ x: point.x + CX, y: point.y }, v),
     },
-    hand: (v) => pushArrow(v).map(centred),
+    // On the spring's axis, pressing straight down through the middle of the coil.
+    // Shorter than the game's at full push, so the figure is framed close round the spring.
+    hand: (v) => pushArrow(v, 0, PLAY_ARROW_LONG).map(centred),
     label: "Press",
+    facts: {
+      say: "/spriNG/",
+      is: "A coil that pushes back the more it's pressed.",
+      note: "Stiffness affects how far a load sinks it.",
+    },
     // At free length, nothing pushing.
-    rest: { force: 0 },
-    // Let go, the push is gone at once and the plate rings about its free length: up past it, back down, smaller each
-    // time. A stiffer spring rings faster.
-    plot: response,
+    rest: { force: 0, tall: 1 },
+    // Let go, the push is gone at once and the plate rings about where it rests: its free length, or lower with the
+    // weight on it. Up past it, back down, smaller each time. A stiffer spring rings faster.
     release: (v) => {
       const { k, squeeze } = settle(v);
+      const rest = restingSqueeze(v);
       const ms = releaseMs(k);
-      return {
-        // The plot's dot runs along on the release's own clock; past the ringing it carries on to the line's end.
-        durationMs: PLOT_MS,
-        at: (t) => frame({ ...v, force: 0, bounce: t < ms ? -squeeze * ring(t / ms, RELEASE_CYCLES) : 0, since: Math.max(1, t) }, ""),
-      };
+      return { durationMs: ms, at: (t) => frame({ ...v, force: 0, bounce: overshoot(-(squeeze - rest) * damped(clamp(t / ms, 0, 1))) }, "") };
     },
+    // The hand can add to the weight's push only until the coils touch.
+    reach: (v) => [0, Math.max(0, Math.min(FORCE_MAX, valueOf(STIFFNESS, v) * settle(v).travel - settle({ ...v, force: 0 }).load))],
+    poses: [
+      { id: "tall", label: "Tall", min: 0, max: 1, step: 1, initial: 0 },
+      { id: "load", label: "Weight", min: 0, max: WEIGHT, step: 1, initial: 0, unit: " N" },
+      { id: "drop", label: "Drop", min: 0, max: DROP_H + BIND_TALL, step: 0.1, initial: 0, unit: " mm" },
+      { id: "level", label: "Goal level", min: LEVEL_SINK, max: LEVEL_HOLD, step: 0.1, initial: LEVEL_SINK, unit: " mm" },
+    ],
+    tasks: TASKS,
   },
   game: {
     name: "Launch",
@@ -466,11 +606,8 @@ export const spring: Primitive = {
     judge,
     play,
     start: { stiffness: 3.5, force: 0 },
-    poses: [
-      { id: "bounce", label: "Bounce", min: -BIND, max: BIND, step: 0.1, initial: 0, unit: " mm" },
-      // Free play's let-go clock, for the plot's dot. Nothing in the game sets it.
-      { id: "since", label: "Since let go", min: 0, max: PLOT_MS, step: 1, initial: 0, unit: " ms" },
-    ],
+    // Wide enough for free play's taller spring to ring; the game's own stays inside ±BIND.
+    poses: [{ id: "bounce", label: "Bounce", min: -BIND_TALL, max: BIND_TALL, step: 0.1, initial: 0, unit: " mm" }],
     scene,
   },
 };

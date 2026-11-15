@@ -165,11 +165,11 @@ function stand(): Part {
 }
 
 /** The hand's pull on the bead, along the swing and away from the bottom: it balances the part of the weight that would swing the bob back. */
-function holdArrow(id: string, s: ReturnType<typeof settle>, parent: string, largest = FORCE_MAX): Part[] {
+function holdArrow(id: string, s: ReturnType<typeof settle>, parent: string, largest = FORCE_MAX, longest = ARROW_LONG): Part[] {
   if (s.a < 1e-9) return [];
   const t = s.angle > 0 ? 1 : -1;
   const at = v3(s.bead.x + 6 * t * Math.cos(s.angle * DEG_TO_RAD), s.bead.y + 6 * t * Math.sin(s.angle * DEG_TO_RAD), 0);
-  return arrow(id, at, s.angle > 0 ? s.angle : 180 + s.angle, arrowLength(s.along, largest, ARROW_LONG), "pull", {
+  return arrow(id, at, s.angle > 0 ? s.angle : 180 + s.angle, arrowLength(s.along, largest, longest), "pull", {
     name: "Hand arrow",
     role: "Your hand's pull along the swing: it holds the bob out.",
     on: on(parent, "glue"),
@@ -516,16 +516,16 @@ function release(v: Values): Motion {
 
 const MASS: Slider = { id: "mass", label: "Mass", min: 1, max: MASS_MAX, step: 0.1, initial: 2, unit: " kg", ends: ["Light", "Heavy"] };
 
-/** The biggest pull a hand needs here: the heaviest bob held out furthest. Free play's hold arrow is 40 long at it. */
+/** The biggest pull a hand needs here: the heaviest bob held out furthest. Free play's hold arrow is 52 long at it. */
 const HOLD_MAX = MASS_MAX * G * Math.sin(SWING_MAX * DEG_TO_RAD);
 
 /**
  * While a hand holds the bob out: its pull along the swing, W sin a, drawn on free play's own scale, where the biggest
- * hold rather than the biggest weight is 40 long. On the game's scale a 1 kg bob's hold is a head with no shaft at every
- * angle. The weight arrow is left off: on this scale the heaviest bob's would run into the plate, and the bob's size
- * already says its mass.
+ * hold rather than the biggest weight is 52 long. On the game's scale every hold under 2 kg is a head with no shaft. The
+ * weight arrow is left off: on this scale the heaviest bob's would run into the plate, and the bob's size already says
+ * its mass.
  */
-const hand = (v: Values): Part[] => holdArrow("hold-arrow", settle(v), "bead", HOLD_MAX);
+const hand = (v: Values): Part[] => holdArrow("hold-arrow", settle(v), "bead", HOLD_MAX, 52);
 
 /**
  * What the mass changes, and the swing does not: the pull that holds the bob out (up, signed by the side) at each angle

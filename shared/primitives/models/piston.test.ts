@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, find, sample } from "../checks.ts";
-import { startValues, steps } from "../types.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { AIR, downFor, geometry, HAND, MARK, piston, settle, stop, TOLERANCE } from "./piston.ts";
 
@@ -11,6 +11,25 @@ const game = piston.game;
 const [area, force] = piston.sliders as [NonNullable<(typeof piston.sliders)[0]>, NonNullable<(typeof piston.sliders)[1]>];
 const dots = (parts: Part[]) => parts.filter((p) => p.id.startsWith("air-"));
 const arrowLen = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shape.outline.map((o) => o.x)) : 0);
+
+/** How far a point is from a free-play plot's line, in the plot's unit square. */
+function offLine(line: readonly (readonly [number, number])[], [x, y]: readonly [number, number]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1]!;
+    const [bx, by] = line[i]!;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+  }
+  return best;
+}
+/** Every point of a plot's line inside its unit square. */
+const inSquare = (line: readonly (readonly [number, number])[]) => line.every(([x, y]) => x >= -1e-9 && x <= 1 + 1e-9 && y >= -1e-9 && y <= 1 + 1e-9);
+/** A motion's frames' values, at 41 moments. */
+const moments = (m: { durationMs: number; at: (ms: number) => { values: Values } }) =>
+  Array.from({ length: 41 }, (_, i) => m.at((i / 40) * m.durationMs).values);
 
 describe("piston", () => {
   it("passes the generic game checks", () => checkGame(piston));
@@ -120,6 +139,31 @@ describe("piston", () => {
         if (f > 0) assert.ok(Math.abs(arrowLen(arrows[0]!) - Math.max(12, (40 * f) / 100)) < 1e-9);
       }
     }
+  });
+
+  it("plots the air's push for plunger travel in free play: the dot on the curve as the hand pushes and lets go, and a wider tube steepens it", () => {
+    const plot = piston.play!.plot!;
+    for (const a of [4, 8, 12]) {
+      for (const f of [0, 20, 60, 100]) {
+        const out = plot({ area: a, force: f });
+        assert.ok(inSquare(out.line) && out.dot && offLine(out.line, out.dot) < 5e-3, `area ${a}, push ${f}: the dot is off the line`);
+        assert.ok(Math.abs(out.dot[1] - f / 100) < 1e-6);
+      }
+      for (const v of moments(piston.play!.release!({ area: a, force: 90 }))) {
+        const out = plot(v);
+        if (out.dot) assert.ok(offLine(out.line, out.dot) < 5e-3);
+      }
+    }
+    const end = (a: number) => plot({ area: a, force: 0 }).line.at(-1)!;
+    assert.ok(end(4)[0] > 1.4 * end(12)[0] && Math.abs(end(4)[1] - end(12)[1]) < 1e-9, "the wide tube's curve does not stop shorter");
+  });
+
+  it("draws the push while the hand is on, the game's arrow", () => {
+    assert.deepEqual(
+      piston.play!.hand!({ area: 8, force: 60 }),
+      piston.build({ area: 8, force: 60 }).filter((p) => p.id === "push-arrow"),
+    );
+    assert.deepEqual(piston.play!.hand!({ area: 8, force: 0 }), []);
   });
 });
 

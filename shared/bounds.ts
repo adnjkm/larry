@@ -15,7 +15,15 @@ export type KitBounds = {
   radius: number;
   halfX: number;
   halfZ: number;
+  /**
+   * For a camera that never turns: how far the parts themselves reach across and up the view, measured from the
+   * footprint's centre (see `measureSeen`). Tighter than the box's corners, which stand out past a narrow top.
+   */
+  seen?: Seen;
 };
+
+/** A figure's reach on the view plane: `a` across it, `b` up it, in mm from the footprint's centre. */
+export type Seen = { minA: number; maxA: number; minB: number; maxB: number };
 
 type Hull = {
   /** x, y, z triples. */
@@ -151,6 +159,40 @@ export function measureParts(parts: readonly Part[]): KitBounds {
   let reach = 0;
   for (let i = 0; i < n; i += 3) reach = Math.max(reach, Math.hypot(footprint[i]! - centerX, footprint[i + 1]! - centerZ) + footprint[i + 2]!);
   return { centerX, centerZ, minY, maxY, radius: reach, halfX: (maxX - minX) / 2, halfZ: (maxZ - minZ) / 2 };
+}
+
+/**
+ * How far `parts` reach on the view plane of a camera at `elevation` and `azimuth` (degrees), measured from (`cx`, `cz`)
+ * on the ground, grown into `seen`. The same axes the stage's fixed camera fits to.
+ */
+export function measureSeen(parts: readonly Part[], view: { elevation: number; azimuth: number }, cx: number, cz: number, seen: Seen): Seen {
+  const el = view.elevation * DEG_TO_RAD;
+  const az = view.azimuth * DEG_TO_RAD;
+  const rx = Math.cos(az);
+  const rz = -Math.sin(az);
+  const ux = -Math.sin(el) * Math.sin(az);
+  const uy = Math.cos(el);
+  const uz = -Math.sin(el) * Math.cos(az);
+  for (const part of parts) {
+    const { points, inflate } = hull(part.shape);
+    const m = rotation(part);
+    const { x: px, y: py, z: pz } = part.position;
+    for (let i = 0; i < points.length; i += 3) {
+      const x = points[i]!;
+      const y = points[i + 1]!;
+      const z = points[i + 2]!;
+      const wx = m[0]! * x + m[1]! * y + m[2]! * z + px - cx;
+      const wy = m[3]! * x + m[4]! * y + m[5]! * z + py;
+      const wz = m[6]! * x + m[7]! * y + m[8]! * z + pz - cz;
+      const a = wx * rx + wz * rz;
+      const b = wx * ux + wy * uy + wz * uz;
+      seen.minA = Math.min(seen.minA, a - inflate);
+      seen.maxA = Math.max(seen.maxA, a + inflate);
+      seen.minB = Math.min(seen.minB, b - inflate);
+      seen.maxB = Math.max(seen.maxB, b + inflate);
+    }
+  }
+  return seen;
 }
 
 export const measurePoses = (poses: readonly (readonly Part[])[]): KitBounds[] => poses.map(measureParts);

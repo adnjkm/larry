@@ -49,6 +49,25 @@ const topOf = (parts: Part[]) => {
 /** The ratios at which the finger can hold the block. */
 const strong = (steps(ratio) as number[]).filter((r) => holdFor(r) <= FINGER + 1e-9);
 
+/** How far a point is from a free-play plot's line, in the plot's unit square. */
+function offLine(line: readonly (readonly [number, number])[], [x, y]: readonly [number, number]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1]!;
+    const [bx, by] = line[i]!;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+  }
+  return best;
+}
+/** Every point of a plot's line inside its unit square. */
+const inSquare = (line: readonly (readonly [number, number])[]) => line.every(([x, y]) => x >= -1e-9 && x <= 1 + 1e-9 && y >= -1e-9 && y <= 1 + 1e-9);
+/** A motion's frames' values, at 41 moments. */
+const moments = (m: { durationMs: number; at: (ms: number) => { values: Values } }) =>
+  Array.from({ length: 41 }, (_, i) => m.at((i / 40) * m.durationMs).values);
+
 describe("lever", () => {
   it("rests with its load side down, the load end lying on the plate and the bar resting on the pivot's point", () => {
     for (const r of steps(ratio)) {
@@ -331,5 +350,35 @@ describe("lever", () => {
   it("passes the generic game and design checks", () => {
     checkGame(lever);
     checkDesign(lever);
+  });
+
+  it("plots block rise for finger travel in free play: the dot on the line as the hand presses and lets go, and a longer arm lays it flatter", () => {
+    const plot = lever.play!.plot!;
+    for (const r of [1, 2, 3, 5]) {
+      for (const p of [0, 4, 9, 15]) {
+        const out = plot({ ratio: r, push: p });
+        assert.ok(inSquare(out.line) && out.dot && offLine(out.line, out.dot) < 1e-9, `ratio ${r}, push ${p}: the dot is off the line`);
+      }
+      for (const v of moments(lever.play!.release!({ ratio: r, push: 12 }))) assert.ok(offLine(plot(v).line, plot(v).dot!) < 1e-9);
+    }
+    const top = (r: number) => plot({ ratio: r, push: 0 }).line.at(-1)![1];
+    assert.ok(top(1) > 3 * top(5), `ratio 1 rises to ${top(1)}, ratio 5 to ${top(5)}`);
+  });
+
+  it("draws the push and the block's weight while the hand is on, to one scale, the push shrinking as the arm grows", () => {
+    const hand = lever.play!.hand!;
+    assert.deepEqual(
+      hand({ ratio: 3, push: 8 })
+        .map((p) => p.id)
+        .sort(),
+      ["effort-arrow", "load-arrow"],
+    );
+    const len = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shape.outline.map((q) => q.x)) : 0);
+    const effort = (r: number) => len(find(hand({ ratio: r, push: 8 }), "effort-arrow"));
+    // At ratio 1 the push is the block's weight, the same length as its arrow; at 2 it is half that.
+    assert.ok(Math.abs(effort(1) - len(find(hand({ ratio: 1, push: 8 }), "load-arrow"))) < 1e-9);
+    assert.ok(Math.abs(effort(2) - effort(1) / 2) < 1e-9);
+    // A hand, not the 20 N finger: even a too-short arm shows the push that holds the block, not a strain.
+    assert.ok(effort(1.2) > len(find(lever.build({ ratio: 1.2, push: 1 }), "effort-arrow")) * 1.2);
   });
 });

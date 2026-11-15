@@ -39,6 +39,8 @@ type FigureStageProps = {
   controllerRef?: Ref<StageController | null>;
   onLive?: (text: string) => void;
   onCue?: (cue: Cue) => void;
+  /** Play mode: which of primitive.play.tasks is on, so its scene is drawn. */
+  task?: number;
 };
 
 const styles = stylex.create({
@@ -108,6 +110,7 @@ export function FigureStage({
   controllerRef,
   onLive,
   onCue,
+  task,
 }: FigureStageProps) {
   const root = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -140,6 +143,10 @@ export function FigureStage({
   useEffect(() => {
     if (values) view.current?.controller.set(values);
   }, [values]);
+
+  useEffect(() => {
+    view.current?.setTask(task);
+  }, [task, primitive, mode, palette]);
 
   const grip = mode === "play" ? playHandle(primitive) : primitive.handle;
   const verb = (mode === "play" && primitive.play?.label) || grip.label;

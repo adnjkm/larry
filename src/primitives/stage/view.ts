@@ -18,6 +18,8 @@ const RING_HALF = 26;
 /** How far (CSS px) the ring can be pulled past where the model stopped, at most. */
 const BAND_PX = 56;
 const DRAG_RADIANS_PER_PIXEL = 0.012;
+/** CSS px from the handle's point within which a press in free play always works the handle, whatever part is under it. */
+const GRAB_PX = 24;
 /** Seconds for a flick's extra spin to fade to a third, as in KitViewer. */
 const FLING_SECONDS = 0.5;
 
@@ -63,6 +65,8 @@ export class StageView implements Drawable {
   private ariaValue: string | undefined;
   /** Free play: the hand has worked the machine and let go, so the ring no longer needs showing. */
   private used = false;
+  /** Free play's task now, if one has begun: its scene is drawn over the figure. */
+  private task: number | undefined;
   /** A finger is on the handle now: free play draws the hand's arrow. */
   private holding = false;
   /** Free play's ambient loop: when it started, and whether it runs. */
@@ -129,7 +133,8 @@ export class StageView implements Drawable {
     this.restAt = this.controller.get()[this.handle.slider];
     // The ambient loop keeps the frame loop running from the start.
     if (mode === "play" && primitive.play?.ambient) schedule();
-    if (mode === "still") this.listenSpin();
+    // Still figures turn under the finger; so does free play, everywhere but on the part the hand works.
+    if (mode === "still" || mode === "play") this.listenSpin();
     if (this.ring) this.listenHandle(this.ring);
     this.unregister = register(this);
     this.updateAria(this.controller.get());
@@ -220,11 +225,31 @@ export class StageView implements Drawable {
     }
   }
 
-  /** The run's props, with free play's hand arrow while held and its ambient loop's parts. */
+  /**
+   * Shows free play's task `i` (its line, its weight), or none. While a task is on the hand is put away: a goal is met
+   * with the sliders, never by pressing the machine there, so the handle takes no finger or key and its ring hides. The
+   * finger can still turn the model.
+   */
+  setTask(i: number | undefined): void {
+    if (i === this.task) return;
+    this.task = i;
+    if (this.ring) {
+      this.ring.style.visibility = i === undefined ? "" : "hidden";
+      this.ring.tabIndex = i === undefined ? 0 : -1;
+    }
+
+    this.posed = false;
+    this.needsDraw = true;
+    schedule();
+  }
+
+  /** The run's props, with free play's task scene, its hand arrow while held and its ambient loop's parts. */
   private playMarks(values: Values): readonly Part[] | undefined {
     const play = this.mode === "play" ? this.primitive.play : undefined;
     if (!play) return this.marks;
     const extra: Part[] = [];
+    const task = this.task === undefined ? undefined : play.tasks?.[this.task];
+    if (task) extra.push(...task.scene(values));
     if (this.holding && play.hand) extra.push(...play.hand(values));
     if (play.ambient) extra.push(...play.ambient(values, reducedMotion.matches ? 0 : performance.now() - (this.ambientStart ?? performance.now())));
     return extra.length > 0 ? [...(this.marks ?? []), ...extra] : this.marks;
@@ -273,6 +298,20 @@ export class StageView implements Drawable {
     ring.setAttribute("aria-valuetext", `${Number(((now ?? 0) * (s.displayScale ?? 1)).toFixed(1))}${s.unit ?? ""}`);
   }
 
+  /**
+   * Whether a press at `e` is on the part the hand works: the part drawn under the finger is the one drawn under the
+   * handle's point, or the finger is right by that point. Never while a task is on: the hand is put away then.
+   */
+  private grabs(e: PointerEvent): boolean {
+    if (this.task !== undefined || !this.ring) return false;
+    const rect = this.element.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (Math.hypot(x - this.ringAt.x, y - this.ringAt.y) < GRAB_PX) return true;
+    const under = this.scene.pick(x, y);
+    return under !== undefined && under === this.scene.pick(this.ringAt.x, this.ringAt.y);
+  }
+
   // Still mode: a horizontal drag turns the model and a flick keeps it turning, as in KitViewer.
   private listenSpin(): void {
     const canvas = this.canvas;
@@ -280,6 +319,7 @@ export class StageView implements Drawable {
     const tracker = velocityTracker();
     const down = (e: PointerEvent) => {
       if (e.button !== 0) return;
+      if (this.mode === "play" && this.grabs(e)) return;
       this.spinning = true;
       this.fling = 0;
       lastX = e.clientX;
@@ -342,7 +382,7 @@ export class StageView implements Drawable {
     };
 
     const down = (e: PointerEvent) => {
-      if (e.button !== 0 || drag) return;
+      if (e.button !== 0 || drag || this.task !== undefined) return;
       e.preventDefault();
       ring.setPointerCapture(e.pointerId);
       ring.focus({ preventScroll: true });
@@ -411,6 +451,7 @@ export class StageView implements Drawable {
       else this.stopBand = spring(1, 0, 0, settle, { response: 0.3 });
     };
     const key = (e: KeyboardEvent) => {
+      if (this.task !== undefined) return;
       const values = this.controller.get();
       const now = values[slider.id] ?? slider.initial;
       const [lo, hi] = reach(values);
@@ -424,6 +465,18 @@ export class StageView implements Drawable {
       this.controller.set({ [slider.id]: next });
     };
     ring.addEventListener("pointerdown", down);
+    // In free play a press on the part the hand works (the spring's push plate) works it, from where the finger landed
+    // (the drag keeps its offset from the ring), so a faded ring is never a target to hunt for; a press anywhere else
+    // turns the model. The ring captures the pointer, so the rest of the drag runs through it as usual.
+    const canvas = this.canvas;
+    if (this.mode === "play") {
+      const press = (e: PointerEvent) => {
+        if (this.grabs(e)) down(e);
+      };
+      canvas.addEventListener("pointerdown", press);
+      canvas.style.touchAction = "none";
+      this.cleanups.push(() => canvas.removeEventListener("pointerdown", press));
+    }
     ring.addEventListener("pointermove", move);
     ring.addEventListener("pointerup", up);
     ring.addEventListener("pointercancel", up);

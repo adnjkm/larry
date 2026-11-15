@@ -20,6 +20,8 @@ export const COLOR = {
   slate: "#7d8188",
   structure: "#2e2e30",
   light: "#ecebe7",
+  /** A goal to reach in free play: the green of the app's "ok". */
+  goal: "#0b7a3e",
 } as const;
 
 export type Look = { color: string; finish: Finish };
@@ -33,6 +35,9 @@ export const look = {
   slate: { color: COLOR.slate, finish: "matte" },
   structure: { color: COLOR.structure, finish: "matte" },
   light: { color: COLOR.light, finish: "matte" },
+  goal: { color: COLOR.goal, finish: "matte" },
+  /** See-through: the dither draws every other cell, so what is behind shows and what is in front covers it. */
+  goalClear: { color: COLOR.goal, finish: "clear" },
 } satisfies Record<string, Look>;
 
 export type Vec = { x: number; y: number; z: number };

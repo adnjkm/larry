@@ -15,6 +15,25 @@ const len = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shape.out
 const edge = (p: Part) => (p.shape.kind === "box" ? p.shape.height : assert.fail());
 const hasArrow = (parts: Part[], id: string) => parts.some((p) => p.id === id);
 
+/** How far a point is from a free-play plot's line, in the plot's unit square. */
+function offLine(line: readonly (readonly [number, number])[], [x, y]: readonly [number, number]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1]!;
+    const [bx, by] = line[i]!;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+  }
+  return best;
+}
+/** Every point of a plot's line inside its unit square. */
+const inSquare = (line: readonly (readonly [number, number])[]) => line.every(([x, y]) => x >= -1e-9 && x <= 1 + 1e-9 && y >= -1e-9 && y <= 1 + 1e-9);
+/** A motion's frames' values, at 41 moments. */
+const moments = (m: { durationMs: number; at: (ms: number) => { values: Values } }) =>
+  Array.from({ length: 41 }, (_, i) => m.at((i / 40) * m.durationMs).values);
+
 describe("cord", () => {
   it("lifts the weight exactly as far as the hand pulls it out, and carries the weight's whole pull", () => {
     for (const w of [10, 25, 40]) {
@@ -242,5 +261,28 @@ describe("cord", () => {
   it("passes the generic game and design checks", () => {
     checkGame(cord);
     checkDesign(cord);
+  });
+
+  it("plots the cord's pull for where the hand is in free play: nothing while slack, the whole weight once taut, the dot on the line", () => {
+    const plot = cord.play!.plot!;
+    for (const w of [10, 25, 40]) {
+      for (const p of [-20, -5, 0, 1, 12, 30]) {
+        const out = plot({ tension: w, pull: p });
+        assert.ok(inSquare(out.line) && out.dot && offLine(out.line, out.dot) < 1e-9, `weight ${w}, pull ${p}: the dot is off the line`);
+        assert.equal(out.dot[1], p > 0 ? w / 40 : 0);
+      }
+      for (const v of moments(cord.play!.release!({ tension: w, pull: 24 }))) assert.ok(offLine(plot(v).line, plot(v).dot!) < 1e-9);
+    }
+    assert.notDeepEqual(plot({ tension: 10, pull: 5 }).line, plot({ tension: 40, pull: 5 }).line);
+  });
+
+  it("draws the hand's pull and the weight's, the same length, while the hand is on, and no pull when the cord is slack", () => {
+    const hand = cord.play!.hand!;
+    const taut = hand({ tension: 30, pull: 10 });
+    assert.ok(Math.abs(len(find(taut, "pull-arrow")) - len(find(taut, "weight-arrow"))) < 1e-9);
+    assert.deepEqual(
+      hand({ tension: 30, pull: -10 }).map((p) => p.id),
+      ["weight-arrow"],
+    );
   });
 });
