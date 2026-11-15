@@ -3,8 +3,8 @@
 // and "in this object" are the story's own; the figure, the handle and the sliders are the library's.
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GameStore, useSelect } from "../../src/primitives/game/store.ts";
-import { PRIMITIVE_BY_ID } from "../../src/primitives/catalog.ts";
-import type { Primitive, Slider } from "../../src/primitives/library.ts";
+import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
+import type { Primitive, Slider } from "../../shared/primitives/library.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
 import { startValues } from "../../src/primitives/stage/view.ts";
 import { framingParts, type InObject } from "./Learn.tsx";
