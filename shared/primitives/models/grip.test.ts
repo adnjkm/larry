@@ -1,12 +1,13 @@
-// Grip's own tests. The generic game and design checks (checks.ts) run for it in library.test.ts.
+// Grip's own tests. The generic game and design checks (checks.ts) run here, in its own file, so node runs the models in parallel.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkGame, sample, startOf, steps } from "../checks.ts";
+import { checkDesign, checkGame, sample } from "../checks.ts";
+import { startValues, steps } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { CRACK, geometry, grip, hold, LOAD_END, MU, settle, SLIDE } from "./grip.ts";
 
-const game = grip.game!;
+const game = grip.game;
 const [squeeze, load] = grip.sliders as [NonNullable<(typeof grip.sliders)[0]>, NonNullable<(typeof grip.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const length = (p: Part) => {
@@ -16,6 +17,7 @@ const length = (p: Part) => {
 
 describe("grip", () => {
   it("passes the generic game checks", () => checkGame(grip));
+  it("follows the design language", () => checkDesign(grip));
 
   it("is six kinds of part at rest", () => {
     assert.deepEqual(grip.build({ squeeze: 40, load: 20 }).map((p) => p.id).sort(), ["handle", "limit-arrow", "load-arrow", "pad-left", "pad-right", "plate", "rod"]);
@@ -67,7 +69,7 @@ describe("grip", () => {
   });
 
   it("passes between a weak and a crushing squeeze, and the numbers are the formulas", () => {
-    const pass = steps(squeeze).filter((n) => game.judge({ ...startOf(grip), squeeze: n }).pass);
+    const pass = steps(squeeze).filter((n) => game.judge({ ...startValues(grip), squeeze: n }).pass);
     assert.equal(pass[0], Math.ceil(LOAD_END / (2 * MU)));
     assert.equal(pass.at(-1), CRACK);
     assert.equal(game.judge({ squeeze: 20, load: 5 }).outcome, "slipped");
@@ -93,7 +95,7 @@ describe("grip", () => {
   it("keeps the handle on the thumb disc and solves back to the squeeze", () => {
     for (const n of steps(squeeze)) {
       const v = { squeeze: n, load: 20 };
-      assert.ok(Math.abs(grip.handle!.solve(grip.handle!.at(v), v) - n) < 1e-9);
+      assert.ok(Math.abs(grip.handle.solve(grip.handle.at(v), v) - n) < 1e-9);
     }
   });
 

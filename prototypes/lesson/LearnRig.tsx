@@ -6,7 +6,7 @@ import { GameStore, useSelect } from "../../src/primitives/game/store.ts";
 import { PRIMITIVE_BY_ID } from "../../shared/primitives/catalog.ts";
 import type { Primitive, Slider } from "../../shared/primitives/library.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
-import { startValues } from "../../src/primitives/stage/view.ts";
+import { startValues } from "../../shared/primitives/types.ts";
 import { framingParts, type InObject } from "./Learn.tsx";
 import type { StoryModule, View } from "./model.ts";
 import { initialValues, PRIMITIVES as FIRST_PASS, type Values } from "./primitives/library.ts";
@@ -59,7 +59,7 @@ function StoreRow({ store, slider }: { store: GameStore; slider: Slider }) {
 /** One primitive's figure, then `children`, then the sliders its rig names. Figure and rows share one store, so the handle and the rows move together. */
 function Rig({ primitive, controls, children }: { primitive: Primitive; controls: Readonly<Record<string, string>>; children: ReactNode }) {
   const figure = figureOf(primitive);
-  const store = useMemo(() => new GameStore(startValues(figure, "game")), [figure]);
+  const store = useMemo(() => new GameStore(startValues(figure)), [figure]);
   const [sweeping, setSweeping] = useState(false);
   const [box, height] = useHeight();
   const shown = useMemo(() => primitive.sliders.flatMap((s) => (controls[s.id] ? [{ ...s, label: controls[s.id]! }] : [])), [primitive, controls]);

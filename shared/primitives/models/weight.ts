@@ -24,7 +24,7 @@ import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, fall, rockBack, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases, SCENE } from "../motion/run.ts";
 import { ARROW_GAP, ARROW_MIN, arrow, arrowLength, box, fmt, lathe, look, on, part, plate, PLATE_TOP, RAD, shaped, strand, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 const G = 9.8;
 const DEG = 180 / Math.PI;
@@ -90,12 +90,11 @@ const POST_RIGHT_OF_PIVOT = NEAR_MAX + LAND_X + POST_GAP + POST_W;
 export const X0 = (REACH_LEFT - POST_RIGHT_OF_PIVOT) / 2;
 const POST_X = X0 + POST_RIGHT_OF_PIVOT - POST_W / 2;
 
-const massOf = (v: Values) => Math.round((v.mass ?? 2) * 10) / 10;
-const swingOf = (v: Values) => v.swing ?? -28;
+const swingOf = (v: Values) => v.swing ?? SWING.initial;
 
 /** Everything a pose needs, from the sliders and the run-only poses. `build`, `readouts`, the handle and the game read this. */
 export function settle(v: Values) {
-  const mass = massOf(v);
+  const mass = valueOf(MASS, v);
   const swing = swingOf(v);
   /** Where the bob hangs, signed: the slider's angle, plus how far a run has swung it on from there (0 while the hand holds it). */
   const angle = swing + (v.ahead ?? 0);
@@ -181,7 +180,7 @@ function readouts(v: Values) {
 type Kind = "pass" | "light" | "snap";
 
 /** The outcome, decided once from the mass and the angle; meters, judge and play all read it. */
-export const strike = (v: Values) => strikeOf(massOf(v), swingOf(v));
+export const strike = (v: Values) => strikeOf(valueOf(MASS, v), swingOf(v));
 /** The same for any mass in kg and swing in degrees, not only on the sliders' grids (the tests use it right at the string's limit). */
 export function strikeOf(mass: number, swing: number) {
   const a = Math.abs(swing) * RAD;
@@ -223,7 +222,7 @@ const gap = (b: Box, x: number, y: number) => Math.hypot(Math.max(b.x0 - x, 0, x
  * bisecting the last one). A bob that meets a vertical face loses its sideways motion there and drops down it; one that
  * meets the plate stays. Times are real seconds, before the run's slow-down. Null when the string holds.
  */
-export const freed = (v: Values) => freedAt(massOf(v), swingOf(v));
+export const freed = (v: Values) => freedAt(valueOf(MASS, v), swingOf(v));
 export function freedAt(mass: number, swing: number) {
   const r = strikeOf(mass, swing);
   if (r.kind !== "snap") return null;
@@ -418,6 +417,9 @@ function scene(v: Values): Part[] {
   ];
 }
 
+const MASS: Slider = { id: "mass", label: "Mass", min: 1, max: MASS_MAX, step: 0.1, initial: 2, unit: " kg" };
+const SWING: Slider = { id: "swing", label: "Swing angle", min: SWING_MIN, max: SWING_MAX, step: 1, initial: -28, unit: "°" };
+
 export const weight: Primitive = {
   id: "weight",
   name: "Weight",
@@ -428,10 +430,10 @@ export const weight: Primitive = {
   madeOf: [],
   seenIn: ["Hammer", "Pendulum", "Flywheel"],
   sliders: [
-    { id: "mass", label: "Mass", min: 1, max: MASS_MAX, step: 0.1, initial: 2, unit: " kg" },
+    MASS,
     // One side only: the crate stands on the right, so the bob can only be pulled back to the left of the bottom, and far
     // enough out (past the crate's 20°) to reach it.
-    { id: "swing", label: "Swing angle", min: SWING_MIN, max: SWING_MAX, step: 1, initial: -28, unit: "°" },
+    SWING,
   ],
   view: VIEW.bench,
   build,

@@ -1,17 +1,11 @@
 import type { Part } from "../kit.ts";
 import baked from "./framing.json" with { type: "json" };
 import { type KitBounds, measurePoses } from "../bounds.ts";
-import type { Primitive, Slider, Values } from "./types.ts";
+import { type Primitive, type Values, sliderSamples, startValues } from "./types.ts";
 
 const FRAME_SAMPLES = 5;
 /** mm. A turning part's reach peaks between samples. framing.test.ts checks a finer grid; 5 samples pass it with half this pad. */
 const FRAME_PAD = 4;
-
-/** `count` values spread from a slider's min to its max, each on the slider's own step grid. */
-function sliderSamples(s: Slider, count: number): number[] {
-  const steps = Math.round((s.max - s.min) / s.step);
-  return [...new Set(Array.from({ length: count }, (_, i) => Math.round((i * steps) / (count - 1))))].map((k) => s.min + k * s.step);
-}
 
 /** Every combination of `perSlider` evenly spread values of each slider. */
 export function poses(p: Primitive, perSlider: number): Values[] {
@@ -27,10 +21,8 @@ const RUN_FRAMES = 24;
  */
 export function runPoses(p: Primitive): Part[][] {
   const game = p.game;
-  if (!game) return [];
-  const start: Values = { ...Object.fromEntries(p.sliders.map((s) => [s.id, s.initial])), ...game.start };
-  const number = [...p.sliders, ...(game.controls ?? [])].find((s) => s.id === game.number);
-  if (!number) return [];
+  const start = startValues(p);
+  const number = [...p.sliders, ...(game.controls ?? [])].find((s) => s.id === game.number)!;
   return sliderSamples(number, RUN_NUMBERS).flatMap((n) => {
     const run = game.play({ ...start, [number.id]: n });
     return Array.from({ length: RUN_FRAMES + 1 }, (_, i) => {

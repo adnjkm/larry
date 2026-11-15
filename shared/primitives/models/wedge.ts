@@ -17,9 +17,9 @@
 // and has still not opened the log far enough.
 import type { Part } from "../../kit.ts";
 import { clamp, easeOut } from "../motion/ease.ts";
-import { frame, handArrow, phases, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, handArrow, HOLD, LEAD, phases, RESET, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, arrowLength, box, fmt, look, on, part, PLATE_TOP, plate, post, pushDisc, RAD, tick, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres. The log is small beside the wedge, so the pink piece is what the eye lands on.
 const BLOCK_W = 22;
@@ -52,7 +52,7 @@ export const BLOW = BLOW_FOR_SCALE;
 /** What the log pushes back with before it has given anything. */
 export const GRIP = 100;
 /** And what it adds for every mm each half gives. */
-export const STIFF = 5;
+const STIFF = 5;
 /** Each half must open this far for the log to split. */
 export const OPEN = 9;
 export const BLOWS = 5;
@@ -61,14 +61,13 @@ export const ELASTIC = 1.5;
 /** A blow drives the wedge this much further. Five of them go right through. */
 const STEP = LENGTH / BLOWS;
 
-const slopeOf = (v: Values) => clamp(Math.round(v.slope ?? 20), 8, 35);
 const tanOf = (slope: number) => Math.tan(slope * RAD);
 /** What the log pushes back with when each half has given `open` mm. */
 export const gripAt = (open: number) => GRIP + STIFF * open;
 
 /** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const slope = slopeOf(v);
+  const slope = valueOf(SLOPE, v);
   const t = tanOf(slope);
   /** The push on each half, F ÷ (2 tan a). */
   const side = BLOW / (2 * t);
@@ -165,14 +164,11 @@ function meters(v: Values): [Meter, Meter] {
 }
 
 // Choreography, ms.
-const LEAD = 250;
 /** One blow: the wedge goes in over the first part, then the log answers. */
 const BLOW_MS = 480;
 const DRIVE_MS = 150;
 /** A wedge too fat to stay in is pushed back out by the log's grip once the blows stop. */
 const POP_MS = 200;
-const HOLD = 700;
-const RESET = 600;
 
 function play(v: Values): Run {
   const verdict = judge(v);
@@ -241,6 +237,8 @@ function scene(): Part[] {
   ];
 }
 
+const SLOPE: Slider = { id: "slope", label: "Slope (half-angle)", min: 8, max: 35, step: 1, initial: 20, unit: "°" };
+
 export const wedge: Primitive = {
   id: "wedge",
   name: "Wedge",
@@ -251,7 +249,7 @@ export const wedge: Primitive = {
   madeOf: [],
   seenIn: ["Knife", "Doorstop", "Zipper slider"],
   sliders: [
-    { id: "slope", label: "Slope (half-angle)", min: 8, max: 35, step: 1, initial: 20, unit: "°" },
+    SLOPE,
     // Was 0..40. The log is now 32 tall, so the wedge goes in at most 32: the slider ends where the plate does.
     { id: "push", label: "Push in", min: 0, max: LENGTH, step: 1, initial: 24, unit: " mm" },
   ],

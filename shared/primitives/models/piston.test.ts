@@ -1,12 +1,13 @@
-// Piston's own tests. The generic game and design checks (checks.ts) run for it in library.test.ts.
+// Piston's own tests. The generic game and design checks (checks.ts) run here, in its own file, so node runs the models in parallel.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkGame, sample, startOf, steps } from "../checks.ts";
+import { checkDesign, checkGame, sample } from "../checks.ts";
+import { startValues, steps } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import { AIR, downFor, geometry, HAND, MARK, piston, settle, stop, TOLERANCE } from "./piston.ts";
 
-const game = piston.game!;
+const game = piston.game;
 const [area, force] = piston.sliders as [NonNullable<(typeof piston.sliders)[0]>, NonNullable<(typeof piston.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const dots = (parts: Part[]) => parts.filter((p) => p.id.startsWith("air-"));
@@ -14,6 +15,7 @@ const arrowLen = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shap
 
 describe("piston", () => {
   it("passes the generic game checks", () => checkGame(piston));
+  it("follows the design language", () => checkDesign(piston));
 
   it("balances the push against the air at every setting: p × A = F, and Boyle's law holds", () => {
     for (const a of steps(area)) {
@@ -71,7 +73,7 @@ describe("piston", () => {
   });
 
   it("stops a drag where the hand's push balances the air, whatever the area", () => {
-    const h = piston.handle!;
+    const h = piston.handle;
     for (const a of [4, 8, 12]) {
       const v = { area: a, force: 20 };
       assert.deepEqual(h.reach!(v), [0, HAND]);
@@ -83,7 +85,7 @@ describe("piston", () => {
   });
 
   it("is on the line only for a middle area: wide stops short, narrow goes past", () => {
-    const pass = steps(area).filter((a) => game.judge({ ...startOf(piston), area: a }).pass);
+    const pass = steps(area).filter((a) => game.judge({ ...startValues(piston), area: a }).pass);
     assert.ok(pass.length >= 5, `window ${pass}`);
     for (const a of pass) assert.ok(Math.abs(downFor(HAND, a) - MARK) <= TOLERANCE + 1e-9);
     assert.equal(game.judge({ area: 12, force: 0 }).outcome, "stopped-short");

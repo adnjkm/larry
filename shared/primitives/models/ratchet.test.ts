@@ -1,4 +1,4 @@
-// Ratchet's own tests. The generic game and design checks (checks.ts) run for it in library.test.ts.
+// Ratchet's own tests. The generic game and design checks (checks.ts) run here, in its own file, so node runs the models in parallel.
 //
 // The overlap proof below does not reuse the solver: it takes the wheel and pawl parts build() returns, places their
 // outlines in the world exactly as the renderer does (outline centred on its bounding box, turned about z, moved to
@@ -6,14 +6,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample, startOf } from "../checks.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { startValues, type Values } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
-import type { Values } from "../types.ts";
-import { LIFT_PER_TURN, MARK, ratchet, rig, stopAt, TOLERANCE } from "./ratchet.ts";
-import { PIVOT } from "./ratchetGeometry.ts";
+import { LIFT_PER_TURN, MARK, ratchet, rig, stopAt, tabulatedLift, TOLERANCE } from "./ratchet.ts";
+import { PIVOT, restingLift, Wheel } from "./ratchetGeometry.ts";
+import { REST_LIFT } from "./ratchetTable.ts";
 
 type Pt = [number, number];
-const game = ratchet.game!;
+const game = ratchet.game;
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 
 /** A part's extrusion outline in world x-y, as geometry.ts and the renderer place it. */
@@ -143,7 +144,7 @@ describe("ratchet", () => {
   });
 
   it("keeps to the simple-first budget: eight kinds at rest, no spring housing, one coil on the pawl's own hinge", () => {
-    const start = startOf(ratchet);
+    const start = startValues(ratchet);
     const parts = ratchet.build({ teeth: 12, turn: 0.2 });
     const kinds = [...new Set(parts.map((p) => p.name))];
     assert.ok(kinds.length <= 8, kinds.join(", "));
@@ -189,7 +190,7 @@ describe("ratchet", () => {
   });
 
   it("has one target: a tick at least 10 mm long held by a slim post beside the bucket's path, and the bucket reaches it and never goes into it", () => {
-    const scene = game.scene!(startOf(ratchet));
+    const scene = game.scene!(startValues(ratchet));
     const tick = find(scene, "game-mark");
     const post = find(scene, "game-post");
     assert.ok(tick.shape.kind === "box" && post.shape.kind === "box");
@@ -231,9 +232,9 @@ describe("ratchet", () => {
   });
 
   it("can be turned back by hand only to the landing the pawl last dropped into", () => {
-    assert.deepEqual(ratchet.handle!.reach!({ teeth: 12, turn: 3.5 / 12 }), [3 / 12, 1]);
-    assert.deepEqual(ratchet.handle!.reach!({ teeth: 12, turn: 3 / 12 }), [3 / 12, 1]);
-    assert.deepEqual(ratchet.handle!.reach!({ teeth: 12, turn: 3.5 / 12, lift: 1 }), [0, 1]);
+    assert.deepEqual(ratchet.handle.reach!({ teeth: 12, turn: 3.5 / 12 }), [3 / 12, 1]);
+    assert.deepEqual(ratchet.handle.reach!({ teeth: 12, turn: 3 / 12 }), [3 / 12, 1]);
+    assert.deepEqual(ratchet.handle.reach!({ teeth: 12, turn: 3.5 / 12, lift: 1 }), [0, 1]);
   });
 
   it("keeps the knob on the wheel's face, inside the teeth, and the hand's point on it", () => {
@@ -242,7 +243,7 @@ describe("ratchet", () => {
       const parts = ratchet.build(v);
       const k = find(parts, "knob").position;
       assert.ok(Math.abs(Math.hypot(k.x - rig.W.x, k.y - rig.W.y) + 5.5 - 19.5) < 1e-9, "the knob's rim stays inside the tooth roots");
-      const h = ratchet.handle!.at(v);
+      const h = ratchet.handle.at(v);
       assert.ok(Math.hypot(h.x - k.x, h.y - k.y, h.z - k.z) < 1e-9);
     }
   });
@@ -269,11 +270,30 @@ describe("ratchet", () => {
   });
 
   it("never lets the wheel and pawl cut into each other during a run", () => {
-    for (const v of [startOf(ratchet), ...numberSweep(ratchet).filter((q) => [10, 12, 16, 24].includes(q.teeth ?? 0)), { teeth: 12, turn: 0.95 }]) {
+    for (const v of [startValues(ratchet), ...numberSweep(ratchet).filter((q) => [10, 12, 16, 24].includes(q.teeth ?? 0)), { teeth: 12, turn: 0.95 }]) {
       for (const { ms, frame } of sample(game.play(v)).filter((_, i) => i % 2 === 0)) {
         const { wheel, pawl } = outlines(frame.values);
         const { depth } = contact(wheel, pawl);
         assert.ok(depth <= 0.03, `n ${v.teeth} at ${ms} ms: overlap ${depth.toFixed(3)} mm`);
+      }
+    }
+  });
+
+  it("reads the pawl's lift from a baked table that matches the solver", () => {
+    for (const n of Object.keys(REST_LIFT).map(Number)) {
+      const wheel = new Wheel(n);
+      const { drop, lift } = REST_LIFT[n]!;
+      assert.equal(lift.length, 129);
+      // Fresh: the table is the solver's own answer at every eighth sample, so it is rebuilt when the geometry changes (node scripts/ratchet-table.ts).
+      for (let i = 0; i < lift.length - 1; i += 8) assert.ok(Math.abs(lift[i]! - restingLift(wheel, (3 + (drop * i) / 128) / n)) < 1e-4, `n ${n}: the table is out of date`);
+      assert.ok(restingLift(wheel, (3 + drop + 1e-6) / n) < 1e-6 && restingLift(wheel, (3 + drop - 1e-6) / n) > 1, `n ${n}: the drop is not where the nose falls in`);
+    }
+    // Between the samples it interpolates to within a hundredth of a degree of the nose.
+    for (const n of [8, 13, 24]) {
+      const wheel = new Wheel(n);
+      for (let i = 1; i < 60; i++) {
+        const turn = (2 + i / 60) / n + 0.00013;
+        assert.ok(Math.abs(tabulatedLift(n, turn) - restingLift(wheel, turn)) < 0.02, `n ${n}, turn ${turn}`);
       }
     }
   });

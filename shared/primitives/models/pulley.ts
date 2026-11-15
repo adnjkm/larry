@@ -14,9 +14,9 @@
 // too heavy to move; too many and the cord runs out before the crate has risen.
 import type { Part } from "../../kit.ts";
 import { clamp, easeOut, shudder, smooth } from "../motion/ease.ts";
-import { frame, phases, SCENE } from "../motion/run.ts";
+import { frame, HOLD, LEAD, phases, REWIND, SCENE } from "../motion/run.ts";
 import { ARROW_MIN, arrow, bar, box, fmt, lathe, loadEdge, look, on, part, plate, PLATE_TOP, pullRing, ring, shaped, tick, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres. A wheel is a plain disc with the cord resting on its rim, so every turn of cord round it shows.
 const WHEEL_R = 9;
@@ -67,11 +67,9 @@ export const ROPE = 35;
 /** A hand that cannot move the load still gives this much, mm: the cord and the fingers take up some slack. */
 const GIVE = 3;
 
-const strandsOf = (v: Values) => clamp(Math.round(v.strands ?? 2), 1, MAX_STRANDS);
-
 /** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const n = strandsOf(v);
+  const n = valueOf(STRANDS, v);
   const pull = clamp(v.pull ?? 20, 0, PULL_MAX);
   const rise = pull / n;
   const yM = Y_MOVING_0 + rise;
@@ -152,7 +150,7 @@ type Kind = "pass" | "heavy" | "short";
 
 /** The outcome, decided once from the strands; meters, judge and play all read it. */
 export function hoist(v: Values) {
-  const n = strandsOf(v);
+  const n = valueOf(STRANDS, v);
   const need = LOAD / n;
   const rope = n * RISE;
   const kind: Kind = need > HAND + 1e-9 ? "heavy" : rope > ROPE + 1e-9 ? "short" : "pass";
@@ -182,10 +180,7 @@ function meters(v: Values): [Meter, Meter] {
 }
 
 // Choreography, ms.
-const LEAD = 250;
-const REWIND = 450;
 const STRAIN = 800;
-const HOLD = 700;
 
 function play(v: Values): Run {
   const verdict = judge(v);
@@ -231,6 +226,8 @@ function scene(): Part[] {
   return [tick(`${SCENE}mark`, v3(POST_X + POST_W / 2 + MARK_LEN / 2, PLATE_TOP + EDGE + RISE - 1.5, POST_Z), MARK_LEN, "x", { name: "Mark", role: "The load's top has to come up to this level.", on: on("stand", "weld") })];
 }
 
+const STRANDS: Slider = { id: "strands", label: "Strands", min: 1, max: MAX_STRANDS, step: 1, initial: 2 };
+
 export const pulley: Primitive = {
   id: "pulley",
   name: "Pulley",
@@ -242,7 +239,7 @@ export const pulley: Primitive = {
   seenIn: ["Blinds", "Flagpole", "Crane"],
   sliders: [
     // The range stops at 5, up from 4, so the game has room to fail on both sides.
-    { id: "strands", label: "Strands", min: 1, max: MAX_STRANDS, step: 1, initial: 2 },
+    STRANDS,
     { id: "pull", label: "Pull", min: 0, max: PULL_MAX, step: 1, initial: 20, unit: " mm" },
   ],
   view: VIEW.bench,
@@ -257,7 +254,7 @@ export const pulley: Primitive = {
     },
     solve: (point) => Y_HAND - point.y,
     // A cord cannot be pushed, and a load the hand cannot lift gives only a little.
-    reach: (v) => [0, LOAD / strandsOf(v) > HAND ? GIVE : Math.min(PULL_MAX, ROPE)],
+    reach: (v) => [0, LOAD / valueOf(STRANDS, v) > HAND ? GIVE : Math.min(PULL_MAX, ROPE)],
   },
   game: {
     name: "Hoist",

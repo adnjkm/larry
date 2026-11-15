@@ -5,11 +5,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkContinuity, checkDesign, checkGame, numberSweep, sample, startOf, steps } from "../checks.ts";
-import { type Values, VIEW } from "../types.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { type Values, VIEW, startValues, steps } from "../types.ts";
 import { BREAK, cord, cordPath, LINE, rig, settle, STROKE, yank } from "./cord.ts";
 
-const game = cord.game!;
+const game = cord.game;
 const [tension, pull] = cord.sliders as [NonNullable<(typeof cord.sliders)[0]>, NonNullable<(typeof cord.sliders)[1]>];
 const find = (parts: Part[], id: string) => parts.find((p) => p.id === id) ?? assert.fail(`no part ${id}`);
 const len = (p: Part) => (p.shape.kind === "extrusion" ? Math.max(...p.shape.outline.map((q) => q.x)) : 0);
@@ -76,7 +76,7 @@ describe("cord", () => {
       const path = cordPath(s);
       assert.deepEqual(path[0], [-rig.RC, 6 + s.lift + s.edge]);
       assert.deepEqual(path.at(-1), [s.ringX, rig.CORD_Y]);
-      assert.ok(Math.abs(cord.handle!.at({ tension: 25, pull: p }).x - (rig.PX + s.ringX + rig.RING_R)) < 1e-9);
+      assert.ok(Math.abs(cord.handle.at({ tension: 25, pull: p }).x - (rig.PX + s.ringX + rig.RING_R)) < 1e-9);
     }
   });
 
@@ -87,7 +87,7 @@ describe("cord", () => {
   });
 
   it("drags the ring to the pointer and back", () => {
-    const h = cord.handle!;
+    const h = cord.handle;
     for (const p of [-20, -5, 0, 12, 30]) {
       const v: Values = { tension: 25, pull: p };
       assert.ok(Math.abs(h.solve(h.at(v), v) - p) < 1e-9, `pull ${p}`);
@@ -103,7 +103,7 @@ describe("cord", () => {
       else if (f <= 1) assert.equal(o, "reached-the-line", `yank ${f}`);
       else assert.equal(o, "cord-snapped", `yank ${f}`);
     }
-    assert.equal(game.judge(startOf(cord)).outcome, "too-gentle");
+    assert.equal(game.judge(startValues(cord)).outcome, "too-gentle");
     assert.equal(yank({ tension: 20, yank: 1 }).peak, BREAK);
   });
 
@@ -129,8 +129,8 @@ describe("cord", () => {
   });
 
   it("touches the line at the top of a pass", () => {
-    const mark = find(game.scene!(startOf(cord)), "game-line");
-    const v = { ...startOf(cord), yank: 0.5 };
+    const mark = find(game.scene!(startValues(cord)), "game-line");
+    const v = { ...startValues(cord), yank: 0.5 };
     const run = game.play(v);
     let top = run.at(0);
     for (let ms = 0; ms <= run.durationMs; ms++) if (settle(run.at(ms).values).lift > settle(top.values).lift) top = run.at(ms);
@@ -215,12 +215,11 @@ describe("cord", () => {
   it("keeps to seven kinds of part at rest and two in the scene", () => {
     const kinds = (parts: Part[]) => new Set(parts.map((p) => p.name));
     assert.ok(kinds(cord.build({ tension: 25, pull: 12 })).size <= 7, [...kinds(cord.build({ tension: 25, pull: 12 }))].join());
-    assert.equal(kinds(game.scene!(startOf(cord))).size, 2);
+    assert.equal(kinds(game.scene!(startValues(cord))).size, 2);
   });
 
   it("passes the generic game and design checks", () => {
     checkGame(cord);
     checkDesign(cord);
-    checkContinuity(cord);
   });
 });

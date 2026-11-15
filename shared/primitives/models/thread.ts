@@ -15,9 +15,9 @@
 // nut back down.
 import type { Part } from "../../kit.ts";
 import { clamp, fall, smooth } from "../motion/ease.ts";
-import { frame, phases, SCENE } from "../motion/run.ts";
+import { frame, HOLD, LEAD, phases, REWIND, SCENE } from "../motion/run.ts";
 import { coil, cylinder, DEG, fmt, knob, loadBlock, loadEdge, look, on, part, pivoted, plate, PLATE_TOP, polygon, RAD, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres. The bolt stands on the middle of the plate, x = 0, z = 0.
 const ROD_R = 6;
@@ -49,9 +49,8 @@ export const FRICTION = 0.2;
 export const FRICTION_DEG = Math.atan(FRICTION) * DEG;
 
 /** The slider's pitch, snapped to its step. */
-const stepOf = (v: Values) => clamp(Math.round((v.pitch ?? 4) * 2) / 2, 2, 6);
 /** The ridge spacing as drawn, mm: the nut climbs this far per turn. */
-const pitchOf = (v: Values) => stepOf(v) * PITCH_UNIT;
+const pitchOf = (v: Values) => valueOf(PITCH, v) * PITCH_UNIT;
 const leadOf = (pitch: number) => Math.atan(pitch / (2 * Math.PI * MEAN_R)) * DEG;
 
 /** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
@@ -135,12 +134,9 @@ function meters(v: Values): [Meter, Meter] {
 }
 
 // Choreography, ms.
-const LEAD = 250;
-const REWIND = 450;
 /** The hand turns this long for each turn, before easing. */
 const MS_PER_TURN = 300;
 const AT_END = 300;
-const HOLD = 700;
 /** A spin-back's time: the weight falls, so time goes with the root of the turns it has to unwind. */
 const SPIN_MS = 330;
 
@@ -204,6 +200,8 @@ function scene(): Part[] {
   return [part(`${SCENE}mark`, "Mark", "The weight's top has to come up to this level: a tick on a slim post.", { kind: "extrusion", outline, depth: POST_W }, v3(cx, cy, 0), look.structure, on("plate", "weld"))];
 }
 
+const PITCH: Slider = { id: "pitch", label: "Pitch", min: 2, max: 6, step: 0.5, initial: 4, unit: " mm", displayScale: PITCH_UNIT };
+
 export const thread: Primitive = {
   id: "thread",
   name: "Thread",
@@ -215,7 +213,7 @@ export const thread: Primitive = {
   seenIn: ["Bottle cap", "Bolt", "Lipstick"],
   sliders: [
     // The slider's value is a step of PITCH_UNIT drawn mm each, and it shows the drawn pitch (4 to 12 mm).
-    { id: "pitch", label: "Pitch", min: 2, max: 6, step: 0.5, initial: 4, unit: " mm", displayScale: PITCH_UNIT },
+    PITCH,
     { id: "turns", label: "Turns", min: 0, max: 6, step: 0.05, initial: 2.5, unit: " turns" },
   ],
   view: VIEW.coaxial,

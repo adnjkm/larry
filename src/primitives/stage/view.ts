@@ -3,7 +3,8 @@
 import type { Part } from "../../../shared/kit.ts";
 import { reducedMotion, rubberBand, spring, velocityTracker } from "../../motion.ts";
 import { framePrimitive } from "../../../shared/primitives/framing.ts";
-import type { Cue, Primitive, Slider, Values } from "../../../shared/primitives/types.ts";
+import { clamp } from "../../../shared/primitives/motion/ease.ts";
+import { type Cue, type Primitive, type Values, allSliders, motionSlider, snap, startValues } from "../../../shared/primitives/types.ts";
 import { Motion } from "./controller.ts";
 import { LESSON_COLOR, type Palette, looksFor } from "./looks.ts";
 import { type Drawable, hasWebGL, register, renderTo, schedule, stageStats } from "./renderer.ts";
@@ -21,31 +22,17 @@ const FLING_SECONDS = 0.5;
 
 export type Mode = "still" | "game";
 
-export type StageCallbacks = {
+type StageCallbacks = {
   onLive?: (text: string) => void;
   onCue?: (cue: Cue) => void;
 };
 
-export type StageElements = {
+type StageElements = {
   root: HTMLElement;
   canvas: HTMLCanvasElement;
   /** The drag handle's touch target, in game mode when the primitive has a handle. */
   ring: HTMLElement | null;
 };
-
-/** Every slider the figure's values can hold: the primitive's, its game's controls and its run-only poses. */
-export const allSliders = (p: Primitive): Slider[] => [...p.sliders, ...(p.game?.controls ?? []), ...(p.game?.poses ?? [])];
-
-/** The slider the handle and the play sweep move: the handle's, else the motion slider (the last one). */
-export const motionSlider = (p: Primitive): Slider | undefined => allSliders(p).find((s) => s.id === p.handle?.slider) ?? p.sliders.at(-1);
-
-export const startValues = (p: Primitive, mode: Mode): Values => ({
-  ...Object.fromEntries(allSliders(p).map((s) => [s.id, s.initial])),
-  ...(mode === "game" ? p.game?.start : undefined),
-});
-
-const snap = (v: number, s: Slider) => Number((s.min + Math.round((v - s.min) / s.step) * s.step).toFixed(10));
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export class StageView implements Drawable {
   readonly element: HTMLElement;
@@ -86,14 +73,13 @@ export class StageView implements Drawable {
     this.callbacks = callbacks;
     this.element = els.root;
     this.canvas = els.canvas;
-    this.ring = mode === "game" && primitive.handle ? els.ring : null;
+    this.ring = mode === "game" ? els.ring : null;
     this.pill = this.ring?.querySelector<HTMLElement>("[data-handle-label]") ?? null;
     const ctx = els.canvas.getContext("2d", { alpha: false });
     if (!ctx) throw new Error("No 2D canvas");
     this.ctx = ctx;
     // Game mode frames the game's scene and runs too, and fits its fixed camera to them rather than to a spin.
     this.scene = new StageScene(framePrimitive(primitive, mode), primitive.view, looksFor(palette), palette === "lesson" ? LESSON_COLOR : undefined, mode === "game" ? "fixed" : "spin");
-    const sliders = allSliders(primitive);
     this.controller = new Motion(
       {
         apply: (values, marks) => {
@@ -105,18 +91,11 @@ export class StageView implements Drawable {
         },
         wake: schedule,
         reducedMotion: () => reducedMotion.matches,
-        sliders: () => sliders,
-        poses: () => primitive.game?.poses ?? [],
-        sweepRange: (v) => {
-          const s = motionSlider(primitive);
-          if (!s) return undefined;
-          const [lo, hi] = primitive.handle?.slider === s.id && primitive.handle.reach ? primitive.handle.reach(v) : [s.min, s.max];
-          return { id: s.id, lo: Math.max(s.min, lo), hi: Math.min(s.max, hi) };
-        },
         onLive: (text) => this.callbacks.onLive?.(text),
         onCue: (cue) => this.callbacks.onCue?.(cue),
       },
-      { ...startValues(primitive, mode), ...values },
+      primitive,
+      { ...startValues(primitive, mode === "game"), ...values },
     );
 
     this.ro = new ResizeObserver((entries) => {
@@ -190,7 +169,7 @@ export class StageView implements Drawable {
     if (!this.posed) {
       const t0 = performance.now();
       // Game mode also draws the game's standing props (its target); still figures and lessons never do.
-      const scene = this.mode === "game" ? this.primitive.game?.scene?.(values) : undefined;
+      const scene = this.mode === "game" ? this.primitive.game.scene?.(values) : undefined;
       this.scene.setFrame(this.primitive.build(values), scene, this.marks);
       stageStats.poseMs += performance.now() - t0;
       stageStats.poses++;
@@ -216,8 +195,8 @@ export class StageView implements Drawable {
 
   private placeRing(values: Values): void {
     const ring = this.ring;
+    if (!ring) return;
     const handle = this.primitive.handle;
-    if (!ring || !handle) return;
     // A run is the game's own motion: the ring steps aside until it ends (a touch would only interrupt it).
     const hidden = this.controller.state() === "playing";
     if (hidden !== (ring.dataset.hidden === "")) {
@@ -240,9 +219,9 @@ export class StageView implements Drawable {
   /** The handle's value for assistive tech, as soon as it changes (not on the next drawn frame, which an off-screen figure skips). */
   private updateAria(values: Values): void {
     const ring = this.ring;
+    if (!ring) return;
     const handle = this.primitive.handle;
     const s = motionSlider(this.primitive);
-    if (!ring || !handle || !s) return;
     const now = values[handle.slider];
     const text = now === undefined ? "" : String(Number(now.toFixed(3)));
     if (text === this.ariaValue) return;
@@ -297,9 +276,8 @@ export class StageView implements Drawable {
   // Game mode: the ring follows the handle; dragging it solves the slider value under the finger, clamped to the range,
   // the step and the reach. Past the reach the model stops and only the ring follows, on a rubber band.
   private listenHandle(ring: HTMLElement): void {
-    const handle = this.primitive.handle!;
-    const slider = allSliders(this.primitive).find((s) => s.id === handle.slider);
-    if (!slider) return;
+    const handle = this.primitive.handle;
+    const slider = allSliders(this.primitive).find((s) => s.id === handle.slider)!;
     let drag: { id: number; left: number; top: number; dx: number; dy: number; limited: boolean } | undefined;
     const reach = (v: Values): [number, number] => {
       const [lo, hi] = handle.reach?.(v) ?? [slider.min, slider.max];
@@ -328,7 +306,7 @@ export class StageView implements Drawable {
       const z = handle.at(values).z;
       const raw = handle.solve(this.scene.unproject(x, y, z), values);
       const [lo, hi] = reach(values);
-      const value = clamp(snap(clamp(raw, slider.min, slider.max), slider), lo, hi);
+      const value = clamp(snap(slider, raw), lo, hi);
       this.controller.set({ [slider.id]: value });
       const limited = raw < lo || raw > hi;
       if (limited) {
@@ -365,7 +343,7 @@ export class StageView implements Drawable {
       const [lo, hi] = reach(values);
       const step = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: 10, PageDown: -10 }[e.key];
       let next: number | undefined;
-      if (step !== undefined) next = clamp(snap(now + step * slider.step, slider), lo, hi);
+      if (step !== undefined) next = clamp(snap(slider, now + step * slider.step), lo, hi);
       else if (e.key === "Home") next = lo;
       else if (e.key === "End") next = hi;
       if (next === undefined) return;

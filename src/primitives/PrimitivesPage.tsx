@@ -2,15 +2,13 @@ import * as stylex from "@stylexjs/stylex";
 import { useRef, useState } from "react";
 import { chips, layout, type } from "../ui/styles.ts";
 import { colors, fonts } from "../tokens.stylex.ts";
-import { PRIMITIVES, type Primitive, type Values, initialValues } from "../../shared/primitives/library.ts";
-import { PrimitiveFigure, madeOfPrimitives } from "./PrimitiveFigure.tsx";
+import { reducedMotion } from "../motion.ts";
+import { PRIMITIVES, type Primitive } from "../../shared/primitives/library.ts";
+import { madeOfPrimitives } from "./PrimitiveFigure.tsx";
 import { GameScreen } from "./game/GameScreen.tsx";
 import type { Level } from "../../shared/primitives/types.ts";
 
-const VIEWER_HEIGHT = 360;
-
 const styles = stylex.create({
-  title: { margin: 0, fontSize: 28, lineHeight: "32px", fontWeight: 600, letterSpacing: "-0.02em" },
   idea: { margin: 0, fontSize: 17, lineHeight: 1.4 },
   link: { cursor: "pointer" },
   // Where the back button scrolls to: just above the element and mechanism lists.
@@ -48,15 +46,13 @@ function startingId(): string {
 export default function PrimitivesPage() {
   const [id, setId] = useState(startingId);
   const primitive = PRIMITIVES.find((p) => p.id === id) ?? (PRIMITIVES[0] as Primitive);
-  const [values, setValues] = useState<Record<string, Values>>({});
-  const v = values[primitive.id] ?? initialValues(primitive);
 
   const select = (next: string) => {
     setId(next);
     const url = new URL(location.href);
     url.searchParams.set("primitives", next);
     history.replaceState(null, "", url);
-    window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    window.scrollTo({ top: 0, behavior: reducedMotion.matches ? "instant" : "smooth" });
   };
 
   const sameLevel = PRIMITIVES.filter((p) => p.level === primitive.level);
@@ -65,9 +61,8 @@ export default function PrimitivesPage() {
 
   const kicker = `${primitive.level} ${String(index).padStart(2, "0")} of ${sameLevel.length}`;
   const list = useRef<HTMLDivElement>(null);
-  const toList = () => list.current?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+  const toList = () => list.current?.scrollIntoView({ behavior: reducedMotion.matches ? "instant" : "smooth", block: "start" });
 
-  // Everything under the figure: the same for a primitive with a game and one without.
   const details = (
     <>
       <p {...stylex.props(styles.idea)}>{primitive.job}</p>
@@ -121,28 +116,10 @@ export default function PrimitivesPage() {
 
   return (
     <main {...stylex.props(layout.page)}>
-      {primitive.game ? (
-        // Keyed so a new primitive starts a new game: its own controller, phase and verdict.
-        <GameScreen key={primitive.id} primitive={primitive} kicker={kicker} onBack={toList}>
-          {details}
-        </GameScreen>
-      ) : (
-        <>
-          <div>
-            <p {...stylex.props(type.label)}>{kicker}</p>
-            <h1 {...stylex.props(styles.title)}>{primitive.name}</h1>
-          </div>
-
-          <PrimitiveFigure
-            primitive={primitive}
-            values={v}
-            onSlider={(sliderId, n) => setValues((all) => ({ ...all, [primitive.id]: { ...v, [sliderId]: n } }))}
-            height={VIEWER_HEIGHT}
-            library
-          />
-          {details}
-        </>
-      )}
+      {/* Keyed so a new primitive starts a new game: its own controller, phase and verdict. */}
+      <GameScreen key={primitive.id} primitive={primitive} kicker={kicker} onBack={toList}>
+        {details}
+      </GameScreen>
     </main>
   );
 }
