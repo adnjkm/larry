@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseKit } from "../shared/kit.ts";
-import { Lesson, type LessonEvent, type Shown, WORDS, chapterProblems, lessonProblems } from "../shared/lesson.ts";
+import { Lesson, type LessonEvent, type Shown, chapterProblems, lessonProblems } from "../shared/lesson.ts";
+import { WORDS } from "../shared/rules.ts";
 import { CATALOG } from "../shared/primitives/catalog.ts";
 import type { StructuredEvent } from "./claude.ts";
-import { keepShown, streamLesson } from "./streamLesson.ts";
+import { streamLesson } from "./streamLesson.ts";
 
 const fixture = (dir: string) => JSON.parse(readFileSync(new URL(`../fixtures/${dir}/pen.json`, import.meta.url), "utf8")) as unknown;
 const pen = Lesson.parse(fixture("lessons"));
@@ -13,21 +14,6 @@ const kit = parseKit(fixture("kits"));
 const [first, second, ...rest] = pen.chapters;
 assert.ok(first && second);
 
-test("a rewrite keeps the title, hook and chapters the reader was already shown", () => {
-  const shown = [{ ...first, id: "as-shown" }];
-  const rewrite = { ...pen, title: "Rewritten", hook: ["Rewritten hook."], chapters: [{ ...first, id: "rewritten-first" }, second, ...rest] };
-
-  const kept = keepShown(rewrite, { title: "Shown title", hook: ["Shown hook."] }, shown);
-
-  assert.equal(kept.title, "Shown title");
-  assert.deepEqual(kept.hook, ["Shown hook."]);
-  assert.deepEqual(kept.chapters.map((c) => c.id), ["as-shown", second.id, ...rest.map((c) => c.id)]);
-  assert.deepEqual(kept.closing, rewrite.closing);
-});
-
-test("with nothing shown the rewrite stands as written", () => {
-  assert.deepEqual(keepShown(pen, undefined, []), pen);
-});
 
 const header = (lesson: Lesson): StructuredEvent => ({ type: "header", value: { title: lesson.title, hook: lesson.hook } });
 const result = (output: Lesson): StructuredEvent => ({ type: "result", output, costUsd: 0.1 });

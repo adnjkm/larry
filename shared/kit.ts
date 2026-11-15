@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RULES } from "./rules.ts";
 
 const Vec2 = z.object({ x: z.number(), y: z.number() });
 const Vec3 = z.object({ x: z.number(), y: z.number(), z: z.number() });
@@ -85,7 +86,7 @@ export type Part = z.infer<typeof Part>;
 export const Kit = z.object({
   name: z.string().describe("What the object is, 1 to 4 words."),
   summary: z.string().describe("One plain sentence on how it works."),
-  parts: z.array(Part),
+  parts: z.array(Part).describe(`${RULES.parts.min} to ${RULES.parts.max} parts.`),
 });
 export type Kit = z.infer<typeof Kit>;
 
@@ -96,9 +97,6 @@ export const KitEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("failed"), message: z.string() }),
 ]);
 export type KitEvent = z.infer<typeof KitEvent>;
-
-const { $schema: _dialect, ...kitSchemaBody } = z.toJSONSchema(Kit);
-export const kitJsonSchema: Record<string, unknown> = kitSchemaBody;
 
 export class KitError extends Error {}
 

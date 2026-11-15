@@ -146,10 +146,9 @@ function TuneView({ problem, state }: ViewProps<"tune">) {
   );
 }
 
-const VIEWS: { [T in ProblemType]: (props: ViewProps<T>) => ReactNode } = { run: RunView, pick: PickView, tune: TuneView };
-
 export function ProblemView({ problem, state, dispatch }: { problem: Problem; state: ProblemState; dispatch: (action: ProblemAction) => void }) {
-  if (state.type !== problem.type) return null;
-  const View = VIEWS[problem.type] as (props: ViewProps<ProblemType>) => ReactNode;
-  return <View problem={problem} state={state} dispatch={dispatch} />;
+  if (problem.type === "run" && state.type === "run") return <RunView problem={problem} state={state} dispatch={dispatch} />;
+  if (problem.type === "pick" && state.type === "pick") return <PickView problem={problem} state={state} dispatch={dispatch} />;
+  if (problem.type === "tune" && state.type === "tune") return <TuneView problem={problem} state={state} dispatch={dispatch} />;
+  return null;
 }

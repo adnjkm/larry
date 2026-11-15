@@ -1,8 +1,10 @@
 import type { Kit } from "../shared/kit.ts";
-import { Chapter, chapterProblems, headerProblems, Lesson, LessonError, LessonHeader, type Shown, type LessonEvent, lessonJsonSchema, lessonProblems, parseLesson, WORDS } from "../shared/lesson.ts";
+import { Chapter, chapterProblems, headerProblems, Lesson, LessonError, LessonHeader, type Shown, type LessonEvent, lessonProblems, parseLesson } from "../shared/lesson.ts";
+import { RULES, WORDS } from "../shared/rules.ts";
 import { CATALOG } from "../shared/primitives/catalog.ts";
 import { PRIMITIVES, formatSlider, initialValues } from "../shared/primitives/library.ts";
 import { type Brain, streamStructured } from "./claude.ts";
+import { lessonJsonSchema } from "./schemas.ts";
 
 const SYSTEM_PROMPT = `You are Larry. You write interactive lessons that let a curious adult reinvent an everyday object from first principles. The bar is Bartosz Ciechanowski's article on the mechanical watch: an unbroken chain of reasoning in which every part appears because something before it failed, so that by the end the object looks inevitable.
 
@@ -21,16 +23,16 @@ How to teach:
 - Write in short, plain sentences. Use "we" the way the article does. Earn each technical term before using it. No exclamation marks, no praise ("great job"), no filler ("let's dive in", "in this lesson"). The reader is a curious adult, never a child.
 
 How to structure it:
-- Requirements first. Decide what makes this object this invention, each phrased "It must ...". Each requirement is a module. Use 2 or 3 modules.
+- Requirements first. Decide what makes this object this invention, each phrased "It must ...". Each requirement is a module. Use ${RULES.modules.min} or ${RULES.modules.max} modules.
 - Order the modules by need. The first module does the object's core job crudely. Every later module must be motivated, in its "why", by a specific failure of what has already been built. A module the reader would not list up front, like "it must not dry out", is a surprise.
 - Inside a module, the first step is the naive build: the simplest thing that meets the requirement at all, with a run problem that shows it falling short. Then one step per sub-problem, each answered by one primitive, until the requirement is fully met. A simple module can be the naive build plus one step.
 - After the modules, add one join: run the modules together. A good join either works, which is the payoff the reader has been building toward, or exposes a requirement none of the modules has alone; then answer it in the same step.
 - Finish with exactly one casing chapter of one step: the body, shell or frame, and the interface the reader touches. Its shape should now feel like it follows from everything inside.
-- Aim for 6 to 8 steps in total. Cut anything the chain of reasoning does not need.
+- Aim for ${RULES.steps.min} to ${RULES.steps.max} steps in total. Cut anything the chain of reasoning does not need.
 
-Problems. There are only three types; mix them and never use the same type more than twice in a row.
+Problems. There are only three types; mix them and never use the same type more than ${RULES.problemRun} times in a row.
 - run: the reader tries the build as it stands. The outcome is a concrete observation with a number. Use it for naive builds and joins. Give a run step the closest primitive, drawn at its starting values, so the reader sees the failing build before pressing the button; the starting values are listed in the catalogue, and the outcome must match what they show. Choose the primitive that shows the failing thing, not the one a later pick offers as the fix, which would give the answer away. Use primitive null only when nothing in the catalogue comes close.
-- pick: the failure restated as a choice between 2 or 3 primitives from the catalogue. Exactly one works, and it must be the step's primitive. The others are tempting and fail for a specific physical reason, which their outcome explains. Wrong answers should teach.
+- pick: the failure restated as a choice between ${RULES.options.min} or ${RULES.options.max} primitives from the catalogue. Exactly one works, and it must be the step's primitive. The others are tempting and fail for a specific physical reason, which their outcome explains. Wrong answers should teach.
 - tune: the reader sets one quantity of the step's primitive so the build works for this object. Below the window one thing fails, above it another thing fails, each with a number. The window must sit strictly inside the slider's range, and the slider's starting value must miss it. Use the slider's own units. The reader sees the primitive's live readouts, listed in the catalogue, so state the goal in terms of those readouts where you can. The goal is shown to the reader on its own card, so the story must not restate the goal's numbers; it poses the failure and the goal gives the target.
 - A good pattern is a pick that introduces a primitive followed by a tune that fits it to this object. Leave problem null only for a step that is pure explanation, and use that rarely.
 
@@ -51,6 +53,8 @@ An outline of a good lesson for a click ballpoint pen, to show the shape (do not
 - Casing: the barrel that holds it all in line, and the clip.
 
 Before writing, plan silently: the requirements and their order of need, each module's naive build and failure, which primitive answers each sub-problem, and where every kit part is earned. Then write the lesson.`;
+
+const CATALOG_TEXT = catalogText();
 
 function catalogText(): string {
   return PRIMITIVES.map((p) => {
@@ -79,7 +83,7 @@ export type LessonStats = { ms: number; firstChapterMs: number | undefined; cost
  * Puts the title, hook and chapters the reader has already been shown back in front of a rewrite, so
  * the finished lesson never changes what they have played. The rewrite supplies the rest.
  */
-export function keepShown(rewrite: Lesson, header: LessonHeader | undefined, shown: Chapter[]): Lesson {
+function keepShown(rewrite: Lesson, header: LessonHeader | undefined, shown: Chapter[]): Lesson {
   return { ...rewrite, ...header, chapters: [...shown, ...rewrite.chapters.slice(shown.length)] };
 }
 
@@ -92,7 +96,7 @@ export function keepShown(rewrite: Lesson, header: LessonHeader | undefined, sho
  */
 export async function* streamLesson(
   kit: Kit,
-  { brain = LESSON_BRAIN, onStats, ask = streamStructured, resume }: { brain?: Brain; onStats?: (stats: LessonStats) => void; ask?: typeof streamStructured; resume?: Shown } = {},
+  { brain = LESSON_BRAIN, onStats, ask = streamStructured, resume, signal }: { brain?: Brain; onStats?: (stats: LessonStats) => void; ask?: typeof streamStructured; resume?: Shown; signal?: AbortSignal } = {},
 ): AsyncGenerator<LessonEvent> {
   const started = Date.now();
   let firstChapterMs: number | undefined;
@@ -105,9 +109,9 @@ export async function* streamLesson(
     let chaptersOk = true;
     let seen = 0;
     let output: unknown;
-    const text = `Catalogue of primitives:\n${catalogText()}\n\n${kitText(kit)}\n\nWrite the lesson for this ${kit.name}.${feedback}`;
+    const text = `Catalogue of primitives:\n${CATALOG_TEXT}\n\n${kitText(kit)}\n\nWrite the lesson for this ${kit.name}.${feedback}`;
 
-    for await (const event of ask({ system: SYSTEM_PROMPT, schema: lessonJsonSchema, brain, content: [{ type: "text", text }], streamKey: "chapters" })) {
+    for await (const event of ask({ system: SYSTEM_PROMPT, schema: lessonJsonSchema, brain, content: [{ type: "text", text }], streamKey: "chapters", signal })) {
       if (event.type === "result") {
         output = event.output;
         costUsd += event.costUsd;

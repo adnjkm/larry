@@ -12,6 +12,8 @@ type StructuredRequest = {
   content: SDKUserMessage["message"]["content"];
   /** The top-level array whose elements are reported as soon as each one is written. */
   streamKey: string;
+  /** Aborting stops the generation, so a request the client gave up on stops costing. */
+  signal?: AbortSignal;
 };
 
 export type StructuredEvent = ScannedEvent | { type: "result"; output: unknown; costUsd: number };
@@ -20,15 +22,29 @@ export type StructuredEvent = ScannedEvent | { type: "result"; output: unknown; 
  * Asks Claude for JSON matching `schema`, through the Claude Agent SDK (the user's Claude Code login).
  * The header and each array item are yielded once, in order, even when a schema retry writes the output again.
  */
-export async function* streamStructured(request: StructuredRequest): AsyncGenerator<StructuredEvent> {
+export async function* streamStructured(request: StructuredRequest, run: typeof query = query): AsyncGenerator<StructuredEvent> {
+  const abortController = new AbortController();
+  const abort = () => abortController.abort();
+  if (request.signal?.aborted) abort();
+  request.signal?.addEventListener("abort", abort, { once: true });
+  try {
+    yield* scan(request, run, abortController);
+  } finally {
+    request.signal?.removeEventListener("abort", abort);
+    abortController.abort();
+  }
+}
+
+async function* scan(request: StructuredRequest, run: typeof query, abortController: AbortController): AsyncGenerator<StructuredEvent> {
   let scanner = createArrayScanner(request.streamKey);
   let sentHeader = false;
   let sentItems = 0;
   let itemsThisTry = 0;
 
-  for await (const message of query({
+  for await (const message of run({
     prompt: oneMessage(request.content),
     options: {
+      abortController,
       model: request.brain.model,
       effort: request.brain.effort,
       systemPrompt: request.system,

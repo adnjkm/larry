@@ -3,24 +3,28 @@ import { type Context, Hono } from "hono";
 import { stream } from "hono/streaming";
 import { KitError, parseKit } from "../shared/kit.ts";
 import { LessonError, Shown } from "../shared/lesson.ts";
+import { encodeEvent, failedEvent } from "../shared/ndjson.ts";
 import { MAX_PHOTOS } from "../shared/photos.ts";
 import { KIT_BRAIN, type Photo, streamKit } from "./streamKit.ts";
 import { LESSON_BRAIN, streamLesson } from "./streamLesson.ts";
 
 const MEDIA_TYPES = new Set<Photo["mediaType"]>(["image/jpeg", "image/png", "image/webp"]);
 
-/** Streams events as NDJSON. An error after the stream has started becomes a `failed` event. */
-function ndjson(c: Context, events: AsyncGenerator<{ type: string }>, failure: (error: unknown) => string) {
+/** Streams events as NDJSON. An error after the stream has started becomes a `failed` event, and a client that disconnects aborts `events`. */
+function ndjson(c: Context, events: (signal: AbortSignal) => AsyncGenerator<{ type: string }>, failure: (error: unknown) => string) {
   c.header("Content-Type", "application/x-ndjson");
   return stream(c, async (out) => {
+    const disconnected = new AbortController();
+    out.onAbort(() => disconnected.abort());
     try {
-      for await (const event of events) {
+      for await (const event of events(disconnected.signal)) {
         if (out.aborted) break;
-        await out.writeln(JSON.stringify(event));
+        await out.write(encodeEvent(event));
       }
     } catch (error) {
+      if (out.aborted) return;
       console.error(error);
-      await out.writeln(JSON.stringify({ type: "failed", message: failure(error) }));
+      await out.write(encodeEvent(failedEvent(failure(error))));
     }
   });
 }
@@ -37,7 +41,7 @@ const app = new Hono()
       photos.push({ mediaType: file.type as Photo["mediaType"], base64: Buffer.from(await file.arrayBuffer()).toString("base64") });
     }
 
-    const events = streamKit(photos, KIT_BRAIN,(s) => console.log(`kit: first part ${s.firstPartMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}`));
+    const events = (signal: AbortSignal) => streamKit(photos, KIT_BRAIN, (s) => console.log(`kit: first part ${s.firstPartMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}`), signal);
     return ndjson(c, events, (error) => (error instanceof KitError ? "Larry built an inconsistent kit" : "Larry couldn't build this one"));
   })
   .post("/api/lessons", async (c) => {
@@ -51,11 +55,13 @@ const app = new Hono()
     }
     const resume = request.resume === undefined ? undefined : Shown.safeParse(request.resume);
     if (resume && !resume.success) return c.json({ error: "The lesson to continue from is not valid" }, 400);
-    const events = streamLesson(kit, {
-      brain: LESSON_BRAIN,
-      resume: resume?.data,
-      onStats: (s) => console.log(`lesson: first chapter ${s.firstChapterMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}, ${s.attempts} attempt(s)`),
-    });
+    const events = (signal: AbortSignal) =>
+      streamLesson(kit, {
+        brain: LESSON_BRAIN,
+        resume: resume?.data,
+        signal,
+        onStats: (s) => console.log(`lesson: first chapter ${s.firstChapterMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}, ${s.attempts} attempt(s)`),
+      });
     return ndjson(c, events, (error) => (error instanceof LessonError ? "Larry's plan didn't hold together" : "Larry couldn't plan this one"));
   });
 

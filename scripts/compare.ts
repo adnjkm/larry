@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
 import { createServer } from "vite";
+import { READY_VIEWER_SELECTOR, VIEWER_SELECTOR } from "../src/viewport.ts";
 
 const root = resolve(import.meta.dirname, "..");
 const outPath = join(root, "out", "compare.png");
@@ -48,15 +49,15 @@ try {
 
   await page.goto(`${url}?compare`, { waitUntil: "networkidle" });
   await page.waitForFunction(
-    () => {
-      const viewers = [...document.querySelectorAll("[data-kit-viewer]")];
+    ({ viewer, ready }) => {
+      const viewers = document.querySelectorAll(viewer);
       const photos = [...document.images];
-      return viewers.length > 0 && viewers.every((v) => v.hasAttribute("data-ready")) && photos.every((img) => img.complete && img.naturalWidth > 0);
+      return viewers.length > 0 && viewers.length === document.querySelectorAll(ready).length && photos.every((img) => img.complete && img.naturalWidth > 0);
     },
-    undefined,
+    { viewer: VIEWER_SELECTOR, ready: READY_VIEWER_SELECTOR },
     { timeout: READY_TIMEOUT_MS },
   );
-  const count = await page.locator("[data-kit-viewer]").count();
+  const count = await page.locator(VIEWER_SELECTOR).count();
 
   mkdirSync(join(root, "out"), { recursive: true });
   await page.screenshot({ path: outPath, fullPage: true });
