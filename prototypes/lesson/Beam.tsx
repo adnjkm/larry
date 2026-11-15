@@ -12,12 +12,17 @@ export const BEAM_PAD = 10;
 /** CSS px per dither cell: the 1 px dither the rest of the lesson uses. */
 const CELL = 1;
 /**
- * Each lap the beam creeps off and then races once round on easings.dev's In Expo, cubic-bezier(0.95, 0.05, 0.795, 0.035):
- * barely moving at first, fastest as it arrives back at the top. It then rests a beat before the next lap.
+ * One lap of the beam, in ms. It never stops: each lap it cruises slowly, speeds up exponentially into a fast dash
+ * (easings.dev's In Expo feel, cubic-bezier(0.95, 0.05, 0.795, 0.035)), then brakes smoothly back to the same cruise as
+ * the next lap begins. Speed is continuous everywhere, the seam included, so there is no pause and no jump.
  */
-const LAP_MS = 1500;
-const REST_MS = 550;
-/** The lit share of the turn (border-beam's 54% to 78%), shortest at rest and drawn out into a streak at full speed. */
+const LAP_MS = 2100;
+/** The share of the lap spent speeding up; the rest is braking back to cruise. */
+const RISE = 0.72;
+/** Cruising and top speed, relative to each other. */
+const CRUISE = 0.22;
+const TOP = 6;
+/** The lit share of the turn (border-beam's 54% to 78%), shortest while cruising and drawn out into a streak at full speed. */
 const ARC = 0.24;
 const ARC_REST = 0.6;
 const ARC_FAST = 1.7;
@@ -29,32 +34,31 @@ const BLOOM = 8;
 /** Dark to hot: night, indigo, purple, pink, coral, gold. */
 const STOPS = ramp(SYNTHWAVE);
 
-/** A CSS cubic-bezier as a function of progress (0 to 1), solving x for t by bisection then reading y. */
-function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
-  const at = (a: number, b: number, t: number) => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
-  return (p: number) => {
-    if (p <= 0) return 0;
-    if (p >= 1) return 1;
-    let lo = 0,
-      hi = 1;
-    for (let k = 0; k < 24; k++) {
-      const mid = (lo + hi) / 2;
-      if (at(x1, x2, mid) < p) lo = mid;
-      else hi = mid;
-    }
-    return at(y1, y2, (lo + hi) / 2);
-  };
+/** Speed at `u` (0 to 1 through a lap): an exponential rise to TOP, then a smootherstep fall back to CRUISE. */
+function speedAt(u: number) {
+  if (u < RISE) return CRUISE + (TOP - CRUISE) * ((2 ** (10 * (u / RISE)) - 1) / 1023);
+  const k = (u - RISE) / (1 - RISE);
+  return CRUISE + (TOP - CRUISE) * (1 - k * k * k * (k * (6 * k - 15) + 10));
 }
-const IN_EXPO = cubicBezier(0.95, 0.05, 0.795, 0.035);
+
+/** Distance covered through one lap, worked out once: SAMPLES steps of the speed, summed and scaled to one turn. */
+const SAMPLES = 1024;
+const { along, mean } = (() => {
+  const along = new Float64Array(SAMPLES + 1);
+  for (let i = 1; i <= SAMPLES; i++) along[i] = along[i - 1]! + speedAt((i - 0.5) / SAMPLES);
+  const total = along[SAMPLES]!;
+  for (let i = 0; i <= SAMPLES; i++) along[i] = along[i]! / total;
+  return { along, mean: total / SAMPLES };
+})();
 
 /** Where the beam's head is at `t` ms, in turns (it only ever grows, a whole turn a lap), and its speed in turns per lap. */
 function headAt(t: number) {
-  const cycle = LAP_MS + REST_MS;
-  const lap = Math.floor(t / cycle);
-  const into = Math.min(1, (t - lap * cycle) / LAP_MS);
-  const step = 1 / 60;
-  const speed = Math.abs(IN_EXPO(Math.min(1, into + step)) - IN_EXPO(Math.max(0, into - step))) / (2 * step);
-  return { head: lap + IN_EXPO(into), speed };
+  const laps = t / LAP_MS;
+  const lap = Math.floor(laps);
+  const f = (laps - lap) * SAMPLES;
+  const i = Math.min(SAMPLES - 1, Math.floor(f));
+  const into = along[i]! + (along[i + 1]! - along[i]!) * (f - i);
+  return { head: lap + into, speed: speedAt(laps - lap) / mean };
 }
 
 /** For each cell: its turn round the button's centre (0 to 1, clockwise from up) and its distance outside the pill's outline. */
@@ -83,7 +87,7 @@ function paint({ cols, rows, px, ctx, image }: Raster, f: ReturnType<typeof fiel
   const { turn, out } = f;
   const now = headAt(t);
   const head = ((now.head % 1) + 1) % 1;
-  // In Expo ends near five times the lap's average speed; the arc is at its longest from about twice that average.
+  // The dash peaks near four times the lap's average speed; the arc is drawn out longest from about twice that average.
   const arc = ARC * (ARC_REST + (ARC_FAST - ARC_REST) * Math.min(1, now.speed / 2.2));
   const last = STOPS.length - 1;
   px.fill(0);
