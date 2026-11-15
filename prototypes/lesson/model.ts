@@ -22,8 +22,8 @@ export type Values = Readonly<Record<string, number>>;
 
 /** A turn about `axis` through `pivot`, both in the kit's frame before any offset is applied. */
 export type Turn = { axis: Vec; pivot: Vec; deg: number };
-/** How one part sits away from its kit pose: turned in list order, then shifted by `offset`. */
-export type PartMove = { offset?: Vec; turns?: readonly Turn[] };
+/** How one part sits away from its kit pose: turned in list order, then shifted by `offset`. A `shape` is drawn in place of the part's own, for one that changes form (a spring squashed); `offset` then places the new shape. */
+export type PartMove = { offset?: Vec; turns?: readonly Turn[]; shape?: Shape };
 /** One assembly leaving the object: part `id` and every part fixed to it (see familyOf) ride one spring, and `at` is where they sit a `share` of the way out, 0 home and 1 apart. */
 export type Leave = {
   id: string;

@@ -25,7 +25,7 @@ import {
   zoneAt,
 } from "../model.ts";
 import { type Drop, dropsAt } from "../stories/drops.ts";
-import { PEN, PEN_KIT } from "./pen-kit.ts";
+import { PEN, PEN_KIT, springAt } from "./pen-kit.ts";
 
 const BARREL = "barrel";
 const NOSE = "nose";
@@ -80,7 +80,8 @@ const mixPose = (a: Pose, b: Pose, k: number): Pose => ({ out: lerp(a.out, b.out
 /**
  * The pen at a pose. The refill family, the ball and the cam slide down by `out`, the ball sags by `sag`, the
  * plunger goes down by `press`, and then every part rises by however far the ball (or the bare tip with no ball)
- * would sink below the table, so a pen with its tip out stands on its tip.
+ * would sink below the table, so a pen with its tip out stands on its tip. The spring stays on the nose's ledge
+ * and is squashed by `out`, because the refill's collar presses down on its other end.
  */
 function sceneOf({ kit, present }: Ctx, pose: Pose): Scene {
   const lowest = (present.includes(BALL) ? PEN.ballBottom - pose.sag : PEN.tipBottom) - pose.out;
@@ -90,8 +91,9 @@ function sceneOf({ kit, present }: Ctx, pose: Pose): Scene {
   const pushed = new Set(familyOf(kit, PLUNGER));
   const moves: Record<string, PartMove> = {};
   for (const id of present) {
-    const dy = lift - (sliding.has(id) ? pose.out : 0) - (sagging.has(id) ? pose.sag : 0) - (pushed.has(id) ? pose.press : 0);
-    if (dy !== 0) moves[id] = { offset: vec(0, dy, 0) };
+    const squash = id === SPRING ? pose.out / 2 : 0;
+    const dy = lift - squash - (sliding.has(id) ? pose.out : 0) - (sagging.has(id) ? pose.sag : 0) - (pushed.has(id) ? pose.press : 0);
+    if (dy !== 0 || id === SPRING) moves[id] = { offset: vec(0, dy, 0), ...(id === SPRING && { shape: springAt(pose.out) }) };
   }
   return { moves, marks: [] };
 }
@@ -106,7 +108,8 @@ function relative(ctx: Ctx, pose: Pose): Scene {
   const moves: Record<string, PartMove> = {};
   for (const id of new Set([...Object.keys(a.moves), ...Object.keys(b.moves)])) {
     const dy = dyOf(a, id) - dyOf(b, id);
-    if (Math.abs(dy) > 1e-9) moves[id] = { offset: vec(0, dy, 0) };
+    const shape = a.moves[id]?.shape;
+    if (Math.abs(dy) > 1e-9 || shape) moves[id] = { offset: vec(0, dy, 0), ...(shape && { shape }) };
   }
   return { moves, marks: [] };
 }
@@ -131,7 +134,7 @@ const cached = (key: string, make: () => Shape): Shape => {
   shapes.set(key, made);
   return made;
 };
-const stroke = (len: number, depth: number) => cached(`stroke ${len} ${depth}`, () => ({ kind: "box", width: len, height: 1.6, depth, cornerRadius: 0.5 }));
+const stroke = (len: number, depth: number) => cached(`stroke ${len} ${depth}`, () => ({ kind: "box", width: len, height: 3, depth, cornerRadius: 0.8 }));
 const disc = (r: number) =>
   cached(`disc ${r}`, () => ({
     kind: "lathe",
@@ -154,7 +157,9 @@ const bead = (r: number) =>
 
 const { g: G, radius: DROP_R, marks: dropMarks } = dropsAt(0.5);
 
-const REACH = 28;
+const REACH = 40;
+/** The ink lies a little behind the tip so it shows beside the pen's ground shadow, which falls toward the viewer. */
+const INK_Z = -7;
 type Outcome = "inside" | "blot" | "good" | "stuck";
 
 const write: Test = {
@@ -186,11 +191,11 @@ const write: Test = {
         const dx = REACH * along * (1 - seg(ms, go + forward + hold, go + forward + hold + back));
         const laid = Math.round(REACH * along);
         const marks: Mark[] = [];
-        if (outcome === "good" && laid > 0) marks.push({ id: "line", shape: stroke(laid, 3.4), at: vec(laid / 2, 0.8, 0), ride: null });
+        if (outcome === "good" && laid > 0) marks.push({ id: "line", shape: stroke(laid, 8), at: vec(laid / 2, 1.5, INK_Z), ride: null });
         if (outcome === "blot") {
           const r = Math.round(1 + 5.5 * seg(ms, release, release + wet));
-          marks.push({ id: "blot", shape: disc(r), at: vec(0, 0.7, 0), ride: null });
-          if (laid > 0) marks.push({ id: "smear", shape: stroke(laid, 7.5), at: vec(laid / 2, 0.8, 0), ride: null });
+          marks.push({ id: "blot", shape: disc(r), at: vec(0, 0.7, INK_Z), ride: null });
+          if (laid > 0) marks.push({ id: "smear", shape: stroke(laid, 11), at: vec(laid / 2, 1.5, INK_Z), ride: null });
         }
         const live =
           outcome === "inside"
@@ -365,27 +370,32 @@ const stiffness: Control = {
 const pressing: Control = { key: PRESS, verb: "Press", start: 0, zones: () => PRESS_ZONES, pose: (v, ctx) => relative(ctx, pressPose({ [PRESS]: v })) };
 
 /**
- * Coming apart, telescoping up the axis, outside first: the button, the cam, the barrel, then the refill (with the
- * ball) rising out of the nose and the spring under its collar. The refill clears the nose even with its tip out, and
- * stays inside the raised barrel. The spring leaves after the refill because its collar sits above it.
+ * Coming apart, telescoping up the axis, outside first: the button, the barrel, the cam, then the refill (with the
+ * ball) rising out of the nose and the spring under its collar. The refill and the cam stay inside the raised
+ * barrel, which is clear, so the pen opens by little more than the nose's height and still fills the viewer at rest.
+ * The cam leaves before the refill so it lifts off the refill's top, and the spring leaves after it because its
+ * collar sits above.
  */
-const GAP = 5.3;
-const REFILL_LIFT = PEN.noseTop + GAP - PEN.ballBottom + T;
-const SPRING_LIFT = REFILL_LIFT - 1;
-const BARREL_LIFT = Math.max(REFILL_LIFT + (PEN.refillTop - PEN.barrelTop) + 1, PEN.springTop + SPRING_LIFT + GAP - PEN.barrelBottom);
-const CAM_LIFT = BARREL_LIFT + (PEN.barrelTop - PEN.camBottom) + GAP;
-const PLUNGER_LIFT = CAM_LIFT + (PEN.camTop - PEN.stemBottom) + GAP;
+const GAP = 5.4;
+const BALL_LIFT = PEN.noseTop + GAP - PEN.ballBottom;
+/** The ball drops this far out of the tip's socket, so the two read as separate pieces. */
+const BALL_DROP = 6;
+const REFILL_LIFT = BALL_LIFT + BALL_DROP;
+const SPRING_LIFT = REFILL_LIFT - 8;
+const CAM_LIFT = REFILL_LIFT + 2;
+const BARREL_LIFT = Math.max(PEN.springTop + SPRING_LIFT + GAP - PEN.barrelBottom, CAM_LIFT + PEN.camTop - PEN.barrelTop + 1);
+const PLUNGER_LIFT = BARREL_LIFT + (PEN.barrelTop - PEN.stemBottom) + GAP;
 const up =
   (by: number) =>
   (s: number): PartMove => ({ offset: vec(0, by * s, 0) });
 const explode: ExplodePlan = {
   order: [
     { id: PLUNGER, at: up(PLUNGER_LIFT) },
-    { id: CAM, at: up(CAM_LIFT) },
     { id: BARREL, at: up(BARREL_LIFT) },
+    { id: CAM, at: up(CAM_LIFT), sleeved: true },
     { id: REFILL, at: up(REFILL_LIFT), sleeved: true },
     { id: SPRING, at: up(SPRING_LIFT) },
-    { id: BALL, at: up(REFILL_LIFT), sleeved: true },
+    { id: BALL, at: up(BALL_LIFT), sleeved: true },
   ],
 };
 
@@ -493,8 +503,8 @@ export default defineStory({
             right: true,
             line: "Right there. It pushes the tip back up.",
           },
-          { id: "middle", at: vec(0, drawnY(springCtx, REFILL, 62), 0), radius: PEN.springR, line: "Nothing to push against there." },
-          { id: "top", at: vec(0, drawnY(springCtx, REFILL, 100), 0), radius: PEN.springR, line: "Up there it would push the tip out." },
+          { id: "middle", at: vec(0, drawnY(springCtx, REFILL, 80), 0), radius: PEN.springR, line: "Nothing to push against there." },
+          { id: "top", at: vec(0, drawnY(springCtx, REFILL, 130), 0), radius: PEN.springR, line: "Up there it would push the tip out." },
         ],
       },
       produces: [SPRING],
@@ -540,8 +550,8 @@ export default defineStory({
             right: true,
             line: "Right there. The button pushes it each click.",
           },
-          { id: "middle", at: vec(0, drawnY(camCtx, REFILL, 62), 0), radius: PEN.camR, line: "It can't reach the button there." },
-          { id: "tip", at: vec(0, drawnY(camCtx, REFILL, 14), 0), radius: PEN.camR, line: "Ink comes out there. No room." },
+          { id: "middle", at: vec(0, drawnY(camCtx, REFILL, 90), 0), radius: PEN.camR, line: "It can't reach the button there." },
+          { id: "tip", at: vec(0, drawnY(camCtx, REFILL, 12), 0), radius: PEN.camR, line: "Ink comes out there. No room." },
         ],
       },
       produces: [CAM],
