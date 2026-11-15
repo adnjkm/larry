@@ -133,7 +133,7 @@ const cached = (key: string, make: () => Shape): Shape => {
   shapes.set(key, made);
   return made;
 };
-const stroke = (len: number, depth: number) => cached(`stroke ${len} ${depth}`, () => ({ kind: "box", width: len, height: 1.6, depth, cornerRadius: 0.5 }));
+const stroke = (len: number, depth: number) => cached(`stroke ${len} ${depth}`, () => ({ kind: "box", width: len, height: 3, depth, cornerRadius: 0.8 }));
 const disc = (r: number) =>
   cached(`disc ${r}`, () => ({
     kind: "lathe",
@@ -156,7 +156,9 @@ const bead = (r: number) =>
 
 const { g: G, radius: DROP_R, marks: dropMarks } = dropsAt(0.5);
 
-const REACH = 28;
+const REACH = 40;
+/** The ink lies a little behind the tip so it shows beside the pen's ground shadow, which falls toward the viewer. */
+const INK_Z = -7;
 type Outcome = "inside" | "blot" | "good" | "stuck";
 
 const write: Test = {
@@ -188,11 +190,11 @@ const write: Test = {
         const dx = REACH * along * (1 - seg(ms, go + forward + hold, go + forward + hold + back));
         const laid = Math.round(REACH * along);
         const marks: Mark[] = [];
-        if (outcome === "good" && laid > 0) marks.push({ id: "line", shape: stroke(laid, 3.4), at: vec(laid / 2, 0.8, 0), ride: null });
+        if (outcome === "good" && laid > 0) marks.push({ id: "line", shape: stroke(laid, 8), at: vec(laid / 2, 1.5, INK_Z), ride: null });
         if (outcome === "blot") {
           const r = Math.round(1 + 5.5 * seg(ms, release, release + wet));
-          marks.push({ id: "blot", shape: disc(r), at: vec(0, 0.7, 0), ride: null });
-          if (laid > 0) marks.push({ id: "smear", shape: stroke(laid, 7.5), at: vec(laid / 2, 0.8, 0), ride: null });
+          marks.push({ id: "blot", shape: disc(r), at: vec(0, 0.7, INK_Z), ride: null });
+          if (laid > 0) marks.push({ id: "smear", shape: stroke(laid, 11), at: vec(laid / 2, 1.5, INK_Z), ride: null });
         }
         const live =
           outcome === "inside"
