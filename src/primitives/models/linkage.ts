@@ -11,7 +11,7 @@
 // and the crank stalls and shudders there, short of a full turn. Too long leaves a strip unwiped.
 import type { Part } from "../../../shared/kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
-import { frame, phases, say, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, phases, SCENE, whenReaches } from "../motion/run.ts";
 import { bar, DEG, fmt, knob, look, on, pin, plate, post, RAD, shaped, travelArc, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -199,14 +199,13 @@ export function stallAt(rocker: number): number {
 
 function judge(v: Values): Verdict {
   const r = wipe(v);
-  const rock = `A ${r.rocker} mm rocker rocks ${fmt(r.hi)}° − ${fmt(r.lo)}° = ${fmt(r.span)}°`;
   switch (r.kind) {
     case "hits-frame":
-      return { pass: false, outcome: "hits-frame", headline: "Hit the frame", detail: `${rock}: ${fmt(r.past, 1)}° past the stop at ${STOP_LO}°, so the frame stops it and the crank stalls.` };
+      return { pass: false, outcome: "hits-frame", headline: "Hit the frame", detail: "Too long a rocker: it swings into the frame stop and the crank jams." };
     case "leaves-strip":
-      return { pass: false, outcome: "leaves-strip", headline: "Left a strip", detail: `${rock}: down to ${fmt(r.lo, 1)}°, ${fmt(r.gap, 1)}° short of the stop at ${STOP_LO}°; ${TOLERANCE}° is allowed.` };
+      return { pass: false, outcome: "leaves-strip", headline: "Left a strip", detail: "Too short a rocker: it stops swinging before the stop, leaving a strip unwiped." };
     case "pass":
-      return { pass: true, outcome: "wiped-clean", headline: "Wiped it clean", detail: `${rock}: down to ${fmt(r.lo, 1)}°, within ${TOLERANCE}° of the stop at ${STOP_LO}°.` };
+      return { pass: true, outcome: "wiped-clean", headline: "Wiped it clean", detail: "The rocker swings right down to the stop without touching it." };
   }
 }
 
@@ -256,7 +255,7 @@ function play(v: Values): Run {
   };
   const crankAt = (ms: number): number => (tl.at(ms).phase === "rewind" ? c0 + (360 - c0) * smooth(tl.t("rewind", ms)) : 360 - turnedAt(ms));
   const cues: Cue[] = hits ? [{ ms: tl.end("turn"), kind: "thud" }] : [];
-  const end = r.kind === "pass" ? "Wiped it clean" : hits ? `Stalled at ${say(stall)} of 360°` : `Missed a ${fmt(r.gap, 1)}° strip`;
+  const end = r.kind === "pass" ? "Wiped clean" : hits ? "Jammed!" : "Strip missed";
 
   return {
     verdict,
@@ -269,11 +268,11 @@ function play(v: Values): Run {
         case "rewind":
           return frame(values(crank), "Back to the start");
         case "lead":
-          return frame(values(crank), "Turn the crank once");
+          return frame(values(crank), "Crank ready");
         case "turn":
-          return frame(values(crank), `Turn ${Math.round(360 - crank)} of 360°`);
+          return frame(values(crank), "Turning");
         case "stall":
-          return frame(values(crank), `Stalled at ${say(stall)} of 360°`);
+          return frame(values(crank), "Jammed!");
         case "hold":
           return frame(values(crank), end);
       }
@@ -325,10 +324,10 @@ export const linkage: Primitive = {
   },
   game: {
     name: "Wiper",
-    goal: "Sweep the wiper down to the frame stop in one crank turn, without hitting it.",
-    rules: `Turn the crank once. The wiper starts at the top and must sweep down to within ${TOLERANCE}° of the frame stop without hitting it.`,
+    goal: "Sweep the wiper down to the stop without hitting it.",
+    rules: "One turn of the crank swings the wiper. A longer rocker swings less. Too much and it hits the stop; too little and it leaves a strip.",
     number: "rocker",
-    action: "Run one turn",
+    action: "Turn the crank",
     meters,
     judge,
     play,

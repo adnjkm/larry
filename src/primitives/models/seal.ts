@@ -13,7 +13,7 @@
 // the squeeze means: drops escape at the gap, the rubber splits and sprays, or nothing comes out.
 import type { Part } from "../../../shared/kit.ts";
 import { clamp01, fall, smooth } from "../motion/ease.ts";
-import { frame, MARK, phases, say } from "../motion/run.ts";
+import { frame, MARK, phases } from "../motion/run.ts";
 import { COLOR, cylinder, fmt, type Look, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -118,14 +118,13 @@ export function test(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = test(v);
-  const pct = fmt(r.squeeze * 100);
   switch (r.kind) {
     case "weeps":
-      return { pass: false, outcome: "weeping", headline: "The joint weeps", detail: `${pct}% squeeze (${fmt(T0, 1)} to ${fmt(r.t, 1)} mm) is under ${fmt(WEEP * 100)}%, so gaps stay open at ${PRESSURE} kPa.` };
+      return { pass: false, outcome: "weeping", headline: "The joint weeps", detail: "Too loose: gaps stay open, so liquid seeps through." };
     case "splits":
-      return { pass: false, outcome: "rubber-split", headline: "The rubber split", detail: `${pct}% squeeze pushes the rubber ${fmt(r.lip, 1)} mm past the flange; over ${fmt(SPLIT * 100)}% it splits at ${PRESSURE} kPa.` };
+      return { pass: false, outcome: "rubber-split", headline: "The rubber split", detail: "Too tight: the rubber is forced out and splits." };
     case "pass":
-      return { pass: true, outcome: "dry-joint", headline: "Dry joint", detail: `${pct}% squeeze is between ${fmt(WEEP * 100)}% and ${fmt(SPLIT * 100)}%: the gaps shut and the rubber holds ${PRESSURE} kPa.` };
+      return { pass: true, outcome: "dry-joint", headline: "Dry joint", detail: "The gasket fills every gap without splitting, so the joint stays dry." };
   }
 }
 
@@ -166,7 +165,6 @@ function play(v: Values): Run {
   const tl = phases({ lead: LEAD, back: BACK, twist: TWIST, press: PRESS, leak: LEAK, hold: HOLD });
   const weeps = r.kind === "weeps";
   const drops = Math.max(1, s.drops);
-  const pct = say(r.squeeze * 100);
   const cues: Cue[] = [];
   // Nothing happens at the joint until the pressure has reached its full PRESSURE: drops start then, or the rubber lets go.
   const top = tl.start("leak");
@@ -183,26 +181,25 @@ function play(v: Values): Run {
       const { phase } = tl.at(ms);
       switch (phase) {
         case "lead":
-          return frame(values(r.squeeze, DRIP_REST), `Squeeze set to ${pct}%`);
+          return frame(values(r.squeeze, DRIP_REST), "Squeeze set");
         case "back":
           return frame(values(r.squeeze * (1 - smooth(tl.t("back", ms)))), "Backing the lid off");
         case "twist": {
           const q = r.squeeze * smooth(tl.t("twist", ms));
-          return frame(values(q), `Squeeze ${say(q * 100)} of ${pct}%`);
+          return frame(values(q), "Squeezing");
         }
         case "press":
-          return frame(values(r.squeeze), `Pressure ${say(PRESSURE * tl.t("press", ms), 0)} of ${PRESSURE} kPa`);
+          return frame(values(r.squeeze), "Pressure building");
         default: {
           const since = ms - top;
           if (weeps) {
-            const k = Math.floor(since / (DRIP_MS / drops)) + 1;
-            return frame(values(r.squeeze, since / DRIP_MS), phase === "hold" ? `Leaking at ${PRESSURE} kPa` : `Dripping: drop ${k}`);
+            return frame(values(r.squeeze, since / DRIP_MS), phase === "hold" ? "Leaking" : "Dripping");
           }
           if (r.kind === "splits") {
             const u = clamp01(since / SPRAY_MS);
             return frame(values(r.squeeze, DRIP_REST), u < 1 ? "Rubber splits" : "Split and spraying", spray(s.outer, u));
           }
-          return frame(values(r.squeeze, DRIP_REST), phase === "hold" ? "Dry joint" : `Dry at ${PRESSURE} kPa`);
+          return frame(values(r.squeeze, DRIP_REST), phase === "hold" ? "Dry joint" : "Staying dry");
         }
       }
     },
@@ -231,8 +228,8 @@ export const seal: Primitive = {
   },
   game: {
     name: "Pressure test",
-    goal: "Hold 300 kPa without a drip and without splitting the rubber.",
-    rules: `The joint runs at ${PRESSURE} kPa. Squeezed under ${fmt(WEEP * 100)}% the gasket weeps; over ${fmt(SPLIT * 100)}% the rubber is forced out and splits. Set the squeeze.`,
+    goal: "Stop every drip without splitting the rubber.",
+    rules: "Squeeze too little and the gasket leaks. Squeeze too much and the rubber is forced out and splits. Find the middle.",
     number: "squeeze",
     action: "Run the test",
     meters,

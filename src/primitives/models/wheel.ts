@@ -18,7 +18,7 @@
 // 15 N; a big one needs more rim travel than the arm has, so it stops short.
 import type { Part } from "../../../shared/kit.ts";
 import { clamp, fall, rockBack, shudder, smooth } from "../motion/ease.ts";
-import { frame, handArrow, phases, say, SCENE } from "../motion/run.ts";
+import { frame, handArrow, phases, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, cylinder, fmt, knob, loadBlock, loadEdge, look, on, part, PLATE_TOP, plate, post, ring, shaped, strand, tick, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -143,19 +143,19 @@ function judge(v: Values): Verdict {
   const r = winch(v);
   switch (r.kind) {
     case "weak":
-      return { pass: false, outcome: "too-heavy", headline: "Too heavy to turn", detail: `Holding ${LOAD} N takes ${LOAD} × ${fmt(R_EFF, 1)} ÷ ${r.hand} = ${fmt(r.hold, 1)} N at the rim; an arm gives ${ARM} N.` };
+      return { pass: false, outcome: "too-heavy", headline: "Too heavy to turn", detail: "Wheel too small: without a big wheel to turn, one arm cannot pull hard enough." };
     case "short":
-      return { pass: false, outcome: "out-of-reach", headline: "Arm ran out", detail: `Lifting ${LIFT} mm takes ${LIFT} × ${r.hand} ÷ ${fmt(R_EFF, 1)} = ${fmt(r.need)} mm of rim; the arm has ${REACH} mm, so ${fmt(r.canLift, 1)} mm up.` };
+      return { pass: false, outcome: "out-of-reach", headline: "Arm ran out", detail: "Wheel too big: the arm runs out of reach before the bucket gets to the line." };
     case "pass":
-      return { pass: true, outcome: "bucket-lifted", headline: "Bucket lifted", detail: `${fmt(r.hold, 1)} N is within ${ARM} N, and ${fmt(r.need)} mm of rim travel is within the arm's ${REACH} mm.` };
+      return { pass: true, outcome: "bucket-lifted", headline: "Bucket lifted", detail: "The wheel makes the pull easy, and the arm still reaches far enough." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = winch(v);
   return [
-    { label: "Rim pull", value: r.hold, target: ARM, max: 30, unit: "N", need: "atMost", digits: 1 },
-    { label: "Can lift", value: r.canLift, target: LIFT, max: 50, unit: "mm", need: "atLeast", digits: 1 },
+    { label: "Arm effort", value: r.hold, target: ARM, max: 30, unit: "N", need: "atMost", digits: 1 },
+    { label: "Lift room", value: r.canLift, target: LIFT, max: 50, unit: "mm", need: "atLeast", digits: 1 },
   ];
 }
 
@@ -185,7 +185,6 @@ function play(v: Values): Run {
   const cues: Cue[] = r.kind === "short" ? [{ ms: tl.end("haul"), kind: "thud" }, { ms: tl.end("hold") + DROP_MS * 0.95, kind: "thud" }] : r.kind === "pass" ? [{ ms: tl.end("haul"), kind: "click" }] : [{ ms: tl.start("twitch") + 120, kind: "thud" }];
 
   const values = (turn: number): Values => ({ ...v, radius: r.radius, turn });
-  const liftOf = (turn: number) => TAU * R_EFF * turn;
   return {
     verdict,
     durationMs: tl.total,
@@ -202,18 +201,18 @@ function play(v: Values): Run {
       }
       if (phase === "twitch") {
         const turn = (STRAIN_MM / (TAU * r.hand)) * Math.abs(shudder(tl.t("twitch", ms)));
-        return frame(values(turn), `Needs ${say(r.hold)} N, arm gives ${ARM}`);
+        return frame(values(turn), "Too heavy");
       }
       if (phase === "haul") {
         const turn = home + (to - home) * smooth(tl.t("haul", ms));
-        return frame(values(turn), `Bucket up ${say(liftOf(turn))} of ${LIFT} mm`);
+        return frame(values(turn), "Bucket rising");
       }
       if (phase === "hold") {
         const since = ms - tl.start("hold");
         if (r.kind === "weak") return frame(values(0), "Won't turn");
         // The arm is out: the wheel kicks back a little against the arm's stop, then the arm gives up.
         const back = r.kind === "short" && since < REBOUND_MS ? (REBOUND_MM / (TAU * r.hand)) * rockBack(since / REBOUND_MS, 1) : 0;
-        return frame(values(to - back), r.kind === "pass" ? `Bucket up ${say(liftOf(to))} mm, held` : `Short by ${say(LIFT - liftOf(to))} mm`);
+        return frame(values(to - back), r.kind === "pass" ? "Bucket lifted" : "Not high enough");
       }
       if (phase === "drop") return frame(values(to * (1 - fall(tl.t("drop", ms)))), "Letting go");
       return frame(values(to + (home - to) * smooth(tl.t("reset", ms))), "Putting it back");
@@ -277,8 +276,8 @@ export const wheel: Primitive = {
   },
   game: {
     name: "Winch",
-    goal: `Lift the bucket ${LIFT} mm with one arm.`,
-    rules: `The arm pulls ${ARM} N at the rim and travels ${REACH} mm. The bucket weighs ${LOAD} N and must rise ${LIFT} mm.`,
+    goal: "Lift the bucket to the line with one arm.",
+    rules: "A bigger wheel makes your pull stronger, but your arm has to travel further. Find the size that is strong enough and short enough.",
     number: "radius",
     action: "Wind",
     meters,

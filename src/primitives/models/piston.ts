@@ -14,7 +14,7 @@
 // pressure, so it goes past. One number, the area, sets one thing: where the push and the air balance.
 import type { Part } from "../../../shared/kit.ts";
 import { easeOut, smooth } from "../motion/ease.ts";
-import { frame, phases, say, SCENE } from "../motion/run.ts";
+import { frame, phases, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, box, cylinder, fmt, lathe, look, on, part, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
 import { type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -139,22 +139,21 @@ export function stop(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = stop(v);
-  const push = `${HAND} N ÷ ${fmt(r.area * 100)} mm² = ${fmt(r.gauge)} kPa`;
   switch (r.kind) {
     case "short":
-      return { pass: false, outcome: "stopped-short", headline: "Stopped short", detail: `${push} only squeezes the air ${fmt(r.down, 1)} mm; the line is ${MARK} mm, ${TOLERANCE} either way.` };
+      return { pass: false, outcome: "stopped-short", headline: "Stopped short", detail: "Too wide a plunger: your push spreads thin and barely squeezes the air." };
     case "past":
-      return { pass: false, outcome: "went-past", headline: "Went past the line", detail: `${push} squeezes the air ${fmt(r.down, 1)} mm; the line is ${MARK} mm, ${TOLERANCE} either way.` };
+      return { pass: false, outcome: "went-past", headline: "Went past the line", detail: "Too narrow a plunger: your push is concentrated and squeezes the air too far." };
     case "pass":
-      return { pass: true, outcome: "on-the-line", headline: "Stopped on the line", detail: `${push} squeezes the air ${fmt(r.down, 1)} mm: within ${TOLERANCE} mm of the ${MARK} mm line.` };
+      return { pass: true, outcome: "on-the-line", headline: "Stopped on the line", detail: "The trapped air pushes back just enough to stop the plunger on the line." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = stop(v);
   return [
-    { label: "Reaches", value: r.down, target: MARK - TOLERANCE, max: AIR, unit: "mm", need: "atLeast", digits: 1 },
-    { label: "Not past", value: r.down, target: MARK + TOLERANCE, max: AIR, unit: "mm", need: "atMost", digits: 1 },
+    { label: "Reaches line", value: r.down, target: MARK - TOLERANCE, max: AIR, unit: "mm", need: "atLeast", digits: 1 },
+    { label: "Not too far", value: r.down, target: MARK + TOLERANCE, max: AIR, unit: "mm", need: "atMost", digits: 1 },
   ];
 }
 
@@ -171,7 +170,7 @@ function play(v: Values): Run {
   const f0 = v.force ?? 0;
   const tl = phases({ lead: LEAD, push: PUSH, hold: HOLD, release: RELEASE });
   const values = (force: number): Values => ({ ...v, area, force });
-  const word = r.kind === "pass" ? "On the line" : r.kind === "short" ? `Short by ${say(-r.miss)} mm` : `Past the line by ${say(r.miss)} mm`;
+  const word = r.kind === "pass" ? "On the line" : r.kind === "short" ? "Stopped short" : "Past the line";
   return {
     verdict,
     durationMs: tl.total,
@@ -180,11 +179,11 @@ function play(v: Values): Run {
       if (phase === "lead") return frame(values(f0), "Push down");
       if (phase === "push") {
         const force = f0 + (HAND - f0) * smooth(tl.t("push", ms));
-        return frame(values(force), `Push ${say(force)} N, down ${say(downFor(force, area))} mm`);
+        return frame(values(force), "Pushing down");
       }
       if (phase === "hold") return frame(values(HAND), word);
       // Let go: the compressed air pushes the plunger back up, fast first and settling.
-      return frame(values(HAND * (1 - easeOut(tl.t("release", ms)))), "Let go: it springs back");
+      return frame(values(HAND * (1 - easeOut(tl.t("release", ms)))), "Springing back");
     },
   };
 }
@@ -224,7 +223,7 @@ export const piston: Primitive = {
   game: {
     name: "Stop on the line",
     goal: "Push once and stop the plunger on the line.",
-    rules: `You push with ${HAND} N. The air stops the plunger where it pushes back ${HAND} N. Stop the head within ${TOLERANCE} mm of the line, ${MARK} mm down.`,
+    rules: "Trapped air pushes back and stops the plunger. A wider plunger spreads your push thin, so it sinks less. A narrower one sinks more.",
     number: "area",
     action: "Hold to push",
     meters,

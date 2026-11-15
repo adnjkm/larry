@@ -14,7 +14,7 @@
 // simplification, and howItWorks says so.
 import type { Part } from "../../../shared/kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
-import { frame, phases, say, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, phases, SCENE, whenReaches } from "../motion/run.ts";
 import { DEG, fmt, knob, lathe, look, on, part, pivoted, plate, post, RAD, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -189,11 +189,11 @@ function judge(v: Values): Verdict {
   const r = beat(v);
   switch (r.kind) {
     case "jam":
-      return { pass: false, outcome: "cam-jammed", headline: "Cam jammed", detail: `A ${r.lift} mm lift makes a ${fmt(r.angle)}° ramp; past ${LIMIT}° the rod wedges in its guide and the cam stops.` };
+      return { pass: false, outcome: "cam-jammed", headline: "Cam jammed", detail: "Bumps too tall and steep: the rod wedges in its guide and the cam stops." };
     case "silent":
-      return { pass: false, outcome: "bell-silent", headline: "Bell stays silent", detail: `A ${r.lift} mm bump lifts the rod ${r.lift} mm; the bell hangs ${STRIKE} mm up, so nothing rings.` };
+      return { pass: false, outcome: "bell-silent", headline: "Bell stays silent", detail: "Bumps too low: the rod never reaches the bell, so nothing rings." };
     case "pass":
-      return { pass: true, outcome: "bell-rung", headline: "Bell rung", detail: `Each ${r.lift} mm bump clears the bell's ${STRIKE} mm on a ${fmt(r.angle)}° ramp, under ${LIMIT}°: ${r.rings} rings a turn.` };
+      return { pass: true, outcome: "bell-rung", headline: "Bell rung", detail: "Bumps tall enough to hit the bell, gentle enough to keep turning." };
   }
 }
 
@@ -201,7 +201,7 @@ function meters(v: Values): [Meter, Meter] {
   const r = beat(v);
   return [
     { label: "Lift", value: r.lift, target: STRIKE, max: 14, unit: "mm", need: "atLeast" },
-    { label: "Ramp angle", value: r.angle, target: LIMIT, max: 60, unit: "°", need: "atMost" },
+    { label: "Steepness", value: r.angle, target: LIMIT, max: 60, unit: "°", need: "atMost" },
   ];
 }
 
@@ -268,11 +268,11 @@ function play(v: Values): Run {
         case "rewind":
           return frame(values(ms), "Back to the start");
         case "lead":
-          return frame(values(ms), `Bell at ${STRIKE} mm`);
+          return frame(values(ms), "Ready to spin");
         case "spin":
-          return frame(values(ms), tl.t("spin", ms) >= jamU ? "Jammed" : `Rod ${say(rise(v, turn))} mm, rang ${rungSoFar(turn)}`);
+          return frame(values(ms), tl.t("spin", ms) >= jamU ? "Jammed" : rungSoFar(turn) > 0 ? "Ringing" : "Rod rising");
         case "hold":
-          return frame(values(ms), r.kind === "pass" ? `Rang ${r.rings} times` : r.kind === "jam" ? "Cam jammed" : `Reached ${r.lift} of ${STRIKE} mm`);
+          return frame(values(ms), r.kind === "pass" ? "Bell rung" : r.kind === "jam" ? "Cam jammed" : "Missed the bell");
       }
     },
   };
@@ -325,7 +325,7 @@ export const cam: Primitive = {
   game: {
     name: "Ring the bell",
     goal: "Set the lift so the bell rings, then spin the cam once.",
-    rules: `The rod must rise ${STRIKE} mm to ring the bell. A ramp steeper than ${LIMIT}° wedges the rod in its guide and jams the cam.`,
+    rules: "The rod must rise high enough to hit the bell. Taller bumps push higher but are steeper, and too steep jams the cam. Without a cam, nothing times the push.",
     number: "lift",
     action: "Spin",
     meters,

@@ -17,7 +17,7 @@
 // is slow to push the ball back down after each stroke, and until it is down air runs back out of the bag.
 import type { Part } from "../../../shared/kit.ts";
 import { clamp, clamp01, smooth } from "../motion/ease.ts";
-import { frame, MARK, phases, say, SCENE } from "../motion/run.ts";
+import { frame, MARK, phases, SCENE } from "../motion/run.ts";
 import { arrow, box, coilSpring, fmt, lathe, look, on, part, pivoted, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -257,23 +257,21 @@ export function pumpUp(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = pumpUp(v);
-  const pct = fmt(100 * r.share);
-  const late = fmt(r.late);
   switch (r.kind) {
     case "stalls":
-      return { pass: false, outcome: "stalls-short", headline: "Stalled below the mark", detail: `${THUMB} − ${r.open} = ${r.ceiling} kPa is all your thumb gets past the spring; the mark is ${TARGET} kPa.` };
+      return { pass: false, outcome: "stalls-short", headline: "Stalled below the mark", detail: "Too stiff a spring: your thumb cannot push the ball open far enough to fill the bag." };
     case "leaks":
-      return { pass: false, outcome: "leaks-back", headline: "Leaked back each stroke", detail: `Ball reseats ${late} ms late: ${late} ÷ ${TAU} = ${pct}% runs back a stroke; ends at ${fmt(r.final)} of ${TARGET} kPa.` };
+      return { pass: false, outcome: "leaks-back", headline: "Leaked back each stroke", detail: "Too soft a spring: the ball shuts late, so air runs back out of the bag." };
     case "pass":
-      return { pass: true, outcome: "pumped-up", headline: "Pumped to the mark", detail: `${THUMB} − ${r.open} = ${r.ceiling} kPa gets past the spring and ${r.late > 0 ? `${pct}% runs back` : "the ball is down in time"}: ${fmt(r.final)} of ${TARGET} kPa.` };
+      return { pass: true, outcome: "pumped-up", headline: "Pumped to the mark", detail: "The ball opens for your thumb and shuts fast enough to trap the air." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = pumpUp(v);
   return [
-    { label: "Runs back", value: 100 * r.share, target: 100 * LEAK_LIMIT, max: 40, unit: "%", need: "atMost" },
-    { label: "Most it gets", value: r.ceiling, target: TARGET, max: THUMB, unit: "kPa", need: "atLeast" },
+    { label: "Leaks back", value: 100 * r.share, target: 100 * LEAK_LIMIT, max: 40, unit: "%", need: "atMost" },
+    { label: "Reach", value: r.ceiling, target: TARGET, max: THUMB, unit: "kPa", need: "atLeast" },
   ];
 }
 
@@ -336,15 +334,15 @@ function play(v: Values): Run {
     cues,
     at: (ms) => {
       const { phase } = tl.at(ms);
-      if (phase === "lead") return frame(values(p0 * (1 - smooth(tl.t("lead", ms))), 0, 0), `${STROKES} strokes to ${TARGET} kPa`);
+      if (phase === "lead") return frame(values(p0 * (1 - smooth(tl.t("lead", ms))), 0, 0), "Ready to pump");
       if (phase === "hold") {
-        const live = r.kind === "pass" ? `Bag at ${say(r.final)} kPa` : r.kind === "stalls" ? `Stuck at ${say(r.final)} kPa` : `Leaked back to ${say(r.final)} kPa`;
+        const live = r.kind === "pass" ? "Bag full" : r.kind === "stalls" ? "Stuck" : "Leaked back";
         return frame(values(0, r.final, 0), live);
       }
       const into = ms - tl.start("strokes");
       const n = Math.min(STROKES - 1, Math.floor(into / STROKE));
       const k = strokeAt(r, n, into - n * STROKE);
-      const live = r.list[n]!.gain <= 0 ? `Stroke ${n + 1}: ball stays shut` : k.flow < 0 ? `Air running back: ${say(k.bag)} kPa` : `Stroke ${n + 1}: bag ${say(k.bag)} kPa`;
+      const live = r.list[n]!.gain <= 0 ? "Ball stays shut" : k.flow < 0 ? "Air running back" : "Bag filling";
       return frame(values(k.pump, k.bag, k.held), live, k.flow !== 0 ? airDots(k.bag) : []);
     },
   };
@@ -388,8 +386,8 @@ export const valve: Primitive = {
   },
   game: {
     name: "Pump it up",
-    goal: `Pump the bag up to the mark, ${TARGET} kPa, in ${STROKES} strokes.`,
-    rules: `Your thumb makes ${THUMB} kPa. Each stroke pushes in ${STEP} kPa while that beats the bag plus the spring. Air runs back while the ball is late to reseat.`,
+    goal: "Pump the bag up to the mark.",
+    rules: "A stiffer spring shuts the ball faster, so less air leaks back, but your thumb has to push harder to open it.",
     number: "open",
     action: "Pump",
     meters,

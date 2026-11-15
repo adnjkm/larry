@@ -15,7 +15,7 @@
 // nut back down.
 import type { Part } from "../../../shared/kit.ts";
 import { clamp, fall, smooth } from "../motion/ease.ts";
-import { frame, phases, say, SCENE } from "../motion/run.ts";
+import { frame, phases, SCENE } from "../motion/run.ts";
 import { coil, cylinder, DEG, fmt, knob, loadBlock, loadEdge, look, on, part, pivoted, plate, PLATE_TOP, polygon, RAD, v3 } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -116,22 +116,21 @@ export function jack(v: Values) {
 
 function judge(v: Values): Verdict {
   const r = jack(v);
-  const friction = `friction's ${fmt(FRICTION_DEG, 1)}°`;
   switch (r.kind) {
     case "short":
-      return { pass: false, outcome: "ran-out-of-turns", headline: "Ran out of turns", detail: `${MAX_TURNS} turns × ${fmt(r.pitch, 1)} mm = ${fmt(r.reach)} mm, ${fmt(TARGET - r.reach)} mm short of the ${TARGET} mm mark.` };
+      return { pass: false, outcome: "ran-out-of-turns", headline: "Ran out of turns", detail: "Threads too close together: you run out of turns before the weight reaches the mark." };
     case "spins":
-      return { pass: false, outcome: "spun-back", headline: "Spun back down", detail: `Lead angle ${fmt(r.lead, 1)}° is over ${friction}, so the ${LOAD_N} N weight drives the nut back down.` };
+      return { pass: false, outcome: "spun-back", headline: "Spun back down", detail: "Threads too steep: friction cannot hold, so the weight spins the nut back down." };
     case "pass":
-      return { pass: true, outcome: "held-at-mark", headline: "Held at the mark", detail: `${MAX_TURNS} turns × ${fmt(r.pitch, 1)} mm = ${fmt(r.reach)} mm clears ${TARGET}; lead ${fmt(r.lead, 1)}° is under ${friction}.` };
+      return { pass: true, outcome: "held-at-mark", headline: "Held at the mark", detail: "Threads reach the mark and are gentle enough that friction holds the weight." };
   }
 }
 
 function meters(v: Values): [Meter, Meter] {
   const r = jack(v);
   return [
-    { label: "Lead angle", value: r.lead, target: FRICTION_DEG, max: 9, unit: "°", need: "atMost", digits: 1 },
-    { label: "Reach", value: r.reach, target: TARGET, max: 40, unit: "mm", need: "atLeast" },
+    { label: "Steepness", value: r.lead, target: FRICTION_DEG, max: 9, unit: "°", need: "atMost", digits: 1 },
+    { label: "Lift", value: r.reach, target: TARGET, max: 40, unit: "mm", need: "atLeast" },
   ];
 }
 
@@ -156,7 +155,6 @@ function play(v: Values): Run {
   const cues: Cue[] = [];
   if (r.kind === "pass") cues.push({ ms: tl.end("twist"), kind: "thud" });
   if (r.kind === "spins") cues.push({ ms: tl.end("twist"), kind: "thud" }, { ms: tl.start("spin"), kind: "slip" }, { ms: tl.end("spin"), kind: "thud" });
-  const riseOf = (turns: number) => say(turns * r.pitch);
   return {
     verdict,
     durationMs: tl.total,
@@ -170,17 +168,17 @@ function play(v: Values): Run {
           return frame(values(0), "Twist the handle");
         case "twist": {
           const turns = r.wound * smooth(tl.t("twist", ms));
-          return frame(values(turns), `Turn ${say(turns)}, up ${riseOf(turns)} mm`);
+          return frame(values(turns), "Lifting");
         }
         case "atEnd":
-          return frame(values(r.wound), r.kind === "short" ? `Out of turns: ${riseOf(r.wound)} mm` : "Weight at the mark");
+          return frame(values(r.wound), r.kind === "short" ? "Out of turns" : "At the mark");
         case "spin": {
           const turns = r.wound * (1 - fall(tl.t("spin", ms)));
-          return frame(values(turns), `Spinning back: ${riseOf(turns)} mm`);
+          return frame(values(turns), "Spinning back");
         }
         case "hold":
-          if (r.kind === "spins") return frame(values(0), `Back down, lead ${fmt(r.lead, 1)}°`);
-          return frame(values(r.wound), r.kind === "short" ? `Short by ${say(TARGET - r.reach)} mm` : `Holds at ${riseOf(r.wound)} mm`);
+          if (r.kind === "spins") return frame(values(0), "Back down");
+          return frame(values(r.wound), r.kind === "short" ? "Too low" : "Holding");
       }
     },
   };
@@ -246,7 +244,7 @@ export const thread: Primitive = {
   game: {
     name: "Jack",
     goal: "Jack the weight up to the mark, then let go: it has to stay there.",
-    rules: `The weight is ${LOAD_N} N and the mark is ${TARGET} mm up. You get ${MAX_TURNS} turns. Friction holds a thread whose lead angle is under ${fmt(FRICTION_DEG, 1)}°.`,
+    rules: "You have a limited number of turns. Closer threads lift less per turn but hold. Steeper threads lift more but slip. Without threads, the weight could not stay up.",
     number: "pitch",
     action: "Let go",
     meters,
