@@ -17,6 +17,7 @@ function put(what: string, from: string, to: string, after?: string) {
 
 // Paths: the copy lives one folder over.
 s = s.replace(/from "\.\/([A-Za-z.]+)"/g, 'from "../lesson/$1"');
+s = s.replace(/import\("\.\/([A-Za-z.]+)"\)/g, 'import("../lesson/$1")');
 
 put(
   "the header",
