@@ -8,7 +8,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { type Frame, type Primitive, type Values, numberSlider, startValues, steps } from "../shared/primitives/types.ts";
-import { launch, root } from "./browser.ts";
+import { launch, ready, root } from "./browser.ts";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => {
@@ -35,7 +35,7 @@ mkdirSync(outDir, { recursive: true });
 
 for (const p of PRIMITIVES.filter((q) => (wanted.length === 0 || wanted.includes(q.id)))) {
   await page.goto(`${url}?stage=${p.id}`, { waitUntil: "networkidle" });
-  await page.waitForSelector("[data-kit-viewer][data-ready]", { timeout: 90_000 });
+  await ready(page);
   await page.addStyleTag({ content: "[data-handle]{display:none!important}" });
   const number = p.game.number;
   const rows: { title: string; cells: { label: string; data: string }[] }[] = [];

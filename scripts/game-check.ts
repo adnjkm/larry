@@ -9,7 +9,7 @@ import type { Page } from "playwright-core";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { verdictText as shown } from "../src/primitives/game/logic.ts";
 import { type Values, numberSlider, startValues, steps } from "../shared/primitives/types.ts";
-import { launch, root } from "./browser.ts";
+import { launch, ready, root } from "./browser.ts";
 
 const id = process.argv[2] ?? "spring";
 const primitive = PRIMITIVES.find((p) => p.id === id) ?? assert.fail(`no primitive ${id}`);
@@ -34,7 +34,7 @@ async function check(page: Page, url: string, tag: string) {
   page.on("pageerror", (e) => errors.push(String(e)));
 
   await page.goto(`${url}?primitives=${id}`, { waitUntil: "networkidle" });
-  await page.waitForSelector("[data-kit-viewer][data-ready]", { timeout: 90_000 });
+  await ready(page);
   await page.waitForTimeout(500);
   assert.equal(await page.locator("[data-game]").count(), 1, "one [data-game]");
   assert.equal(await page.locator("[data-meter]").count(), 2, "two meters");
@@ -45,7 +45,7 @@ async function check(page: Page, url: string, tag: string) {
 
   for (const [name, n] of [["fail", failing!], ["pass", passing!]] as const) {
     await page.reload({ waitUntil: "networkidle" });
-    await page.waitForSelector("[data-kit-viewer][data-ready]", { timeout: 90_000 });
+    await ready(page);
     await page.locator(`[data-slider="${number.id}"] input`).fill(String(n));
     await page.waitForTimeout(400);
     const expected = game.judge(withNumber(n));

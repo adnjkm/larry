@@ -7,7 +7,7 @@
 //   --gpu asks Chromium for the Mac's GPU (ANGLE on Metal) instead of SwiftShader, so the readback is not software rendering.
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import { motionSlider } from "../shared/primitives/types.ts";
-import { launch } from "./browser.ts";
+import { launch, ready } from "./browser.ts";
 
 const gpu = process.argv.includes("--gpu");
 const frames = Number(process.argv.find((a) => a.startsWith("--frames="))?.split("=")[1] ?? 240);
@@ -25,7 +25,7 @@ const rows: string[] = [];
 for (const p of PRIMITIVES.filter((q) => wanted.length === 0 || wanted.includes(q.id))) {
   if (process.argv.includes("--stage-only")) break;
   await page.goto(`${url}?primitives=${p.id}`, { waitUntil: "networkidle" });
-  await page.waitForSelector("[data-kit-viewer][data-ready]", { timeout: 90_000 });
+  await ready(page);
   if (first) {
     first = false;
     const renderer = await page.evaluate(() => {
@@ -72,7 +72,7 @@ type Hook = { __stage: { sweep(): void; stop(): void; play(r: unknown): Promise<
 const stageIds = wanted.length > 0 ? wanted : PRIMITIVES.map((p) => p.id);
 for (const id of stageIds) {
   await page.goto(`${url}?stage=${id}`, { waitUntil: "networkidle" });
-  await page.waitForSelector("[data-kit-viewer][data-ready]", { timeout: 90_000 });
+  await ready(page);
   for (const kind of ["sweep", "run"] as const) {
     const measure = async () => {
       await page.evaluate(() => (window as unknown as Hook).__stageStats.reset());

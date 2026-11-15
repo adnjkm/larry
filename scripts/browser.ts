@@ -3,10 +3,14 @@
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { type Browser, chromium } from "playwright-core";
+import { type Browser, type Page, chromium } from "playwright-core";
 import { type ViteDevServer, createServer } from "vite";
+import { READY_VIEWER_SELECTOR } from "../src/viewport.ts";
 
 export const root = resolve(import.meta.dirname, "..");
+
+/** Waits until a viewer on the page has drawn its first frame. */
+export const ready = (page: Page) => page.waitForSelector(READY_VIEWER_SELECTOR, { timeout: 90_000 });
 
 function findChromium(): string {
   const cache = join(homedir(), "Library", "Caches", "ms-playwright");

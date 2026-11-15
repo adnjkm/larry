@@ -7,7 +7,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { PRIMITIVES } from "../shared/primitives/library.ts";
 import type { Slider } from "../shared/primitives/types.ts";
-import { launch, root } from "./browser.ts";
+import { launch, ready, root } from "./browser.ts";
 
 const FRACTIONS = [0.07, 0.29, 0.5, 0.71, 0.93];
 
@@ -27,7 +27,7 @@ mkdirSync(outDir, { recursive: true });
 
 for (const p of PRIMITIVES.filter((q) => wanted.length === 0 || wanted.includes(q.id))) {
   await page.goto(`${url}?primitives=${p.id}`, { waitUntil: "networkidle" });
-  await page.waitForSelector("[data-kit-viewer][data-ready]", { timeout: 90_000 });
+  await ready(page);
   // Only the figure: no drag ring or buttons the page may lay over it.
   await page.addStyleTag({ content: "[data-kit-viewer] [data-handle], [data-kit-viewer] button { display: none !important; }" });
   const rows: { label: string; data: string }[][] = [];
