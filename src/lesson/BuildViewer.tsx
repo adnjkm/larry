@@ -2,10 +2,11 @@ import { memo, useMemo } from "react";
 import type { Kit, Part } from "../../shared/kit.ts";
 import { type KitBounds, measureParts } from "../../shared/bounds.ts";
 import { KitViewer } from "../kit3d/KitViewer.tsx";
+import { colors } from "../tokens.stylex.ts";
 import { VIEWPORT_GRAIN, VIEWPORT_HEIGHT } from "../viewport.ts";
 
 /** Same shape, drawn by the dither shader as screen-door transparency. */
-const ghost = (part: Part): Part => ({ ...part, color: "#d9d9d9", finish: "clear" });
+const ghost = (part: Part): Part => ({ ...part, color: colors.ghost, finish: "clear" });
 
 const boundsByKit = new WeakMap<Kit, KitBounds>();
 
