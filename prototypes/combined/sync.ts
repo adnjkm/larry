@@ -30,16 +30,10 @@ put(
   "the imports",
   `import { Actions, Plain, Say, Shell, type Step } from "../lesson/ui.tsx";`,
   `import { Actions, Need, Plain, Say, Shell, type Step, Why } from "../lesson/ui.tsx";
-import type { MechanismExtras, PlusCourse } from "./pen-plus.ts";`,
+import type { PlusCourse } from "./pen-plus.ts";`,
 );
 put("the player's name", "export function CourseFlow({", "export function CoursePlusFlow({");
 put("the course type", "  course: Course;\n  kit: Kit;", "  course: PlusCourse;\n  kit: Kit;");
-put(
-  "the mechanism's extras",
-  "  const name = course.mechanisms[mechanism]!.name;",
-  `  const name = course.mechanisms[mechanism]!.name;
-  const extras = course.mechanismExtras[course.mechanisms[mechanism]!.id];`,
-);
 put(
   "the primitive screen's Why",
   `        <PrimitiveScreen key={at} primitive={primitive(screen.id)} onBack={back} onDone={next} mechanism={{ name, key: mechanism }} steps={steps} />`,
@@ -47,15 +41,16 @@ put(
           <PrimitiveScreen primitive={primitive(screen.id)} onBack={back} onDone={next} mechanism={{ name, key: mechanism }} steps={steps} />
         </WhyOver>`,
 );
-put("the works screen's extras", "onNext={screen.last ? onRestart : next} />", "onNext={screen.last ? onRestart : next} extras={extras} />");
+// His player draws no slider screen any more; the combined one draws the story's final, its own copy below.
 put(
-  "the final's extras",
-  "onValues={setValues} onNext={onRestart} />",
-  "onValues={setValues} onNext={onRestart} final={course.final} />",
-  "else body = <Final",
+  "the final's screen",
+  "    else body = null;",
+  `    else if (screen.kind === "final")
+      body = <Final key={at} {...bench} {...page} screen={screen} values={values} onValues={setValues} onNext={onRestart} final={course.final} />;
+    else body = null;`,
 );
 
-// The page: a requirement line over the question, and a Why or Hint key beside it.
+// The page: a requirement line over the question, and a Why key beside it.
 put(
   "the page's props",
   "  children,\n}: PageProps & {",
@@ -65,7 +60,7 @@ put(
 }: PageProps & {
   /** The story's requirement line over the question, Met once the screen is done. */
   need?: string;
-  /** The story's Why (or Hint) key beside the question. */
+  /** The story's Why key beside the question. */
   why?: ReactNode;
 `,
 );
@@ -76,114 +71,7 @@ put(
 );
 put("the page's Why key", "<Say kicker={FORMAT[kind]} note={note}>", "<Say kicker={FORMAT[kind]} note={note} why={why}>");
 
-// The hard problem: its requirement and its Hint key, which counts the failed tries.
-put("the works signature", `screen: Of<"works"> }) {`, `screen: Of<"works">; extras?: MechanismExtras }) {`, "function Works(");
-put(
-  "the works props",
-  "function Works({ story, kit, screen, values, onValues, ...page }",
-  "function Works({ story, kit, screen, values, onValues, extras, ...page }",
-);
-put(
-  "the works failures",
-  "  const done = tests.every((t) => results[t.id]?.pass);\n",
-  "  const done = tests.every((t) => results[t.id]?.pass);\n  const [fails, setFails] = useState(0);\n",
-  "function Works(",
-);
-put(
-  "the works page",
-  `next={screen.last ? "Start Over" : "Continue"}`,
-  `next={screen.last ? "Start Over" : "Continue"}
-      need={extras?.need}
-      why={extras ? <HintSheet title={page.name} hints={done ? [] : extras.hints} fails={fails} why={extras.why} /> : undefined}`,
-  "function Works(",
-);
-put(
-  "the works result",
-  "          setResults(all);\n",
-  "          setResults(all);\n          if (!verdict.pass) setFails((n) => n + 1);\n",
-  "function Works(",
-);
-
-// The final: its Why, and the payoff once it works.
-put(
-  "the final props",
-  "function Final({ story, kit, screen, values, onValues, ...page }",
-  "function Final({ story, kit, screen, values, onValues, final, ...page }",
-);
-put("the final signature", `screen: Of<"final"> }) {`, `screen: Of<"final">; final: PlusCourse["final"] }) {`, "function Final(");
-put(
-  "the final page",
-  `next="Start Over">`,
-  `next="Start Over"
-      why={
-        <Why title={final.title}>
-          {final.why.map((line, i) => (
-            <p key={line} className={i === 0 ? "sheet-lead" : undefined}>
-              {line}
-            </p>
-          ))}
-        </Why>
-      }
-    >`,
-  "function Final(",
-);
-put(
-  "the final payoff",
-  "    </Page>\n  );\n}",
-  `      {/* The story's payoff: once the whole pen works, what each part of it does. */}
-      {done ? (
-        <ul className="payoff" data-payoff>
-          {final.payoff.map((p) => (
-            <li key={p.part}>
-              <b>{p.part}</b> {p.job}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </Page>
-  );
-}`,
-  "function Final(",
-);
-
 s += `
-/**
- * The story's Why for a hard problem: while it is unsolved it is a Hint key, whose sheet gives one hint per failed try
- * (or the next one on asking), with the mechanism's Why under them; solved, it is the Why alone.
- */
-function HintSheet({ title, hints, fails, why }: { title: string; hints: readonly string[]; fails: number; why: readonly string[] }) {
-  const [ahead, setAhead] = useState(0);
-  const hinting = hints.length > 0;
-  const shown = Math.min(Math.max(fails, ahead), hints.length);
-  return (
-    <Why label={hinting ? "Hint" : "Why?"} title={title}>
-      {hinting ? (
-        <div className="hints" data-guide-hints>
-          {shown === 0 ? <p>Try it first and watch what happens.</p> : null}
-          {hints.slice(0, shown).map((h, i) => (
-            <p key={h} className="hintline" data-hint={i + 1} data-latest={i === shown - 1 ? "" : undefined}>
-              <b>•</b>
-              <span>{h}</span>
-            </p>
-          ))}
-          {shown < hints.length ? (
-            <button type="button" className="link" data-next-hint onClick={() => setAhead(shown + 1)}>
-              Next hint
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-      <div data-why-text>
-        {why.map((line, i) => (
-          <p key={line} className={i === 0 && !hinting ? "sheet-lead" : undefined}>
-            {line}
-          </p>
-        ))}
-      </div>
-    </Why>
-  );
-}
-
 /**
  * A primitive screen is Aiden's template, drawn whole by PrimitiveScreen; the story's Why key is laid over it, at the
  * right of the row that names the primitive, so his screen needs no change. Its sheet says what the primitive is and
@@ -225,6 +113,71 @@ function WhyOver({ id, course, children }: { id: string; course: PlusCourse; chi
         </div>
       ) : null}
     </div>
+  );
+}
+`;
+
+s += `
+type Tuned = { values: Values; onValues: (next: Values) => void };
+
+/**
+ * The story's final: the whole pen with the click in hand, its requirement over it, and every test to pass; then what
+ * each part does. Its own copy, since his player no longer draws slider screens; the screen starts with the pen's dials
+ * right (pen-plus.ts), so the click is all that is left.
+ */
+function Final({ story, kit, screen, values, onValues, final, ...page }: Bench & PageProps & Tuned & { screen: Of<"final">; final: PlusCourse["final"] }) {
+  const { present } = useParts(story, kit, screen.after);
+  const [last, setLast] = useState<Verdict>();
+  const [done, setDone] = useState(false);
+  return (
+    <Page
+      kind="final"
+      {...page}
+      say={screen.say}
+      done={done}
+      line={done ? screen.success : last?.line}
+      bad={!done}
+      next="Start Over"
+      need={final.need}
+      why={
+        <Why title={final.title}>
+          {final.why.map((line, i) => (
+            <p key={line} className={i === 0 ? "sheet-lead" : undefined}>
+              {line}
+            </p>
+          ))}
+        </Why>
+      }
+    >
+      <Rig
+        story={story}
+        kit={kit}
+        present={present}
+        pink={NONE}
+        frame={screen.frame}
+        controls={[screen.control]}
+        values={values}
+        onValues={(v) => {
+          setLast(undefined);
+          onValues(v);
+        }}
+        tests={screen.tests}
+        onResult={(_, verdict, all) => {
+          setLast(verdict);
+          if (screen.tests.every((t) => all[t.id]?.pass)) setDone(true);
+        }}
+      />
+      {/* The story's payoff: once the whole pen works, what each part of it does. */}
+      {done ? (
+        <ul className="payoff" data-payoff>
+          {final.payoff.map((p) => (
+            <li key={p.part}>
+              <b>{p.part}</b> {p.job}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </Page>
   );
 }
 `;
