@@ -96,9 +96,14 @@ export const thumbwheel = definePrimitive({
         // Smoothed, so one jittery move doesn't decide the throw.
         context.store.set({ velocity: hitEnd ? 0 : context.store.get().velocity * 0.5 + (moved / dt) * 0.5 });
       },
-      release() {
+      /** Lets go. `glide` false stops it dead, for a release heard late, when the speed it holds is stale. */
+      release(glide = true) {
         if (!context.store.get().dragging) return;
         context.store.set({ dragging: false });
+        if (!glide) {
+          context.store.set({ velocity: 0 });
+          return;
+        }
         let last = performance.now();
         const step = (now: number) => {
           const dt = now - last;
@@ -143,12 +148,20 @@ export const thumbwheel = definePrimitive({
           event.preventDefault();
         },
         pointerdown: (event, { api, el }) => {
+          // The main button only: a right click opens a menu, and its release never comes back here.
+          if (event.button !== 0) return;
           el?.setPointerCapture(event.pointerId);
           api.grab(event.clientX, event.timeStamp);
         },
-        pointermove: (event, { api }) => api.drag(event.clientX, event.timeStamp),
+        pointermove: (event, { api }) => {
+          // A move with no button held means the release went somewhere else (off the window, or the grab was lost).
+          // Let go here, or the wheel would jump to the pointer and follow it with nothing pressed.
+          if ((event.buttons & 1) === 0) api.release(false);
+          else api.drag(event.clientX, event.timeStamp);
+        },
         pointerup: (_event, { api }) => api.release(),
         pointercancel: (_event, { api }) => api.release(),
+        lostpointercapture: (_event, { api }) => api.release(false),
       },
     }),
   }),
