@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@ui-sdk/react/button";
-import { type RefObject, useEffect, useEffectEvent, useLayoutEffect, useReducer, useRef } from "react";
+import { type ReactNode, type RefObject, useEffect, useEffectEvent, useLayoutEffect, useReducer, useRef, useState } from "react";
 import type { Kit } from "../../shared/kit.ts";
 import type { Lesson } from "../../shared/lesson.ts";
 import { Chevron } from "../ui/Chevron.tsx";
@@ -42,9 +42,13 @@ export function LessonPlayer({ kit, arrived, stalled, onRestart }: { kit: Kit; a
   const [state, dispatch] = useReducer(reduce, arrived, startLesson);
   const finished = isFinished(state);
 
+  // The reducer starts from `arrived`, so only a later change is folded in.
+  const folded = useRef(arrived);
   useEffect(() => {
+    if (folded.current.chapters === arrived.chapters && folded.current.done === arrived.done) return;
+    folded.current = arrived;
     dispatch({ type: "grow", arrived: { chapters: arrived.chapters, done: arrived.done } });
-  }, [arrived.chapters, arrived.done]);
+  }, [arrived]);
 
   // Steps push in from the side they are in: forward from the right, back from the left.
   const previousAt = useRef(state.at);
@@ -129,10 +133,8 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
           {step.title}
         </h2>
 
-        <div key={showBuild ? "build" : "figure"} data-stage={showBuild ? "build" : "figure"} {...stylex.props(styles.stage)}>
-          {showBuild || !primitive ? (
-            <BuildViewer kit={kit} earned={earned} />
-          ) : (
+        <Stage kit={kit} earned={earned} showBuild={showBuild}>
+          {primitive && (
             <PrimitiveFigure
               key={step.id}
               primitive={primitive}
@@ -144,7 +146,7 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
               introduce={flat.introduces && step.problem?.type !== "pick"}
             />
           )}
-        </div>
+        </Stage>
 
         <GlowCard data-story>
           {step.story.map((p) => (
@@ -176,6 +178,26 @@ function StepScreen({ kit, earned, state, dispatch, enterFrom }: { kit: Kit; ear
               {last ? "Finish" : "Next"}
             </Button>
           )}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The build viewer stays mounted once shown, hidden while a figure has the stage, so its WebGL context survives the swap. */
+function Stage({ kit, earned, showBuild, children }: { kit: Kit; earned: ReadonlySet<string>; showBuild: boolean; children: ReactNode }) {
+  const [built, setBuilt] = useState(showBuild);
+  if (showBuild && !built) setBuilt(true);
+  return (
+    <>
+      {built && (
+        <div hidden={!showBuild} data-stage="build" {...stylex.props(styles.stage)}>
+          <BuildViewer kit={kit} earned={earned} />
+        </div>
+      )}
+      {!showBuild && (
+        <div data-stage="figure" {...stylex.props(styles.stage)}>
+          {children}
         </div>
       )}
     </>
