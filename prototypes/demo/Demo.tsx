@@ -9,11 +9,16 @@ import { StoryFlow } from "../lesson/Story.tsx";
 import type { Course } from "../lesson/course.ts";
 import { CourseFlow } from "../lesson/Course.tsx";
 import penCourse from "../lesson/lessons/pen-course.ts";
+import { CoursePlusFlow } from "../combined/CoursePlus.tsx";
+import penPlus from "../combined/pen-plus.ts";
 import { TEMPLATE_CSS } from "../primitives/template.css.ts";
 import CameraMock, { type PhoneScreen } from "../../src/mock/CameraMock.tsx";
 
 // Set by prototypes/demo/vite.config.ts from LARRY_DEMO.
 declare const __DEMO_OBJECT__: string;
+/** "plus" plays the combined lesson (prototypes/combined) in place of the object's own. */
+declare const __DEMO_VARIANT__: string;
+const PLUS = __DEMO_VARIANT__ === "plus";
 
 const SAMPLE = SAMPLES.find((s) => s.id === __DEMO_OBJECT__)!;
 const LESSON = lessonFor(SAMPLE.kit, SAMPLE.id);
@@ -21,7 +26,7 @@ if (LESSON.kind !== "story") throw new Error(`the ${__DEMO_OBJECT__} lesson shou
 const STORY = LESSON;
 /** An object with a mechanism lesson plays that; the others keep their story. */
 const COURSES: Readonly<Record<string, Course>> = { pen: penCourse };
-const COURSE = COURSES[__DEMO_OBJECT__];
+const COURSE = PLUS ? penPlus : COURSES[__DEMO_OBJECT__];
 
 /**
  * The lesson's stylesheets, scoped to the lesson so their element rules (box-sizing, button fonts) never reach the
@@ -79,7 +84,17 @@ function Lesson({ screen, onCamera, shown }: { screen: PhoneScreen; onCamera: ()
   }, [screen.width]);
   return (
     <div className="demo-lesson" ref={box} data-arriving={arriving ? "" : undefined}>
-      {COURSE ? (
+      {PLUS ? (
+        <CoursePlusFlow
+          key={run}
+          course={penPlus}
+          kit={SAMPLE.kit}
+          photo={SAMPLE.photo}
+          onHome={onCamera}
+          onRestart={() => setRun((r) => r + 1)}
+          waiting={!shown}
+        />
+      ) : COURSE ? (
         <CourseFlow key={run} course={COURSE} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} waiting={!shown} />
       ) : (
         <StoryFlow key={run} story={STORY} kit={SAMPLE.kit} photo={SAMPLE.photo} onHome={onCamera} onRestart={() => setRun((r) => r + 1)} />
@@ -99,7 +114,14 @@ export function Demo() {
     <>
       <style>{LESSON_CSS}</style>
       <style>{DEMO_CSS}</style>
-      <CameraMock object={__DEMO_OBJECT__} after={(props) => <Lesson {...props} />} dials={TUNING} compare={TUNING} mechanisms={COURSE?.mechanisms.length} kit={COURSE?.reveal ?? COURSE?.story.kit} />
+      <CameraMock
+        object={__DEMO_OBJECT__}
+        after={(props) => <Lesson {...props} />}
+        dials={TUNING}
+        compare={TUNING}
+        mechanisms={COURSE?.mechanisms.length}
+        kit={COURSE?.reveal ?? COURSE?.story.kit}
+      />
     </>
   );
 }

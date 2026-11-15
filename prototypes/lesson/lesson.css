@@ -339,3 +339,8 @@ html, body { height: 100%; }
   .tab { min-height: 30px; }
   .viewer { min-height: 124px; }
 }
+
+/* The combined lesson (prototypes/combined): the story's Why key laid over a primitive screen, at the right of the row
+   that names the primitive. Only the key takes the pointer, so the screen under it works as before. */
+.why-over { position: relative; height: 100%; }
+.why-over-key { position: absolute; right: 16px; z-index: 2; }

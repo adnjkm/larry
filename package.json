@@ -11,6 +11,7 @@
     "dev:server": "node --watch --env-file-if-exists=.env server/index.ts",
     "demo": "vite --config prototypes/demo/vite.config.ts",
     "demo:pen": "LARRY_DEMO=pen vite --config prototypes/demo/vite.config.ts",
+    "demo:pen-plus": "LARRY_DEMO=pen-plus vite --config prototypes/demo/vite.config.ts",
     "build": "vite build",
     "typecheck": "tsrs --noEmit",
     "test": "node --test",
