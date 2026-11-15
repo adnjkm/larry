@@ -18,7 +18,7 @@
 import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases, SCENE, whenReaches } from "../motion/run.ts";
-import { arrow, box, coilSpring, fmt, lathe, look, on, part, pivoted, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
+import { arrow, box, coilSpring, COLOR, fmt, lathe, look, on, part, pivoted, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
 import { type Cue, type Meter, type Motion, type Primitive, type Run, type Task, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
 
@@ -128,7 +128,7 @@ export function settle(v: Values) {
     springLength: SHOULDER - foot,
     solid: lift >= spring.liftMax - 1e-9,
     push: (pressure * SEAT_AREA) / 1000,
-    plunger: PLUNGER_X0 + PLUNGER_MM_PER_KPA * pressure,
+    plunger: PLUNGER_X0 + PLUNGER_MM_PER_KPA * (v.reach ?? 1) * pressure,
     bagR: BAG_R0 + BAG_MM_PER_KPA * clamp(bag, 0, THUMB),
   };
 }
@@ -538,31 +538,102 @@ function springArrow(v: Values): Part[] {
   });
 }
 
-// ---- Free play's goal: pump a bag up to a mark, one press of the Pump button a stroke -------------------------------------
+// ---- Free play's goal: pump a bag up to the green, one press of the Pump button a stroke ---------------------------------
+//
+// Pink dots are the air, everywhere in the cut-open rig: crowded between plunger and ball as the thumb pushes, streaming
+// past a lifted ball and up the neck into the bag, and streaming back down past a ball that is slow to shut. The thumb's
+// push here is a weaker one than the game's, so that some springs can beat it and some cannot. The relations are the
+// game's: the ball lifts while the pump beats the bag plus the opening pressure, the bag fills until the pump can no
+// longer beat it plus the spring, and a soft spring reseats late, so air runs back until the ball is down.
 
-/** The Pump button's stroke is the game's, slowed this many times so the ball, the air and the leak can be followed. */
+/** The task's thumb push, kPa: against the 20 to 160 opening range, a stiff spring is not even lifted by it. */
+export const TASK_PUSH = 100;
+/** Each stroke adds this much pressure to the bag, if the push can beat the bag plus the spring; the bag is full at the most. */
+export const TASK_STEP = 4;
+export const TASK_TARGET = 12;
+const BAG_MAX = 16;
+/** The task's bag swells this much per kPa, so each stroke is several mm of radius. */
+const BAG_MM_PER_KPA_T = 0.8;
+/** The plunger goes in this many times as far per kPa as the game's, so the stroke is easy to see. */
+const REACH = 2.4;
+/** The leak: a ball that is down late lets this share of the bag's air run back per ms of lateness. */
+const TAU_T = 100;
+/** One stroke, in the game's ms: push in, hold, let go, and time for a late ball to settle. Played SLOW times slower. */
+const IN_MS = 140;
+const HOLD_T = 20;
+const OUT_MS = 140;
+const STROKE_G = IN_MS + HOLD_T + OUT_MS + 90;
 export const SLOW = 3;
 const IDLE = -1;
 
-/** The stroke the thumb makes `t` ms (game time) in, from a bag at `from` kPa: what the game's six strokes do, one at a time. */
-function strokeFrom(v: Values, from: number) {
-  const r = pumpUp(v);
-  const gain = clamp(r.ceiling - from, 0, STEP);
+const bagRadius = (kPa: number) => BAG_R0 + BAG_MM_PER_KPA_T * clamp(kPa, 0, BAG_MAX);
+const TARGET_R = bagRadius(TASK_TARGET);
+
+/** How long, in the game's ms, a ball is still up after the pump has dropped below the bag: its slowness less the fall's own head start. */
+const lateT = (open: number) => Math.max(0, springFor(open).reseat - (open * OUT_MS) / TASK_PUSH);
+const shareT = (open: number) => Math.min(0.9, lateT(open) / TAU_T);
+
+/** The outcome of a run of strokes, decided from the opening pressure: what the bag ends at after six, and why it falls short. */
+export function taskRun(v: Values) {
+  const open = valueOf(OPEN, v);
+  const ceiling = clamp(TASK_PUSH - open, 0, BAG_MAX);
+  const share = shareT(open);
+  let q = 0;
+  for (let n = 0; n < STROKES; n++) {
+    const gain = clamp(ceiling - q, 0, TASK_STEP);
+    const after = q + gain;
+    q = after >= ceiling - 1e-9 ? after : after * (1 - share);
+  }
+  const kind: Kind = q >= TASK_TARGET - 1e-9 ? "pass" : TASK_PUSH - open < TASK_TARGET ? "stalls" : "leaks";
+  return { kind, open, ceiling, share, final: q };
+}
+
+/** One stroke `t` game-ms in, from a bag at `from` kPa: the pump, the pressure the ball answers to, the bag, and the way air moves. */
+export function taskStroke(v: Values, from: number, t: number) {
+  const open = valueOf(OPEN, v);
+  const { reseat } = springFor(open);
+  const ceiling = clamp(TASK_PUSH - open, 0, BAG_MAX);
+  const share = shareT(open);
+  const gain = clamp(ceiling - from, 0, TASK_STEP);
   const after = from + gain;
-  const full = after >= r.ceiling - 1e-9;
-  const lost = full ? 0 : r.share * after;
-  return { r: { ...r, list: [{ from, gain, after, lost, full }] }, gain, after, lost };
+  const full = after >= ceiling - 1e-9;
+  const lost = full ? 0 : share * after;
+  const let_go = IN_MS + HOLD_T;
+  const pump = t < IN_MS ? TASK_PUSH * smooth(t / IN_MS) : TASK_PUSH * (1 - clamp01((t - let_go) / OUT_MS));
+  // The ball answers to the pump's fall reseat ms late.
+  const held = t < let_go ? pump : TASK_PUSH * (1 - clamp01((t - let_go - reseat) / OUT_MS));
+  // Air goes in while the pump beats the bag plus the spring (the ball is up): from where the pump's rise passes that, to where its fall does.
+  const lead = from + open;
+  const trail = after + open;
+  let opens = Infinity;
+  let closes = Infinity;
+  if (gain > 0) {
+    for (let g = 0; g <= STROKE_G; g++) {
+      const p = g < IN_MS ? TASK_PUSH * smooth(g / IN_MS) : g < let_go ? TASK_PUSH : TASK_PUSH * (1 - clamp01((g - let_go) / OUT_MS));
+      if (opens === Infinity && p > lead) opens = g;
+      if (opens !== Infinity && g >= let_go && p <= trail) {
+        closes = g;
+        break;
+      }
+    }
+  }
+  if (t < closes && t >= opens) return { pump, held, bag: from + gain * smooth((t - opens) / (closes - opens)), flow: 1, gain, after, lost };
+  if (t < let_go && t < opens) return { pump, held, bag: from, flow: 0, gain, after, lost };
+  // Air runs back from when the pump drops below the bag until the ball is down.
+  const below = let_go + OUT_MS * (1 - after / TASK_PUSH);
+  const late = lateT(open);
+  const back = lost > 0 ? clamp(t - below, 0, late) : 0;
+  return { pump, held, bag: after * (1 - back / TAU_T), flow: back > 0 && back < late ? -1 : 0, gain, after, lost };
 }
 
 /**
- * The pump, `dtMs` on from `v`. Pressing Pump sets `push`; the thumb then makes one stroke from there, the game's own
- * (same push, same spring, same reseat time, same leak), and the bag keeps what it ends with. The opening pressure is read
- * afresh each frame. `reached` records a stroke that left a passing spring's bag at the mark: the goal. `stuck` is a
- * stroke that added nothing, `leaked` one that lost air: what the hints go on.
+ * The pump, `dtMs` on from `v`. Pressing Pump sets `push`; the thumb then makes one stroke from there, and the bag keeps
+ * what it ends with. The opening pressure is read afresh each frame. `reached` records a stroke that left a passing
+ * spring's bag at the green: the goal. `stuck` is a stroke that added nothing, `leaked` one that lost air: what the
+ * hints go on. `ph` is how far the air has streamed along its path.
  */
 function pumping(v: Values, ms: number, dtMs: number): Values {
-  void dtMs;
-  const out: Values = { ...v, push: 0 };
+  const out: Values = { ...v, push: 0, clock: ms, reach: REACH };
   let at = v.at ?? IDLE;
   let from = v.from ?? 0;
   if ((v.push ?? 0) > 0 && at < 0) {
@@ -571,34 +642,137 @@ function pumping(v: Values, ms: number, dtMs: number): Values {
   }
   if (at < 0) return { ...out, at: IDLE, pressure: 0, held: 0, flow: 0 };
   const t = (ms - at) / SLOW;
-  const k = strokeFrom(v, from);
-  if (t < STROKE) {
-    const s = strokeAt(k.r, 0, t);
-    return { ...out, at, from, pressure: s.pump, held: s.held, flow: s.flow, bag: s.bag };
+  if (t < STROKE_G) {
+    const s = taskStroke(v, from, t);
+    return { ...out, at, from, pressure: s.pump, held: s.held, flow: s.flow, bag: s.bag, ph: ((v.ph ?? 0) + (s.flow * dtMs) / STREAM_MS + 1) % 1 };
   }
-  const bag = k.after - k.lost;
-  const reached = pumpUp(v).kind === "pass" && bag >= TARGET - 1e-6 ? 1 : 0;
-  return { ...out, at: IDLE, from, pressure: 0, held: 0, flow: 0, bag, reached, stuck: k.gain <= 0 ? 1 : 0, leaked: k.lost > 1e-9 ? 1 : 0 };
+  const s = taskStroke(v, from, STROKE_G);
+  const reached = taskRun(v).kind === "pass" && s.bag >= TASK_TARGET - 1e-6 ? 1 : 0;
+  return { ...out, at: IDLE, from, pressure: 0, held: 0, flow: 0, bag: s.bag, reached, stuck: s.gain <= 0 ? 1 : 0, leaked: s.lost > 1e-9 ? 1 : 0 };
 }
 
-/** The bag being filled (the game's, under a scene id), the mark beside it, and the air in the neck while it moves. */
+// The air. Positions are deterministic from the dot's number, so the same state always draws the same cloud.
+const rnd = (i: number, k: number) => {
+  const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+const AIR_R = 1.3;
+const airShapes = new Map<number, ReturnType<typeof lathe>["shape"]>();
+const airShape = (r: number) => {
+  const key = Math.round(r * 10);
+  let shape = airShapes.get(key);
+  if (!shape) {
+    shape = lathe(
+      Array.from({ length: 9 }, (_, i): Pt => {
+        const a = ((i / 8) * 180 - 90) * DEG_TO_RAD;
+        return [r * Math.cos(a), r * Math.sin(a)];
+      }),
+    ).shape;
+    airShapes.set(key, shape);
+  }
+  return shape;
+};
+const air = (id: string, x: number, y: number, r = AIR_R) => part(`${MARK}air-${id}`, "Air", "A puff of air: where the air is, and where it goes.", airShape(r), v3(VX + x, y), look.focus, on("body-left", "glue"));
+
+/** How long the stream takes to go from the barrel to the bag, ms. */
+const STREAM_MS = 800;
+const N_BARREL = 18;
+const N_STREAM = 7;
+const N_BAG = 12;
+const GAP_X = BALL_R + 1.8;
+/** The air's path from under the seat, through the hole, round the ball, through the shoulder and neck, into the bag. */
+const lane = (bagY: number): Pt[] => [
+  [0, ROOF - 5],
+  [-3, ROOF + 1.5],
+  [-6.5, SEAT_Y + 1.2],
+  [-GAP_X, SEAT_Y + 5],
+  [-GAP_X, SHOULDER - 3],
+  [-4, SHOULDER],
+  [0, SHOULDER + WALL + 4],
+  [0, bagY],
+];
+function along(path: Pt[], u: number): Pt {
+  const lens = path.slice(1).map((p, i) => Math.hypot(p[0] - path[i]![0], p[1] - path[i]![1]));
+  let d = u * lens.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < lens.length; i++) {
+    if (d <= lens[i]! || i === lens.length - 1) {
+      const k = clamp01(d / lens[i]!);
+      return [path[i]![0] + (path[i + 1]![0] - path[i]![0]) * k, path[i]![1] + (path[i + 1]![1] - path[i]![1]) * k];
+    }
+    d -= lens[i]!;
+  }
+  return path[0]!;
+}
+
+/** The air in the rig at these values: a cloud in the barrel, squeezed by the plunger; a stream while it flows; a cloud in the bag. */
+export function airScene(v: Values): Part[] {
+  const s = settle(v);
+  const clock = (v.clock ?? 0) / 1000;
+  const parts: Part[] = [];
+  // Between the plunger and the ball: the same dots, packed into less room as the plunger comes in.
+  const face = s.plunger + 3.5;
+  const end = BORE - 2;
+  for (let i = 0; i < N_BARREL; i++) {
+    const x = face + 1.5 + rnd(i, 1) * (end - face - 3);
+    const y = FLOOR_TOP + 3 + rnd(i, 2) * (ROOF - FLOOR_TOP - 6) + 0.5 * Math.sin(clock * 2 + i);
+    parts.push(air(`b${i}`, x, y));
+  }
+  // Air above the ball, on the bag's side.
+  for (let i = 0; i < 3; i++) parts.push(air(`t${i}`, GAP_X + 0.3, SEAT_Y + 12 + i * 8 + 0.6 * Math.sin(clock * 2 + i)));
+  const r = bagRadius(v.bag ?? 0);
+  const cy = bagCentre(r);
+  // The stream, only while air is going in or back out.
+  if ((v.flow ?? 0) !== 0) {
+    const path = lane(cy - r * 0.3);
+    for (let i = 0; i < N_STREAM; i++) {
+      const [x, y] = along(path, (((v.ph ?? 0) + i / N_STREAM) % 1 + 1) % 1);
+      parts.push(air(`s${i}`, x, y, AIR_R + 0.4));
+    }
+  }
+  // In the bag: more dots the more air it holds.
+  const n = Math.min(N_BAG, 2 + Math.round((10 * (v.bag ?? 0)) / TASK_TARGET));
+  for (let i = 0; i < n; i++) {
+    const a = rnd(i, 3) * 2 * Math.PI + 0.4 * Math.sin(clock + i);
+    const d = r * 0.7 * Math.sqrt(rnd(i, 4));
+    parts.push(air(`g${i}`, d * Math.cos(a), cy + d * Math.sin(a), AIR_R + 0.2));
+  }
+  return parts;
+}
+
+const ringShape = (R: number) =>
+  lathe(
+    Array.from({ length: 9 }, (_, i): Pt => {
+      const a = (i / 8) * 2 * Math.PI;
+      return [R + 0.6 * Math.cos(a), 0.6 * Math.sin(a)];
+    }),
+  ).shape;
+
+/** The bag, see-through so the air shows inside it, and the green: rings at the size to reach. */
 function bagScene(v: Values): Part[] {
-  const bag = build(v).find((p) => p.id === "bag")!;
-  return [...scene(), { ...bag, id: `${SCENE}bag` }, ...((v.flow ?? 0) !== 0 ? airDots(v.bag ?? 0) : [])];
+  const r = bagRadius(v.bag ?? 0);
+  const goal = bagCentre(TARGET_R);
+  return [
+    // Three rings round it, so the bag can be seen swelling inside: a see-through sphere would hide it behind its front face.
+    part(`${SCENE}green-rim`, "Green", "The size the bag has to reach.", ringShape(TARGET_R), v3(VX, goal), look.goal, on("body-left", "glue")),
+    part(`${SCENE}green-rim-2`, "Green", "The size the bag has to reach.", ringShape(TARGET_R), v3(VX, goal), look.goal, on("body-left", "glue"), v3(90, 0, 0)),
+    part(`${SCENE}green-rim-3`, "Green", "The size the bag has to reach.", ringShape(TARGET_R), v3(VX, goal), look.goal, on("body-left", "glue"), v3(0, 0, 90)),
+    part(`${SCENE}bag`, "Bag", "The thing being filled: it swells as the air goes in.", sphere(r), v3(VX, bagCentre(r)), { color: COLOR.structure, finish: "clear" }, on("body-left", "glue")),
+    ...airScene(v),
+  ];
 }
 
-// One goal, with a failure on each side: too stiff and the thumb's push runs out short of the mark, too soft and the air
-// leaks back past a ball that is slow to shut. Pressing Pump is the user's; the hints wait until they have seen it.
+// One goal, with a failure on each side: too stiff and the thumb's push cannot lift the ball, too soft and the air runs
+// back past a ball that is slow to shut. Pressing Pump is the user's; the hints wait until they have seen it.
 const TASKS: Task[] = [
   {
-    goal: "Pump the bag up to the mark.",
-    start: { open: 150, pressure: 0, bag: 0, held: 0, flow: 0, push: 0, at: IDLE, from: 0, reached: 0, stuck: 0, leaked: 0 },
+    goal: "Pump the bag up to the green.",
+    start: { open: 130, pressure: 0, bag: 0, held: 0, flow: 0, push: 0, at: IDLE, from: 0, reached: 0, stuck: 0, leaked: 0, reach: REACH, ph: 0 },
     scene: bagScene,
-    met: (v) => pumpUp(v).kind === "pass" && (v.reached ?? 0) > 0,
+    met: (v) => taskRun(v).kind === "pass" && (v.reached ?? 0) > 0,
     hint: (v) => {
-      const kind = pumpUp(v).kind;
-      if (kind === "stalls" && (v.stuck ?? 0) > 0) return "Too stiff: the push runs out. Make it softer.";
-      if (kind === "leaks" && (v.leaked ?? 0) > 0) return "Too soft, so the air leaks back. Stiffer.";
+      const kind = taskRun(v).kind;
+      if (kind === "stalls" && (v.stuck ?? 0) > 0) return "Too stiff: your push can't lift the ball.";
+      if (kind === "leaks" && (v.leaked ?? 0) > 0) return "Too soft: the air leaks back out.";
       return undefined;
     },
     action: { label: "Pump", set: { push: 1 } },

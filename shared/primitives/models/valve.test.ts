@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, find, numberSweep, sample } from "../checks.ts";
 import { startValues, steps, type Values } from "../types.ts";
-import { BALL_R, LEAK_LIMIT, pumpUp, rig, SEAT_AREA, settle, springFor, STEP, STROKES, strokeAt, TARGET, TAU, THUMB, valve } from "./valve.ts";
+import { BALL_R, LEAK_LIMIT, pumpUp, rig, SEAT_AREA, settle, springFor, STEP, STROKES, strokeAt, TARGET, TASK_PUSH, TASK_STEP, TASK_TARGET, taskRun, TAU, THUMB, valve } from "./valve.ts";
 
 type Pt = [number, number];
 const game = valve.game;
@@ -252,7 +252,8 @@ describe("valve free play's goals", () => {
   const task = valve.play!.tasks![0]!;
   const drive = task.drive!;
   const FRAME = 16;
-  /** Presses Pump `n` times at this opening pressure, letting each stroke finish; returns the state after each, and the furthest the ball lifted. */
+  const ids = (parts: Part[], name: string) => parts.filter((p) => p.name === name);
+  /** Presses Pump `n` times at this opening pressure, each stroke played out frame by frame; the state after each, and the ball's furthest lift. */
   const press = (o: number, n: number) => {
     let v: Values = { ...task.start, open: o };
     let ms = 0;
@@ -270,11 +271,14 @@ describe("valve free play's goals", () => {
     return { v, after, lift };
   };
 
-  it("draws no graph, and has a Pump button: the plunger, ball and bag are seen answering each press", () => {
+  it("draws no graph; has a Pump button; and shows the bag, the green and the air", () => {
     assert.equal(valve.play!.plot, undefined);
     assert.equal(task.action!.label, "Pump");
-    assert.ok(task.scene({ open: 80, bag: 50 }).some((p) => p.name === "Bag"));
-    assert.ok(task.scene({ open: 80, bag: 50 }).some((p) => p.name === "Mark"));
+    const parts = task.scene({ ...task.start, bag: 5 });
+    assert.ok(ids(parts, "Bag").length === 1);
+    assert.ok(ids(parts, "Green").length >= 2);
+    assert.ok(ids(parts, "Air").length > 15, "air in the barrel and the bag, before anything is pressed");
+    assert.ok(task.goal.length <= 46);
   });
 
   it("does nothing until Pump is pressed", () => {
@@ -284,27 +288,36 @@ describe("valve free play's goals", () => {
     assert.equal(v.pressure, 0);
   });
 
-  it("starts too stiff, so the push runs out short of the mark, and shows no hint before a press", () => {
+  it("starts too stiff, and shows no hint before a press", () => {
     assert.equal(task.met({ ...task.start }), false);
-    assert.equal(pumpUp({ ...task.start }).kind, "stalls");
+    assert.equal(taskRun({ ...task.start }).kind, "stalls");
     assert.equal(task.hint!({ ...task.start }), undefined);
   });
 
-  it("is met exactly by the springs whose presses bring the bag to the mark, and only after the presses", () => {
-    for (const o of steps(open)) {
-      const w = press(o, STROKES);
-      assert.equal(task.met(w.v), pumpUp({ open: o }).kind === "pass", `open ${o}: the bag stands at ${w.v.bag!.toFixed(1)}`);
-      assert.equal(task.met({ ...task.start, open: o }), false, `open ${o}: nothing pumped yet`);
-    }
-    assert.ok(steps(open).filter((o) => pumpUp({ open: o }).kind === "pass").length >= 5);
+  it("has a real middle window with a failure on each side", () => {
+    const kinds = steps(open).map((o) => taskRun({ open: o }).kind);
+    assert.equal(kinds[0], "leaks");
+    assert.equal(kinds[kinds.length - 1], "stalls");
+    assert.ok(kinds.filter((k) => k === "pass").length >= 5);
+    assert.deepEqual(kinds, [...kinds].sort((a, b) => ["leaks", "pass", "stalls"].indexOf(a) - ["leaks", "pass", "stalls"].indexOf(b)));
+    assert.ok(TASK_PUSH > open.min && TASK_PUSH < open.max, "some springs can beat the thumb, some cannot");
   });
 
-  it("one press, one stroke: the plunger goes in and comes back, the ball lifts, the bag gains one step in a window spring", () => {
+  it("is met exactly by the springs whose strokes bring the bag to the green, and only after pressing", () => {
+    for (const o of steps(open)) {
+      const w = press(o, STROKES);
+      assert.equal(task.met(w.v), taskRun({ open: o }).kind === "pass", `open ${o}: the bag stands at ${w.v.bag!.toFixed(1)}`);
+      assert.equal(task.met({ ...task.start, open: o }), false, `open ${o}: nothing pumped yet`);
+      assert.equal(w.v.bag! >= TASK_TARGET - 1e-6, task.met(w.v), `open ${o}`);
+    }
+  });
+
+  it("one press, one stroke: the plunger goes in and comes back, the ball lifts, the bag gains one step", () => {
     const w = press(80, 1);
-    assert.ok(w.lift > 1, `lifted ${w.lift}`);
+    assert.ok(w.lift > 0.5, `lifted ${w.lift}`);
     assert.equal(w.v.pressure, 0, "the plunger is back out");
-    assert.ok(Math.abs(w.v.bag! - STEP) < 1e-6, `the bag has ${w.v.bag}`);
-    assert.ok(Math.abs(press(80, 3).v.bag! - 3 * STEP) < 1e-6);
+    assert.ok(Math.abs(w.v.bag! - TASK_STEP) < 1e-6, `the bag has ${w.v.bag}`);
+    assert.ok(Math.abs(press(80, 3).v.bag! - 3 * TASK_STEP) < 1e-6);
   });
 
   it("a press while the stroke is on is ignored", () => {
@@ -315,38 +328,77 @@ describe("valve free play's goals", () => {
     assert.equal(v.at, at);
   });
 
-  it("a stiff spring stalls: the bag stops at the push's ceiling and the ball stops lifting, and it says so", () => {
-    const w = press(150, 8);
-    assert.ok(Math.abs(w.v.bag! - (THUMB - 150)) < 1e-6);
-    assert.equal(task.met(w.v), false);
-    assert.match(task.hint!(w.v)!, /softer/);
-    assert.equal(task.hint!(w.after[0]!), undefined, "the first press has not shown the stall yet");
-    const lastLift = (() => {
-      let v: Values = { ...w.v, push: 1 };
-      let lift = 0;
-      for (let t = 0; t < 2400; t += FRAME) {
-        v = drive(v, 100000 + t, FRAME);
-        lift = Math.max(lift, settle(v).lift);
-      }
-      return lift;
-    })();
-    assert.ok(lastLift < 1e-6, `the ball lifted ${lastLift} on a stalled press`);
+  it("the bag rises and swells several mm per stroke", () => {
+    const radius = (bag: number) => {
+      const b = task.scene({ ...task.start, bag }).find((p) => p.name === "Bag")!;
+      return b.position.y;
+    };
+    assert.ok(radius(TASK_STEP) - radius(0) > 2);
   });
 
-  it("a soft spring leaks: the bag drops back after each stroke, ends short of the mark, and it says so", () => {
+  it("too stiff: the thumb's push cannot lift the ball at all, the bag stays empty, and it says so after the press", () => {
+    const w = press(130, 1);
+    assert.equal(w.lift, 0, "the ball does not move");
+    assert.equal(w.v.bag, 0);
+    assert.match(task.hint!(w.v)!, /can't lift the ball/);
+    assert.equal(task.hint!({ ...task.start }), undefined);
+    // The plunger still goes in: the air in the barrel is squeezed.
+    let v: Values = { ...task.start, push: 1 };
+    let deepest = 0;
+    let crowded = Infinity;
+    for (let t = 0; t < 1300; t += FRAME) {
+      v = drive({ ...v, push: t === 0 ? 1 : 0 }, t, FRAME);
+      deepest = Math.max(deepest, settle(v).plunger);
+      const xs = task.scene(v).filter((p) => p.id.includes("air-b")).map((p) => p.position.x);
+      crowded = Math.min(crowded, Math.max(...xs) - Math.min(...xs));
+    }
+    const rest = task.scene({ ...task.start }).filter((p) => p.id.includes("air-b")).map((p) => p.position.x);
+    assert.ok(deepest > settle({ pressure: 0 }).plunger + 15, "the plunger goes well in");
+    assert.ok(crowded < Math.max(...rest) - Math.min(...rest) - 8, "the barrel's air crowds up");
+  });
+
+  it("a stiff spring a push can only just lift stalls the bag short of the green", () => {
+    const w = press(95, 8);
+    assert.ok(Math.abs(w.v.bag! - (TASK_PUSH - 95)) < 1e-6);
+    assert.equal(task.met(w.v), false);
+    assert.match(task.hint!(w.v)!, /stiff/);
+  });
+
+  it("in the window: air streams past the lifted ball into the bag, and the ball is back down at the end", () => {
+    let v: Values = { ...task.start, open: 70, push: 1 };
+    let streamed = 0;
+    let back = 0;
+    for (let t = 0; t < 1300; t += FRAME) {
+      v = drive({ ...v, push: t === 0 ? 1 : 0 }, t, FRAME);
+      if (v.flow === 1) streamed++;
+      if (v.flow === -1) back++;
+      if (v.flow !== 0) assert.equal(ids(task.scene(v), "Air").filter((p) => p.id.includes("air-s")).length, 7);
+    }
+    assert.ok(streamed > 5);
+    assert.equal(back, 0, "no air runs back");
+    assert.equal(settle(v).lift, 0);
+    assert.equal(ids(task.scene(v), "Air").filter((p) => p.id.includes("air-s")).length, 0, "no stream at rest");
+  });
+
+  it("too soft: the ball is slow to shut and air streams back, so the bag shrinks after the stroke and ends short", () => {
     let v: Values = { ...task.start, open: 30, push: 1 };
     let peak = 0;
-    let ms = 0;
-    do {
-      v = drive(v, ms, FRAME);
-      ms += FRAME;
+    let back = 0;
+    let liftWhileBack = 0;
+    for (let t = 0; t < 1300; t += FRAME) {
+      v = drive({ ...v, push: t === 0 ? 1 : 0 }, t, FRAME);
       peak = Math.max(peak, v.bag!);
-      v = { ...v, push: 0 };
-    } while ((v.at ?? -1) >= 0);
-    assert.ok(v.bag! < peak - 1, `peak ${peak}, after ${v.bag}`);
-    assert.match(task.hint!(v)!, /leaks/);
+      if (v.flow === -1) {
+        back++;
+        liftWhileBack = Math.max(liftWhileBack, settle(v).lift);
+      }
+    }
+    assert.ok(back > 3, "streams back");
+    assert.ok(liftWhileBack > 0, "through a ball that is still up");
+    assert.ok(v.bag! < peak * 0.8, `peak ${peak}, after ${v.bag}`);
+    assert.match(task.hint!(v)!, /leaks back/);
     const w = press(30, 20);
-    assert.ok(w.v.bag! < TARGET);
+    assert.ok(w.v.bag! < TASK_TARGET);
     assert.equal(task.met(w.v), false);
   });
 
@@ -354,17 +406,11 @@ describe("valve free play's goals", () => {
     for (const o of steps(open)) {
       const w = press(o, 8);
       const hint = task.hint!(w.v);
-      const kind = pumpUp({ open: o }).kind;
+      const kind = taskRun({ open: o }).kind;
       assert.equal(hint === undefined, kind === "pass", `open ${o}`);
-      if (kind === "stalls") assert.match(hint!, /softer/);
-      if (kind === "leaks") assert.match(hint!, /Stiffer/);
-      assert.ok(task.goal.length <= 46 && (hint ?? "").length <= 46);
+      if (kind === "stalls") assert.match(hint!, /stiff/);
+      if (kind === "leaks") assert.match(hint!, /soft/);
+      assert.ok((hint ?? "").length <= 46);
     }
-  });
-
-  it("draws the air going through the neck only while it moves", () => {
-    const air = (flow: number) => task.scene({ open: 80, bag: 60, flow }).filter((p) => p.name === "Air").length;
-    assert.equal(air(0), 0);
-    assert.ok(air(1) > 0);
   });
 });
