@@ -31,15 +31,6 @@ export const meterMet = (m: Meter): boolean => (m.need === "atLeast" ? m.value >
 /** Where along the bar (0 to 1) a quantity sits. */
 export const meterFraction = (value: number, max: number): number => (max > 0 ? clamp01(value / max) : 0);
 
-/** "<value> of <target> <unit>", the same decimal places for both. */
-export const meterText = (m: Meter, value = m.value): string => {
-  const d = m.digits ?? 0;
-  return `${value.toFixed(d)} of ${m.target.toFixed(d)} ${m.unit}`.trim();
-};
-
-/** The longest the meter's text can be (value at the bar's right-hand end), in characters, so its column never changes width mid-run. */
-export const meterTextWidth = (m: Meter): number => Math.max(meterText(m).length, meterText(m, m.max).length);
-
 /** The headline as shown: bold, ending in a full stop so the detail after it reads as the next sentence. */
 export const headlineText = (v: Verdict): string => (/[.!?…]$/.test(v.headline) ? v.headline : `${v.headline}.`);
 /** Everything the verdict line says, as plain text. */

@@ -11,7 +11,7 @@
  *          unset to drive the figure only through the controller.
  * height   CSS px, default 270. The width is the container's.
  *
- * DOM: the root has data-kit-viewer, data-ready once first drawn, data-grain (device px per dither pixel). The handle is
+ * DOM: the root matches VIEWER_SELECTOR and gets data-ready once first drawn (src/viewport.ts), data-grain (device px per dither pixel). The handle is
  * [data-handle] with role="slider"; arrow keys, Page Up/Down, Home and End move it when focused.
  */
 import * as stylex from "@stylexjs/stylex";
