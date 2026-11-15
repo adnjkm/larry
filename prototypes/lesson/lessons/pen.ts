@@ -411,17 +411,16 @@ const push: Test = {
   label: "Push",
   run: (_, ctx) => {
     const sprung = has(ctx, SPRING);
-    const from = restPose(ctx);
     const up: Pose = { out: 0, press: 0, sag: 0 };
     const down: Pose = { out: T, press: T, sag: 0 };
     const verdict = sprung ? { pass: true, line: "Pushed down, it comes straight back up." } : { pass: false, line: "Pushed down, it stays down. Nothing pushes it back." };
-    // A tip already hanging out is first lifted back to where a push starts.
-    const [ready, d, hold, u, tail] = [from.out === 0 ? 0 : 450, 650, 450, 650, 600];
+    // Every run starts from up, held still for a beat: an animated lift back up would look like a spring at work.
+    const [ready, d, hold, u, tail] = [350, 650, 450, 650, 900];
     return {
       verdict,
       durationMs: ready + d + hold + u + tail,
       at: (ms) => {
-        if (ms < ready) return frame(ctx, mixPose(from, up, seg(ms, 0, ready)), "Ready…");
+        if (ms < ready) return frame(ctx, up, "");
         if (ms < ready + d + hold) return frame(ctx, mixPose(up, down, seg(ms, ready, ready + d)), "Pushing down…");
         const k = seg(ms, ready + d + hold, ready + d + hold + u);
         return frame(ctx, sprung ? mixPose(down, up, k) : down, sprung ? (k < 1 ? "Letting go…" : "Back up") : "Stays down");

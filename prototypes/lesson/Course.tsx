@@ -9,6 +9,7 @@ import { MatchRow } from "./MatchRow.tsx";
 import { Place } from "./Place.tsx";
 import { Rig } from "./Rig.tsx";
 import { Advance } from "./Tip.tsx";
+import { Turn } from "./Turn.tsx";
 import { Actions, Plain, Say, Shell, type Step } from "./ui.tsx";
 import { Mechanism, PrimitiveScreen } from "../primitives/PrimitiveScreen.tsx";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
@@ -104,7 +105,24 @@ export function CourseFlow({
         <PrimitiveScreen key={at} primitive={primitive(screen.id)} onBack={back} onDone={next} mechanism={{ name, key: mechanism }} steps={steps} />
       </Plain.Provider>
     );
-  if (screen.kind === "place")
+  if (screen.kind === "place" && screen.turn)
+    body = (
+      <Turn
+        key={at}
+        say={screen.say ?? ""}
+        options={screen.turn}
+        tip={screen.tip}
+        next={screen.last ? "Start Over" : "Continue"}
+        onNext={screen.last ? onRestart : next}
+        header={
+          <>
+            <Mechanism name={name} step={mechanism} />
+            {screen.does ? <Needs lines={[screen.does, ...(screen.also ?? [])]} /> : null}
+          </>
+        }
+      />
+    );
+  else if (screen.kind === "place")
     body = (
       <Place
         key={at}

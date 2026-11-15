@@ -6,6 +6,7 @@
 import type { Kit } from "../../shared/kit.ts";
 import type { Control, Frame, Story, Test, Values } from "./model.ts";
 import type { Trial } from "./Place.tsx";
+import type { TurnOption } from "./Turn.tsx";
 
 /**
  * A bench screen shows the object with every part built up to and including story module `after` (-1: none yet),
@@ -44,7 +45,11 @@ export type Screen =
    * A piece dragged onto the object. With `does` it is shown as answering that sub-function: the sub-function sits in
    * the pink card, `say` tells the player what to drag, and `trial` plays after every drop to show whether it now holds.
    */
-  | { kind: "place"; module: number; does?: string; /** Further sub-functions the piece answers, listed under the first. */ also?: readonly string[]; say?: string; trial?: Trial; /** What the Tip pill explains. */ tip?: readonly string[]; /** The lesson's last screen. */ last?: boolean; /** Parts not on the object yet, though an earlier module of the story makes them. */ absent?: readonly string[] }
+  | { kind: "place"; module: number; does?: string; /** Further sub-functions the piece answers, listed under the first. */ also?: readonly string[]; say?: string; trial?: Trial; /** What the Tip pill explains. */ tip?: readonly string[]; /** The lesson's last screen. */ last?: boolean; /**
+       * For a part whose job is in how it turns, not where it sits (the cam): the step is played on the cam primitive's
+       * own figure instead, its rod standing for the part it moves, and these are the choices of how far one click
+       * turns it. It is a field here, not a screen kind of its own, because prototypes/combined switches over every kind.
+       */ turn?: readonly TurnOption[]; /** Parts not on the object yet, though an earlier module of the story makes them. */ absent?: readonly string[] }
   /** How much? Set the primitive's number so the sub-function is met: every test passes. */
   | { kind: "much"; after: number; frame?: Frame; does: string; need: string; control: Control; tests: readonly Test[]; set?: Values }
   /** What broke? A behaviour plays at `fault`; pick the primitive responsible, then fix it with `control`. */

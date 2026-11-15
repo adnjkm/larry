@@ -1,6 +1,7 @@
-// The click pen as a mechanism lesson: the ball tip, then retraction. Each mechanism runs the same way, and tests each
-// thing once: a preview of it working, its primitives, one connecting problem (which primitive does which sub-function),
-// its pieces dragged onto the pen (where each goes), then one hard problem (how much of each: every dial at once).
+// The click pen as a mechanism lesson: retraction, then the ball tip. Each mechanism runs the same way: a preview of it
+// working, its primitives, then its assemble section. That section always opens with the connecting problem (drag each
+// primitive to the sub-function it does) and then has two or three assemble steps, fewer when in doubt, each testing
+// one sub-function or several: a piece dragged to where it belongs, or a part set turning, with its test as the answer.
 // The sub-functions and their sentences come from the mechanism library's two entries (ball-tip, click-latch); this
 // file binds them to the pen's model.
 import { ballTip } from "../../../shared/mechanisms/entries/ball-tip.ts";
@@ -55,7 +56,8 @@ const tip = mechanismOf(ballTip, "Ball tip", ({ facts, needs, match, primitives 
   {
     kind: "place",
     module: BALL,
-    does: facts("roll").does,
+    does: facts("close").does,
+    also: [facts("roll").does],
     say: "Drag the ball where it belongs.",
     trial: { test: tests.write, fail: { [keys.squeeze]: 0 }, pass: { [keys.squeeze]: SNUG } },
     tip: ["The ball can only roll if it touches the paper.", "It also has to sit where the ink reaches it from behind."],
@@ -76,21 +78,19 @@ const click = mechanismOf(clickLatch, "Retraction", ({ facts, needs, match, prim
     tip: ["A spring only pushes back while it is squeezed between two things.", "Look for a ledge it can sit on, and a collar that comes down on it when the tip goes out."],
     absent: NO_BALL,
   },
-  // The cam ring is what holds the tip out and what frees it: each click turns it a step, and its steps differ.
+  // The cam's job is in how it turns, so its assemble step is the cam itself: the rod on its rim is the pen's tip.
   {
     kind: "place",
     module: LATCH,
     does: facts("hold").does,
     also: [facts("take-turns").does],
-    say: "Drag the cam where it belongs.",
-    trial: { test: tests.clickTwice, fail: {}, pass: {} },
-    tip: [
-      "The cam you turned lifts by a different amount at each point of its turn.",
-      "In the pen, every click turns the cam ring one step.",
-      "On one step its high side props the tip out. On the next, its low side lets the spring bring the tip back.",
-      "It has to sit where the button's push can reach it.",
+    say: "The rod is the pen's tip. Drag on how far each click turns the cam.",
+    turn: [
+      { id: "half", label: "½ Turn", turns: 0.5 },
+      { id: "quarter", label: "¼ Turn", turns: 0.25 },
+      { id: "whole", label: "Full Turn", turns: 1 },
     ],
-    absent: NO_BALL,
+    tip: ["The cam pushes the rod up only while a bump is under it.", "This cam has two bumps, opposite each other.", "A click that lands on a bump leaves the tip out. The next click has to land between bumps."],
   },
 ]);
 

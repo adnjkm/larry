@@ -58,6 +58,19 @@ html, body { height: 100%; }
 .tip-card p { margin: 0; font-size: 16px; line-height: 22px; font-weight: 500; color: var(--ink); text-wrap: pretty; }
 @keyframes tip-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
 @media (prefers-reduced-motion: reduce) { .tip-card { animation-name: demo-fade; } }
+/* The turning assemble step: the primitive's figure in a frame, and raised pills to drag onto it. */
+.turn-figure { position: relative; flex: 1 1 0; min-height: 200px; display: grid; align-items: center; border-radius: 16px; overflow: hidden; box-shadow: 0 0 0 1px var(--rule) inset; transition: box-shadow 150ms ease-out; }
+.turn-figure[data-over] { box-shadow: 0 0 0 2px var(--pink) inset; }
+.turn-figure > [data-kit-viewer], .turn-figure > :first-child { pointer-events: none; }
+.turn-tray { flex: none; display: flex; justify-content: center; gap: 10px; padding: 6px 0 2px; }
+.turn-chip { position: relative; isolation: isolate; flex: none; width: 104px; height: 44px; padding: 0; border: 0; background: none; display: grid; place-items: center; color: var(--ink); font: inherit; font-size: 15px; font-weight: 600; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; transition: transform 220ms var(--ease-out), opacity 150ms ease-out; }
+.turn-chip > canvas { position: absolute; inset: 0; }
+.turn-chip > span { position: relative; z-index: 1; pointer-events: none; }
+.turn-chip[data-dragging] { transition: none; z-index: 5; cursor: grabbing; }
+.turn-chip[data-tried] { opacity: 0.4; }
+.turn-chip:disabled { cursor: default; }
+.turn-chip[data-picked] > span { color: var(--pink); }
+@media (prefers-reduced-motion: reduce) { .turn-chip { transition: none; } }
 /* Replay Test: a ghost pill in the frame's bottom right corner. */
 .replay { position: absolute; right: 10px; bottom: 10px; z-index: 3; height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.86); box-shadow: 0 0 0 1.5px var(--rule) inset; color: var(--ink); font: inherit; font-size: 13px; line-height: 32px; font-weight: 600; cursor: pointer; transition: transform 160ms var(--ease-out), opacity 150ms ease-out; }
 .replay:active:not(:disabled) { transform: scale(0.97); }
