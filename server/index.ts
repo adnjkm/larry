@@ -5,8 +5,8 @@ import { KitError, parseKit } from "../shared/kit.ts";
 import { LessonError, Shown } from "../shared/lesson.ts";
 import { encodeEvent, failedEvent } from "../shared/ndjson.ts";
 import { MAX_PHOTOS } from "../shared/photos.ts";
-import { KIT_BRAIN, type Photo, streamKit } from "./streamKit.ts";
-import { LESSON_BRAIN, streamLesson } from "./streamLesson.ts";
+import { type Photo, streamKit } from "./streamKit.ts";
+import { streamLesson } from "./streamLesson.ts";
 
 const MEDIA_TYPES = new Set<Photo["mediaType"]>(["image/jpeg", "image/png", "image/webp"]);
 
@@ -41,7 +41,7 @@ const app = new Hono()
       photos.push({ mediaType: file.type as Photo["mediaType"], base64: Buffer.from(await file.arrayBuffer()).toString("base64") });
     }
 
-    const events = (signal: AbortSignal) => streamKit(photos, KIT_BRAIN, (s) => console.log(`kit: first part ${s.firstPartMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}`), signal);
+    const events = (signal: AbortSignal) => streamKit(photos, { onStats: (s) => console.log(`kit: first part ${s.firstPartMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}`), signal });
     return ndjson(c, events, (error) => (error instanceof KitError ? "Larry built an inconsistent kit" : "Larry couldn't build this one"));
   })
   .post("/api/lessons", async (c) => {
@@ -57,7 +57,6 @@ const app = new Hono()
     if (resume && !resume.success) return c.json({ error: "The lesson to continue from is not valid" }, 400);
     const events = (signal: AbortSignal) =>
       streamLesson(kit, {
-        brain: LESSON_BRAIN,
         resume: resume?.data,
         signal,
         onStats: (s) => console.log(`lesson: first chapter ${s.firstChapterMs}ms, done ${s.ms}ms, $${s.costUsd.toFixed(3)}, ${s.attempts} attempt(s)`),

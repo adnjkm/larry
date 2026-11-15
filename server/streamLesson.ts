@@ -76,6 +76,9 @@ function kitText(kit: Kit): string {
   return `Object: ${kit.name}. ${kit.summary}\nParts:\n${parts.join("\n")}`;
 }
 
+/** The lesson is written again once with the rules it broke spelled out; the second try is kept whatever it holds. */
+const MAX_ATTEMPTS = 2;
+
 export const LESSON_BRAIN: Brain = { model: "claude-opus-5-5", effort: "low" };
 
 export type LessonStats = { ms: number; firstChapterMs: number | undefined; costUsd: number; attempts: number };
@@ -106,7 +109,7 @@ export async function* streamLesson(
   const shown: Chapter[] = [...(resume?.chapters ?? [])];
   let feedback = shown.length > 0 || header ? `${alreadyShown(header, shown)}\n\nWhat they were shown:\n${JSON.stringify({ ...header, chapters: shown })}` : "";
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let chaptersOk = true;
     let seen = 0;
     let output: unknown;
@@ -136,7 +139,7 @@ export async function* streamLesson(
     if (!written.success) throw new LessonError(`Claude's lesson did not match the schema: ${written.error.message}`);
     const lesson = repairEarns(keepShown(written.data, header, shown), kit);
     const problems = lessonProblems(lesson, kit, CATALOG);
-    if (problems.length === 0 || attempt === 2) {
+    if (problems.length === 0 || attempt === MAX_ATTEMPTS) {
       onStats?.({ ms: Date.now() - started, firstChapterMs, costUsd, attempts: attempt });
       yield { type: "done", lesson: parseLesson(lesson, kit, CATALOG) };
       return;

@@ -36,6 +36,8 @@ export class StageScene {
   private readonly pivot = new Group();
   private readonly body = new Group();
   private readonly shadow: Mesh;
+  /** How far the shadow reaches from the footprint's centre. */
+  private readonly shadowReach: number;
   private readonly slots = new Map<string, Slot>();
   private frameNo = 0;
   private yaw = 0;
@@ -65,6 +67,7 @@ export class StageScene {
     this.shadow = new Mesh(shadowPlane, looks.shadow());
     this.shadow.position.set(Math.cos(az) * sideways - Math.sin(az) * away, Math.min(0, bounds.minY), -Math.sin(az) * sideways - Math.cos(az) * away);
     this.shadow.scale.set(bounds.halfX * 1.05 + 3, 1, bounds.halfZ * 1.05 + 3);
+    this.shadowReach = sideways + Math.max(this.shadow.scale.x, this.shadow.scale.z);
     this.shadow.renderOrder = -1;
     this.shadow.frustumCulled = false;
     this.body.position.set(-bounds.centerX, 0, -bounds.centerZ);
@@ -154,10 +157,8 @@ export class StageScene {
     const { bounds, camera } = this;
     const el = this.view.elevation * DEG_TO_RAD;
     const az = this.view.azimuth * DEG_TO_RAD;
-    const footprint = Math.max(bounds.halfX, bounds.halfZ);
-    const shadowReach = footprint * 0.3 + Math.max(bounds.halfX * 1.05 + 3, bounds.halfZ * 1.05 + 3);
     const height = bounds.maxY - bounds.minY;
-    let halfWide = Math.max(bounds.radius, shadowReach * 0.85);
+    let halfWide = Math.max(bounds.radius, this.shadowReach * 0.85);
     let halfTall = (height / 2) * Math.cos(el) + bounds.radius * Math.sin(el);
     const distance = 2 * (bounds.radius + height) + 100;
     let tx = 0;

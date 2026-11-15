@@ -26,9 +26,12 @@ const results = await Promise.allSettled(
     const base64 = (await readFile(new URL(`${name}.jpg`, photoDir))).toString("base64");
     let kit: Kit | undefined;
     let timing = "";
-    for await (const event of streamKit([{ mediaType: "image/jpeg", base64 }], brain, (s) => {
-      const firstPart = s.firstPartMs === undefined ? "never" : `${(s.firstPartMs / 1000).toFixed(1)}s`;
-      timing = `first part ${firstPart}, done ${(s.ms / 1000).toFixed(1)}s, $${s.costUsd.toFixed(3)}`;
+    for await (const event of streamKit([{ mediaType: "image/jpeg", base64 }], {
+      brain,
+      onStats: (s) => {
+        const firstPart = s.firstPartMs === undefined ? "never" : `${(s.firstPartMs / 1000).toFixed(1)}s`;
+        timing = `first part ${firstPart}, done ${(s.ms / 1000).toFixed(1)}s, $${s.costUsd.toFixed(3)}`;
+      },
     })) {
       if (event.type === "done") kit = event.kit;
     }

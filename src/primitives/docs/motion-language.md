@@ -1,6 +1,6 @@
 # Motion language
 
-How every primitive's `game.play(values)` moves. It is the grammar Everest's lesson prototype already uses on scanned objects (`prototypes/lesson/` on origin/main: `lessons/stapler.ts`, `templates/thread.ts`, `templates/motions.ts`, `templates/stand.ts`). A copy is at /tmp/everest/prototypes/lesson for reading. Match its quality: the machine moves in a way that makes sense.
+How every primitive's `game.play(values)` moves. It is the grammar Everest's lesson prototype already uses on scanned objects (`prototypes/lesson/` on origin/main: `lessons/stapler.ts`, `templates/thread.ts`, `templates/motions.ts`, `templates/stand.ts`). Match its quality: the machine moves in a way that makes sense.
 
 Nothing is simulated. The game knows what will happen for any setting.
 

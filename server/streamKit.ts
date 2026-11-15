@@ -41,7 +41,10 @@ const Header = Kit.pick({ name: true, summary: true });
 export const KIT_BRAIN: Brain = { model: "claude-opus-5-5", effort: "low" };
 
 /** Yields the header and each part as Claude writes them, then the checked kit. `onStats` fires just before `done`. */
-export async function* streamKit(photos: Photo[], brain: Brain = KIT_BRAIN, onStats?: (stats: KitStats) => void, signal?: AbortSignal): AsyncGenerator<KitEvent> {
+export async function* streamKit(
+  photos: Photo[],
+  { brain = KIT_BRAIN, onStats, signal }: { brain?: Brain; onStats?: (stats: KitStats) => void; signal?: AbortSignal } = {},
+): AsyncGenerator<KitEvent> {
   const started = Date.now();
   let firstPartMs: number | undefined;
 
