@@ -1,7 +1,7 @@
 // Easing with meaning (src/primitives/docs/motion-language.md). Each takes t in [0, 1]. Pure, so runs and tests share them.
-// clamp01, lerp, easeOut and smooth match prototypes/lesson/ease.ts; shudder matches templates/pair.ts.
 
-export const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+/** `n` held inside [lo, hi]; NaN becomes `lo`. */
+export const clamp = (n: number, lo: number, hi: number) => (n > lo ? (n < hi ? n : hi) : lo);
 export const clamp01 = (n: number) => clamp(n, 0, 1);
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 

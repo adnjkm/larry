@@ -19,9 +19,9 @@
 // 20 N; a large one turns 15 mm of finger into too little lift.
 import type { Part } from "../../kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
-import { frame, handArrow, phases, say, SCENE } from "../motion/run.ts";
+import { frame, handArrow, HOLD, phases, RESET, say, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, box, DEG, fmt, look, loadEdge, on, part, PLATE_TOP, plate, post, pushDisc, rotateAbout, tick, v3 } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres.
 /** Effort point to load point, along the bar. */
@@ -55,7 +55,6 @@ export const STRAIN = 1.5;
 /** mm per N for every arrow: the 30 N block is 36 long. */
 const MM_PER_N = 36 / LOAD;
 
-const ratioOf = (v: Values) => Math.round((v.ratio ?? 3) * 10) / 10;
 const BLOCK = loadEdge(LOAD);
 
 /**
@@ -77,7 +76,7 @@ export const holdFor = (ratio: number) => LOAD / ratio;
 
 /** Everything a pose needs, from the two sliders. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const ratio = ratioOf(v);
+  const ratio = valueOf(RATIO, v);
   const b = bounds(ratio);
   const hold = holdFor(ratio);
   /** The finger cannot lift this block at this ratio: the bar only strains. */
@@ -140,7 +139,7 @@ type Kind = "pass" | "weak" | "short";
 
 /** The outcome, decided once from the ratio; meters, judge and play all read it. */
 export function lift(v: Values) {
-  const ratio = ratioOf(v);
+  const ratio = valueOf(RATIO, v);
   const hold = holdFor(ratio);
   /** The press the lift takes, and the lift the finger's whole stroke gives. */
   const need = RISE * ratio;
@@ -171,8 +170,6 @@ function meters(v: Values): [Meter, Meter] {
 
 // Choreography, ms.
 const LEAD = 300;
-const HOLD = 700;
-const RESET = 600;
 const TWITCH = 700;
 
 function play(v: Values): Run {
@@ -233,12 +230,14 @@ export function markHeight(ratio: number): number {
 }
 
 function scene(v: Values): Part[] {
-  const at = markHeight(ratioOf(v));
+  const at = markHeight(valueOf(RATIO, v));
   return [
     post(`${SCENE}mark-post`, MARK_X, MARK_Z, at + 4, { name: "Mark post", role: "Carries the line the block has to reach." }),
     tick(`${SCENE}mark`, v3(MARK_X - 5 - MARK_LEN / 2, at, MARK_Z), MARK_LEN, "x", { name: "Mark", role: "How high the top of the block has to get.", on: on(`${SCENE}mark-post`, "weld") }),
   ];
 }
+
+const RATIO: Slider = { id: "ratio", label: "Arm ratio", min: 1, max: 5, step: 0.1, initial: 3, unit: "×" };
 
 export const lever: Primitive = {
   id: "lever",
@@ -250,7 +249,7 @@ export const lever: Primitive = {
   madeOf: [],
   seenIn: ["Scissors", "Stapler", "Nail clipper"],
   sliders: [
-    { id: "ratio", label: "Arm ratio", min: 1, max: 5, step: 0.1, initial: 3, unit: "×" },
+    RATIO,
     // Was 0..25 (the plate set the limit). Now 0..15: the finger's own stroke, the most the effort end can go down.
     { id: "push", label: "Effort end down", min: 0, max: TRAVEL, step: 1, initial: 8, unit: " mm" },
   ],
@@ -266,7 +265,7 @@ export const lever: Primitive = {
     },
     // The pad goes down by the push, less a little as the bar tilts: fold the tilt in by iterating.
     solve: (point, v) => {
-      const b = bounds(ratioOf(v));
+      const b = bounds(valueOf(RATIO, v));
       const top = padAt(b, b.phi0, PAD_T / 2).y;
       let push = 0;
       for (let i = 0; i < 40; i++) {

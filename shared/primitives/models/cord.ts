@@ -18,9 +18,9 @@
 // up and the cord breaks at 40 N: too gentle and the weight never reaches the line, too hard and the cord snaps.
 import type { Part } from "../../kit.ts";
 import { clamp, easeOut, fall, smooth } from "../motion/ease.ts";
-import { frame, handArrow, MARK, phases, say, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, handArrow, HOLD, MARK, phases, RESET, say, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, box, chain, cylinder, fmt, look, on, part, PLATE_TOP, plate, post, pullRing, tick, v3, type Pt, type Vec } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres.
 const PEG_R = 6;
@@ -57,15 +57,13 @@ const PX = -27;
 /** The post stands on the hand's side of the peg: its left face is this far in from the peg's middle. */
 const POST_AT = 10;
 const zc = (z: number) => z + ZS;
-const pullOf = (v: Values) => clamp(Math.round(v.pull ?? 12), -20, 30);
-const weightOf = (v: Values) => clamp(Math.round(v.tension ?? 25), 10, 40);
 /** The weight's cube: 16 mm on a 10 N weight up to 30 mm on a 40 N one, so the number shows. */
 const edgeOf = (weight: number) => 16 + (14 * (weight - 10)) / 30;
 
 /** Everything a pose needs, from the two sliders and the run-only poses. `build`, `readouts` and the game all read this. */
 export function settle(v: Values) {
-  const weight = weightOf(v);
-  const pull = pullOf(v);
+  const weight = valueOf(TENSION, v);
+  const pull = valueOf(PULL, v);
   /** Run-only: the weight carried on above where the cord would hold it (or falling below, once snapped), the extra pull of a yank, and the break. */
   const flight = v.flight ?? 0;
   const extra = v.extra ?? 0;
@@ -148,7 +146,7 @@ type Kind = "pass" | "gentle" | "snap";
 
 /** The outcome, decided once from the yank; meters, judge and play all read it. */
 export function yank(v: Values) {
-  const weight = weightOf(v);
+  const weight = valueOf(TENSION, v);
   const f = v.yank ?? 0.2;
   /** The most the cord carries, at the yank. */
   const peak = weight * (1 + f);
@@ -182,8 +180,6 @@ function meters(v: Values): [Meter, Meter] {
 // Choreography, ms.
 const LEAD = 300;
 const YANK_MS = 220;
-const HOLD = 700;
-const RESET = 600;
 /** Free rise of a weight that goes 15 mm further than the hand: a quicker or slower flight scales with the square root. */
 const FLIGHT_MS = 420;
 const LAND_MS = 160;
@@ -249,7 +245,7 @@ function play(v: Values): Run {
  */
 const MARK_LEN = 10;
 function scene(v: Values): Part[] {
-  const e = edgeOf(weightOf(v));
+  const e = edgeOf(valueOf(TENSION, v));
   const left = PX - RC - e / 2;
   const front = zc(Z_CORD) + e / 2;
   const at = PLATE_TOP + LINE + e;
@@ -258,6 +254,9 @@ function scene(v: Values): Part[] {
     tick(`${SCENE}line`, v3(left + MARK_LEN / 2, at, front + 2), MARK_LEN, "x", { name: "Mark", role: "How high the weight's top has to get.", on: on(`${SCENE}line-post`, "weld") }),
   ];
 }
+
+const PULL: Slider = { id: "pull", label: "Hand pulls out", min: -20, max: 30, step: 1, initial: 12, unit: " mm" };
+const TENSION: Slider = { id: "tension", label: "Tension", min: 10, max: 40, step: 1, initial: 25, unit: " N" };
 
 export const cord: Primitive = {
   id: "cord",
@@ -268,10 +267,7 @@ export const cord: Primitive = {
     "A cord can only pull along its length: push on it and it goes slack, the extra hanging in a sag. Because it bends, it can carry a pull round a corner, and with a smooth peg and no weight of its own the tension is the same everywhere along it. Here the tension equals the weight hanging from it while the hand holds the weight up. A sudden yank adds to that for a moment, and a cord that can only take so much snaps. Friction on the peg would add to the pull you need; it is left out.",
   madeOf: [],
   seenIn: ["Shoelace", "Brake cable", "Tape measure"],
-  sliders: [
-    { id: "tension", label: "Tension", min: 10, max: 40, step: 1, initial: 25, unit: " N" },
-    { id: "pull", label: "Hand pulls out", min: -20, max: 30, step: 1, initial: 12, unit: " mm" },
-  ],
+  sliders: [TENSION, PULL],
   view: VIEW.bench,
   build,
   readouts,

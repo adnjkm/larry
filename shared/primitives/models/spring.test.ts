@@ -1,8 +1,9 @@
-// Spring's own tests. The generic game and design checks (checks.ts) run for it in library.test.ts.
+// Spring's own tests. The generic game and design checks (checks.ts) run here, in its own file, so node runs the models in parallel.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { numberSweep, sample, startOf, steps } from "../checks.ts";
+import { numberSweep, sample } from "../checks.ts";
+import { startValues, steps } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import type { Values } from "../types.ts";
 import { BIND, geometry, HAND, launch, NEED, settle, spring } from "./spring.ts";
@@ -123,7 +124,7 @@ describe("spring", () => {
   });
 
   it("launches best at a middle stiffness: the stiffest spring fails, and so does the softest", () => {
-    const pass = steps(stiffness).filter((k) => game.judge({ ...startOf(spring), stiffness: k }).pass);
+    const pass = steps(stiffness).filter((k) => game.judge({ ...startValues(spring), stiffness: k }).pass);
     assert.deepEqual(pass, [1.8, 1.9, 2, 2.1, 2.2]);
     assert.equal(game.judge({ stiffness: 4, force: 0 }).outcome, "too-stiff");
     assert.equal(game.judge({ stiffness: 1, force: 0 }).outcome, "too-soft");

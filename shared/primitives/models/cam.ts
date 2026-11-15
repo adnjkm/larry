@@ -14,9 +14,9 @@
 // simplification, and howItWorks says so.
 import type { Part } from "../../kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
-import { frame, phases, say, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, LEAD, phases, REWIND, say, SCENE, whenReaches } from "../motion/run.ts";
 import { DEG, fmt, knob, lathe, look, on, part, pivoted, plate, post, RAD, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres. The post is behind the cam and the follower; the whole rig sits in z so the union is centred.
 const R0 = 20;
@@ -51,8 +51,6 @@ const BELL_H = 11.6;
 /** The post guides the rod up to this far above the rod's rest top; in the game a taller post carries the bell, up to this far past its top. */
 const POST_ABOVE_ROD = 4;
 const POST_PAST_BELL = 2;
-
-const liftOf = (v: Values) => clamp(Math.round(v.lift ?? 12), 4, 14);
 
 /** Radius of the rim at body angle `a` (degrees): the base circle, and each bump's straight ramps and dwell. */
 function rim(lift: number, a: number): number {
@@ -101,7 +99,7 @@ export function rise(v: Values, turn: number): number {
   const th = turn * 360 * RAD;
   const c = Math.cos(th);
   const s = Math.sin(th);
-  const o = outlineOf(liftOf(v));
+  const o = outlineOf(valueOf(LIFT, v));
   const W = FOOT_W / 2;
   const at = (i: number): Pt => {
     const [x, y] = o[i % o.length] as Pt;
@@ -138,7 +136,7 @@ function firstReach(v: Values, height: number): number {
 
 /** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const lift = liftOf(v);
+  const lift = valueOf(LIFT, v);
   const turn = v.turn ?? 0.1;
   const up = rise(v, turn);
   /** The bell's lift off its hook, a run only. */
@@ -179,7 +177,7 @@ type Kind = "pass" | "silent" | "jam";
 
 /** The outcome, decided once from the lift; meters, judge and play all read it. */
 export function beat(v: Values) {
-  const lift = liftOf(v);
+  const lift = valueOf(LIFT, v);
   const angle = rampAngle(lift);
   const kind: Kind = angle > LIMIT ? "jam" : lift < STRIKE ? "silent" : "pass";
   return { kind, lift, angle, rings: kind === "pass" ? BUMPS.length : 0 };
@@ -206,8 +204,6 @@ function meters(v: Values): [Meter, Meter] {
 }
 
 // Choreography, ms.
-const LEAD = 250;
-const REWIND = 450;
 const SPIN = 3000;
 const HOLD = 600;
 
@@ -293,6 +289,8 @@ function scene(v: Values): Part[] {
   ];
 }
 
+const LIFT: Slider = { id: "lift", label: "Lift", min: 4, max: 14, step: 1, initial: 12, unit: " mm" };
+
 export const cam: Primitive = {
   id: "cam",
   name: "Cam",
@@ -303,7 +301,7 @@ export const cam: Primitive = {
   madeOf: ["wheel", "wedge"],
   seenIn: ["Click pen", "Music box", "Sewing machine"],
   sliders: [
-    { id: "lift", label: "Lift", min: 4, max: 14, step: 1, initial: 12, unit: " mm" },
+    LIFT,
     { id: "turn", label: "Turn", min: 0, max: 1, step: 0.005, initial: 0.1, unit: "°", displayScale: 360 },
   ],
   view: VIEW.bench,
@@ -320,7 +318,7 @@ export const cam: Primitive = {
       return base + Math.round((v.turn ?? 0) - base);
     },
     // A bump too steep for the guide stops the cam where the ramp first meets the rod.
-    reach: (v) => (rampAngle(liftOf(v)) > LIMIT ? [0, Math.min(1, firstReach(v, JAM_RISE))] : [0, 1]),
+    reach: (v) => (rampAngle(valueOf(LIFT, v)) > LIMIT ? [0, Math.min(1, firstReach(v, JAM_RISE))] : [0, 1]),
   },
   game: {
     name: "Ring the bell",

@@ -15,7 +15,7 @@ import type { Part } from "../../kit.ts";
 import { clamp01, fall, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases, say } from "../motion/run.ts";
 import { COLOR, cylinder, fmt, type Look, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, millimetres.
 /** The gasket's thickness before squeezing. */
@@ -40,11 +40,9 @@ const DROP_X = FLANGE_R + DROP_R + 1;
 const WIDEST = wideAt(0.4);
 const SQUEEZE_MAX = 0.4;
 
-const squeezeOf = (v: Values) => clamp01(Math.round((v.squeeze ?? 0.2) * 100) / 100);
-
 /** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const squeeze = squeezeOf(v);
+  const squeeze = valueOf(SQUEEZE, v);
   const t = T0 * (1 - squeeze);
   /** The gasket's outer radius: the rubber is moved, not lost. */
   const outer = wideAt(squeeze);
@@ -209,6 +207,8 @@ function play(v: Values): Run {
   };
 }
 
+const SQUEEZE: Slider = { id: "squeeze", label: "Squeeze", min: 0, max: SQUEEZE_MAX, step: 0.01, initial: 0.2, unit: "%", displayScale: 100 };
+
 export const seal: Primitive = {
   id: "seal",
   name: "Seal",
@@ -218,7 +218,7 @@ export const seal: Primitive = {
     "Two hard surfaces never touch everywhere: up close they are hills and valleys, and a liquid finds the valleys. A rubber gasket clamped between them is squeezed into those gaps and pushes back on both faces, closing the path. The squeeze is the thickness lost divided by the thickness it started with. Rubber cannot be compressed, only moved, so a thinner gasket spreads wider. Too little squeeze and gaps stay open; too much and the rubber is forced out of the joint. Static seals are typically squeezed roughly 15 to 30 percent.",
   madeOf: [],
   seenIn: ["Bottle cap", "Jar lid", "Tap washer"],
-  sliders: [{ id: "squeeze", label: "Squeeze", min: 0, max: SQUEEZE_MAX, step: 0.01, initial: 0.2, unit: "%", displayScale: 100 }],
+  sliders: [SQUEEZE],
   view: VIEW.bench,
   build,
   readouts,

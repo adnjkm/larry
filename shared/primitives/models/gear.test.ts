@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { look } from "../parts.ts";
-import { checkDesign, checkGame, numberSweep, sample, steps } from "../checks.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { steps } from "../types.ts";
 import type { Values } from "../types.ts";
 import { DRIVER_TEETH, gear, GHOST, rig, settle, shadow, TOLERANCE } from "./gear.ts";
 

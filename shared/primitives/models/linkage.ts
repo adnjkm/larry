@@ -11,9 +11,9 @@
 // and the crank stalls and shudders there, short of a full turn. Too long leaves a strip unwiped.
 import type { Part } from "../../kit.ts";
 import { clamp, shudder, smooth } from "../motion/ease.ts";
-import { frame, phases, say, SCENE, whenReaches } from "../motion/run.ts";
+import { frame, HOLD, LEAD, phases, REWIND, say, SCENE, whenReaches } from "../motion/run.ts";
 import { bar, DEG, fmt, knob, look, on, pin, plate, post, RAD, shaped, travelArc, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 // Geometry, mm.
 export const CRANK = 24;
@@ -86,11 +86,9 @@ export function swingOf(rocker: number) {
   return s;
 }
 
-const rockerOf = (v: Values) => clamp(Math.round(v.rocker ?? 66), 50, 90);
-
 /** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const rocker = rockerOf(v);
+  const rocker = valueOf(ROCKER, v);
   const crank = v.crank ?? 50;
   const { B, C, rockerDeg } = fourBar(rocker, crank);
   const swing = swingOf(rocker);
@@ -163,7 +161,7 @@ type Kind = "pass" | "hits-frame" | "leaves-strip";
 
 /** The outcome, decided once from the rocker length; meters, judge and play all read it. */
 export function wipe(v: Values) {
-  const rocker = rockerOf(v);
+  const rocker = valueOf(ROCKER, v);
   const s = swingOf(rocker);
   // Past the stop (positive) means the rocker would go through it; the gap is how far short of it the rocker stays.
   const past = STOP_LO - s.lo;
@@ -219,13 +217,10 @@ function meters(v: Values): [Meter, Meter] {
 }
 
 // Choreography, ms.
-const REWIND = 450;
-const LEAD = 250;
 /** One crank turn by hand, turning the crank backwards from 360 to 0. */
 const TURN = 2600;
 /** The crank shudders against the stop this long. */
 const STALL = 700;
-const HOLD = 700;
 /** The crank backs off the stop and presses on again by up to this many degrees as it shudders. */
 const SHUDDER_DEG = 2;
 
@@ -293,6 +288,8 @@ function scene(): Part[] {
   ];
 }
 
+const ROCKER: Slider = { id: "rocker", label: "Rocker bar", min: 50, max: 90, step: 1, initial: 66, unit: " mm" };
+
 export const linkage: Primitive = {
   id: "linkage",
   name: "Linkage",
@@ -303,7 +300,7 @@ export const linkage: Primitive = {
   madeOf: ["lever", "lever"],
   seenIn: ["Windscreen wiper", "Locking pliers", "Desk lamp"],
   sliders: [
-    { id: "rocker", label: "Rocker bar", min: 50, max: 90, step: 1, initial: 66, unit: " mm" },
+    ROCKER,
     { id: "crank", label: "Crank", min: 0, max: 360, step: 1, initial: 50, unit: "°" },
   ],
   view: VIEW.bench,

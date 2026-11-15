@@ -1,8 +1,9 @@
-// Seal's own tests. The generic game and design checks (checks.ts) run for it in library.test.ts.
+// Seal's own tests. The generic game and design checks (checks.ts) run here, in its own file, so node runs the models in parallel.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkGame, sample, startOf, steps } from "../checks.ts";
+import { checkDesign, checkGame, sample } from "../checks.ts";
+import { startValues, steps } from "../types.ts";
 import { COLOR, PLATE_TOP } from "../parts.ts";
 import { geometry, PRESSURE, seal, settle, SPLIT, T0, WEEP } from "./seal.ts";
 
@@ -21,6 +22,7 @@ const heightOf = (p: Part) => {
 
 describe("seal", () => {
   it("passes the generic game checks", () => checkGame(seal));
+  it("follows the design language", () => checkDesign(seal));
 
   it("keeps the rubber's volume: π (R² − r²) t is the same at every squeeze", () => {
     const vol = (s: number) => {
@@ -76,7 +78,7 @@ describe("seal", () => {
     const pass = steps(squeeze).filter((s) => game.judge({ squeeze: s }).pass);
     assert.equal(pass[0], WEEP);
     assert.equal(pass.at(-1), SPLIT);
-    assert.equal(game.judge(startOf(seal)).outcome, "weeping");
+    assert.equal(game.judge(startValues(seal)).outcome, "weeping");
     assert.equal(game.judge({ squeeze: 0.4 }).outcome, "rubber-split");
   });
 

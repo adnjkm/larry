@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample, steps } from "../checks.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { steps } from "../types.ts";
 import { PLATE_TOP, type Pt } from "../parts.ts";
 import { COUPLER, CRANK, FRAME, fourBar, linkage, rig, settle, stallAt, STOP_LO, swingOf, TOLERANCE, wipe } from "./linkage.ts";
 

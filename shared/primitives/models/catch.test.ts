@@ -6,7 +6,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample, startOf, steps } from "../checks.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { startValues, steps } from "../types.ts";
 import type { Values } from "../types.ts";
 import { catchLatch, GUST, PUSH, rig, settle, shutAndHold, springFor } from "./catch.ts";
 import { CLOSE_GAIN, FLAT_AT, HOLD_GAIN, LIP_AT, liftAt, THROW, TOUCH_AT } from "./catchGeometry.ts";
@@ -169,7 +170,7 @@ describe("catch", () => {
   });
 
   it("never lets the bolt cut in during a run, and each outcome is its own motion", () => {
-    for (const v of [startOf(catchLatch), ...numberSweep(catchLatch)]) {
+    for (const v of [startValues(catchLatch), ...numberSweep(catchLatch)]) {
       const run = game.play(v);
       const kind = shutAndHold(v).kind;
       const frames = sample(run);

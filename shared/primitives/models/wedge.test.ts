@@ -5,7 +5,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkContinuity, checkDesign, checkGame, numberSweep, sample, startOf, steps } from "../checks.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { startValues, steps } from "../types.ts";
 import type { Values } from "../types.ts";
 import { BLOW, BLOWS, ELASTIC, GRIP, gripAt, LENGTH, OPEN, rig, settle, split, wedge } from "./wedge.ts";
 
@@ -148,7 +149,7 @@ describe("wedge", () => {
       else if (sl <= 22) assert.equal(o, "log-split", `slope ${sl}`);
       else assert.equal(o, "too-fat", `slope ${sl}`);
     }
-    assert.equal(game.judge(startOf(wedge)).outcome, "too-fat");
+    assert.equal(game.judge(startValues(wedge)).outcome, "too-fat");
     for (const sl of [16, 19, 22]) assert.ok(split({ slope: sl }).canOpen >= OPEN);
   });
 
@@ -266,6 +267,5 @@ describe("wedge", () => {
   it("passes the generic game and design checks", () => {
     checkGame(wedge);
     checkDesign(wedge);
-    checkContinuity(wedge);
   });
 });

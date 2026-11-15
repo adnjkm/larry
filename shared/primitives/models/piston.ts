@@ -16,7 +16,7 @@ import type { Part } from "../../kit.ts";
 import { easeOut, smooth } from "../motion/ease.ts";
 import { frame, phases, say, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, box, cylinder, fmt, lathe, look, on, part, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
-import { type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 
 /** Outside air pressure, kPa. */
 const P0 = 101.3;
@@ -46,11 +46,9 @@ export const MARK = 22;
 export const TOLERANCE = 3;
 const START_AREA = 11.5;
 
-const areaOf = (v: Values) => v.area ?? 8;
-
 /** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const area = areaOf(v);
+  const area = valueOf(AREA, v);
   const force = v.force ?? 50;
   const mm2 = area * 100;
   /** Pressure above outside air: N per mm² is MPa, so × 1000 for kPa. */
@@ -130,7 +128,7 @@ type Kind = "pass" | "short" | "past";
 
 /** The outcome, decided once from the area; meters, judge and play all read it. */
 export function stop(v: Values) {
-  const area = areaOf(v);
+  const area = valueOf(AREA, v);
   const s = settle({ area, force: HAND });
   const miss = s.down - MARK;
   const kind: Kind = Math.abs(miss) <= TOLERANCE + 1e-9 ? "pass" : miss < 0 ? "short" : "past";
@@ -196,6 +194,8 @@ function scene(v: Values): Part[] {
   return [tick(`${SCENE}line`, v3(-(s.wi / 2 + WALL + 6), y, 0), 12, "x", { name: "Line", role: "Where the plunger should stop.", on: on("tube", "glue") })];
 }
 
+const AREA: Slider = { id: "area", label: "Area", min: 4, max: 12, step: 0.5, initial: 8, unit: " cm²" };
+
 export const piston: Primitive = {
   id: "piston",
   name: "Piston",
@@ -206,7 +206,7 @@ export const piston: Primitive = {
   madeOf: ["seal", "spring"],
   seenIn: ["Syringe", "Soap pump", "Bike pump"],
   sliders: [
-    { id: "area", label: "Area", min: 4, max: 12, step: 0.5, initial: 8, unit: " cm²" },
+    AREA,
     { id: "force", label: "Push", min: 0, max: FORCE_MAX, step: 1, initial: 50, unit: " N" },
   ],
   view: VIEW.bench,
@@ -217,7 +217,7 @@ export const piston: Primitive = {
     label: "Push",
     at: handleAt,
     // The plunger is where the push balances the air, so a handle dragged `down` mm below its rest asks for the push that holds it there.
-    solve: (point, v) => forceFor(handleAt({ area: areaOf(v), force: 0 }).y - point.y, areaOf(v)),
+    solve: (point, v) => forceFor(handleAt({ area: valueOf(AREA, v), force: 0 }).y - point.y, valueOf(AREA, v)),
     // Your hand pushes HAND at most, so the plunger goes no further than where HAND balances the air.
     reach: () => [0, Math.min(FORCE_MAX, HAND)],
   },

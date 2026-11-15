@@ -1,4 +1,4 @@
-// Ratchet's own tests. The generic game and design checks (checks.ts) run for it in library.test.ts.
+// Ratchet's own tests. The generic game and design checks (checks.ts) run here, in its own file, so node runs the models in parallel.
 //
 // The overlap proof below does not reuse the solver: it takes the wheel and pawl parts build() returns, places their
 // outlines in the world exactly as the renderer does (outline centred on its bounding box, turned about z, moved to
@@ -6,7 +6,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample, startOf } from "../checks.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { startValues } from "../types.ts";
 import { PLATE_TOP } from "../parts.ts";
 import type { Values } from "../types.ts";
 import { LIFT_PER_TURN, MARK, ratchet, rig, stopAt, TOLERANCE } from "./ratchet.ts";
@@ -143,7 +144,7 @@ describe("ratchet", () => {
   });
 
   it("keeps to the simple-first budget: eight kinds at rest, no spring housing, one coil on the pawl's own hinge", () => {
-    const start = startOf(ratchet);
+    const start = startValues(ratchet);
     const parts = ratchet.build({ teeth: 12, turn: 0.2 });
     const kinds = [...new Set(parts.map((p) => p.name))];
     assert.ok(kinds.length <= 8, kinds.join(", "));
@@ -189,7 +190,7 @@ describe("ratchet", () => {
   });
 
   it("has one target: a tick at least 10 mm long held by a slim post beside the bucket's path, and the bucket reaches it and never goes into it", () => {
-    const scene = game.scene!(startOf(ratchet));
+    const scene = game.scene!(startValues(ratchet));
     const tick = find(scene, "game-mark");
     const post = find(scene, "game-post");
     assert.ok(tick.shape.kind === "box" && post.shape.kind === "box");
@@ -271,7 +272,7 @@ describe("ratchet", () => {
   });
 
   it("never lets the wheel and pawl cut into each other during a run", () => {
-    for (const v of [startOf(ratchet), ...numberSweep(ratchet).filter((q) => [10, 12, 16, 24].includes(q.teeth ?? 0)), { teeth: 12, turn: 0.95 }]) {
+    for (const v of [startValues(ratchet), ...numberSweep(ratchet).filter((q) => [10, 12, 16, 24].includes(q.teeth ?? 0)), { teeth: 12, turn: 0.95 }]) {
       for (const { ms, frame } of sample(game.play(v)).filter((_, i) => i % 2 === 0)) {
         const { wheel, pawl } = outlines(frame.values);
         const { depth } = contact(wheel, pawl);

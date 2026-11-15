@@ -5,7 +5,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkContinuity, checkDesign, checkGame, numberSweep, sample, startOf, steps } from "../checks.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { startValues, steps } from "../types.ts";
 import type { Values } from "../types.ts";
 import { bounds, FINGER, holdFor, lever, LOAD, lift, RISE, rig, settle, STRAIN, TRAVEL } from "./lever.ts";
 
@@ -197,7 +198,7 @@ describe("lever", () => {
       else if (r <= 2.3 + 1e-9) assert.equal(o, "block-lifted", `ratio ${r}`);
       else assert.equal(o, "out-of-room", `ratio ${r}`);
     }
-    assert.equal(game.judge(startOf(lever)).outcome, "out-of-room");
+    assert.equal(game.judge(startValues(lever)).outcome, "out-of-room");
     for (const r of [1.5, 2, 2.3]) assert.ok(lift({ ratio: r }).canRise >= RISE - 1e-9);
   });
 
@@ -289,6 +290,5 @@ describe("lever", () => {
   it("passes the generic game and design checks", () => {
     checkGame(lever);
     checkDesign(lever);
-    checkContinuity(lever);
   });
 });

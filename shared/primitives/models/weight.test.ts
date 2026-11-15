@@ -1,11 +1,10 @@
-// Weight's own tests. The generic game and design checks (checks.ts) run for it in library.test.ts.
+// Weight's own tests. The generic game and design checks (checks.ts) run here, in its own file, so node runs the models in parallel.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkGame } from "../checks.ts";
-import { sample, steps, startOf } from "../checks.ts";
+import { checkDesign, checkGame, sample } from "../checks.ts";
 import { PLATE_TOP } from "../parts.ts";
-import type { Values } from "../types.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { bobRadius, CONTACT, freed, freedAt, geometry, NEED, OMEGA, PERIOD, QUARTER, SNAP, strike, strikeOf, STRING_MM, weight, X0 } from "./weight.ts";
 
 const game = weight.game!;
@@ -62,6 +61,7 @@ const boxPoly = (b: { x0: number; x1: number; y0: number; y1: number }): Pt[] =>
 
 describe("weight", () => {
   it("passes the generic game checks", () => checkGame(weight));
+  it("follows the design language", () => checkDesign(weight));
 
   it("draws the string at the length the swing time is worked out from", () => {
     const parts = weight.build({ mass: 2, swing: -28 });
@@ -164,7 +164,7 @@ describe("weight", () => {
 
   it("makes the same swing time at every mass: the cue at the strike does not move with the mass", () => {
     const a = -30;
-    const strikeMs = (m: number) => game.play({ ...startOf(weight), mass: m, swing: a }).cues!.find((c) => c.kind === "thud")!.ms;
+    const strikeMs = (m: number) => game.play({ ...startValues(weight), mass: m, swing: a }).cues!.find((c) => c.kind === "thud")!.ms;
     const t = strikeMs(2.6);
     for (const m of [2.6, 3, 3.5, 4]) assert.ok(Math.abs(strikeMs(m) - t) < 1e-6, `m ${m}`);
     for (const m of [1, 1.5, 2]) assert.ok(Math.abs(strikeMs(m) - t) < 1e-6, `light m ${m}`);
@@ -173,12 +173,12 @@ describe("weight", () => {
   });
 
   it("has a window: too light rocks, too heavy snaps, and the numbers are the formulas", () => {
-    const pass = steps(mass).filter((m) => game.judge({ ...startOf(weight), mass: m }).pass);
+    const pass = steps(mass).filter((m) => game.judge({ ...startValues(weight), mass: m }).pass);
     assert.ok(pass.length >= 10, `window ${pass}`);
-    assert.equal(game.judge({ ...startOf(weight), mass: 1 }).outcome, "too-light");
-    assert.equal(game.judge({ ...startOf(weight), mass: 5 }).outcome, "string-snapped");
+    assert.equal(game.judge({ ...startValues(weight), mass: 1 }).outcome, "too-light");
+    assert.equal(game.judge({ ...startValues(weight), mass: 5 }).outcome, "string-snapped");
     for (const m of steps(mass)) {
-      const v = { ...startOf(weight), mass: m };
+      const v = { ...startValues(weight), mass: m };
       const r = strike(v);
       const a = (35 * Math.PI) / 180;
       assert.ok(Math.abs(r.momentum - m * Math.sqrt(2 * 9.8 * 0.1 * (Math.cos(CONTACT * RAD) - Math.cos(a)))) < 1e-9);
@@ -324,7 +324,7 @@ describe("weight", () => {
       // At every snapping setting the freed bob never touches the crate, so its momentum is irrelevant to the crate.
       for (const f of failing) assert.notEqual(freed(f)!.touch, "crate");
       // And the string's pull is what the verdict quotes.
-      assert.match(game.judge({ ...startOf(weight), mass: 5 }).detail, /67 N/);
+      assert.match(game.judge({ ...startValues(weight), mass: 5 }).detail, /67 N/);
     });
   });
 

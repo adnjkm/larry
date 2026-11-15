@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkDesign, checkGame, numberSweep, sample, steps } from "../checks.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { steps } from "../types.ts";
 import { ARROW_PER_N, cordLength, geometry, HAND, hoist, LOAD, pulley, RISE, ROPE, settle } from "./pulley.ts";
 
 const game = pulley.game!;

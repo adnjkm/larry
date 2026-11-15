@@ -21,9 +21,9 @@
 // spring and the gust drags the notch's wall up the steep face; too strong and the push stalls on the gentle face.
 import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, shudder, smooth } from "../motion/ease.ts";
-import { frame, handArrow, MARK, phases, say } from "../motion/run.ts";
+import { frame, handArrow, LEAD as LEAD_MS, MARK, phases, REWIND, say } from "../motion/run.ts";
 import { arrow, arrowLength, coilSpring, fmt, look, on, part, pivoted, plate, PLATE_TOP, pullRing, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import {
   BOLT,
   BOLT_W,
@@ -83,7 +83,6 @@ export const GUST = 9;
 const OPEN_DOOR = -36;
 
 /** The release force, on the slider's grid. */
-const releaseOf = (v: Values) => clamp(Math.round(v.force ?? 8), 2, 20);
 
 /** Wire diameter for the 2 N spring; k goes as d⁴ ÷ turns, and turns = SOLID ÷ d − 1 keeps the solid length fixed (as spring.ts). */
 const WIRE_SOFT = 2.4;
@@ -110,7 +109,7 @@ export function springFor(release: number) {
 
 /** Everything a pose needs. `build`, `readouts`, the handle and the game all read this. */
 export function settle(v: Values) {
-  const release = releaseOf(v);
+  const release = valueOf(FORCE, v);
   const spring = springFor(release);
   const door = clamp(v.door ?? -9, DOOR_MIN, 0);
   const lift = liftAt(door);
@@ -203,7 +202,7 @@ type Kind = "pass" | "wont-shut" | "gust-opens";
 
 /** The outcome, decided once from the release force; meters, judge and play all read it. */
 export function shutAndHold(v: Values) {
-  const release = releaseOf(v);
+  const release = valueOf(FORCE, v);
   const spring = springFor(release);
   const kind: Kind = spring.toShut > PUSH + 1e-9 ? "wont-shut" : release < GUST - 1e-9 ? "gust-opens" : "pass";
   const pushAt = (door: number) => spring.rate * (PRELOAD + liftAt(door));
@@ -235,8 +234,6 @@ function meters(v: Values): [Meter, Meter] {
 }
 
 // Choreography, ms.
-const REWIND = 450;
-const LEAD_MS = 250;
 /** The push carries the door in and up the gentle face. */
 const PUSH_MS = 900;
 /** Past the tip the spring drives the bolt down the steep face and pulls the door shut onto the post. */
@@ -343,6 +340,8 @@ function play(v: Values): Run {
   };
 }
 
+const FORCE: Slider = { id: "force", label: "Release force", min: 2, max: 20, step: 1, initial: 8, unit: " N" };
+
 export const catchLatch: Primitive = {
   id: "catch",
   name: "Catch",
@@ -353,7 +352,7 @@ export const catchLatch: Primitive = {
   madeOf: ["wedge", "spring"],
   seenIn: ["Door latch", "Gate catch", "Snap-fit"],
   sliders: [
-    { id: "force", label: "Release force", min: 2, max: 20, step: 1, initial: 8, unit: " N" },
+    FORCE,
     { id: "door", label: "Door", min: DOOR_MIN, max: 0, step: 0.5, initial: -9, unit: " mm" },
   ],
   view: VIEW.bench,

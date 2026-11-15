@@ -5,7 +5,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
-import { checkContinuity, checkDesign, checkGame, numberSweep, sample, startOf, steps } from "../checks.ts";
+import { checkDesign, checkGame, numberSweep, sample } from "../checks.ts";
+import { startValues, steps } from "../types.ts";
 import type { Values } from "../types.ts";
 import { ARM, LIFT, LOAD, R_EFF, REACH, rig, settle, TURN_MAX, wheel, winch } from "./wheel.ts";
 
@@ -174,7 +175,7 @@ describe("wheel", () => {
       else if (r <= 38) assert.equal(o, "bucket-lifted", `radius ${r}`);
       else assert.equal(o, "out-of-reach", `radius ${r}`);
     }
-    assert.equal(game.judge(startOf(wheel)).outcome, "too-heavy");
+    assert.equal(game.judge(startValues(wheel)).outcome, "too-heavy");
   });
 
   it("raises the bucket exactly LIFT on a pass, stops short when the arm runs out, and barely moves when too heavy", () => {
@@ -245,6 +246,5 @@ describe("wheel", () => {
   it("passes the generic game and design checks", () => {
     checkGame(wheel);
     checkDesign(wheel);
-    checkContinuity(wheel);
   });
 });

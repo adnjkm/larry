@@ -12,7 +12,7 @@
 // decides everything: too many teeth and the output falls behind the ghost, too few and it runs ahead.
 import type { Part } from "../../kit.ts";
 import { clamp, smooth } from "../motion/ease.ts";
-import { frame, phases, say, SCENE } from "../motion/run.ts";
+import { frame, LEAD, phases, REWIND, say, SCENE } from "../motion/run.ts";
 import { arrow, fmt, gearOutline, knob, look, on, part, pin, pivoted, plate, post, turnMark, v3, DEG, RAD, type Pt, type Vec } from "../parts.ts";
 import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW } from "../types.ts";
 
@@ -152,8 +152,6 @@ function meters(v: Values): [Meter, Meter] {
 }
 
 // Choreography, ms.
-const LEAD = 250;
-const REWIND = 450;
 const TURN = 2200;
 const HOLD = 800;
 
