@@ -18,8 +18,8 @@
 import type { Part } from "../../kit.ts";
 import { clamp01, easeOut, fall, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases, returnTo } from "../motion/run.ts";
-import { COLOR, cylinder, fmt, type Look, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { box, COLOR, cylinder, fmt, type Look, lathe, look, on, part, plate, PLATE_TOP, pushDisc, v3, type Pt } from "../parts.ts";
+import { type Cue, type Meter, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, type Task, valueOf } from "../types.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
 
 // Geometry, millimetres.
@@ -218,7 +218,8 @@ const RELAX_MS = 380;
 const TEST_KPA = 300;
 /** The rubber's push on the faces per unit of squeeze, kPa: set so the game's test pressure seals at exactly WEEP. */
 const PUSH_PER_SQUEEZE = TEST_KPA / WEEP;
-const PRESSURE: Slider = { id: "pressure", label: "Water pressure", min: 100, max: 450, step: 10, initial: TEST_KPA, unit: " kPa", ends: ["Low", "High"] };
+/** Up to 560 kPa: at the top only a squeeze of 28% to 30% holds, between the leak and the tear. */
+const PRESSURE: Slider = { id: "pressure", label: "Water pressure", min: 50, max: 560, step: 10, initial: TEST_KPA, unit: " kPa", ends: ["Low", "High"] };
 
 /** The joint in free play: the rubber's push, the squeeze that seals, and how fast it leaks (0 dry, 1 the most it can). */
 export function leak(v: Values) {
@@ -294,23 +295,6 @@ function drips(v: Values, ms: number): Part[] {
   return out;
 }
 
-/** Leak rate against squeeze at this pressure: falling in a straight line to zero where the rubber's push matches the water. */
-function leakPlot(v: Values) {
-  const l = leak(v);
-  const x = (s: number) => s / SQUEEZE_MAX;
-  const top = l.pressure / PRESSURE.max;
-  return {
-    line: [
-      [0, top],
-      [x(l.sealsAt), 0],
-      [1, 0],
-    ] as const,
-    dot: [x(l.squeeze), l.rate] as const,
-    zero: 0,
-    caption: "leak as you press",
-  };
-}
-
 /** Four drops of spray, two each side: where each is `u` of the way through its flight, from the lip. */
 function spray(outer: number, u: number): Part[] {
   const y0 = GASKET_Y + 4;
@@ -325,6 +309,98 @@ function spray(outer: number, u: number): Part[] {
     return part(`${MARK}spray-${k + 1}`, "Spray", "Fluid forced out of the split joint.", dropShape.shape, v3(x, y, 0), look.slate, on("plate", "glue"));
   });
 }
+
+/**
+ * A blowout: crushed past the flange's edge, the rubber is pushed out of the joint and tears, and the water bursts out of
+ * the tear in a jet. JET_DROPS drops ride the jet's arc at even spacing, so it reads as one stream, not a drip.
+ */
+const JET_DROPS = 10;
+const JET_MS = 500;
+/** Where round the joint it tears: the side toward the camera, so the jet is seen. */
+const TEAR_AT = 40;
+function burst(outer: number, ms: number): Part[] {
+  const a = TEAR_AT * DEG_TO_RAD;
+  return Array.from({ length: JET_DROPS }, (_, k) => {
+    const u = (ms / JET_MS + k / JET_DROPS) % 1;
+    const r = outer + 2 + 34 * u;
+    const y = Math.max(PLATE_TOP + DROP_R, GASKET_Y + 4 + 22 * u - 52 * u * u);
+    return part(`${MARK}burst-${k + 1}`, "Spray", "Water bursting out where the rubber tore.", dropShape.shape, v3(r * Math.cos(a), y, r * Math.sin(a)), look.slate, on("plate", "glue"));
+  });
+}
+
+/** Free play's running water: drips while the rubber pushes back less than the water does, a burst once it has torn. */
+function water(v: Values, ms: number): Part[] {
+  const s = settle(v);
+  return s.split ? burst(s.outer, ms) : drips(v, ms);
+}
+
+/** Dry and whole: the rubber pushes back at least as hard as the water, and has not been squeezed out past the flange. */
+const holds = (v: Values) => leak(v).rate === 0 && !settle(v).split;
+
+// ---- Free play's goal: pump the pressure up, and keep the joint dry all the way ---------------------------------------
+//
+// A pump raises the water's pressure, but only while the joint holds it. Where the water pushes past the rubber, water
+// gets out and takes pressure with it, so the pressure sinks back to what the rubber can hold. Squeezed too hard, the
+// rubber is crushed out past the flange's edge (it has nowhere left to go), tears, and the water blows out: a burst,
+// not a drip, and the pressure is gone at once. So squeeze more to go higher, but not so much that it bursts.
+
+/** The water's pressure as the pump left it: smooth, where the slider's reading snaps to its 10 kPa steps. */
+const rawPressure = (v: Values) => Math.min(PRESSURE.max, Math.max(PRESSURE.min, v.pressure ?? PRESSURE.initial));
+
+/** How fast the pump raises the pressure while the joint holds, kPa a second: bottom to top in three seconds. */
+const PUMP_KPA_S = 170;
+/** How fast a leak lets the pressure out, kPa a second, at the fastest leak: a slow leak lets out less. */
+const LEAK_KPA_S = 600;
+/** How fast a torn seal loses its pressure, kPa a second: a blowout, all of it in about a third of a second. */
+const TORN_KPA_S = 1600;
+
+/** The pump and the joint, `dtMs` on: the pressure rises while it holds, and leaks or sprays away while it does not. */
+function pump(v: Values, _ms: number, dtMs: number): Values {
+  // The raw value, not the slider's snapped one: the pump moves it a little at a time, far under one 10 kPa step.
+  const p = rawPressure(v);
+  const s = dtMs / 1000;
+  const rate = leak(v).rate;
+  const next = settle(v).split ? p - TORN_KPA_S * s : rate > 0 ? p - LEAK_KPA_S * rate * s : p + PUMP_KPA_S * s;
+  return { ...v, pressure: Math.min(PRESSURE.max, Math.max(PRESSURE.min, next)) };
+}
+
+/** The dial on the pipe: its face, a green tick at the top of the scale, and a pink needle on the pressure. */
+const GAUGE_R = 12;
+const GAUGE_Y = PLATE_TOP + PIPE_H / 2 + 2;
+const GAUGE_Z = PIPE_R + 7;
+/** The needle's sweep, degrees from straight up: from the bottom of the scale on the left to the top on the right. */
+const SWEEP = 120;
+const needleAngle = (kPa: number) => SWEEP - (2 * SWEEP * (kPa - PRESSURE.min)) / (PRESSURE.max - PRESSURE.min);
+
+function gauge(v: Values): Part[] {
+  const face = cylinder(GAUGE_R, 2);
+  const at = (deg: number, r: number, z: number) => v3(-Math.sin(deg * DEG_TO_RAD) * r, GAUGE_Y + Math.cos(deg * DEG_TO_RAD) * r, z);
+  const a = needleAngle(rawPressure(v));
+  const NEEDLE = GAUGE_R - 2;
+  return [
+    part("gauge-stem", "Gauge stem", "Carries the dial off the pipe.", box(3, 3, GAUGE_Z - PIPE_R), v3(0, GAUGE_Y, (PIPE_R + GAUGE_Z) / 2 - 1), look.slate, on("pipe", "screw")),
+    part("gauge", "Pressure gauge", "Shows the water's pressure in the pipe.", face.shape, v3(0, GAUGE_Y, GAUGE_Z), look.light, on("gauge-stem", "screw"), v3(90, 0, 0)),
+    part("gauge-top", "Top of the scale", "Where the pressure has to reach.", box(1.4, 2.4, 1), at(-SWEEP, GAUGE_R - 1.6, GAUGE_Z + 1.2), look.goal, on("gauge", "glue"), v3(0, 0, -SWEEP)),
+    part("gauge-needle", "Needle", "Points at the pressure now.", box(1.8, NEEDLE, 1), at(a, NEEDLE / 2, GAUGE_Z + 1.6), look.focus, on("gauge", "hinge"), v3(0, 0, a)),
+  ];
+}
+
+// One goal: the pump runs, and only the squeeze decides how high the pressure gets.
+const TASKS: Task[] = [
+  {
+    goal: "Keep it dry while the pressure climbs.",
+    sliders: ["squeeze"],
+    scene: gauge,
+    met: (v) => valueOf(PRESSURE, v) >= PRESSURE.max - 1e-6 && holds(v),
+    hint: (v) =>
+      settle(v).split
+        ? "Crushed too far, the rubber bursts out."
+        : leak(v).rate > 0 && valueOf(PRESSURE, v) > PRESSURE.min + 20
+          ? "Leaking lets the pressure out. Squeeze more."
+          : undefined,
+    drive: pump,
+  },
+];
 
 function play(v: Values): Run {
   const verdict = judge(v);
@@ -374,7 +450,7 @@ function play(v: Values): Run {
   };
 }
 
-const SQUEEZE: Slider = { id: "squeeze", label: "Squeeze", min: 0, max: SQUEEZE_MAX, step: 0.01, initial: 0.2, unit: "%", displayScale: 100 };
+const SQUEEZE: Slider = { id: "squeeze", label: "Squeeze", min: 0, max: SQUEEZE_MAX, step: 0.01, initial: 0.2, unit: "%", displayScale: 100, ends: ["Loose", "Tight"] };
 
 export const seal: Primitive = {
   id: "seal",
@@ -397,14 +473,19 @@ export const seal: Primitive = {
     solve: (point) => 1 - (point.y - HANDLE_T / 2 - LID_T - GASKET_Y) / T0,
   },
   play: {
+    facts: {
+      say: "/sēl/",
+      is: "A squeezed rubber ring that closes a gap.",
+      note: "Squeeze affects how much pressure it holds.",
+    },
     // The squeeze is the hand's; the water's pressure is the one thing to try once the hand has felt the seal close.
     sliders: [SQUEEZE, PRESSURE],
     // The lid resting on a gasket at its full thickness, so the joint leaks from the start.
-    rest: { squeeze: 0 },
+    rest: { squeeze: 0, pressure: PRESSURE.min },
     // The joint alone. The game's own drops (its `drip` pose) are left out: free play's leak is `ambient`, and runs by itself.
     build: (v) => build(v).filter((p) => !p.id.startsWith("drop-")),
-    ambient: drips,
-    plot: leakPlot,
+    ambient: water,
+    tasks: TASKS,
     // Let go, the rubber pushes the lid back up to its full thickness: quickly, and without ringing, since rubber soaks
     // up its own bounce.
     release: (v) => returnTo(v, "squeeze", 0, SQUEEZE_MAX, RELAX_MS, easeOut),

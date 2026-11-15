@@ -27,6 +27,7 @@ import {
   type Slider,
   type Values,
   type Verdict,
+  allSliders,
   numberSlider,
   playMotion,
   playTuning,
@@ -84,6 +85,8 @@ function TaskPlay({ primitive, onDone }: { primitive: Primitive; onDone: () => v
   /**
    * Begins goal `i`. `from` is where the hand left the machine, for a goal that arrives the moment it is let go: its
    * `arrive` carries on from that let-go (the spring still springing back as the weight falls) rather than from rest.
+   * Values are set only when the goal has some: setting any stops the machine's own let-go (the seal's rubber springing
+   * back).
    */
   const begin = (i: number, from?: number) => {
     const c = store.controller;
@@ -94,30 +97,21 @@ function TaskPlay({ primitive, onDone }: { primitive: Primitive; onDone: () => v
     if (t.arrive) void c.play(t.arrive(from === undefined ? c.get() : { ...c.get(), [motion.id]: from }));
   };
 
-  // The first goal begins the moment the hand first lets go: the let-go puts the handle's slider back at rest at once
-  // (the machine's own motion carries on in the other values), so that is the moment to catch.
-  const pressed = useRef<number>(undefined);
+  // The first goal begins the moment the hand first lets go of the machine, having moved it: from where it was let go,
+  // so a goal that arrives then (the weight dropping on) carries on from the machine's own spring back.
   const started = useRef(false);
-  const rest = useRef(playValues(primitive)[motion.id]);
-  useEffect(
-    () =>
-      store.subscribe(() => {
-        if (started.current) return;
-        const now = store.snapshot()[motion.id]!;
-        if (now !== rest.current) {
-          pressed.current = now;
-          return;
-        }
-        const from = pressed.current;
-        if (from === undefined) return;
-        started.current = true;
-        // After this change has been handed out, not in the middle of it.
-        queueMicrotask(() => begin(0, from));
-      }),
-    [store],
-  );
+  const rest = playValues(primitive)[motion.id];
+  const onLetGo = (at: Values) => {
+    if (started.current || at[motion.id] === rest) return;
+    started.current = true;
+    begin(0, at[motion.id]);
+  };
 
+  // The task's own sliders, else the play's tuning; laid out for the first task before it begins, so nothing moves then.
+  const ids = (current ?? tasks[0]!).sliders;
+  const shown = ids ? ids.map((id) => allSliders(primitive).find((s) => s.id === id)!) : tuning;
   const met = useSelect(store, (v) => (current ? current.met(v) : false));
+  const hint = useSelect(store, (v) => current?.hint?.(v));
   const last = task === tasks.length - 1;
 
   return (
@@ -130,21 +124,26 @@ function TaskPlay({ primitive, onDone }: { primitive: Primitive; onDone: () => v
           </Term>
         ) : null}
       </div>
-      <Figure primitive={primitive} mode="play" store={store} task={task} />
+      <Figure primitive={primitive} mode="play" store={store} task={task} onLetGo={onLetGo} />
       {/* What to do now, just over the sliders it is done with. */}
       {/* The challenge, only once there is one. Laid out from the start (holding the first goal's words), so the figure
           keeps its size and the camera holds still when it rises in. */}
       <div className="reveal" data-shown={current ? "" : undefined} aria-hidden={!current}>
-        {/* Keyed by the goal, so each new one flashes in. */}
-        <StepCard key={task ?? -1} text={(current ?? tasks[0]!).goal} />
+        {/* Keyed by what it says, so a new goal, or a hint coming or going, flashes in. */}
+        <StepCard key={`${task ?? -1}:${hint ?? ""}`} text={hint ?? (current ?? tasks[0]!).goal} />
       </div>
       <div className="tuning" data-shown={current ? "" : undefined} inert={!current}>
-        {tuning.map((s) => (
+        {shown.map((s) => (
           <TuneRow key={s.id} store={store} slider={s} />
         ))}
       </div>
       <div className="reveal" data-shown={current ? "" : undefined} inert={!current}>
         <Actions>
+          {(current ?? tasks[0]!).action ? (
+            <button type="button" className="btn" data-action onClick={() => store.controller?.set((current ?? tasks[0]!).action!.set)}>
+              <PillSurface>{(current ?? tasks[0]!).action!.label}</PillSurface>
+            </button>
+          ) : null}
           {/* Keyed by the goal, so each one starts from a ghost. */}
           <FillPill key={task} met={met} label="Continue" onGo={() => (last ? onDone() : begin((task ?? -1) + 1))} />
         </Actions>
@@ -424,7 +423,7 @@ function ChallengeStep({ primitive }: { primitive: Primitive }) {
 }
 
 /** The figure on the screen itself, no frame, as tall as the screen leaves it. */
-function Figure({ primitive, mode, store, task }: { primitive: Primitive; mode: FigureMode; store: GameStore; task?: number }) {
+function Figure({ primitive, mode, store, task, onLetGo }: { primitive: Primitive; mode: FigureMode; store: GameStore; task?: number; onLetGo?: (at: Values, way: 1 | -1) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
   useLayoutEffect(() => {
@@ -439,7 +438,7 @@ function Figure({ primitive, mode, store, task }: { primitive: Primitive; mode: 
   return (
     <div className="figure" ref={box}>
       {height > 0 ? (
-        <FigureStage primitive={primitive} mode={mode} palette="library" height={height} controllerRef={store.attach} onCue={buzz} task={task} />
+        <FigureStage primitive={primitive} mode={mode} palette="library" height={height} controllerRef={store.attach} onCue={buzz} task={task} onLetGo={onLetGo} />
       ) : null}
     </div>
   );

@@ -21,9 +21,9 @@
 // spring and the gust drags the notch's wall up the steep face; too strong and the push stalls on the gentle face.
 import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, shudder, smooth } from "../motion/ease.ts";
-import { frame, handArrow, LEAD as LEAD_MS, MARK, phases, REWIND } from "../motion/run.ts";
+import { frame, handArrow, LEAD as LEAD_MS, MARK, phases, REWIND, SCENE } from "../motion/run.ts";
 import { arrow, arrowLength, coilSpring, fmt, look, on, part, pivoted, plate, PLATE_TOP, pullRing, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Motion, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Primitive, type Run, type Task, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import {
   BOLT,
   BOLT_W,
@@ -459,31 +459,109 @@ function release(v: Values): Motion {
 
 const FORCE: Slider = { id: "force", label: "Release force", min: 2, max: 20, step: 1, initial: 8, unit: " N", ends: ["Weak", "Strong"] };
 
-/** The plot's door axis: from a little before the door's edge meets the bolt, to shut. Further open, nothing touches. */
-const PLOT_FROM = Math.ceil(TOUCH_AT) - 4;
-/** Its force axis: the strongest spring's pull on the steep face, down to its push on the gentle one. */
-const PLOT_PULL = FORCE.max;
-const PLOT_PUSH = PLOT_PULL * (CLOSE_GAIN / HOLD_GAIN);
-const plotX = (door: number) => clamp01((door - PLOT_FROM) / -PLOT_FROM);
-const plotY = (hand: number) => (hand + PLOT_PULL) / (PLOT_PULL + PLOT_PUSH);
+// ---- Free play's goal: a gust that comes and goes, and a hand that pulls when asked ------------------------------------
+
+/** A hand's pull on the door, in newtons: an ordinary tug, harder than the gust. */
+export const HAND = 15;
+/** The gust's round, ms: still, then a blow, then still. A blown-open door is shut again at the start of each round. */
+const GUST_CYCLE = 3200;
+const GUST_AT = 700;
+const GUST_END = 2200;
+/** The gust is never quite steady: its arrow grows and shrinks by this share, this many times a second. */
+const FLUTTER = 0.12;
+const FLUTTER_HZ = 3;
+/** A pull, ms: the hand pulls this long, and a door it opened stands open this much longer before it is shut again. */
+const PULL_MS = 1200;
+const OPEN_MS = 900;
+/** How fast the door can slide, mm per ms (the gust's blow, a pull, and the hand that shuts it again). */
+const SLIDE = 0.15;
+
+/** The gust beats a spring weaker than itself (as in the game); a hand opens any spring up to its own pull. */
+const gustOpens = (release: number) => release < GUST - 1e-9;
+const handOpens = (release: number) => release <= HAND + 1e-9;
+
+/** Where the steep face holds a pull of `newtons` (a negative door position): the pull drags the notch up it until the spring's push wins. */
+function holdsAt(release: number, newtons: number) {
+  const spring = springFor(release);
+  const pushAt = (door: number) => spring.rate * (PRELOAD + liftAt(door));
+  return -doorWhere((d) => HOLD_GAIN * pushAt(-d), newtons, 0, -LIP_AT);
+}
+
+/** 0 outside [from, to], rising and falling over a quarter second at each end. */
+const bump = (t: number, from: number, to: number) => smooth(clamp01((t - from) / 250)) * smooth(clamp01((to - t) / 250));
 
 /**
- * What it takes to hold the door at each point of its last stretch: above the line a push (riding up the gentle face),
- * below it a pull (the steep face trying to snap it shut, and what opening it takes). The two faces under one spring:
- * a small hump, a deep trough. A stronger spring scales both. It is the same hand force settle() gives the figure,
- * sampled on the door slider's grid and either side of each corner, so the dot (the door now) is on the line.
+ * The door, `dtMs` on from `v`. The gust blows on its own, round after round. A pull happens when asked: the Pull button
+ * sets `tug`, and the hand pulls from then. The release force is read afresh each frame, so the door answers the slider.
+ * `opened` records a pull that opened a door the gust could not: the goal. `failed`, a pull the spring held against.
  */
-function holding(v: Values) {
-  const at = (door: number): [number, number] => [plotX(door), plotY(settle({ ...v, door }).hand)];
-  const doors = new Set<number>();
-  for (let d = PLOT_FROM; d <= 0; d += 0.5) doors.add(d);
-  for (const c of [TOUCH_AT, FLAT_AT, LIP_AT]) doors.add(c - 1e-4).add(c + 1e-4);
-  doors.add(-1e-4);
-  const line = [...doors].sort((a, b) => a - b).map(at);
-  const s = settle(v);
-  // Further open than the plot's left end, the door touches nothing: the dot waits at the start of the flat.
-  return { line, dot: at(Math.max(PLOT_FROM, s.door)), zero: plotY(0), caption: "push to hold it here" };
+function demo(v: Values, ms: number, dtMs: number): Values {
+  const release = valueOf(FORCE, v);
+  const out: Values = { ...v, tug: 0 };
+  if ((v.tug ?? 0) > 0 && (v.tugAt ?? -1) < 0) out.tugAt = ms;
+  const since = (out.tugAt ?? -1) < 0 ? -1 : ms - out.tugAt!;
+  let to: number;
+  if (since >= 0 && since < PULL_MS + OPEN_MS) {
+    // The hand's pull: a spring up to the hand's pull lets the door slide open; a stronger one only gives a little.
+    const opens = handOpens(release);
+    to = opens ? OPEN_DOOR : holdsAt(release, HAND) * bump(since, 0, PULL_MS);
+    out.pull = since < PULL_MS ? HAND : 0;
+    out.pullY = RING_Y;
+    if (since < PULL_MS) {
+      if (opens && !gustOpens(release)) out.opened = 1;
+      out.failed = opens ? 0 : 1;
+    }
+  } else {
+    if (since >= 0) out.tugAt = -1;
+    const t = ms % GUST_CYCLE;
+    const blowing = t >= GUST_AT && t < GUST_END;
+    to = !blowing ? (t < GUST_AT ? 0 : gustOpens(release) ? OPEN_DOOR : 0) : gustOpens(release) ? OPEN_DOOR : holdsAt(release, GUST) * bump(t, GUST_AT, GUST_END);
+    out.pull = blowing ? GUST : 0;
+    out.pullY = GUST_Y;
+    out.gust = blowing ? bump(t, GUST_AT, GUST_END) * (1 + FLUTTER * Math.sin((ms / 1000) * FLUTTER_HZ * 2 * Math.PI)) : 0;
+  }
+  const door = clamp(v.door ?? 0, DOOR_MIN, 0);
+  out.door = door + clamp(to - door, -SLIDE * dtMs, SLIDE * dtMs);
+  return out;
 }
+
+/** The gust's or the hand's pull on the door's back face, as an arrow to scale; the gust's flutters as it blows. */
+function pullScene(v: Values): Part[] {
+  const newtons = v.pull ?? 0;
+  if (newtons <= 0) return [];
+  const gust = newtons === GUST;
+  const len = arrowLen(newtons) * (gust ? Math.max(0.2, v.gust ?? 1) : 1);
+  return arrow(`${SCENE}pull-arrow`, v3(doorLeft(clamp(v.door ?? 0, DOOR_MIN, 0)), v.pullY ?? GUST_Y, 0), 180, len, "pull", {
+    name: gust ? "Gust" : "Hand",
+    role: gust ? "The gust's pull on the door." : "A hand pulling the door open.",
+    on: on("plate", "glue"),
+  });
+}
+
+/** In the window the spring holds against the gust and gives to a hand: exactly the releases between the two pulls. */
+const holds = (v: Values) => {
+  const release = valueOf(FORCE, v);
+  return !gustOpens(release) && handOpens(release);
+};
+
+// One goal, with a failure on each side: too weak and the gust opens the door, too strong and a hand cannot. The gust
+// is the world's; the pull is the user's, on the Pull button, and the goal is met only once they have pulled it open.
+const TASKS: Task[] = [
+  {
+    goal: "Hold against the gust, then pull it open.",
+    start: { force: 4, pull: 0, tug: 0, tugAt: -1, opened: 0, failed: 0 },
+    scene: pullScene,
+    met: (v) => holds(v) && (v.opened ?? 0) > 0,
+    hint: (v) => {
+      const release = valueOf(FORCE, v);
+      if (gustOpens(release)) return "The gust blows it open. Make it stronger.";
+      if (!handOpens(release) && (v.failed ?? 0) > 0) return "Too strong to pull open. Make it weaker.";
+      return undefined;
+    },
+    action: { label: "Pull", set: { tug: 1 } },
+    drive: demo,
+  },
+];
 
 export const catchLatch: Primitive = {
   id: "catch",
@@ -505,6 +583,11 @@ export const catchLatch: Primitive = {
     solve: (point) => point.x - ringAt(0).x,
   },
   play: {
+    facts: {
+      say: "/kaCH/",
+      is: "A sprung bolt that lets a door shut and holds it.",
+      note: "Release force affects how hard it is to open.",
+    },
     // The door slid open, clear of the bolt, which hangs all the way down on its spring.
     rest: { door: OPEN_DOOR },
     // The latch alone: no holding hand's arrow, since the hand is the finger on the ring.
@@ -512,7 +595,7 @@ export const catchLatch: Primitive = {
     // While the finger holds the door, the game's holding arrow, to scale: a light push on the gentle face, a pull as big
     // as the release force on the steep one.
     hand: (v) => build({ ...v, hand: 1 }).filter((p) => p.id === "hand-arrow"),
-    plot: holding,
+    tasks: TASKS,
     release,
   },
   game: {

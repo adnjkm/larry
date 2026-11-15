@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, contact, find, numberSweep, sample, worldOutline } from "../checks.ts";
 import { startValues, steps, type Values } from "../types.ts";
-import { catchLatch, GUST, PUSH, rig, settle, shutAndHold, springFor } from "./catch.ts";
+import { catchLatch, GUST, HAND, PUSH, rig, settle, shutAndHold, springFor } from "./catch.ts";
 import { CLOSE_GAIN, FLAT_AT, HOLD_GAIN, LIP_AT, liftAt, THROW, TOUCH_AT } from "./catchGeometry.ts";
 
 type Pt = [number, number];
@@ -146,42 +146,8 @@ describe("catch", () => {
   });
 });
 
-/** How far a plot's dot is from its line, in plot units. */
-function offLine(plot: { line: readonly (readonly [number, number])[]; dot?: readonly [number, number] }): number {
-  const p = plot.dot!;
-  let best = Infinity;
-  for (let i = 1; i < plot.line.length; i++) {
-    const a = plot.line[i - 1]!;
-    const b = plot.line[i]!;
-    const len = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1;
-    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / len));
-    best = Math.min(best, Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])));
-  }
-  return best;
-}
-
 describe("catch free play", () => {
-  const plot = catchLatch.play!.plot!;
   const hand = catchLatch.play!.hand!;
-  it("plots the hand's push along the door's last stretch, with the dot on it wherever the door is", () => {
-    for (const f of FORCES)
-      for (const d of [...DOORS, ...KEY_DOORS, -12.34, -3.1]) {
-        const p = plot({ force: f, door: d });
-        assert.ok(offLine(p) < 1e-3, `force ${f}, door ${d}: the dot is ${offLine(p).toFixed(4)} off the line`);
-      }
-  });
-
-  it("puts a small hump over the zero for the gentle face and a deep trough under it for the steep one, both scaled by the spring", () => {
-    for (const f of FORCES) {
-      const p = plot({ force: f, door: 0 });
-      const ys = p.line.map((q) => q[1]);
-      const unit = 1 / (force.max * (1 + CLOSE_GAIN / HOLD_GAIN));
-      // The hump: the spring's full push times tan 30°; the trough: times tan 70°, which is the release force.
-      assert.ok(Math.abs(Math.max(...ys) - p.zero! - ((f * CLOSE_GAIN) / HOLD_GAIN) * unit) < 2e-3, `force ${f}: hump`);
-      assert.ok(Math.abs(p.zero! - Math.min(...ys) - f * unit) < 2e-3, `force ${f}: trough`);
-    }
-  });
-
   it("draws the holding arrow while the finger is on the door, longer for a stronger spring on the steep face", () => {
     const length = (f: number, d: number) => {
       const a = hand({ force: f, door: d });
@@ -195,5 +161,76 @@ describe("catch free play", () => {
     assert.equal(length(8, 0), 0, "shut, the post holds it");
     assert.ok(length(8, -15) > 0, "on the gentle face");
     assert.ok(length(20, -2) > length(4, -2) + 8, `steep face: ${length(4, -2)} at 4 N, ${length(20, -2)} at 20 N`);
+  });
+});
+
+describe("catch free play's goals", () => {
+  const task = catchLatch.play!.tasks![0]!;
+  const drive = task.drive!;
+  const start = (f: number): Values => ({ ...task.start, force: f, door: 0 });
+  /** Runs the motor from `v` for `ms`, pressing Pull at `pullAt` ms if given; the door's furthest open per pull. */
+  const watch = (v0: Values, ms: number, pullAt?: number) => {
+    let v = v0;
+    let gustOpen = 0;
+    let handOpen = 0;
+    for (let t = 0; t < ms; t += 16) {
+      if (pullAt !== undefined && t >= pullAt && t < pullAt + 16) v = { ...v, ...task.action!.set };
+      v = drive(v, t, 16);
+      if (v.pull === GUST) gustOpen = Math.min(gustOpen, v.door!);
+      if (v.pull === HAND) handOpen = Math.min(handOpen, v.door!);
+    }
+    return { v, gustOpen, handOpen };
+  };
+
+  it("draws no graph, and gives the user a Pull button", () => {
+    assert.equal(catchLatch.play!.plot, undefined);
+    assert.equal(task.action!.label, "Pull");
+  });
+
+  it("has one goal, starting too weak, so the gust blows the door open", () => {
+    assert.equal(catchLatch.play!.tasks!.length, 1);
+    assert.equal(task.met(start(task.start!.force!)), false);
+    assert.ok(watch(start(task.start!.force!), 2400).gustOpen < -30);
+  });
+
+  it("blows on its own, round after round, and never pulls until asked", () => {
+    const w = watch(start(12), 7000);
+    assert.ok(w.gustOpen < 0 && w.gustOpen > LIP_AT - 1e-6, `the gust shakes it ${w.gustOpen}`);
+    assert.equal(w.handOpen, 0, "no hand without the button");
+  });
+
+  it("is met only once a pull has opened a door the gust could not: in the window, and pulled", () => {
+    for (const f of steps(force)) {
+      const w = watch(start(f), 3000, 2400);
+      assert.equal(task.met(w.v), f >= GUST && f <= HAND, `force ${f}`);
+      if (f >= GUST && f <= HAND) assert.ok(w.handOpen < -30, `force ${f}: the hand opens it`);
+      if (f > HAND) assert.ok(w.handOpen > LIP_AT - 1e-6, `force ${f}: the hand only shakes it`);
+    }
+    assert.equal(task.met({ ...start(12) }), false, "not before a pull");
+  });
+
+  it("shuts the door again after a pull, then the gust carries on", () => {
+    const w = watch(start(12), 2400 + 1200 + 900 + 1500, 2400);
+    assert.ok(w.v.door! > -1, `door at ${w.v.door}`);
+    assert.equal(w.v.tugAt, -1);
+  });
+
+  it("flutters the gust's arrow as it blows", () => {
+    const lens = new Set<number>();
+    let v = start(12);
+    for (let t = 0; t < 2200; t += 16) {
+      v = drive(v, t, 16);
+      const a = task.scene(v).find((p) => p.id.includes("pull-arrow"));
+      if (a && t > 1000 && t < 1900) lens.add(Math.round(a.shape.kind === "box" ? a.shape.height * 10 : a.position.x * 10));
+    }
+    assert.ok(lens.size > 3, "its length changes as it blows");
+  });
+
+  it("says what went wrong only once it has been seen: blown open, or a pull that failed", () => {
+    assert.match(task.hint!(start(4))!, /stronger/);
+    assert.equal(task.hint!(start(18)), undefined, "too strong says nothing before a pull");
+    assert.match(task.hint!(watch(start(18), 3000, 2400).v)!, /weaker/);
+    assert.equal(task.hint!(watch(start(12), 3000, 2400).v), undefined);
+    assert.ok(task.goal.length <= 46);
   });
 });

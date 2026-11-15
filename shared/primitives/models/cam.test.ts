@@ -193,46 +193,75 @@ describe("cam", () => {
   });
 });
 
-/** How far a plot's dot is from its line, in plot units. */
-function offLine(plot: { line: readonly (readonly [number, number])[]; dot?: readonly [number, number] }): number {
-  const p = plot.dot!;
-  let best = Infinity;
-  for (let i = 1; i < plot.line.length; i++) {
-    const a = plot.line[i - 1]!;
-    const b = plot.line[i]!;
-    const len = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1;
-    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / len));
-    best = Math.min(best, Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])));
-  }
-  return best;
-}
+describe("cam free play's goals", () => {
+  const tasks = cam.play!.tasks!;
+  /** Runs a task's motor for `ms` from `v`, a frame at a time, as the stage does. */
+  const run = (drive: NonNullable<(typeof tasks)[number]["drive"]>, v: Values, ms: number) => {
+    let at = v;
+    for (let t = 0; t < ms; t += 16) at = drive(at, t, 16, (v.way ?? 1) < 0 ? -1 : 1);
+    return at;
+  };
+  const tip = (v: Values) => tasks[0]!.scene(v).find((p) => p.id === "tip")!;
+  const capTop = (v: Values) => Math.max(...tasks[0]!.scene(v).filter((p) => p.name === "Cap").map((p) => p.position.y + (p.shape.kind === "box" ? p.shape.height / 2 : 0)));
 
-describe("cam free play", () => {
-  const plot = cam.play!.plot!;
-  it("plots the rod's height over a turn, with the dot on the line at every turn, on the grid or off it", () => {
-    for (const l of steps(lift))
-      for (const turn of [0, 0.1, 0.1234, 0.25, 0.5, 0.6789, 0.75, 1]) {
-        const p = plot({ lift: l, turn });
-        assert.ok(offLine(p) < 0.004, `lift ${l}, turn ${turn}: the dot is ${offLine(p).toFixed(4)} off the line`);
-        assert.ok(Math.abs(p.dot![1] - rise({ lift: l }, turn) / lift.max) < 1e-9);
-      }
+  it("draws no graph: the cam's motion is seen on the rod, pushing its tip up through a cap", () => {
+    assert.equal(cam.play!.plot, undefined);
+    for (const t of tasks) assert.ok(t.scene({ lift: 10, turn: 0 }).some((p) => p.name === "Cap"));
   });
 
-  it("reshapes the line with the lift: each hump is as tall as the bumps", () => {
+  it("has one goal, starting too low to push the tip out, and failing again once the lift is too steep to turn", () => {
+    assert.equal(tasks.length, 1);
+    assert.equal(tasks[0]!.met({ ...tasks[0]!.start, turn: 0.5 }), false);
+    assert.equal(tasks[0]!.met({ lift: lift.max, turn: 0.5 }), false);
+    assert.ok(rampAngle(lift.max) > LIMIT, "the tallest lift is too steep");
+  });
+
+  it("is met exactly by the lifts whose tip clears the cap at the top of a bump, and that turn", () => {
     for (const l of steps(lift)) {
-      const top = Math.max(...plot({ lift: l, turn: 0 }).line.map((q) => q[1]));
-      assert.ok(Math.abs(top - l / lift.max) < 0.002, `lift ${l}: the humps peak at ${top}`);
+      // The turn with a bump's flat top under the rod.
+      const turns = Array.from({ length: 721 }, (_, i) => i / 720);
+      const top = turns.reduce((a, b) => (rise({ lift: l }, b) > rise({ lift: l }, a) ? b : a));
+      const cleared = tip({ lift: l, turn: top }).position.y - 1.5 - 0.2 >= capTop({ lift: l, turn: top }) - 1e-6;
+      assert.equal(tasks[0]!.met({ lift: l, turn: 0 }), cleared && rampAngle(l) <= LIMIT, `lift ${l}`);
     }
-    assert.notDeepEqual(plot({ lift: 4, turn: 0 }).line, plot({ lift: 14, turn: 0 }).line);
+    assert.ok(steps(lift).filter((l) => tasks[0]!.met({ lift: l, turn: 0 })).length >= 2);
   });
 
-  it("keeps the dot on the line as the rod drops back after a let-go", () => {
-    for (const l of [6, 12]) {
-      const run = cam.play!.release!({ lift: l, turn: 0.2 });
-      for (let k = 0; k <= 10; k++) {
-        const f = run.at((k / 10) * run.durationMs);
-        assert.ok(offLine(plot(f.values)) < 0.004, `lift ${l}, frame ${k}`);
-      }
+  it("keeps the tip on the rod's top, under the cap at rest", () => {
+    for (const l of steps(lift)) assert.ok(tip({ lift: l, turn: 0.5 }).position.y < capTop({ lift: l, turn: 0.5 }), `lift ${l}`);
+  });
+
+  it("turns a gentle cam round and round, pushing the tip out twice a turn", () => {
+    const drive = tasks[0]!.drive!;
+    let v: Values = { lift: 10, turn: 0.5 };
+    let out = 0;
+    let was = false;
+    for (let t = 0; t < 2000; t += 16) {
+      v = drive(v, t, 16, 1);
+      const now = rise(v, v.turn!) >= 9;
+      if (now && !was) out++;
+      was = now;
     }
+    assert.ok(out >= 2, `out ${out} times in a turn`);
+  });
+
+  it("turns the way the hand last turned it, and jams the same distance from the middle either way", () => {
+    const drive = tasks[0]!.drive!;
+    const back = drive({ lift: 10, turn: 0.5 }, 0, 100, -1);
+    assert.ok(back.turn! < 0.5, `turned to ${back.turn}`);
+    const ahead = drive({ lift: 10, turn: 0.5 }, 0, 100, 1);
+    assert.ok(ahead.turn! > 0.5);
+    const up = run(drive, { lift: 14, turn: 0.5, way: 1 }, 3000);
+    const down = run(drive, { lift: 14, turn: 0.5, way: -1 }, 3000);
+    assert.ok(Math.abs(up.turn! - 0.5 - (0.5 - down.turn!)) < 0.01, `jammed at ${up.turn} and ${down.turn}`);
+  });
+
+  it("jams a cam too steep for the guide where a ramp first wedges the rod, and frees it when the lift comes down", () => {
+    const drive = tasks[0]!.drive!;
+    const jammed = run(drive, { lift: 14, turn: 0.5 }, 3000);
+    assert.ok(rise(jammed, jammed.turn!) <= JAM_RISE + 1e-6, `the rod stands ${rise(jammed, jammed.turn!)} mm up a ramp`);
+    assert.ok(Math.abs(jammed.turn! - 0.5) < 0.25, "it stuck on its own stretch of base circle");
+    const freed = run(drive, { ...jammed, lift: 10 }, 1000);
+    assert.ok(Math.abs(freed.turn! - jammed.turn!) > 0.2, "lowered, it turns on");
   });
 });

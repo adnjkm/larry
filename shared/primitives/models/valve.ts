@@ -19,7 +19,7 @@ import type { Part } from "../../kit.ts";
 import { clamp, clamp01, easeOut, smooth } from "../motion/ease.ts";
 import { frame, MARK, phases, SCENE, whenReaches } from "../motion/run.ts";
 import { arrow, box, coilSpring, fmt, lathe, look, on, part, pivoted, plate, PLATE_TOP, pushDisc, tick, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Motion, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { type Cue, type Meter, type Motion, type Primitive, type Run, type Task, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
 
 // Geometry, mm. x = 0 is the valve's axis before VX shifts the rig to centre it on the plate.
@@ -538,22 +538,73 @@ function springArrow(v: Values): Part[] {
   });
 }
 
-/** The softest spring's stop: the most any ball here lifts, the plot's full height. */
-const LIFT_MOST = springFor(OPEN.min).liftMax;
+// ---- Free play's goal: pump a bag up to a mark, one press of the Pump button a stroke -------------------------------------
+
+/** The Pump button's stroke is the game's, slowed this many times so the ball, the air and the leak can be followed. */
+export const SLOW = 3;
+const IDLE = -1;
+
+/** The stroke the thumb makes `t` ms (game time) in, from a bag at `from` kPa: what the game's six strokes do, one at a time. */
+function strokeFrom(v: Values, from: number) {
+  const r = pumpUp(v);
+  const gain = clamp(r.ceiling - from, 0, STEP);
+  const after = from + gain;
+  const full = after >= r.ceiling - 1e-9;
+  const lost = full ? 0 : r.share * after;
+  return { r: { ...r, list: [{ from, gain, after, lost, full }] }, gain, after, lost };
+}
 
 /**
- * How far the ball lifts for the pressure under it: nothing until the opening pressure, then a straight rise (a softer
- * spring rises faster) until the coils touch. A stiffer spring moves the knee right and lays the rise flatter. The dot is
- * the pressure the ball answers to now, so it rides the line while the plunger moves and as the ball reseats.
+ * The pump, `dtMs` on from `v`. Pressing Pump sets `push`; the thumb then makes one stroke from there, the game's own
+ * (same push, same spring, same reseat time, same leak), and the bag keeps what it ends with. The opening pressure is read
+ * afresh each frame. `reached` records a stroke that left a passing spring's bag at the mark: the goal. `stuck` is a
+ * stroke that added nothing, `leaked` one that lost air: what the hints go on.
  */
-function opening(v: Values) {
-  const s = settle(v);
-  const full = s.open * (1 + s.liftMax / PRELOAD_MM);
-  const at = (p: number): [number, number] => [p / THUMB, liftFor(s.open, p) / LIFT_MOST];
-  const line = [at(0), at(s.open), ...(full < THUMB ? [at(full)] : []), at(THUMB)];
-  const p = clamp(Math.max(s.pressure, v.held ?? 0), 0, THUMB);
-  return { line, dot: at(p), caption: "ball lift for pump pressure" };
+function pumping(v: Values, ms: number, dtMs: number): Values {
+  void dtMs;
+  const out: Values = { ...v, push: 0 };
+  let at = v.at ?? IDLE;
+  let from = v.from ?? 0;
+  if ((v.push ?? 0) > 0 && at < 0) {
+    at = ms;
+    from = v.bag ?? 0;
+  }
+  if (at < 0) return { ...out, at: IDLE, pressure: 0, held: 0, flow: 0 };
+  const t = (ms - at) / SLOW;
+  const k = strokeFrom(v, from);
+  if (t < STROKE) {
+    const s = strokeAt(k.r, 0, t);
+    return { ...out, at, from, pressure: s.pump, held: s.held, flow: s.flow, bag: s.bag };
+  }
+  const bag = k.after - k.lost;
+  const reached = pumpUp(v).kind === "pass" && bag >= TARGET - 1e-6 ? 1 : 0;
+  return { ...out, at: IDLE, from, pressure: 0, held: 0, flow: 0, bag, reached, stuck: k.gain <= 0 ? 1 : 0, leaked: k.lost > 1e-9 ? 1 : 0 };
 }
+
+/** The bag being filled (the game's, under a scene id), the mark beside it, and the air in the neck while it moves. */
+function bagScene(v: Values): Part[] {
+  const bag = build(v).find((p) => p.id === "bag")!;
+  return [...scene(), { ...bag, id: `${SCENE}bag` }, ...((v.flow ?? 0) !== 0 ? airDots(v.bag ?? 0) : [])];
+}
+
+// One goal, with a failure on each side: too stiff and the thumb's push runs out short of the mark, too soft and the air
+// leaks back past a ball that is slow to shut. Pressing Pump is the user's; the hints wait until they have seen it.
+const TASKS: Task[] = [
+  {
+    goal: "Pump the bag up to the mark.",
+    start: { open: 150, pressure: 0, bag: 0, held: 0, flow: 0, push: 0, at: IDLE, from: 0, reached: 0, stuck: 0, leaked: 0 },
+    scene: bagScene,
+    met: (v) => pumpUp(v).kind === "pass" && (v.reached ?? 0) > 0,
+    hint: (v) => {
+      const kind = pumpUp(v).kind;
+      if (kind === "stalls" && (v.stuck ?? 0) > 0) return "Too stiff: the push runs out. Make it softer.";
+      if (kind === "leaks" && (v.leaked ?? 0) > 0) return "Too soft, so the air leaks back. Stiffer.";
+      return undefined;
+    },
+    action: { label: "Pump", set: { push: 1 } },
+    drive: pumping,
+  },
+];
 
 export const valve: Primitive = {
   id: "valve",
@@ -575,6 +626,11 @@ export const valve: Primitive = {
     solve: (point) => (point.x - VX - PLUNGER_X0) / PLUNGER_MM_PER_KPA,
   },
   play: {
+    facts: {
+      say: "/valv/",
+      is: "A spring-held gate that opens under a push.",
+      note: "Stiffness affects how much push opens it.",
+    },
     // The plunger out at the barrel's mouth, no pressure under the ball, and the ball on its seat.
     rest: { pressure: 0 },
     // The valve alone: body, ball, spring and plunger. The bag is the game's thing to fill, and the push arrow is a force
@@ -582,7 +638,7 @@ export const valve: Primitive = {
     build: (v) => build(v).filter((p) => p.id !== "bag" && p.id !== "push-arrow"),
     // While the thumb is on the plunger: the pump's push up on the ball against the spring's push down, both to scale.
     hand: (v) => [...build(v).filter((p) => p.id === "push-arrow"), ...springArrow(v)],
-    plot: opening,
+    tasks: TASKS,
     release,
   },
   game: {

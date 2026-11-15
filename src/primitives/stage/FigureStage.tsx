@@ -39,6 +39,8 @@ type FigureStageProps = {
   controllerRef?: Ref<StageController | null>;
   onLive?: (text: string) => void;
   onCue?: (cue: Cue) => void;
+  /** Free play: the hand let go of the machine, which stood at `values` as it did, moving it `way` along its slider. */
+  onLetGo?: (values: Values, way: 1 | -1) => void;
   /** Play mode: which of primitive.play.tasks is on, so its scene is drawn. */
   task?: number;
 };
@@ -110,6 +112,7 @@ export function FigureStage({
   controllerRef,
   onLive,
   onCue,
+  onLetGo,
   task,
 }: FigureStageProps) {
   const root = useRef<HTMLDivElement>(null);
@@ -117,9 +120,10 @@ export function FigureStage({
   const ring = useRef<HTMLDivElement>(null);
   const view = useRef<StageView>(null);
   // Read through a ref so a new callback each render never rebuilds the scene.
-  const callbacks = useRef({ onLive, onCue });
+  const callbacks = useRef({ onLive, onCue, onLetGo });
   callbacks.current.onLive = onLive;
   callbacks.current.onCue = onCue;
+  callbacks.current.onLetGo = onLetGo;
   const latestValues = useRef(values);
   latestValues.current = values;
   const latestRef = useRef(controllerRef);
@@ -129,6 +133,7 @@ export function FigureStage({
     const v = new StageView({ root: root.current!, canvas: canvas.current!, ring: ring.current }, primitive, mode, palette, latestValues.current ?? {}, {
       onLive: (t) => callbacks.current.onLive?.(t),
       onCue: (c) => callbacks.current.onCue?.(c),
+      onLetGo: (v, way) => callbacks.current.onLetGo?.(v, way),
     });
     view.current = v;
     const ref = latestRef.current;

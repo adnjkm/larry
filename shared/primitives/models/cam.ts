@@ -15,8 +15,8 @@
 import type { Part } from "../../kit.ts";
 import { clamp, fall, shudder, smooth } from "../motion/ease.ts";
 import { frame, LEAD, phases, REWIND, SCENE, whenReaches } from "../motion/run.ts";
-import { fmt, knob, lathe, look, on, part, pivoted, plate, post, v3, type Pt } from "../parts.ts";
-import { type Cue, type Meter, type Motion, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, valueOf } from "../types.ts";
+import { box, fmt, knob, lathe, look, on, part, pivoted, plate, post, v3, type Pt } from "../parts.ts";
+import { type Cue, type Meter, type Motion, type Primitive, type Run, type Values, type Verdict, VIEW, type Slider, type Task, valueOf } from "../types.ts";
 import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
 
 // Geometry, millimetres. The post is behind the cam and the follower; the whole rig sits in z so the union is centred.
@@ -200,25 +200,80 @@ function release(v: Values): Motion {
   };
 }
 
-/** Plot samples over one turn: a multiple of the turn slider's 200 steps, so a turn on its grid is a vertex of the line. */
-const PLOT_POINTS = 400;
-const profiles = new Map<number, [number, number][]>();
+// ---- Free play's goals: the cam on a motor, pushing a tip out through a cap, as a click pen does --------------------
+
+/** The motor's speed, in turns a second: two bumps a turn push the tip out about once a second. */
+const MOTOR_TURNS_PER_S = 0.5;
+/** A jammed cam strains against the rod: it shivers this much of a turn back from where it stuck, this fast. */
+const STRAIN = 0.004;
+const STRAIN_HZ = 9;
+
+/** The cap over the rod, like the end of a pen's barrel: its top this far over the rod's resting top, this thick. */
+const CAP_UP = 6;
+const CAP_T = 3;
+/** The rod's green tip, the part that has to come out through the cap. */
+const TIP_H = 3;
+/** The tip is all the way out once the rod rises this far: a lift this tall or more does it. */
+const CLEAR = CAP_UP + TIP_H;
 
 /**
- * The cam's rim unrolled: how high the rod stands at each point of one turn, the cam's motion curve. Taller bumps raise
- * both humps on the same ramp length, so they also get steeper. It is the follower's own solved height, so the dot (the
- * turn now) rides the line exactly as the rod rides the rim. Height is a share of the tallest lift on the slider.
+ * The motor turning the cam, `dtMs` on from `v`. A cam whose ramps the guide can take turns on; one too steep turns only
+ * until a ramp first wedges the rod, then strains there. The lift is read afresh each frame, so lowering it frees the cam
+ * at once and raising it jams it at the next ramp.
  */
-function profile(v: Values) {
-  const lift = valueOf(LIFT, v);
-  let line = profiles.get(lift);
-  if (!line) {
-    line = Array.from({ length: PLOT_POINTS + 1 }, (_, i): [number, number] => [i / PLOT_POINTS, rise(v, i / PLOT_POINTS) / LIFT.max]);
-    profiles.set(lift, line);
-  }
-  const turn = wrap(settle(v).turn);
-  return { line, dot: [turn, rise(v, turn) / LIFT.max] as [number, number], caption: "rod height over one turn" };
+function motor(v: Values, ms: number, dtMs: number, way: 1 | -1 = 1): Values {
+  // `way`: the way the hand last turned it. The bumps are mirror images, so the jam either way is as far from the middle.
+  const turn = v.turn ?? 0;
+  const next = turn + (way * MOTOR_TURNS_PER_S * dtMs) / 1000;
+  if (turnsFreely(v)) return { ...v, turn: wrap(next) };
+  // The stretch of base circle the rod is on, and how far past its middle the next ramp first wedges the rod.
+  const mid = Math.round(turn * 2) / 2;
+  const stop = mid + way * firstReach(v, JAM_RISE);
+  const shiver = STRAIN * Math.abs(Math.sin((ms / 1000) * STRAIN_HZ * Math.PI));
+  // Already past this stretch's ramp (the lift was raised with the rod up a bump): turn on to the next stretch.
+  if (way * (turn - stop) > STRAIN) return { ...v, turn: wrap(next) };
+  return { ...v, turn: wrap(way > 0 ? Math.min(next, stop - shiver) : Math.max(next, stop + shiver)) };
 }
+
+/**
+ * The cap the rod pushes up through, held out from the post, and the rod's green tip. The cap is a frame round a hole a
+ * little bigger than the rod, so the rod slides through it.
+ */
+function capScene(v: Values): Part[] {
+  const s = settle(v);
+  const top = REST_TOP + CAP_UP;
+  const y = top - CAP_T / 2;
+  const hx = FOOT_W / 2 + 0.5;
+  const back = ZC - CAM_T / 2 - 0.5;
+  const front = ZC + CAM_T / 2 + 0.5;
+  const out = 6;
+  const bar = (id: string, x0: number, x1: number, z0: number, z1: number) =>
+    part(`${SCENE}cap-${id}`, "Cap", "The end the tip has to come out of.", box(x1 - x0, CAP_T, z1 - z0), v3((x0 + x1) / 2, y, (z0 + z1) / 2), look.slate, on(`${SCENE}post`, "weld"));
+  return [
+    post(`${SCENE}post`, 0, POST_Z, top, { name: "Post", role: "Holds the cap over the rod.", bottom: REST_TOP + POST_ABOVE_ROD, on: on("post", "weld") }),
+    bar("back", -hx - out, hx + out, POST_Z + 4, back),
+    bar("front", -hx - out, hx + out, front, front + 3),
+    bar("left", -hx - out, -hx, back, front),
+    bar("right", hx, hx + out, back, front),
+    part("tip", "Tip", "The end of the rod, to push out through the cap.", box(FOOT_W + 0.4, TIP_H, CAM_T + 0.4), v3(0, s.topY - TIP_H / 2 + 0.2, ZC), look.goal, on("follower", "glue")),
+  ];
+}
+
+/** Whether the motor turns it and its tip comes all the way out: a lift tall enough, with ramps gentle enough to turn. */
+const clears = (v: Values) => valueOf(LIFT, v) >= CLEAR && turnsFreely(v);
+
+// One goal. Raised too far, the ramps get too steep and the cam jams on the rod: it fails again until lowered.
+const TASKS: Task[] = [
+  {
+    goal: "Raise the lift until the green tip comes out.",
+    start: { lift: 5 },
+    scene: capScene,
+    met: clears,
+    hint: (v) => (turnsFreely(v) ? undefined : "Too steep, so it jams. Lower it a little."),
+    drive: motor,
+  },
+];
+
 
 const knobAngle = (turn: number) => KNOB_AT_0 + turn * 360;
 const knobPoint = (turn: number) => v3(KNOB_R * Math.cos(knobAngle(turn) * DEG_TO_RAD), CAM_Y + KNOB_R * Math.sin(knobAngle(turn) * DEG_TO_RAD), KNOB_Z);
@@ -438,6 +493,11 @@ export const cam: Primitive = {
     reach: (v) => (rampAngle(valueOf(LIFT, v)) > LIMIT ? [0, Math.min(1, firstReach(v, JAM_RISE))] : [0, 1]),
   },
   play: {
+    facts: {
+      say: "/kam/",
+      is: "A shaped wheel that turns spinning into lifting.",
+      note: "Lift affects how high and steeply it pushes.",
+    },
     // The rod down on the base circle, between the two bumps. Half a turn, not none: a cam too steep to turn then has its
     // whole stretch of base circle inside the slider, from one jammed ramp to the other.
     rest: { turn: 0.5 },
@@ -451,8 +511,8 @@ export const cam: Primitive = {
       return [Math.max(0, mid - a), Math.min(1, mid + a)];
     },
     // No hand arrow: the lesson is the timing, which the rod's height shows, not a force.
-    plot: profile,
     release,
+    tasks: TASKS,
   },
   game: {
     name: "Ring the bell",

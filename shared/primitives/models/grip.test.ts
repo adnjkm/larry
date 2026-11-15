@@ -5,8 +5,8 @@ import type { Part } from "../../kit.ts";
 import { DEG_TO_RAD } from "../../angles.ts";
 import { checkDesign, checkGame, contact, find, sample } from "../checks.ts";
 import { type Pt, PLATE_TOP } from "../parts.ts";
-import { playBuild, playHandle, playMotion, playTuning, playValues, startValues, steps } from "../types.ts";
-import { blockPose, CRACK, geometry, grip, hold, LOAD_END, MU, ramp, settle, SLIDE, slipAngle } from "./grip.ts";
+import { playBuild, playHandle, playMotion, playTuning, playValues, startValues, steps, type Values } from "../types.ts";
+import { blockPose, CRACK, geometry, grip, hold, LOAD_END, MU, ramp, settle, SLIDE, slipAngle, TARGET } from "./grip.ts";
 
 const game = grip.game;
 const [squeeze, load] = grip.sliders as [NonNullable<(typeof grip.sliders)[0]>, NonNullable<(typeof grip.sliders)[1]>];
@@ -278,20 +278,56 @@ describe("grip", () => {
       assert.ok(Array.from({ length: 100 }, (_, i) => ramp(slipped.at((i / 99) * slipped.durationMs).values)).some((r) => r.slid === 1 && r.put === 0));
     });
 
-    it("plots the friction rising with the slope to a peak at the friction angle, then falling as it slides", () => {
-      for (const m of [0.1, 0.5, 1]) {
-        const p = play.plot!(at(m, 10));
-        const peak = p.line.reduce((a, b) => (b[1] > a[1] ? b : a));
-        assert.ok(Math.abs(peak[0] * 60 - slipAngle(m)) < 1e-9, `μ ${m}: the peak is at the friction angle`);
-        assert.ok(p.line.every(([x, y]) => x >= 0 && x <= 1 && y >= 0 && y <= 1));
-        assert.equal(p.caption, "grip as you lift");
-      }
-      assert.ok(
-        play.plot!(at(1, 10)).line.some(([, y]) => y > 0.9),
-        "rubber's peak nears the top",
-      );
-      assert.deepEqual(play.plot!(at(0.5, 10)).dot, [10 / 60, Math.sin(10 * DEG_TO_RAD) / 0.75]);
-      assert.equal(play.plot!(at(0.5, 40)).dot, undefined, "no dot once the block is off the plank");
+    it("draws no graph", () => assert.equal(play.plot, undefined));
+
+    describe("its goal: lift it to the green by hand without the block slipping", () => {
+      const task = play.tasks![0]!;
+      const watch = task.drive!;
+      /** The hand lifting the plank from flat to `to` degrees in half-degree steps, the motor watching each. */
+      const lift = (mu: number, to: number) => {
+        let v: Values = { ...play.rest, mu };
+        for (let t = 0; t <= to + 1e-9; t += 0.5) v = watch({ ...v, tilt: t }, 0, 16);
+        return v;
+      };
+
+      it("is one goal, done by hand, with the grip slider; no button", () => {
+        assert.equal(play.tasks!.length, 1);
+        assert.equal(task.hand, true);
+        assert.equal(task.action, undefined);
+        assert.equal(task.met({ ...play.rest }), false, "free play's grip does not hold at the green");
+        assert.ok(slipAngle(play.rest!.mu!) < TARGET);
+      });
+
+      it("is met once lifted to the green, exactly when the grip holds there", () => {
+        for (const m of steps(play.sliders!.find((q) => q.id === "mu")!)) {
+          const v = lift(m, TARGET);
+          assert.equal(task.met(v), slipAngle(m) >= TARGET, `μ ${m}`);
+        }
+        assert.equal(task.met(lift(0.8, TARGET - 5)), false, "not short of the green");
+      });
+
+      it("stays met once the plank is let down, until the grip is turned down", () => {
+        const v = { ...lift(0.8, TARGET), tilt: 0 };
+        assert.ok(task.met(v));
+        assert.equal(task.met({ ...v, mu: 0.5 }), false);
+      });
+
+      it("says the block slid only once it has, and only while the grip is too slick", () => {
+        assert.equal(task.hint!({ ...play.rest }), undefined);
+        const slid = lift(0.5, 33);
+        assert.match(task.hint!(slid)!, /grip/);
+        assert.equal(task.hint!({ ...slid, mu: 0.8 }), undefined);
+      });
+
+      it("hands back what it was given when there is nothing new to record", () => {
+        const v = { ...play.rest, tilt: 5 };
+        assert.equal(watch(v, 0, 16), v);
+      });
+
+      it("draws the green ghost plank at the target angle", () => {
+        const parts = task.scene({});
+        assert.ok(parts.length > 0 && parts.every((q) => q.rotation.z === TARGET));
+      });
     });
   });
 });

@@ -26,6 +26,11 @@ const FLING_SECONDS = 0.5;
 type StageCallbacks = {
   onLive?: (text: string) => void;
   onCue?: (cue: Cue) => void;
+  /**
+   * Free play: the hand let go of the machine, which stood at `values` as it did. `way` is which way the hand was last
+   * moving the handle's slider: 1 up it, -1 down it (a turn past a whole turn counts the short way round).
+   */
+  onLetGo?: (values: Values, way: 1 | -1) => void;
 };
 
 type StageElements = {
@@ -71,6 +76,10 @@ export class StageView implements Drawable {
   private holding = false;
   /** Free play's ambient loop: when it started, and whether it runs. */
   private ambientStart: number | undefined;
+  /** When the current task's motor started, for its own clock. */
+  private driveStart: number | undefined;
+  /** Which way the hand last moved the handle's slider before letting go: a task's motor carries on that way. */
+  private way: 1 | -1 = 1;
   /** The handle the finger works: free play's own when it has one. */
   private get handle(): Handle {
     return this.mode === "play" ? playHandle(this.primitive) : this.primitive.handle;
@@ -175,7 +184,17 @@ export class StageView implements Drawable {
   tick(now: number): boolean {
     const dt = this.lastNow === undefined ? 0 : Math.min(0.1, (now - this.lastNow) / 1000);
     this.lastNow = now;
-    const moving = this.controller.tick(now);
+    let moving = this.controller.tick(now);
+    // A task's motor runs the machine every frame it is on, from the values as they stand, so the sliders steer it.
+    const drive = this.mode === "play" && this.task !== undefined ? this.primitive.play?.tasks?.[this.task]?.drive : undefined;
+    if (drive && !moving) {
+      this.driveStart ??= now;
+      const at = this.controller.get();
+      const next = drive(at, now - this.driveStart, dt * 1000, this.way);
+      // A motor that only watches hands back what it was given: nothing to set.
+      if (next !== at) this.controller.set(next);
+      moving = true;
+    }
     if (this.fling !== 0 && !this.spinning) {
       this.yaw += this.fling * dt;
       this.fling = Math.abs(this.fling) < 0.05 ? 0 : this.fling * Math.exp(-dt / FLING_SECONDS);
@@ -233,9 +252,10 @@ export class StageView implements Drawable {
   setTask(i: number | undefined): void {
     if (i === this.task) return;
     this.task = i;
+    this.driveStart = undefined;
     if (this.ring) {
-      this.ring.style.visibility = i === undefined ? "" : "hidden";
-      this.ring.tabIndex = i === undefined ? 0 : -1;
+      this.ring.style.visibility = this.handAway() ? "hidden" : "";
+      this.ring.tabIndex = this.handAway() ? -1 : 0;
     }
 
     this.posed = false;
@@ -298,12 +318,18 @@ export class StageView implements Drawable {
     ring.setAttribute("aria-valuetext", `${Number(((now ?? 0) * (s.displayScale ?? 1)).toFixed(1))}${s.unit ?? ""}`);
   }
 
+  /** Whether the hand is put away: during a task, unless the task is one the hand does itself (the grip's lift). */
+  private handAway(): boolean {
+    if (this.task === undefined) return false;
+    return !this.primitive.play?.tasks?.[this.task]?.hand;
+  }
+
   /**
    * Whether a press at `e` is on the part the hand works: the part drawn under the finger is the one drawn under the
    * handle's point, or the finger is right by that point. Never while a task is on: the hand is put away then.
    */
   private grabs(e: PointerEvent): boolean {
-    if (this.task !== undefined || !this.ring) return false;
+    if (this.handAway() || !this.ring) return false;
     const rect = this.element.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -372,17 +398,28 @@ export class StageView implements Drawable {
       const [lo, hi] = handReach?.(v) ?? [slider.min, slider.max];
       return [Math.max(slider.min, lo), Math.min(slider.max, hi)];
     };
+    // Which way the hand is moving the slider, for the let-go: the short way round, so a turn wrapping past 1 to 0 is up.
+    let way: 1 | -1 = 1;
+    const heading = (from: number | undefined, to: number) => {
+      if (from === undefined || to === from) return;
+      const d = Math.abs(to - from) > (slider.max - slider.min) / 2 ? from - to : to - from;
+      way = d > 0 ? 1 : -1;
+    };
     const letGo = () => {
       if (this.mode === "play" && !this.used && this.controller.get()[slider.id] !== this.restAt) {
         this.used = true;
         this.needsDraw = true;
         schedule();
       }
-      if (play?.release) void this.controller.play(play.release(this.controller.get()));
+      const at = this.controller.get();
+      if (play?.release) void this.controller.play(play.release(at));
+      // After the release has begun, so what the let-go starts (a task's arrival) can take over from it.
+      this.way = way;
+      if (play) this.callbacks.onLetGo?.(at, way);
     };
 
     const down = (e: PointerEvent) => {
-      if (e.button !== 0 || drag || this.task !== undefined) return;
+      if (e.button !== 0 || drag || this.handAway()) return;
       e.preventDefault();
       ring.setPointerCapture(e.pointerId);
       ring.focus({ preventScroll: true });
@@ -415,6 +452,7 @@ export class StageView implements Drawable {
       drag.raw = raw;
       const [lo, hi] = reach(values);
       const value = clamp(snap(slider, raw), lo, hi);
+      heading(values[slider.id], value);
       this.controller.set({ [slider.id]: value });
       const limited = raw < lo || raw > hi;
       if (limited) {
@@ -451,7 +489,7 @@ export class StageView implements Drawable {
       else this.stopBand = spring(1, 0, 0, settle, { response: 0.3 });
     };
     const key = (e: KeyboardEvent) => {
-      if (this.task !== undefined) return;
+      if (this.handAway()) return;
       const values = this.controller.get();
       const now = values[slider.id] ?? slider.initial;
       const [lo, hi] = reach(values);
@@ -462,6 +500,7 @@ export class StageView implements Drawable {
       else if (e.key === "End") next = hi;
       if (next === undefined) return;
       e.preventDefault();
+      heading(now, next);
       this.controller.set({ [slider.id]: next });
     };
     ring.addEventListener("pointerdown", down);

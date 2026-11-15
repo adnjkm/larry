@@ -229,41 +229,8 @@ function pick(k: { pump: number; bag: number; held: number }): Values {
   return { pressure: k.pump, bag: k.bag, held: k.held };
 }
 
-/** How far a plot's dot is from its line, in plot units. */
-function offLine(plot: { line: readonly (readonly [number, number])[]; dot?: readonly [number, number] }): number {
-  const p = plot.dot!;
-  let best = Infinity;
-  for (let i = 1; i < plot.line.length; i++) {
-    const a = plot.line[i - 1]!;
-    const b = plot.line[i]!;
-    const len = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1;
-    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / len));
-    best = Math.min(best, Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])));
-  }
-  return best;
-}
-
 describe("valve free play", () => {
-  const plot = valve.play!.plot!;
   const hand = valve.play!.hand!;
-  it("plots the ball's lift for the pressure, the dot on the line, flat until the opening pressure", () => {
-    for (const o of steps(open)) {
-      for (const p of steps(pressure)) {
-        const q = plot({ open: o, pressure: p });
-        assert.ok(offLine(q) < 1e-9, `open ${o}, pressure ${p}`);
-        assert.equal(q.dot![1] > 0, p > o, `open ${o}, pressure ${p}: lifts only past the opening pressure`);
-      }
-      assert.deepEqual(plot({ open: o, pressure: 0 }).line[1], [o / THUMB, 0], `open ${o}: the knee`);
-    }
-  });
-
-  it("keeps the dot on the line while the ball reseats late after a let-go", () => {
-    for (const o of [20, 80, 160]) {
-      const run = valve.play!.release!({ open: o, pressure: 240 });
-      for (let k = 0; k <= 12; k++) assert.ok(offLine(plot(run.at((k / 12) * run.durationMs).values)) < 1e-9, `open ${o}, frame ${k}`);
-    }
-  });
-
   it("draws the pump's push and the spring's push while held: equal once the ball floats", () => {
     const len = (parts: Part[], id: string) => {
       const a = find(parts, id);
@@ -278,5 +245,126 @@ describe("valve free play", () => {
     assert.ok(!settle({ open: 80, pressure: 150 }).solid);
     assert.ok(Math.abs(len(floating, "spring-arrow") - len(floating, "push-arrow")) < 1e-9);
     assert.equal(hand({ open: 80, pressure: 0 }).filter((p) => p.id === "push-arrow").length, 0, "no pressure, no push");
+  });
+});
+
+describe("valve free play's goals", () => {
+  const task = valve.play!.tasks![0]!;
+  const drive = task.drive!;
+  const FRAME = 16;
+  /** Presses Pump `n` times at this opening pressure, letting each stroke finish; returns the state after each, and the furthest the ball lifted. */
+  const press = (o: number, n: number) => {
+    let v: Values = { ...task.start, open: o };
+    let ms = 0;
+    let lift = 0;
+    const after: Values[] = [];
+    for (let i = 0; i < n; i++) {
+      v = { ...v, ...task.action!.set };
+      do {
+        v = drive(v, ms, FRAME);
+        ms += FRAME;
+        lift = Math.max(lift, settle(v).lift);
+      } while ((v.at ?? -1) >= 0);
+      after.push(v);
+    }
+    return { v, after, lift };
+  };
+
+  it("draws no graph, and has a Pump button: the plunger, ball and bag are seen answering each press", () => {
+    assert.equal(valve.play!.plot, undefined);
+    assert.equal(task.action!.label, "Pump");
+    assert.ok(task.scene({ open: 80, bag: 50 }).some((p) => p.name === "Bag"));
+    assert.ok(task.scene({ open: 80, bag: 50 }).some((p) => p.name === "Mark"));
+  });
+
+  it("does nothing until Pump is pressed", () => {
+    let v: Values = { ...task.start };
+    for (let t = 0; t < 3000; t += FRAME) v = drive(v, t, FRAME);
+    assert.equal(v.bag, 0);
+    assert.equal(v.pressure, 0);
+  });
+
+  it("starts too stiff, so the push runs out short of the mark, and shows no hint before a press", () => {
+    assert.equal(task.met({ ...task.start }), false);
+    assert.equal(pumpUp({ ...task.start }).kind, "stalls");
+    assert.equal(task.hint!({ ...task.start }), undefined);
+  });
+
+  it("is met exactly by the springs whose presses bring the bag to the mark, and only after the presses", () => {
+    for (const o of steps(open)) {
+      const w = press(o, STROKES);
+      assert.equal(task.met(w.v), pumpUp({ open: o }).kind === "pass", `open ${o}: the bag stands at ${w.v.bag!.toFixed(1)}`);
+      assert.equal(task.met({ ...task.start, open: o }), false, `open ${o}: nothing pumped yet`);
+    }
+    assert.ok(steps(open).filter((o) => pumpUp({ open: o }).kind === "pass").length >= 5);
+  });
+
+  it("one press, one stroke: the plunger goes in and comes back, the ball lifts, the bag gains one step in a window spring", () => {
+    const w = press(80, 1);
+    assert.ok(w.lift > 1, `lifted ${w.lift}`);
+    assert.equal(w.v.pressure, 0, "the plunger is back out");
+    assert.ok(Math.abs(w.v.bag! - STEP) < 1e-6, `the bag has ${w.v.bag}`);
+    assert.ok(Math.abs(press(80, 3).v.bag! - 3 * STEP) < 1e-6);
+  });
+
+  it("a press while the stroke is on is ignored", () => {
+    let v: Values = { ...task.start, open: 80, push: 1 };
+    v = drive(v, 0, FRAME);
+    const at = v.at;
+    v = drive({ ...v, push: 1 }, 100, FRAME);
+    assert.equal(v.at, at);
+  });
+
+  it("a stiff spring stalls: the bag stops at the push's ceiling and the ball stops lifting, and it says so", () => {
+    const w = press(150, 8);
+    assert.ok(Math.abs(w.v.bag! - (THUMB - 150)) < 1e-6);
+    assert.equal(task.met(w.v), false);
+    assert.match(task.hint!(w.v)!, /softer/);
+    assert.equal(task.hint!(w.after[0]!), undefined, "the first press has not shown the stall yet");
+    const lastLift = (() => {
+      let v: Values = { ...w.v, push: 1 };
+      let lift = 0;
+      for (let t = 0; t < 2400; t += FRAME) {
+        v = drive(v, 100000 + t, FRAME);
+        lift = Math.max(lift, settle(v).lift);
+      }
+      return lift;
+    })();
+    assert.ok(lastLift < 1e-6, `the ball lifted ${lastLift} on a stalled press`);
+  });
+
+  it("a soft spring leaks: the bag drops back after each stroke, ends short of the mark, and it says so", () => {
+    let v: Values = { ...task.start, open: 30, push: 1 };
+    let peak = 0;
+    let ms = 0;
+    do {
+      v = drive(v, ms, FRAME);
+      ms += FRAME;
+      peak = Math.max(peak, v.bag!);
+      v = { ...v, push: 0 };
+    } while ((v.at ?? -1) >= 0);
+    assert.ok(v.bag! < peak - 1, `peak ${peak}, after ${v.bag}`);
+    assert.match(task.hint!(v)!, /leaks/);
+    const w = press(30, 20);
+    assert.ok(w.v.bag! < TARGET);
+    assert.equal(task.met(w.v), false);
+  });
+
+  it("says what went wrong only on the side that is wrong, in one short line", () => {
+    for (const o of steps(open)) {
+      const w = press(o, 8);
+      const hint = task.hint!(w.v);
+      const kind = pumpUp({ open: o }).kind;
+      assert.equal(hint === undefined, kind === "pass", `open ${o}`);
+      if (kind === "stalls") assert.match(hint!, /softer/);
+      if (kind === "leaks") assert.match(hint!, /Stiffer/);
+      assert.ok(task.goal.length <= 46 && (hint ?? "").length <= 46);
+    }
+  });
+
+  it("draws the air going through the neck only while it moves", () => {
+    const air = (flow: number) => task.scene({ open: 80, bag: 60, flow }).filter((p) => p.name === "Air").length;
+    assert.equal(air(0), 0);
+    assert.ok(air(1) > 0);
   });
 });

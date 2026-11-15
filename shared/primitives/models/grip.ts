@@ -13,11 +13,11 @@
 // the plank's free end and the block holds, holds, then slides off once the slope passes the friction angle, where
 // tan θ = μ. The slider is the grip, from ice to rubber, and it moves that angle.
 import type { Part } from "../../kit.ts";
-import { DEG_TO_RAD, RAD_TO_DEG } from "../../angles.ts";
+import { RAD_TO_DEG } from "../../angles.ts";
 import { clamp01, fall, lerp, smooth } from "../motion/ease.ts";
 import { frame, phases } from "../motion/run.ts";
-import { arrow, arrowLength, box, COLOR, cylinder, fmt, knob, look, on, part, pin, plate, PLATE_TOP, rotateAbout, v3, type Vec } from "../parts.ts";
-import { type Cue, type Meter, type Motion, type Plot, type Primitive, type Run, type Slider, type Values, type Verdict, steps, VIEW } from "../types.ts";
+import { arrow, arrowLength, box, COLOR, cylinder, fmt, knob, look, on, part, pin, plate, PLATE_TOP, rotateAbout, v3, type Look, type Vec } from "../parts.ts";
+import { type Cue, type Meter, type Motion, type Primitive, type Run, type Slider, type Task, type Values, type Verdict, VIEW } from "../types.ts";
 
 /** Friction coefficient, assumed: it depends on the surfaces. */
 export const MU = 0.4;
@@ -325,26 +325,6 @@ function rampBuild(v: Values): Part[] {
   ];
 }
 
-/**
- * The friction the plank gives the block, as a share of the block's weight: exactly what the slope asks for (sin θ)
- * while it holds, then the most the grip can give (μ cos θ) once it slides. Sliding friction is taken as the limit.
- */
-const friction = (tilt: number, mu: number) => (tilt <= slipAngle(mu) ? Math.sin(tilt * DEG_TO_RAD) : mu * Math.cos(tilt * DEG_TO_RAD));
-/** The plot's top: a little over the most any grip on the slider holds, sin 45° for μ = 1. */
-const PLOT_TOP = 0.75;
-
-/**
- * The grip's law as the plank is lifted: the friction rises with the slope, peaks at the friction angle and falls away
- * as the block slides. A better grip puts the peak higher and later; ice gives a small, early one. The dot is the plank
- * now, while the block is on it.
- */
-function rampPlot(v: Values): Plot {
-  const r = ramp(v);
-  const at = (t: number) => [t / TILT.max, friction(t, r.mu) / PLOT_TOP] as const;
-  const tilts = [...steps(TILT).filter((t) => Math.abs(t - r.angle) > 1e-9), r.angle].sort((a, b) => a - b);
-  return { line: tilts.map(at), ...(r.onPlank ? { dot: at(r.tilt) } : {}), zero: 0, caption: "grip as you lift" };
-}
-
 // The let-go, ms. The plank falls flat under its own weight; a block already going finishes its run off; one that
 // has slid off sits on the plate a moment, then is carried back to its spot.
 const PLANK_FALL_MS = 420;
@@ -378,6 +358,55 @@ function letGo(v: Values): Motion {
     },
   };
 }
+
+// ---- Free play's goal: lift the plank to the green by hand, without the block slipping -------------------------------
+//
+// A ghost plank in see-through green marks the angle to reach. The hand lifts the real plank, as in free play. The block
+// holds while the slope is under its friction angle (tan θ = μ); past it, it slides off, and letting go brings it home.
+// Only the grip slider decides which: enough grip, and the block rides the plank up to the green.
+
+/** The angle to reach, degrees: a grip of 0.75 or better holds there, 0.7 and under does not (tan 35° = 0.700). */
+export const TARGET = 35;
+/** Within this of the green counts as there: half the tilt's step. */
+const NEAR = 0.5;
+
+/**
+ * Watches the hand: `reached` once the plank has been at the green with the block still on its spot, `failed` once the
+ * block has slid, for the hint. It only records; the hand and the let-go move the machine.
+ */
+function watch(v: Values): Values {
+  const r = ramp(v);
+  const out: Values = { ...v };
+  if (r.tilt >= TARGET - NEAR && r.slid === 0 && r.put === 0) out.reached = 1;
+  if (r.slid > 0) out.failed = 1;
+  return out.reached === v.reached && out.failed === v.failed ? v : out;
+}
+
+/** The ghost plank at the green angle: a see-through sheet the plank's size, with a solid green rim. */
+function ghost(): Part[] {
+  const sheet = (id: string, w: number, t: number, d: number, x: number, y: number, z: number, look_: Look) =>
+    part(`goal-${id}`, "Goal", "The angle to lift the plank to.", box(w, t, d), { ...rotateAbout([x, y], TARGET, HINGE), z }, look_, on("plate", "glue"), v3(0, 0, TARGET));
+  const top = PLANK_T / 2;
+  const RIM = 1.4;
+  return [
+    sheet("sheet", PLANK_L, 0.6, PLANK_Z, PLANK_L / 2, top, 0, look.goalClear),
+    sheet("near", PLANK_L, RIM, RIM, PLANK_L / 2, top, PLANK_Z / 2, look.goal),
+    sheet("far", PLANK_L, RIM, RIM, PLANK_L / 2, top, -PLANK_Z / 2, look.goal),
+    sheet("end", RIM, RIM, PLANK_Z, PLANK_L, top, 0, look.goal),
+  ];
+}
+
+const TASKS: Task[] = [
+  {
+    goal: "Lift it to the green without it slipping.",
+    hand: true,
+    scene: ghost,
+    // Reached by hand, and still a grip that holds there: turned down after, it no longer would.
+    met: (v) => (v.reached ?? 0) > 0 && slipAngle(v.mu ?? GRIP.initial) >= TARGET,
+    hint: (v) => ((v.failed ?? 0) > 0 && slipAngle(v.mu ?? GRIP.initial) < TARGET ? "Too slick, so it slides off. Add grip." : undefined),
+    drive: watch,
+  },
+];
 
 export const grip: Primitive = {
   id: "grip",
@@ -419,7 +448,7 @@ export const grip: Primitive = {
     },
     label: "Lift",
     build: rampBuild,
-    plot: rampPlot,
+    tasks: TASKS,
     // The plank lying flat with the block at its spot near the free end, on a middling grip.
     rest: { mu: GRIP.initial, tilt: 0 },
     release: letGo,

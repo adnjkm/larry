@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Part } from "../../kit.ts";
 import { checkDesign, checkGame, find, sample } from "../checks.ts";
-import { startValues, steps } from "../types.ts";
+import { startValues, steps, type Values } from "../types.ts";
 import { COLOR, PLATE_TOP } from "../parts.ts";
 import { framePrimitive } from "../framing.ts";
 import { measurePoses } from "../../bounds.ts";
@@ -186,7 +186,7 @@ describe("seal", () => {
 
   describe("free play: a leaking jar lid", () => {
     const play = seal.play!;
-    const drips = (v: Record<string, number>, ms: number) => play.ambient!(v, ms);
+    const drips = (v: Record<string, number>, ms: number) => play.ambient!(v, ms).filter((p) => p.name === "Drop");
     const pressures = steps(play.sliders!.find((s) => s.id === "pressure")!);
     const moments = Array.from({ length: 40 }, (_, i) => i * 137);
 
@@ -235,12 +235,67 @@ describe("seal", () => {
       }
     });
 
-    it("plots the leak falling straight to zero at the sealing squeeze, the dot on the line", () => {
-      const p = play.plot!({ squeeze: 0.1, pressure: 300 });
-      assert.deepEqual(p.line.at(-1), [1, 0]);
-      assert.ok(Math.abs(p.line[1]![0] - WEEP / 0.4) < 1e-9);
-      assert.ok(Math.abs(p.dot![1] - p.line[0]![1] * (1 - 0.1 / WEEP)) < 1e-9);
-      assert.equal(play.plot!({ squeeze: 0.2, pressure: 300 }).dot![1], 0);
+    it("draws no graph", () => assert.equal(play.plot, undefined));
+
+    it("bursts in a jet once the rubber is crushed out past the flange, and never before", () => {
+      for (const sq of steps(squeeze)) {
+        const sprays = moments.some((ms) => play.ambient!({ squeeze: sq, pressure: 300 }, ms).some((p) => p.name === "Spray"));
+        assert.equal(sprays, settle({ squeeze: sq }).split, `squeeze ${sq}`);
+      }
+    });
+
+    describe("its goal: pump the pressure up and keep it dry", () => {
+      const task = play.tasks![0]!;
+      const pump = task.drive!;
+      const run = (v: Values, ms: number) => {
+        let at = v;
+        for (let t = 0; t < ms; t += 16) at = pump(at, t, 16, 1);
+        return at;
+      };
+      const start = { ...play.rest };
+
+      it("is one goal, worked with the squeeze slider alone, failing where free play is let go", () => {
+        assert.equal(play.tasks!.length, 1);
+        assert.deepEqual(task.sliders, ["squeeze"]);
+        assert.equal(task.met(start), false);
+      });
+
+      it("climbs to the top in under four seconds when squeezed enough, and is then met", () => {
+        const end = run({ ...start, squeeze: 0.29 }, 4000);
+        assert.equal(end.pressure, 560);
+        assert.ok(task.met(end));
+      });
+
+      it("only climbs as high as the rubber can hold: a leak lets the pressure back out", () => {
+        const end = run({ ...start, squeeze: 0.1 }, 10000);
+        const holds = leak({ squeeze: 0.1, pressure: 0 }).push;
+        assert.ok(Math.abs(end.pressure! - holds) < 10, `settled at ${end.pressure} kPa, the rubber pushes ${holds}`);
+        assert.equal(task.met(end), false);
+      });
+
+      it("loses its pressure once squeezed past the split, and says why", () => {
+        const end = run({ ...start, squeeze: 0.29 }, 4000);
+        const torn = run({ ...end, squeeze: 0.35 }, 3000);
+        assert.equal(torn.pressure, 50);
+        assert.equal(task.met(torn), false);
+        assert.match(task.hint!({ ...end, squeeze: 0.35 })!, /bursts/);
+      });
+
+      it("holds at the top only in a narrow window of squeeze, between the leak and the tear", () => {
+        const top = steps(squeeze).filter((q) => task.met({ squeeze: q, pressure: 560 }));
+        assert.deepEqual(top, [0.28, 0.29, 0.3]);
+      });
+
+      it("says it leaks only once there is pressure to lose, and nothing while it holds", () => {
+        assert.equal(task.hint!(start), undefined, "not at the very start");
+        assert.match(task.hint!({ squeeze: 0.05, pressure: 300 })!, /Squeeze more/);
+        assert.equal(task.hint!({ squeeze: 0.2, pressure: 300 }), undefined);
+      });
+
+      it("puts a dial on the pipe whose needle follows the pressure", () => {
+        const needle = (kPa: number) => task.scene({ squeeze: 0.2, pressure: kPa }).find((q) => q.id === "gauge-needle")!.rotation.z;
+        assert.ok(needle(100) > 0 && needle(450) < 0 && needle(300) < needle(200));
+      });
     });
   });
 

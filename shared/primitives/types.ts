@@ -119,12 +119,39 @@ export type Task = {
   goal: string;
   /** Values set when the task begins: a weight put on, the slider moved somewhere that fails. */
   start?: Values;
+  /**
+   * The hand keeps working the machine during this task: the goal is something to do by hand with the sliders set
+   * right (lift the plank to the green). Left out, the hand is put away and only the sliders can meet the goal.
+   */
+  hand?: boolean;
+  /**
+   * The sliders shown while the task is on, by id: any of the play's, the hand's own included, since the hand is put
+   * away during a task. Left out, the play's tuning sliders (all but the hand's).
+   */
+  sliders?: readonly string[];
   /** What the task adds to the figure: the weight. Ids never clash with the figure's. */
   scene: (v: Values) => Part[];
   /** Whether the goal is met at these values. */
   met: (v: Values) => boolean;
+  /**
+   * What to say in the goal's place while the machine is in a state worth a word ("Too steep, so it jams."), or nothing.
+   * Read live, so it goes again the moment the state is fixed.
+   */
+  hint?: (v: Values) => string | undefined;
   /** What happens as the task begins, from `start`: the weight dropping on. Not framed: it may come in from outside. */
   arrive?: (v: Values) => Motion;
+  /**
+   * A motor that runs the machine while the task is on: the values it has after `dtMs` more of running from `v`, `ms`
+   * into the task. It reads the sliders afresh every frame, so the machine answers them as it runs: a cam turned
+   * steadily, jamming the moment its lift is too tall. `way` is the way the hand was moving the handle's slider when it
+   * let go (1 or -1), so a motor can carry on the same way.
+   */
+  drive?: (v: Values, ms: number, dtMs: number, way?: 1 | -1) => Values;
+  /**
+   * A button beside Continue that does one thing to the machine when pressed: "Pull" sets `tug`, and the task's motor
+   * pulls the door from then. For a test the user runs by hand while the world (a gust) runs on its own.
+   */
+  action?: { label: string; set: Values };
 };
 
 /** A scripted motion with no outcome to report: what a machine does on its own, such as when the hand lets go of it. */
