@@ -4,6 +4,7 @@ import { ballTip } from "./entries/ball-tip.ts";
 import { camClamp } from "./entries/cam-clamp.ts";
 import { checkValve } from "./entries/check-valve.ts";
 import { clickLatch } from "./entries/click-latch.ts";
+import { dispenserPump } from "./entries/dispenser-pump.ts";
 import { foldingFrame } from "./entries/folding-frame.ts";
 import { formingAnvil } from "./entries/forming-anvil.ts";
 import { frictionHold } from "./entries/friction-hold.ts";
@@ -30,6 +31,7 @@ export const MECHANISMS: KnownMechanism[] = [
   camClamp,
   checkValve,
   clickLatch,
+  dispenserPump,
   foldingFrame,
   formingAnvil,
   frictionHold,

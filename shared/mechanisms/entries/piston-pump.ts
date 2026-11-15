@@ -3,7 +3,7 @@ import type { KnownMechanism } from "../types.ts";
 export const pistonPump: KnownMechanism = {
   id: "piston-pump",
   name: "Piston pump",
-  does: "A plug pushed along a tube squeezes the air or liquid ahead of it out of a nozzle each stroke",
+  does: "A plug worked by hand both ways along a tube squeezes air or liquid out of its end",
   slots: [
     { id: "push", is: "the part the hand presses", default: "the plunger" },
     { id: "tube", is: "the tube the plug slides in", default: "the barrel" },
@@ -28,6 +28,6 @@ export const pistonPump: KnownMechanism = {
   fits: [
     { object: "syringe", words: { push: "the plunger", tube: "the barrel", fluid: "the medicine" } },
     { object: "bike pump", words: { push: "the handle", tube: "the barrel", fluid: "the air" } },
-    { object: "soap pump", words: { push: "the pump head", tube: "the pump chamber", fluid: "the soap" } },
+    { object: "air bed pump", words: { push: "the handle", tube: "the cylinder", fluid: "the air" } },
   ],
 };
