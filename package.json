@@ -12,6 +12,7 @@
     "demo": "vite --config prototypes/demo/vite.config.ts",
     "demo:pen": "LARRY_DEMO=pen vite --config prototypes/demo/vite.config.ts",
     "demo:pen-plus": "LARRY_DEMO=pen-plus vite --config prototypes/demo/vite.config.ts",
+    "combined:sync": "node prototypes/combined/sync.ts && oxfmt prototypes/combined/CoursePlus.tsx",
     "build": "vite build",
     "typecheck": "tsrs --noEmit",
     "test": "node --test",

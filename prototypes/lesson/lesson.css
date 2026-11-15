@@ -338,6 +338,8 @@ html, body { height: 100%; }
 @media (max-height: 700px) {
   .tab { min-height: 30px; }
   .viewer { min-height: 124px; }
+  /* The small picture of the part in the pen, drawn smaller: a two-line goal card still leaves the screen whole. */
+  .use .inset { zoom: 0.6; }
 }
 
 /* The combined lesson (prototypes/combined): the story's Why key laid over a primitive screen, at the right of the row
