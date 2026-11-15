@@ -670,7 +670,7 @@ export default defineStory({
       place: {
         say: "Where does the ball go? Drag it on.",
         piece: [BALL],
-        ride: BARREL,
+        ride: REFILL,
         spots: [
           {
             id: "tip",
@@ -679,8 +679,9 @@ export default defineStory({
             right: true,
             line: "Right there. It rolls where pen meets paper.",
           },
-          { id: "cone", at: vec(13 + PEN.ballR, drawnY(ballCtx, NOSE, 30), 0), radius: PEN.ballR, line: "The cone only guides the tip." },
-          { id: "barrel", at: vec(PEN.barrelR + 1 + PEN.ballR, drawnY(ballCtx, BARREL, 70), 0), radius: PEN.ballR, line: "Nothing there touches the paper." },
+          // The wrong spots are inside the pen too, up the ink's own path: a ball lodged there is seen as a bead in the tube.
+          { id: "neck", at: vec(0, drawnY(ballCtx, REFILL, 34), 0), radius: PEN.refillR + 0.6, line: "Lodged in the neck, it never meets the paper." },
+          { id: "tube", at: vec(0, drawnY(ballCtx, REFILL, 70), 0), radius: PEN.refillR + 0.8, line: "Up in the ink tube, it never meets the paper." },
         ],
         frame: FRAMES.tip,
       },
