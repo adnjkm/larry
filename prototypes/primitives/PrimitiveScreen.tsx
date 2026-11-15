@@ -6,7 +6,8 @@
 //    number, act once, see what that setting does.
 // The figures, models and games are the library's (shared/primitives), driven through the same stage controller and
 // store as the library page (src/primitives/game).
-import { type CSSProperties, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { DitherRange, TRACK } from "../lesson/controls.tsx";
 import { Actions, Need, Say, Shell, type Step } from "../lesson/ui.tsx";
 import { controlRows, headlineText } from "../../src/primitives/game/logic.ts";
@@ -184,9 +185,11 @@ const TAB_H = 10;
  * The row under the header naming the mechanism this lesson is about, on the grey dithered keycap the lesson's
  * requirement row uses (prototypes/lesson/ui.tsx Need), with "Mechanism" for its label. It is a speech bubble: a tab
  * points straight up out of the key, under the header's lit key, as part of the one raised shape. It reads "Ball Tip
- * (MECHANISM)"; given `about`, the bubble grows to explain the mechanism, with that one line under the name.
+ * (MECHANISM)"; given `about`, the bubble grows to explain the mechanism, with that one line under the name. `short`
+ * draws the raised shape a second time at that height, and `children` go in the row with the words: both are for a
+ * demo's bubble, which draws down to its name as it hands over (prototypes/lesson/Course.tsx DemoBubble).
  */
-export function Mechanism({ name, step, about }: { name?: string; step?: number; about?: string } = {}) {
+export function Mechanism({ name, step, about, short, children }: { name?: string; step?: number; about?: string; short?: number; children?: ReactNode } = {}) {
   const lesson = useContext(Lesson);
   const label = name ?? lesson?.name;
   const keyNumber = (step ?? lesson?.key ?? 0) + 1;
@@ -195,8 +198,11 @@ export function Mechanism({ name, step, about }: { name?: string; step?: number;
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const read = () => {
+    const read = (settled = true) => {
       const key = el.closest(".screen")?.querySelector<HTMLElement>(`.top [aria-label^="Step ${keyNumber} "]`);
+      // A header that mounts with this row draws its keys a pass later, so there is no key to point at yet. The
+      // observer's first call comes after that pass and before anything is painted, so the tab is never seen elsewhere.
+      if (!key && !settled) return;
       const at = el.getBoundingClientRect();
       const lit = key?.getBoundingClientRect();
       // Centred under the first key, kept clear of the rounded corners.
@@ -204,24 +210,27 @@ export function Mechanism({ name, step, about }: { name?: string; step?: number;
       const tab = Math.round(Math.min(Math.max(centre, MECHANISM_RADIUS + TAB_W / 2), at.width - MECHANISM_RADIUS - TAB_W / 2));
       setSize({ width: el.offsetWidth, height: el.offsetHeight, tab });
     };
-    read();
-    const observer = new ResizeObserver(read);
+    read(false);
+    // Drawn before the frame is painted, not a frame after it.
+    const observer = new ResizeObserver(() => flushSync(read));
     observer.observe(el);
     return () => observer.disconnect();
   }, [keyNumber]);
+  const raised = (height: number) => (
+    <Surface
+      shape={bubble(size.width, height, MECHANISM_RADIUS, { x: size.tab, w: TAB_W, h: TAB_H })}
+      relief="keycap"
+      material="bone"
+      ground="light"
+      grain={CAMERA.grain}
+      depth={CAMERA.relief}
+      drift={CAMERA.idleDither}
+    />
+  );
   return (
     <p ref={box} className="need" data-mechanism>
-      {size.width > 0 ? (
-        <Surface
-          shape={bubble(size.width, size.height, MECHANISM_RADIUS, { x: size.tab, w: TAB_W, h: TAB_H })}
-          relief="keycap"
-          material="bone"
-          ground="light"
-          grain={CAMERA.grain}
-          depth={CAMERA.relief}
-          drift={CAMERA.idleDither}
-        />
-      ) : null}
+      {size.width > 0 ? raised(size.height) : null}
+      {size.width > 0 && short ? raised(short) : null}
       {label ? (
         <BubbleTerm name={label} kind="mechanism">
           {about}
@@ -229,6 +238,7 @@ export function Mechanism({ name, step, about }: { name?: string; step?: number;
       ) : (
         <BubbleLabel>Lorem Ipsum Dolor Sit Amet, Consectetur Elit</BubbleLabel>
       )}
+      {children}
     </p>
   );
 }

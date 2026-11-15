@@ -143,6 +143,8 @@ export function Strip(props: {
   max: number;
   zones?: readonly Zone[];
   wheel?: boolean;
+  /** Keep the zones' feel on the track but never say which one it is in. */
+  blind?: boolean;
   disabled?: boolean;
   onChange: (v: number) => void;
 }) {
@@ -158,16 +160,16 @@ export function Strip(props: {
   };
   const Control = props.wheel ? Wheel : DitherRange;
   return (
-    <div className="slider strip" data-strip={props.id} data-free={zones ? undefined : ""}>
+    <div className="slider strip" data-strip={props.id} data-free={zones && !props.blind ? undefined : ""}>
       <span className="mono">{props.label}</span>
       <Control
         label={props.label}
         position={Math.round(track.toTrack(props.value) * TRACK)}
-        valueText={zone?.word ?? props.label}
+        valueText={props.blind ? props.label : (zone?.word ?? props.label)}
         disabled={props.disabled}
         onPosition={change}
       />
-      {zone ? (
+      {zone && !props.blind ? (
         <span className="zone" data-zone={zone.id}>
           {zone.word}
         </span>

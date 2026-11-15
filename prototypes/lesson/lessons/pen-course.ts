@@ -1,7 +1,8 @@
-// The click pen as a mechanism lesson: the ball tip, then retraction. Every sentence and the order of the questions
-// come from the mechanism library's two entries (ball-tip, click-latch); this file binds each question to the pen's
-// model: which control it hands over, which tests it runs, and which piece is dragged in first.
-import type { Step } from "../../../shared/curriculum.ts";
+// The click pen as a mechanism lesson: the ball tip, then retraction. Each mechanism runs the same way, and tests each
+// thing once: a preview of it working, its primitives, one connecting problem (which primitive does which sub-function),
+// its pieces dragged onto the pen (where each goes), then one hard problem (how much of each: every dial at once).
+// The sub-functions and their sentences come from the mechanism library's two entries (ball-tip, click-latch); this
+// file binds them to the pen's model.
 import { ballTip } from "../../../shared/mechanisms/entries/ball-tip.ts";
 import { clickLatch } from "../../../shared/mechanisms/entries/click-latch.ts";
 import { lessonOf, subfunctionsOf, wordsFor } from "../../../shared/mechanisms/instantiate.ts";
@@ -19,145 +20,94 @@ const LATCH = 2;
 /** The socket as "How much?" leaves it, for a break that starts from a working tip. */
 const SNUG = 0.55;
 
-type Facts = { does: string; primitive: string; why: string; need: string };
-/** A question's screen, and the piece that must be on the pen before it. */
-type Bound = { screen: Screen; place?: number };
+type Facts = { does: string; primitive: string; why: string };
 
-/** One library entry as a run of screens: the gap, its primitives in the order its steps meet them, then its questions. */
-function mechanismOf(
-  entry: KnownMechanism,
-  name: string,
-  bind: (step: Step, facts: (sub: string) => Facts) => Bound,
-  /** The screens before the primitives, given the mechanism's sub-functions as the library words them. */
-  opening: (needs: readonly string[]) => readonly Screen[],
-): Mechanism {
+/** One library entry as a run of screens. `build` gets its sub-functions by id, in this object's words. */
+function mechanismOf(entry: KnownMechanism, name: string, build: (parts: { facts: (sub: string) => Facts; needs: readonly string[]; match: Screen; primitives: readonly Screen[] }) => readonly Screen[]): Mechanism {
   const words = wordsFor(entry, []);
   const lesson = lessonOf(entry, entry.id, words);
   const subs = subfunctionsOf(entry, entry.id, words);
   const facts = (id: string): Facts => {
-    const sub = subs.find((s) => s.id === id);
-    const row = lesson.rows.find((r) => r.id === id);
+    const sub = subs.find((s) => s.id === `${entry.id}-${id}`);
+    const row = lesson.rows.find((r) => r.id === sub?.id);
     if (!sub || !row) throw new Error(`${entry.id} has no sub-function ${id}`);
-    return { does: sub.does, primitive: sub.primitive, why: row.why, need: row.need ?? "" };
+    return { does: sub.does, primitive: sub.primitive, why: row.why };
   };
-  const placed = new Set<number>();
-  const questions = lesson.steps.flatMap((step): Screen[] => {
-    const { screen, place } = bind(step, facts);
-    if (place === undefined || placed.has(place)) return [screen];
-    placed.add(place);
-    return [{ kind: "place", module: place }, screen];
-  });
-  const primitives = [...new Set(subs.map((s) => s.primitive))];
-  return { id: entry.id, name, screens: [...opening(subs.map((s) => s.does)), ...primitives.map((id): Screen => ({ kind: "primitive", id })), ...questions] };
+  const rows = entry.subfunctions.map((s) => facts(s.id));
+  return {
+    id: entry.id,
+    name,
+    screens: build({
+      facts,
+      needs: rows.map((r) => r.does),
+      match: { kind: "match", rows },
+      primitives: [...new Set(rows.map((r) => r.primitive))].map((id): Screen => ({ kind: "primitive", id })),
+    }),
+  };
 }
 
-const unbound = (step: Step): never => {
-  throw new Error(`the pen has no bench for this step: ${JSON.stringify(step)}`);
-};
-
-const tip = mechanismOf(ballTip, "Ball tip", (step, facts) => {
-  if (step.format === "who") {
-    const f = facts(step.subfunction);
-    return { screen: { kind: "who", after: -1, frame: frames.tip, does: f.does, answer: f.primitive, why: f.why } };
-  }
-  if (step.format === "much" && step.subfunction === "ball-tip-close") {
-    const f = facts(step.subfunction);
-    return { place: BALL, screen: { kind: "much", after: BALL, frame: frames.tip, does: f.does, need: f.need, control: controls.squeeze, tests: [tests.write, tests.wait] } };
-  }
-  if (step.format === "break")
-    return { place: BALL, screen: { kind: "break", after: BALL, frame: frames.tip, failure: step.failure, outcome: "skip", controls: [controls.squeeze, controls.pressure], test: tests.write, set: { [keys.squeeze]: SNUG } } };
-  return unbound(step);
-}, (needs): Screen[] => [
+const tip = mechanismOf(ballTip, "Ball tip", ({ facts, needs, match, primitives }): Screen[] => [
+  { kind: "demo", after: BALL, frame: frames.ball, does: "A ball that rolls a thin, even line of ink.", needs, run: demos.writing, values: { [keys.squeeze]: SNUG } },
+  ...primitives,
+  match,
+  { kind: "place", module: BALL },
   {
-    kind: "demo",
+    kind: "works",
     after: BALL,
-    frame: frames.ball,
-    does: "A ball that rolls a thin, even line of ink.",
-    needs,
-    run: demos.writing,
-    values: { [keys.squeeze]: SNUG },
+    frame: frames.tip,
+    say: "Set the seal and the grip so both hold.",
+    goals: [
+      { does: facts("close").does, test: tests.wait },
+      { does: facts("roll").does, test: tests.write },
+    ],
+    dials: [
+      { primitive: "seal", control: controls.squeeze },
+      { primitive: "grip", control: controls.pressure },
+    ],
+    set: { [keys.squeeze]: 0.1, [keys.pressure]: 0.1 },
+    success: "A thin, even line, and not a drop when it rests.",
   },
 ]);
 
-const click = mechanismOf(
-  clickLatch,
-  "Retraction",
-  (step, facts) => {
-    if (step.format === "who") {
-      const f = facts(step.subfunction);
-      return { screen: { kind: "who", after: BALL, frame: frames.low, does: f.does, answer: f.primitive, why: f.why } };
-    }
-    if (step.format === "much" && step.subfunction === "click-latch-bring-back") {
-      const f = facts(step.subfunction);
-      return { place: SPRING, screen: { kind: "much", after: SPRING, frame: frames.low, does: f.does, need: f.need, control: controls.stiffness, tests: [tests.lift, tests.press] } };
-    }
-    if (step.format === "broke" && step.subfunction === "click-latch-hold") {
-      const f = facts(step.subfunction);
-      return {
-        place: LATCH,
-        screen: {
-          kind: "broke",
-          after: LATCH,
-          frame: frames.latch,
-          hide: ["barrel"],
-          behaviour: tests.letgo,
-          fault: { [keys.press]: 1, [keys.notch]: 0.1 },
-          options: ["spring", "catch", "cam"],
-          answer: f.primitive,
-          found: f.why,
-          control: controls.notch,
-          tests: [tests.letgo, tests.again],
-          set: { [keys.press]: 1, [keys.notch]: 0.1 },
-        },
-      };
-    }
-    return unbound(step);
+const click = mechanismOf(clickLatch, "Retraction", ({ facts, needs, match, primitives }): Screen[] => [
+  {
+    kind: "gap",
+    after: BALL,
+    frame: frames.low,
+    test: tests.lift,
+    values: { [keys.stiffness]: 0 },
+    try: "Pick the pen up to pocket it.",
+    fails: "The inky tip is still out, ready to mark the cloth.",
   },
-  (needs): Screen[] => [
-    {
-      kind: "gap",
-      after: BALL,
-      frame: frames.low,
-      test: tests.lift,
-      values: { [keys.stiffness]: 0 },
-      try: "Pick the pen up to pocket it.",
-      fails: "The inky tip is still out, ready to mark the cloth.",
-    },
-    {
-      kind: "demo",
-      after: LATCH,
-      frame: frames.click,
-      does: "Each click sends the tip out or tucks it away.",
-      needs,
-      run: demos.clicking,
-      values: {},
-      pink: ["spring"],
-    },
-  ],
-);
+  { kind: "demo", after: LATCH, frame: frames.click, does: "Each click sends the tip out or tucks it away.", needs, run: demos.clicking, values: {}, pink: ["spring"] },
+  ...primitives,
+  match,
+  { kind: "place", module: SPRING },
+  { kind: "place", module: LATCH },
+  {
+    kind: "works",
+    after: LATCH,
+    frame: frames.click,
+    say: "Set the spring and the catch so all three hold.",
+    goals: [
+      { does: facts("bring-back").does, test: tests.lift },
+      { does: facts("hold").does, test: tests.clickOut },
+      { does: facts("take-turns").does, test: tests.clickIn },
+    ],
+    dials: [
+      { primitive: "spring", control: controls.stiffness },
+      { primitive: "catch", control: controls.notch },
+    ],
+    set: { [keys.stiffness]: 0.1, [keys.notch]: 0.9 },
+    success: "Out on one click, away on the next, and hidden when you pocket it.",
+    last: true,
+  },
+]);
 
 export default {
   story: pen,
   reveal: PEN_SHELL,
-  mechanisms: [
-    tip,
-    {
-      ...click,
-      screens: [
-        ...click.screens,
-        {
-          kind: "final",
-          after: LATCH,
-          frame: frames.tip,
-          say: pen.final.say,
-          success: pen.final.success,
-          control: controls.pressing,
-          tests: pen.final.tests,
-          set: { [keys.press]: 0 },
-        },
-      ],
-    },
-  ],
+  mechanisms: [tip, click],
   jobs: {
     seal: "closes a gap so nothing leaks",
     grip: "holds by rubbing, until it slips",

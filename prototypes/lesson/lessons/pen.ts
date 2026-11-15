@@ -405,6 +405,69 @@ const again: Test = {
   },
 };
 
+/** What the spring and the notch make of one full click. A weak spring cannot seat the tooth; a stiff one cannot be pressed. */
+const clickState = (values: Values) => {
+  const spring = zoneIn(STIFFNESS_ZONES, values, STIFFNESS);
+  const cut = zoneIn(NOTCH_ZONES, values, NOTCH, UNSET);
+  return { spring, cut, held: spring === "firm" && cut !== "shallow" };
+};
+
+/** The whole latch as the thumb tries it: press all the way down and let go. Reads the spring and the notch together. */
+const clickOut: Test = {
+  id: "click",
+  label: "Click",
+  run: (values, ctx) => {
+    const { spring, cut, held } = clickState(values);
+    const start = stiffPose(values, ctx);
+    const verdict =
+      spring === "stiff"
+        ? { pass: false, line: "It will not go down. Your thumb cannot beat it." }
+        : spring === "soft"
+          ? { pass: false, line: "The tooth will not seat. Nothing presses it into its notch." }
+          : cut === "shallow"
+            ? { pass: false, line: "It popped back in. The tooth slips out." }
+            : { pass: true, line: "The tip stays out." };
+    const pushed: Pose = spring === "stiff" ? { out: start.out, press: 1.2, sag: 0 } : { out: T, press: T, sag: 0 };
+    const end: Pose = { out: held || spring === "soft" ? T : spring === "stiff" ? start.out : 0, press: 0, sag: 0 };
+    const [down, hold, up, tail] = [650, 350, 650, 500];
+    return {
+      verdict,
+      durationMs: down + hold + up + tail,
+      at: (ms) => {
+        if (ms < down + hold) return frame(ctx, mixPose(start, pushed, seg(ms, 0, down)), spring === "stiff" ? "Won't budge" : "Pressing…");
+        const k = seg(ms, down + hold, down + hold + up);
+        return frame(ctx, mixPose(pushed, end, k), k < 1 ? "Letting go…" : held ? "Tip stays out" : spring === "soft" ? "Tip hangs loose" : "Tip back inside");
+      },
+    };
+  },
+};
+
+/** The second click, from a tip the first one left out. */
+const clickIn: Test = {
+  id: "unclick",
+  label: "Click again",
+  run: (values, ctx) => {
+    const { cut, held } = clickState(values);
+    const jammed = held && cut === "deep";
+    const verdict = !held ? { pass: false, line: "The first click never held, so there is nothing to free." } : jammed ? { pass: false, line: "It will not come back in. The tooth is stuck." } : { pass: true, line: "One more click hides the tip." };
+    const rest = stiffPose(values, ctx);
+    const start: Pose = held ? { out: T, press: 0, sag: 0 } : rest;
+    const pushed: Pose = { out: T, press: T, sag: 0 };
+    const end: Pose = jammed ? { out: T, press: 0, sag: 0 } : held ? { out: 0, press: 0, sag: 0 } : rest;
+    const [down, hold, up, tail] = [650, 300, 650, 500];
+    return {
+      verdict,
+      durationMs: down + hold + up + tail,
+      at: (ms) => {
+        if (!held) return frame(ctx, rest, "Nothing to free");
+        if (ms < down + hold) return frame(ctx, mixPose(start, pushed, seg(ms, 0, down)), "Pressing…");
+        const k = seg(ms, down + hold, down + hold + up);
+        return frame(ctx, mixPose(pushed, end, k), k < 1 ? "Letting go…" : jammed ? "Tip stuck out" : "Tip hidden");
+      },
+    };
+  },
+};
+
 /** Retraction, working: a click sends the tip out and it stays; the next click tucks it away. Played on the finished pen. */
 const clicking: Test = {
   id: "clicking",
@@ -706,7 +769,7 @@ export default defineStory({
 export const PEN_RIG = {
   keys: { squeeze: SQUEEZE, stiffness: STIFFNESS, press: PRESS, pressure: PRESSURE, notch: NOTCH },
   controls: { squeeze, stiffness, pressing, pressure, notch },
-  tests: { write, wait, lift, press, letgo, again },
+  tests: { write, wait, lift, press, letgo, again, clickOut, clickIn },
   /** Each mechanism working, to watch before building it. */
   demos: { writing: write, clicking },
   frames: FRAMES,

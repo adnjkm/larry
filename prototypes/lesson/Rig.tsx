@@ -24,6 +24,8 @@ export type RigProps = {
   values: Values;
   onValues?: (next: Values) => void;
   tests: readonly Test[];
+  /** The dials do not say where they stand ("Snug", "Too tight"): only the tests tell. */
+  blind?: boolean;
   /** Nothing can be changed or run: the question is answered. */
   locked?: boolean;
   /** The stretch of the object this question is about. The camera fits it and never moves; left off, it fits the whole object. */
@@ -38,7 +40,7 @@ export type RigProps = {
 
 type Status = "idle" | "pass" | "fail";
 
-export function Rig({ story, kit, present, pink = [], controls = [], values, onValues, tests, locked = false, frame, loop, opening, onResult }: RigProps) {
+export function Rig({ story, kit, present, pink = [], controls = [], values, onValues, tests, blind = false, locked = false, frame, loop, opening, onResult }: RigProps) {
   const alive = useAlive();
   const lead = controls[0];
   const valueOf = (c: Control) => values[c.key] ?? c.start;
@@ -144,6 +146,7 @@ export function Rig({ story, kit, present, pink = [], controls = [], values, onV
             min={0}
             max={zones[zones.length - 1]!.until}
             zones={zones}
+            blind={blind}
             disabled={running !== null || locked}
             onChange={(v) => turn(c, v)}
           />

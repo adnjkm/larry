@@ -19,6 +19,17 @@ export type Screen =
   | { kind: "demo"; after: number; frame?: Frame; does: string; needs: readonly string[]; run: Test; values: Values; pink?: readonly string[] }
   /** What the build so far cannot do: `try` is done on the bench, and `fails` is what is seen. */
   | { kind: "gap"; after: number; frame?: Frame; test: Test; values: Values; try: string; fails: string }
+  /**
+   * The connecting problem, straight after the primitives: each sub-function has an empty slot beside it, and the
+   * primitives wait below as small pictures. Each is dragged to the job it does.
+   */
+  | { kind: "match"; rows: readonly { does: string; primitive: string; why: string }[] }
+  /**
+   * The hard problem. Every dial the mechanism has is handed over at once, set wrong, named only by its primitive and
+   * with no word for where it stands. Each sub-function has a test, and it is done when every test passes at one
+   * setting: the player has to work out which primitive each failure belongs to, and how much of it is right.
+   */
+  | { kind: "works"; after: number; frame?: Frame; say: string; goals: readonly { does: string; test: Test }[]; dials: readonly { primitive: string; control: Control }[]; set: Values; success: string; last?: boolean }
   /** One primitive, on the primitive template, by library id. */
   | { kind: "primitive"; id: string }
   /** Who does this? A sub-function is stated; pick the primitive from everything learned so far. */
@@ -60,8 +71,10 @@ export type Course = {
   jobs: Readonly<Record<string, string>>;
 };
 
-export const FORMAT: Readonly<Record<"gap" | "who" | "much" | "broke" | "break" | "final", string>> = {
+export const FORMAT: Readonly<Record<"gap" | "match" | "works" | "who" | "much" | "broke" | "break" | "final", string>> = {
   gap: "What it cannot do yet",
+  match: "Connect",
+  works: "Make it work",
   who: "Who does this?",
   much: "How much?",
   broke: "What broke?",

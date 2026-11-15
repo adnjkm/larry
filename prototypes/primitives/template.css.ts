@@ -26,8 +26,13 @@ export const TEMPLATE_CSS = `
 .fill-label-on { color: #fff; }
 .fill-pill[data-full] { box-shadow: none; }
 
-/* Each step fades in as it takes the screen. */
-.step-in { animation: step-in 320ms var(--ease-out) both; }
+/* Each step fades in as it takes the screen, a row at a time, 40 ms apart. The mechanism's bubble doesn't: it is on
+   every screen of its mechanism, in the same place, so it stays put while the rows under it change. */
+.step-in > :not([data-mechanism]) { animation: step-in 320ms var(--ease-out) both; }
+.step-in > :nth-child(3) { animation-delay: 40ms; }
+.step-in > :nth-child(4) { animation-delay: 80ms; }
+.step-in > :nth-child(5) { animation-delay: 120ms; }
+.step-in > :nth-child(n + 6) { animation-delay: 160ms; }
 @keyframes step-in { from { opacity: 0; } }
 .result:empty { display: none; }
 .result { min-height: 0; }

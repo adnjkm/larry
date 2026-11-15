@@ -17,16 +17,25 @@ export function BubbleLabel({ children }: { children: ReactNode }) {
 /**
  * A speech bubble that says what kind of thing it names: the name in Open Runde with its kind after it in Paper Mono
  * capitals, centred ("Ball Tip (MECHANISM)"). Given a line of text, it grows to explain the thing too: that line sits
- * under the name, and both are set at 16.
+ * under the name, and both are set at 16. Each part says which it is (`data-term`), for a bubble that changes from one
+ * form to the other (prototypes/lesson/Course.tsx DemoBubble).
  */
 export function BubbleTerm({ name, kind, children }: { name: string; kind: string; children?: string }) {
   return (
     <span {...stylex.props(s.term)}>
       <span {...stylex.props(s.head)}>
-        <span {...stylex.props(s.name, children !== undefined && s.nameLarge)}>{titleCase(name)}</span>
-        <span {...stylex.props(s.kind)}>({kind})</span>
+        <span data-term="name" {...stylex.props(s.name, children !== undefined && s.nameLarge)}>
+          {titleCase(name)}
+        </span>
+        <span data-term="kind" {...stylex.props(s.kind)}>
+          ({kind})
+        </span>
       </span>
-      {children === undefined ? null : <span {...stylex.props(s.does)}>{children}</span>}
+      {children === undefined ? null : (
+        <span data-term="about" {...stylex.props(s.does)}>
+          {children}
+        </span>
+      )}
     </span>
   );
 }

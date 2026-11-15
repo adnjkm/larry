@@ -49,7 +49,60 @@ html, body { height: 100%; }
 .page[data-step="demo"] > .viewer::after { border-radius: 32px; }
 .needs { position: relative; flex: none; margin: 0; padding: 12px 16px 14px; list-style: none; display: flex; flex-direction: column; gap: 4px; border-radius: 16px; }
 .needs > li { position: relative; z-index: 1; padding-left: 16px; color: #fff; font-size: 16px; line-height: 22px; font-weight: 600; text-wrap: pretty; }
+/* The connecting problem: each sub-function beside a well sunk into the page, and the primitives' previews below,
+   bare, with their names in Paper Mono. A preview is dragged into the well of the job it does. */
+/* The heading and the rows sit centred in the room between the mechanism's bubble and the previews: the room
+   left over goes half above the heading and half below the rows. */
+.page[data-step="match"] > .question { margin-top: auto; }
+.match-rows { flex: none; margin: 0 -8px auto; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+/* A row is one band: a 60px slot and its job set on two lines of 30px, the same height. */
+.match-row { position: relative; display: flex; align-items: center; gap: 16px; padding: 8px 12px 8px 8px; border-radius: 16px; }
+.match-does { flex: 1; min-width: 0; font-size: 22px; line-height: 30px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+.match-slot { position: relative; z-index: 2; flex: none; width: 60px; height: 60px; display: grid; place-items: center; }
+.match-slot .well { position: relative; display: block; width: 60px; height: 60px; pointer-events: none; }
+.match-slot .chip-figure { width: 60px; height: 60px; border-radius: 16px; }
+.match-row[data-filled] .match-slot > .chip-figure { animation: pop 300ms var(--ease-out); }
+/* The pink band (MatchRow.tsx), cut to nothing until the row is filled, then spread from the slot's centre. A
+   dithered ring runs just ahead of it and fades as it reaches the row's ends. The band carries the words in white;
+   the ink words under it go once it has passed. */
+.match-band { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.match-fill { position: absolute; inset: 0; display: flex; align-items: center; gap: 16px; padding: 8px 12px 8px 8px; clip-path: circle(0px at 38px 50%); transition: clip-path 520ms var(--ease-out); }
+.match-fill > .match-gap { flex: none; width: 60px; height: 60px; }
+.match-fill > .match-does { position: relative; color: #fff; }
+.match-row[data-filled] .match-fill { clip-path: circle(var(--reach, 480px) at 38px 50%); }
+.match-lead { position: absolute; inset: 0; border-radius: 16px; opacity: 0; background-image: conic-gradient(var(--pink) 25%, transparent 0 50%, var(--pink) 0 75%, transparent 0); background-size: 3px 3px; }
+.match-row[data-filled] .match-lead { animation: match-lead 520ms var(--ease-out) both; }
+@keyframes match-lead {
+  from { clip-path: circle(18px at 38px 50%); opacity: 1; }
+  60% { opacity: 1; }
+  to { clip-path: circle(calc(var(--reach, 480px) + 18px) at 38px 50%); opacity: 0; }
+}
+.match-row[data-filled] > .match-does { opacity: 0; transition: opacity 0s 520ms; }
+.match-tray { flex: none; display: flex; align-items: flex-end; justify-content: center; gap: 20px; padding-bottom: 4px; }
+.match-chip { flex: none; width: 84px; padding: 0; border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; transition: transform 220ms var(--ease-out); }
+.match-chip[data-dragging] { transition: none; position: relative; z-index: 5; cursor: grabbing; }
+.match-chip[data-gone] { visibility: hidden; height: 104px; }
+.chip-figure { display: block; width: 84px; height: 84px; overflow: hidden; border-radius: 18px; pointer-events: none; }
+.chip-figure > * { pointer-events: none; }
+.chip-name { font-family: "Paper Mono", ui-monospace, monospace; font-size: 11px; line-height: 16px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--graphite); pointer-events: none; }
+@media (hover: hover) and (pointer: fine) { .match-chip:hover:not([data-dragging]) { transform: translateY(-2px); } }
+/* The hard problem's checklist: one line per sub-function, ticked by its test. */
+.goals { flex: none; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.goals > li { position: relative; padding-left: 24px; font-size: 15px; line-height: 20px; font-weight: 600; color: var(--graphite); transition: color 150ms ease-out; }
+.goals > li::before { content: ""; position: absolute; left: 2px; top: 3px; width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--rule) inset; transition: background-color 150ms ease-out, box-shadow 150ms ease-out; }
+.goals > li[data-state="pass"] { color: var(--ink); }
+.goals > li[data-state="pass"]::before { background: var(--pink); box-shadow: none; }
+.goals > li[data-state="fail"]::before { box-shadow: 0 0 0 1.5px var(--ink) inset; }
+@media (prefers-reduced-motion: reduce) { .match-chip { transition: none; } .match-row[data-filled] .match-slot > .chip-figure, .match-row[data-filled] .match-lead { animation: none; } .match-fill, .match-row[data-filled] > .match-does { transition: none; } }
 .needs > li::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+/* Continue on a demo (Course.tsx DemoBubble): every row but the bubble goes at once, and the bubble stays, drawing down
+   to its name. The one-line bubble the next screen opens on waits in the same row, hidden until then: its raised
+   shape, and its words laid out as that screen will set them, under the demo's own words, which fade off them. */
+.page[data-step="demo"][data-leaving] > :not([data-mechanism]) { animation: step-out 180ms var(--ease-out) both; pointer-events: none; }
+.page[data-step="demo"][data-leaving] [data-term="about"] { animation: step-out 120ms var(--ease-out) both; }
+.need > .bubble-after { position: absolute; z-index: 0; top: 0; left: 0; right: 0; display: flex; padding: inherit; }
+.page:not([data-leaving]) > .need > :is(.bubble-after, canvas + canvas) { visibility: hidden; }
+@keyframes step-out { to { opacity: 0; } }
 .live { position: absolute; left: 10px; top: 10px; padding: 5px 9px; border-radius: 8px; background: var(--ink); color: #fff; font-family: "Geist Mono", monospace; font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; }
 .play { position: absolute; left: 8px; bottom: 8px; min-height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px var(--ink) inset; font-size: 13px; font-weight: 600; cursor: pointer; }
 
