@@ -70,15 +70,6 @@ const tip = mechanismOf(ballTip, "Ball tip", ({ facts, needs, match, primitives 
 ]);
 
 const click = mechanismOf(clickLatch, "Retraction", ({ facts, needs, match, primitives }): Screen[] => [
-  {
-    kind: "gap",
-    after: BALL,
-    frame: frames.low,
-    test: tests.lift,
-    values: { [keys.stiffness]: 0 },
-    try: "Pick the pen up to pocket it.",
-    fails: "The inky tip is still out, ready to mark the cloth.",
-  },
   { kind: "demo", after: LATCH, frame: frames.click, does: "Each click sends the tip out or tucks it away.", needs, run: demos.clicking, values: {}, pink: ["spring"] },
   ...primitives,
   match,
