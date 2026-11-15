@@ -1,4 +1,4 @@
-// Aiden's camera, then the water bottle lesson inside the same phone screen. The camera is src/mock/CameraMock.tsx with
+// Aiden's camera, then the object's lesson inside the same phone screen. The camera is src/mock/CameraMock.tsx with
 // Build it handing over; the lesson is prototypes/lesson's StoryFlow, unchanged.
 import { useLayoutEffect, useRef, useState } from "react";
 import baseCss from "../lesson/base.css?inline";
@@ -8,9 +8,12 @@ import { SAMPLES } from "../lesson/samples.ts";
 import { StoryFlow } from "../lesson/Story.tsx";
 import CameraMock, { type PhoneScreen } from "../../src/mock/CameraMock.tsx";
 
-const SAMPLE = SAMPLES.find((s) => s.id === "bottle")!;
+// Set by prototypes/demo/vite.config.ts from LARRY_DEMO.
+declare const __DEMO_OBJECT__: string;
+
+const SAMPLE = SAMPLES.find((s) => s.id === __DEMO_OBJECT__)!;
 const LESSON = lessonFor(SAMPLE.kit, SAMPLE.id);
-if (LESSON.kind !== "story") throw new Error("the bottle lesson should be a story");
+if (LESSON.kind !== "story") throw new Error(`the ${__DEMO_OBJECT__} lesson should be a story`);
 const STORY = LESSON;
 
 /**
@@ -73,7 +76,7 @@ export function Demo() {
     <>
       <style>{LESSON_CSS}</style>
       <style>{DEMO_CSS}</style>
-      <CameraMock object="bottle" after={(props) => <Lesson {...props} />} dials={TUNING} compare={TUNING} />
+      <CameraMock object={__DEMO_OBJECT__} after={(props) => <Lesson {...props} />} dials={TUNING} compare={TUNING} />
     </>
   );
 }
