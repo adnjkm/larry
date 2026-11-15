@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { measureParts } from "../../../shared/bounds.ts";
-import { PRIMITIVES } from "../../../shared/primitives/library.ts";
+import { measureParts } from "../bounds.ts";
+import { PRIMITIVES } from "./library.ts";
 import { computeFraming, framePrimitive, poses, runPoses } from "./framing.ts";
 
 describe("figure framing", () => {

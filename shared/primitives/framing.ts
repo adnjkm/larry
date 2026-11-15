@@ -1,7 +1,7 @@
-import type { Part } from "../../../shared/kit.ts";
+import type { Part } from "../kit.ts";
 import baked from "./framing.json" with { type: "json" };
-import { type KitBounds, measurePoses } from "../../../shared/bounds.ts";
-import type { Primitive, Slider, Values } from "../../../shared/primitives/types.ts";
+import { type KitBounds, measurePoses } from "../bounds.ts";
+import type { Primitive, Slider, Values } from "./types.ts";
 
 const FRAME_SAMPLES = 5;
 /** mm. A turning part's reach peaks between samples. framing.test.ts checks a finer grid; 5 samples pass it with half this pad. */

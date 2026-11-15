@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
-import { buildGeometry } from "../src/kit3d/geometry.ts";
-import { measureParts } from "./bounds.ts";
-import type { Part, Shape } from "./kit.ts";
+import { buildGeometry } from "./geometry.ts";
+import { measureParts } from "../../shared/bounds.ts";
+import type { Part, Shape } from "../../shared/kit.ts";
 
 const SHAPES: Shape[] = [
   { kind: "box", width: 40, height: 10, depth: 6, cornerRadius: 0 },
