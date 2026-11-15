@@ -8,9 +8,16 @@ import { PRIMITIVE_BY_ID } from "../../src/primitives/catalog.ts";
 import type { Primitive } from "../../src/primitives/library.ts";
 import { FigureStage } from "../../src/primitives/stage/FigureStage.tsx";
 import { startValues } from "../../src/primitives/stage/view.ts";
-import type { InObject } from "./Learn.tsx";
+import { framingParts, type InObject } from "./Learn.tsx";
 import type { StoryModule, View } from "./model.ts";
-import { Actions, Inset, Say, Why } from "./ui.tsx";
+import { initialValues, PRIMITIVES as FIRST_PASS, type Values } from "./primitives/library.ts";
+import { Actions, Inset, Say, Strip, Viewer, Why } from "./ui.tsx";
+
+/**
+ * Primitives Learn still draws from the first-pass copy in ./primitives: the seal's old rig (a ring squeezed between
+ * two flanges) was preferred over the library's new one (2026-11-14). It has no drag handle; its slider moves it.
+ */
+const FIRST_PASS_FIGURE = new Set(["seal"]);
 
 /**
  * The library figure as Learn shows it: the game's handle stays, but not its target or its starting challenge, so the
@@ -78,6 +85,46 @@ function Rig({ primitive, controls, children }: { primitive: Primitive; controls
   );
 }
 
+const SWEEP_SECONDS = 4;
+
+/** A first-pass figure in the lesson's own viewer, with its rig's controls as the same slider rows, and the Play sweep. */
+function FirstPassRig({ id, controls, children }: { id: string; controls: Readonly<Record<string, string>>; children: ReactNode }) {
+  const primitive = FIRST_PASS.find((q) => q.id === id)!;
+  const [values, setValues] = useState<Values>(() => initialValues(primitive));
+  const [playing, setPlaying] = useState(false);
+  const frame = useMemo(() => framingParts(primitive), [primitive]);
+  const parts = useMemo(() => primitive.build(values), [primitive, values]);
+  const shown = primitive.sliders.filter((s) => controls[s.id]);
+  const motion = primitive.sliders[primitive.sliders.length - 1]!;
+
+  useEffect(() => {
+    if (!playing) return;
+    let raf = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const phase = 0.5 - 0.5 * Math.cos(((now - start) / 1000 / SWEEP_SECONDS) * 2 * Math.PI);
+      setValues((v) => ({ ...v, [motion.id]: motion.min + (motion.max - motion.min) * phase }));
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, motion]);
+
+  return (
+    <>
+      <Viewer parts={parts} subject={frame} view={primitive.view}>
+        <button type="button" className="play" data-play aria-pressed={playing} onClick={() => setPlaying((x) => !x)}>{playing ? "Stop" : "Play"}</button>
+      </Viewer>
+      {children}
+      <div className="rig-rows" data-rig={id}>
+        {shown.map((s) => (
+          <Strip key={s.id} id={s.id} label={controls[s.id]!} value={values[s.id] ?? s.initial} min={s.min} max={s.max} onChange={(n) => { setPlaying(false); setValues((v) => ({ ...v, [s.id]: n })); }} />
+        ))}
+      </div>
+    </>
+  );
+}
+
 type Props = {
   module: StoryModule;
   kicker: string;
@@ -95,6 +142,13 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
   const rig = module.learn.rigs[p.id]!;
   // LearnRig is keyed per module, so `inObject` answers the same for a primitive for as long as this screen lives.
   const here = useMemo(() => inObject(p), [p]);
+
+  const use = (
+    <section className="use" data-use={p.id}>
+      <Inset parts={here.parts} view={view} />
+      <p><b>{p.name}.</b> {here.line}</p>
+    </section>
+  );
 
   return (
     <main className="page" data-stage="learn">
@@ -117,12 +171,11 @@ export function LearnRig({ module, kicker, next, inObject, view, onNext }: Props
           ))}
         </div>
       ) : null}
-      <Rig key={p.id} primitive={libraryOf(p)} controls={rig.controls}>
-        <section className="use" data-use={p.id}>
-          <Inset parts={here.parts} view={view} />
-          <p><b>{p.name}.</b> {here.line}</p>
-        </section>
-      </Rig>
+      {FIRST_PASS_FIGURE.has(p.id) ? (
+        <FirstPassRig key={p.id} id={p.id} controls={rig.controls}>{use}</FirstPassRig>
+      ) : (
+        <Rig key={p.id} primitive={libraryOf(p)} controls={rig.controls}>{use}</Rig>
+      )}
       <Actions>
         <button type="button" className="btn" data-next onClick={onNext}>{next}</button>
       </Actions>

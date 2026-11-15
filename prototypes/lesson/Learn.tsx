@@ -6,7 +6,7 @@ import { drawObject, enclosed, restCentre } from "./pose.ts";
 import { Actions, Inset, Say, SliderRow, Strip, Viewer, Why } from "./ui.tsx";
 
 /** Parts at every combination of slider extremes. The camera fits these once, so it holds still while a slider moves the parts. */
-function framingParts(p: Primitive): Part[] {
+export function framingParts(p: Primitive): Part[] {
   const combos = p.sliders.reduce<Values[]>((acc, s) => acc.flatMap((v) => [{ ...v, [s.id]: s.min }, { ...v, [s.id]: s.max }]), [{}]);
   return combos.flatMap((v, i) => p.build(v).map((part) => ({ ...part, id: `${part.id}~${i}` })));
 }
