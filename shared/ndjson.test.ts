@@ -17,7 +17,7 @@ const streamOf = (...chunks: string[]) =>
 
 async function collect(response: Response) {
   const events = [];
-  for await (const event of readEvents(response, Event)) events.push(event);
+  for await (const event of readEvents(response, (raw) => Event.parse(raw))) events.push(event);
   return events;
 }
 
@@ -33,6 +33,16 @@ describe("ndjson reader", () => {
 
   it("throws on a line that doesn't match the schema", async () => {
     await assert.rejects(collect(streamOf('{"type":"nope"}\n')), /doesn't add up/);
+  });
+
+  it("without a parser, accepts any object with a type and rejects anything else", async () => {
+    const events = [];
+    for await (const event of readEvents(streamOf('{"type":"part","n":1}\n{"type":"done"}\n'))) events.push(event);
+    assert.deepEqual(events, [{ type: "part", n: 1 }, { type: "done" }]);
+    const bad = async () => {
+      for await (const _ of readEvents(streamOf('[1,2]\n{"type":"done"}\n')));
+    };
+    await assert.rejects(bad, /doesn't add up/);
   });
 
   it("surfaces the server's error text for a rejected request", async () => {

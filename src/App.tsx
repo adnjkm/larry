@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@ui-sdk/react/button";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { type Kit, KitEvent, type Part } from "../shared/kit.ts";
+import type { Kit, KitEvent, Part } from "../shared/kit.ts";
 import type { Lesson } from "../shared/lesson.ts";
 import { CapturePicker } from "./capture/CapturePicker.tsx";
 import { preparePhoto } from "./capture/preparePhoto.ts";
@@ -124,7 +124,7 @@ export function App() {
       const photos = await Promise.all(files.map(preparePhoto));
       const form = new FormData();
       photos.forEach((photo, i) => form.append("photo", photo, `photo-${i}.jpg`));
-      for await (const event of streamEvents("/api/kits", { body: form }, KitEvent)) {
+      for await (const event of streamEvents<KitEvent>("/api/kits", { body: form })) {
         if (event.type === "done") showKit(event.kit);
         else if (event.type === "failed") fail(event.message);
         else setState((s) => (s.phase === "generating" ? addEvent(s, event) : s));

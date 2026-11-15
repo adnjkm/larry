@@ -1,5 +1,3 @@
-import type { z } from "zod";
-
 /** The wire format shared by the server and the client: one JSON event per line, ending with a `done` or `failed` event. */
 const TERMINAL = new Set(["done", "failed"]);
 
@@ -13,10 +11,12 @@ function errorText(body: unknown, status: number): string {
 }
 
 /**
- * Reads a streamed NDJSON response, yielding each line parsed with `schema`. A rejected request throws the server's
- * `{ error }` text, and a stream that ends without a `done` or `failed` event throws.
+ * Reads a streamed NDJSON response, yielding each line as an event. The server validates every event against the
+ * shared schemas before sending it, so the client only checks the shape and keeps zod out of its first download;
+ * pass `parse` (e.g. a schema's parse) to validate anyway. A rejected request throws the server's `{ error }` text,
+ * and a stream that ends without a `done` or `failed` event throws.
  */
-export async function* readEvents<T extends { type: string }>(response: Response, schema: z.ZodType<T>): AsyncGenerator<T> {
+export async function* readEvents<T extends { type: string }>(response: Response, parse?: (raw: unknown) => T): AsyncGenerator<T> {
   if (!response.ok || !response.body) throw new Error(errorText(await response.json().catch(() => null), response.status));
 
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -29,7 +29,7 @@ export async function* readEvents<T extends { type: string }>(response: Response
     buffer = done ? "" : (lines.pop() ?? "");
     for (const line of lines) {
       if (!line.trim()) continue;
-      const event = parseLine(line, schema);
+      const event = parseLine(line, parse);
       ended ||= TERMINAL.has(event.type);
       yield event;
     }
@@ -39,14 +39,17 @@ export async function* readEvents<T extends { type: string }>(response: Response
 }
 
 /** POSTs to `url` and reads the NDJSON response. Throws the server's `{ error }` text when the request is rejected. */
-export async function* streamEvents<T extends { type: string }>(url: string, init: RequestInit, schema: z.ZodType<T>): AsyncGenerator<T> {
-  yield* readEvents(await fetch(url, { method: "POST", ...init }), schema);
+export async function* streamEvents<T extends { type: string }>(url: string, init: RequestInit, parse?: (raw: unknown) => T): AsyncGenerator<T> {
+  yield* readEvents<T>(await fetch(url, { method: "POST", ...init }), parse);
 }
 
-function parseLine<T>(line: string, schema: z.ZodType<T>): T {
+function parseLine<T extends { type: string }>(line: string, parse?: (raw: unknown) => T): T {
   try {
-    return schema.parse(JSON.parse(line));
+    const raw: unknown = JSON.parse(line);
+    if (parse) return parse(raw);
+    if (typeof raw === "object" && raw !== null && "type" in raw && typeof raw.type === "string") return raw as T;
   } catch {
-    throw new Error("Larry sent back something that doesn't add up");
+    // Falls through to the error below.
   }
+  throw new Error("Larry sent back something that doesn't add up");
 }
